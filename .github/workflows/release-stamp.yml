@@ -15,6 +15,10 @@ on:
 
 permissions:
   contents: write
+  # actions: write is required for the final `gh workflow run release.yml`
+  # dispatch. Without it the call returns HTTP 403 "Resource not accessible
+  # by integration" and the GitHub Release has to be triggered by hand.
+  actions: write
 
 jobs:
   stamp:
