@@ -1,0 +1,45 @@
+{# vendor/parisek/styleguide — iframe HTML wrapper for component/page preview #}
+<!DOCTYPE html>
+<html lang="{{ langcode|default('en')|e }}"{% if iframe.html_class %} class="{{ iframe.html_class|e }}"{% endif %}>
+<head>
+	<script>document.documentElement.classList.remove('no-js');</script>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="robots" content="noindex,nofollow">
+	<title>{{ component.name|default(component.id)|e }} — {{ project.name|default('Styleguide')|e }}</title>
+	{% if project.favicon %}<link rel="icon" href="{{ project.favicon|e }}">{% endif %}
+	{% if iframe.base_href %}<base href="{{ iframe.base_href|e }}">{% endif %}
+	{# Fonty — samostatné stylesheets s @font-face deklaracemi #}
+	{% for url in iframe.fonts|default([]) %}<link rel="stylesheet" href="{{ url|e }}">
+	{% endfor %}
+	{# Hlavní bundled CSS (Tailwind / Bootstrap / custom — vše v jednom souboru) #}
+	{% if iframe.css %}<link rel="stylesheet" href="{{ iframe.css|e }}">{% endif %}
+	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
+	{% if iframe.js %}<script type="module" src="{{ iframe.js|e }}"></script>{% endif %}
+</head>
+<body{% if iframe.body_class %} class="{{ iframe.body_class|e }}"{% endif %}>
+	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),
+	   revealed by the inline script when the document is the top-level window so
+	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
+	{# Overview is a sectionless route (`/styleguide/overview`); component/page carry a slug. #}
+	{% set sg_url = kind == 'overview' ? '/styleguide/overview' : '/styleguide/' ~ kind ~ '/' ~ slug %}
+	<div id="sg-standalone-bar" hidden style="position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#18181b;color:#e4e4e7;font:500 13px system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid #27272a">
+		{% if project.favicon %}<img src="{{ project.favicon|e }}" alt="" style="width:20px;height:20px;border-radius:4px;background:#fafafa">{% endif %}
+		<a href="{{ sg_url|e }}" style="display:inline-flex;align-items:center;gap:6px;color:#a1a1aa;text-decoration:none">
+			<span aria-hidden="true">←</span>
+			<span>{{ project.name|default('Styleguide')|e }} — Styleguide</span>
+		</a>
+		<span style="color:#52525b">/</span>
+		<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#fafafa">{{ kind|e }}/{{ slug|e }}</span>
+	</div>
+	<script>
+		// Reveal the back-bar only when this document is the top-level window;
+		// inside an iframe it stays hidden so the styleguide preview matches
+		// what the component would look like in production.
+		if (window.self === window.top) {
+			document.getElementById('sg-standalone-bar').hidden = false;
+		}
+	</script>
+	{{ body|raw }}
+</body>
+</html>

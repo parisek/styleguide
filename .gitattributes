@@ -1,0 +1,18 @@
+# Files / directories present in this repository for development only.
+# `git archive` strips them from the tarball — which is what Composer / Packagist
+# use to assemble a release. Consumers who do `composer require parisek/styleguide`
+# only receive what they actually need to run the package: `src/`, `templates/`,
+# `dist/`, `composer.json`, `LICENSE`, `README.md`, `CHANGELOG.md`.
+#
+# To verify locally:
+#   git archive --format=tar HEAD | tar t
+
+/tests           export-ignore
+/frontend        export-ignore
+/phpunit.xml     export-ignore
+/composer.lock   export-ignore
+/.gitignore      export-ignore
+/.gitattributes  export-ignore
+
+# Normalise line endings — this is a PHP package, LF everywhere.
+* text=auto eol=lf

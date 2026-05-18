@@ -1,0 +1,36 @@
+{
+    "sections": {
+        "basic": "Základní prvky",
+        "blocks": "Bloky",
+        "gutenberg": "Gutenberg",
+        "pages": "Stránky"
+    },
+    "toolbar": {
+        "type_component": "Komponenta",
+        "type_page": "Stránka",
+        "toggle_sidebar": "Přepnout panel",
+        "select_prompt": "Vyberte komponentu",
+        "open_in_new_tab": "Otevřít v novém okně"
+    },
+    "preview": {
+        "mobile": "Mobil (375 px)",
+        "tablet": "Tablet (768 px)",
+        "desktop": "Desktop (1024 px)",
+        "full": "Plná šířka"
+    },
+    "search": {
+        "placeholder": "Hledat…",
+        "shortcut_hint": "⌘K"
+    },
+    "nav": {
+        "styleguide": "Styleguide",
+        "overview": "Přehled",
+        "fields": "Pole"
+    },
+    "empty_state": "Vyberte komponentu v postranním panelu",
+    "loading": "Načítám…",
+    "usage": {
+        "used_in": "Použito v",
+        "components_in_page": "Komponenty na stránce"
+    }
+}

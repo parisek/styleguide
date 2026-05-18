@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Single concurrency group per ref. A new push to the same branch / PR
+# cancels the previous run, keeping CI minutes focused on the latest
+# commit. `github.ref` is a trusted value (sanitised by GitHub), so it's
+# safe to use directly in the group key.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  phpunit:
+    name: PHPUnit on PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Package requires PHP 8.3+ (declared in composer.json
+        # `require.php`). Matrix expands when a newer PHP runtime
+        # (8.4 / 8.5) becomes worth exercising.
+        php: ['8.3']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, yaml
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-php-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-${{ runner.os }}-php-${{ matrix.php }}-
+
+      - name: Composer install
+        run: composer install --no-progress --no-interaction
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit --colors=never

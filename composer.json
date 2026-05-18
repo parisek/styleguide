@@ -1,0 +1,43 @@
+{
+    "name": "parisek/styleguide",
+    "description": "Twig component styleguide as a self-contained Composer package",
+    "type": "library",
+    "version": "0.1.0",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Petr Parimucha",
+            "email": "tools@portadesign.cz"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "twig/twig": "^3.0",
+        "symfony/yaml": "^6.0 || ^7.0",
+        "parisek/twig-attribute": "^1.0",
+        "parisek/twig-common": "^1.0",
+        "parisek/twig-typography": "^1.0",
+        "twig/intl-extra": "^3.3",
+        "twig/string-extra": "^3.3"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Parisek\\Styleguide\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Parisek\\Styleguide\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

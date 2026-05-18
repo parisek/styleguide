@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Tailwind v4 default content-detection skips files outside known patterns.
+   Explicitly source the Vite entry + JS modules so utility classes get picked up. */
+@source "./index.html";
+@source "./components/**/*.js";
+@source "./stores/**/*.js";
+
+/* No @theme block — zinc/slate/indigo palettes are already in Tailwind v4 defaults.
+   No `important` qualifier — the iframe boundary handles isolation.
+   No preflight disable — preflight runs for the SPA chrome itself. */

@@ -1,0 +1,313 @@
+{# vendor/parisek/styleguide — Overview body (logo + palette + typography preview).
+   Rendered inside the iframe by Renderer when kind=overview. Reads everything from
+   `styleguide.*` (= the project's styleguide.yaml, merged in by Styleguide::dispatchRender).
+   Project filters / functions (typography, create_attribute) flow through via the
+   injected Twig environment. #}
+<div class="px-4 py-6 md:px-6 md:py-8 lg:px-8">
+	{% if styleguide.project %}
+		<div class="mb-10">
+			<h1 class="font-bold text-2xl sm:text-3xl lg:text-4xl text-zinc-900 tracking-tight">{{ styleguide.project.name }}</h1>
+			{% if styleguide.project.description %}
+				<p class="mt-3 max-w-3xl text-base lg:text-lg text-zinc-600 leading-relaxed">{{ styleguide.project.description }}</p>
+			{% endif %}
+		</div>
+	{% endif %}
+
+	{% if styleguide.logo %}
+		<section id="logo" class="mb-12">
+			<div class="flex gap-3 items-center mb-6">
+				<div class="flex justify-center items-center w-8 h-8 rounded-lg bg-zinc-200 text-zinc-600">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+					</svg>
+				</div>
+				<h2 class="font-bold text-lg text-zinc-900">{{ styleguide.labels.logo }}</h2>
+			</div>
+			<div class="overflow-hidden border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+				<div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap sm:items-stretch">
+					{% for key, logo in styleguide.logo %}
+						{% set logo_item_attrs = create_attribute({
+							class: [
+								'flex flex-1 flex-col p-6 md:p-8 min-w-0',
+								'sm:w-1/2 xl:w-auto',
+								'border-b last:border-b-0 last:border-r-0 sm:border-b-0 sm:border-r xl:border-r border-zinc-100',
+							],
+						}) %}
+						<div{{ logo_item_attrs }}>
+							<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ logo.label }}</p>
+							{% set logo_bg_attrs = create_attribute({
+								class: [
+									'flex items-center justify-center rounded-lg p-8 min-h-32 flex-1',
+									logo.background == 'dark' ? 'bg-zinc-900' : 'bg-white',
+								],
+							}) %}
+							<div{{ logo_bg_attrs }}>
+								{# twig-cs-fixer-disable-next-line PlainImg — static brand-logo asset from styleguide.yaml; component_picture would force a CMS-shape image array for a build-time SVG/PNG that has no resizing pipeline #}
+								<img src="{{ logo.src }}" class="{{ logo.size|default('w-full max-w-48 h-auto') }}" alt="{{ logo.alt }}">
+							</div>
+						</div>
+					{% endfor %}
+				</div>
+			</div>
+		</section>
+	{% endif %}
+
+	{% if styleguide.colors %}
+		<section id="colors" class="mb-12" x-data="{
+			copiedColor: null,
+			colors: {
+				{% for key, palette in styleguide.colors %}
+				'{{ key }}': {
+					active: '{{ palette.default }}',
+					hex: '{{ palette.shades[palette.default].hex }}',
+					oklch: '{{ palette.shades[palette.default].oklch }}'
+				}{{ not loop.last ? ',' : '' }}
+				{% endfor %}
+			},
+			isLight(shade) {
+				return ['50', '100', '200', '300'].includes(shade);
+			},
+			copyColor(hex, key) {
+				navigator.clipboard.writeText(hex);
+				this.copiedColor = key;
+				setTimeout(() => this.copiedColor = null, 2000);
+			},
+			setColor(palette, shade, hex, oklch) {
+				this.colors[palette].active = shade;
+				this.colors[palette].hex = hex;
+				this.colors[palette].oklch = oklch;
+				this.copyColor(hex, palette + '-' + shade);
+			}
+		}">
+			<div class="flex gap-3 items-center mb-6">
+				<div class="flex justify-center items-center w-8 h-8 rounded-lg bg-zinc-200 text-zinc-600">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+					</svg>
+				</div>
+				<h2 class="font-bold text-lg text-zinc-900">{{ styleguide.labels.colors }}</h2>
+			</div>
+
+			<div class="flex flex-col lg:flex-row lg:flex-wrap xl:flex-nowrap gap-6">
+				{% for key, palette in styleguide.colors %}
+					{% set color_card_attrs = create_attribute({
+						class: [
+							'overflow-hidden flex-1 min-w-0',
+							'lg:w-[calc(50%-0.75rem)] xl:w-auto',
+							'border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white',
+						],
+					}) %}
+					<div{{ color_card_attrs }}>
+						<div
+							class="group relative h-32 cursor-pointer duration-300 transition-colors"
+							:style="'background-color: var(--color-{{ palette.css_variable }}-' + colors['{{ key }}'].active + ')'"
+							@click="copyColor(colors['{{ key }}'].hex, '{{ palette.css_variable }}-' + colors['{{ key }}'].active)"
+						>
+							<div
+								class="flex absolute inset-0 justify-between items-center p-5 duration-300 transition-colors"
+								:class="isLight(colors['{{ key }}'].active) ? 'text-zinc-900' : 'text-white'"
+							>
+								<div>
+									<p class="opacity-70 font-semibold text-xs uppercase tracking-wider">{{ palette.name }}</p>
+									<p class="mt-1 font-bold text-2xl" x-text="'{{ palette.css_variable }}-' + colors['{{ key }}'].active"></p>
+								</div>
+								<div class="text-right">
+									<p class="opacity-90 font-mono text-sm" x-text="colors['{{ key }}'].hex"></p>
+									<p class="opacity-60 font-mono text-xs" x-text="colors['{{ key }}'].oklch"></p>
+									<p class="mt-1 opacity-60 font-mono text-xs">{{ styleguide.labels.click_swatch }}</p>
+								</div>
+							</div>
+							{% set copy_overlay_attrs = create_attribute({
+								class: [
+									'flex absolute inset-0 justify-center items-center',
+									'opacity-0 group-hover:opacity-100 bg-black/20 transition-opacity',
+								],
+								':class': "copiedColor === '#{palette.css_variable}-' + colors['#{key}'].active ? 'opacity-100' : ''",
+							}) %}
+							<div{{ copy_overlay_attrs }}>
+								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === '{{ palette.css_variable }}-' + colors['{{ key }}'].active ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
+							</div>
+						</div>
+						<div class="p-4">
+							<div class="flex gap-1">
+								{% for shade, color in palette.shades %}
+									<button
+										type="button"
+										class="group/swatch relative flex-1"
+										@click="setColor('{{ key }}', '{{ shade }}', '{{ color.hex }}', '{{ color.oklch }}')"
+									>
+										{% set swatch_attrs = create_attribute({
+											class: [
+												'aspect-square relative group-hover/swatch:z-10 rounded-md',
+												'group-hover/swatch:shadow-lg duration-200 transition-all group-hover/swatch:scale-110',
+											],
+											':class': "colors['#{key}'].active === '#{shade}' ? 'ring-2 ring-zinc-950' : ''",
+											style: "background-color: var(--color-#{palette.css_variable}-#{shade});",
+										}) %}
+										<div{{ swatch_attrs }}></div>
+										<p
+											class="mt-2 font-mono text-[10px] text-zinc-500 group-hover/swatch:text-zinc-900 text-center transition-colors"
+											:class="colors['{{ key }}'].active === '{{ shade }}' ? 'font-bold text-zinc-900' : ''"
+										>{{ shade }}</p>
+										{% set swatch_tooltip_attrs = create_attribute({
+											class: [
+												'absolute bottom-full left-1/2 z-20 -translate-x-1/2',
+												'px-2 py-1 mb-2 rounded',
+												'opacity-0 group-hover/swatch:opacity-100 transition-opacity',
+												'bg-zinc-900 font-mono text-[10px] text-white whitespace-nowrap pointer-events-none',
+											],
+										}) %}
+										<div{{ swatch_tooltip_attrs }}>
+											<span x-text="copiedColor === '{{ palette.css_variable }}-{{ shade }}' ? '{{ styleguide.labels.copied }}' : '{{ color.hex }}'"></span>
+										</div>
+									</button>
+								{% endfor %}
+							</div>
+						</div>
+					</div>
+				{% endfor %}
+			</div>
+		</section>
+	{% endif %}
+
+	{% if styleguide.typography %}
+		<section id="typography" class="mb-12">
+			<div class="flex gap-3 items-center mb-6">
+				<div class="flex justify-center items-center w-8 h-8 rounded-lg bg-zinc-200 text-zinc-600">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h8m-8 6h16"/>
+					</svg>
+				</div>
+				<h2 class="font-bold text-lg text-zinc-900">{{ styleguide.labels.typography }}</h2>
+			</div>
+
+			{% if styleguide.typography.fonts %}
+			{% for font in styleguide.typography.fonts %}
+				<div class="overflow-hidden mb-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<div class="p-6 md:p-8 border-b border-zinc-100">
+						<div class="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
+							<div>
+								<p class="mb-2 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.font_family }}</p>
+								{% if font.url %}
+									<a href="{{ font.url }}" target="_blank" rel="noopener" class="group inline-flex gap-2 items-center">
+										<span class="font-bold text-3xl md:text-4xl text-zinc-900 group-hover:text-zinc-600 tracking-tight transition-colors">{{ font.name }}</span>
+										<svg class="w-5 h-5 text-zinc-500 group-hover:text-zinc-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+										</svg>
+									</a>
+								{% else %}
+									<span class="font-bold text-3xl md:text-4xl text-zinc-900 tracking-tight">{{ font.name }}</span>
+								{% endif %}
+							</div>
+							<div class="flex flex-wrap gap-2">
+								{% if font.type %}
+									<span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-zinc-100 font-semibold text-xs text-zinc-700">{{ font.type }}</span>
+								{% endif %}
+								{% for usage in font.usage %}
+									<span class="inline-flex items-center px-3 py-1.5 rounded-lg bg-zinc-100 font-semibold text-xs text-zinc-700">{{ usage }}</span>
+								{% endfor %}
+							</div>
+						</div>
+					</div>
+					{% if font.alphabet %}
+						<div class="p-6 md:p-8 bg-zinc-50">
+							<p class="font-medium text-2xl md:text-3xl text-zinc-800 whitespace-pre-line leading-relaxed tracking-wide">{{ font.alphabet }}</p>
+						</div>
+					{% endif %}
+				</div>
+			{% endfor %}
+			{% endif %}
+
+			{% if styleguide.typography.headings %}
+				<div class="overflow-hidden mb-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<div class="p-4 md:p-6 border-b border-zinc-100 bg-white">
+						<p class="font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.headings }}</p>
+					</div>
+					<div class="divide-y divide-zinc-100">
+						{% for heading in styleguide.typography.headings %}
+							<div class="group flex flex-col md:flex-row gap-3 md:gap-6 md:items-center p-4 md:p-6 hover:bg-white transition-colors">
+								<div class="shrink-0 w-20">
+									<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-zinc-100 font-mono font-semibold text-xs text-zinc-600">&lt;{{ heading.tag }}&gt;</span>
+								</div>
+								<div class="flex-1 min-w-0">
+									<p class="{{ heading.size }} font-bold font-headings text-zinc-900 tracking-tight truncate">{{ heading.label|typography }}</p>
+								</div>
+								<div class="shrink-0 text-right">
+									<span class="font-mono text-xs text-zinc-500">{{ heading.desc }}</span>
+								</div>
+							</div>
+						{% endfor %}
+					</div>
+				</div>
+			{% endif %}
+
+			{% if styleguide.typography.weights %}
+				<div class="overflow-hidden mb-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<div class="p-4 md:p-6 border-b border-zinc-100 bg-white">
+						<p class="font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.font_weights }}</p>
+					</div>
+					<div class="flex flex-col sm:flex-row sm:flex-wrap xl:flex-nowrap">
+						{% for weight in styleguide.typography.weights %}
+							{% set weight_cell_attrs = create_attribute({
+								class: [
+									'group flex-1 p-6 min-w-0',
+									'sm:w-1/3 xl:w-auto',
+									'border-b last:border-b-0 last:border-r-0 sm:border-b-0 sm:border-r xl:border-r border-zinc-100',
+									'hover:bg-white text-center transition-colors',
+								],
+							}) %}
+							<div{{ weight_cell_attrs }}>
+								<p class="text-4xl {{ weight.class }} text-zinc-900 mb-3">Aa</p>
+								<p class="font-medium text-sm text-zinc-700">{{ weight.name }}</p>
+								<p class="mt-1 font-mono text-xs text-zinc-500">{{ weight.value }}</p>
+							</div>
+						{% endfor %}
+					</div>
+				</div>
+			{% endif %}
+
+			{% if styleguide.typography.body_sample %}
+				{% set prose_variants = [
+					{ modifier: 'prose-sm', label: '.prose-sm', range: '14 → 18 px · weight 300 · lh 1.6' },
+					{ modifier: '', label: '.prose', range: '16 → 24 px · weight 300 · lh 1.55' },
+					{ modifier: 'prose-lg', label: '.prose-lg', range: '20 → 30 px · weight 500 · lh 1.4' },
+					{ modifier: 'prose-xl', label: '.prose-xl', range: '24 → 36 px · weight 400 · lh 1.35' },
+					{ modifier: 'prose-2xl', label: '.prose-2xl', range: '28 → 48 px · weight 400 · lh 1.3' },
+				] %}
+				<div class="overflow-hidden border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<div class="p-4 md:p-6 border-b border-zinc-100 bg-white">
+						<p class="font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.body_text }}</p>
+					</div>
+					<div class="grid grid-cols-1 xl:grid-cols-2">
+						<div class="divide-y divide-zinc-100">
+							{% for v in prose_variants %}
+								<div class="p-6 md:p-8">
+									<div class="flex flex-wrap gap-3 items-center mb-3">
+										<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-zinc-100 font-mono font-semibold text-xs text-zinc-600">{{ v.label }}</span>
+										<span class="font-mono text-xs text-zinc-500">{{ v.range }}</span>
+									</div>
+									<p class="prose {{ v.modifier }} max-w-prose text-zinc-700">
+										{{ styleguide.typography.body_sample|typography }}
+									</p>
+								</div>
+							{% endfor %}
+						</div>
+						<div class="divide-y divide-white/10 bg-zinc-900 border-t border-zinc-100 xl:border-t-0 xl:border-l">
+							{% for v in prose_variants %}
+								<div class="p-6 md:p-8">
+									<div class="flex flex-wrap gap-3 items-center mb-3">
+										<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-white/10 font-mono font-semibold text-xs text-zinc-300">{{ v.label }} .prose-invert</span>
+										<span class="font-mono text-xs text-zinc-400">{{ v.range }}</span>
+									</div>
+									<p class="prose {{ v.modifier }} prose-invert max-w-prose">
+										{{ styleguide.typography.body_sample|typography }}
+									</p>
+								</div>
+							{% endfor %}
+						</div>
+					</div>
+				</div>
+			{% endif %}
+		</section>
+	{% endif %}
+</div>

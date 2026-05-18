@@ -1,0 +1,36 @@
+{
+    "sections": {
+        "basic": "Basic elements",
+        "blocks": "Blocks",
+        "gutenberg": "Gutenberg",
+        "pages": "Pages"
+    },
+    "toolbar": {
+        "type_component": "Component",
+        "type_page": "Page",
+        "toggle_sidebar": "Toggle sidebar",
+        "select_prompt": "Select a component",
+        "open_in_new_tab": "Open in new tab"
+    },
+    "preview": {
+        "mobile": "Mobile (375 px)",
+        "tablet": "Tablet (768 px)",
+        "desktop": "Desktop (1024 px)",
+        "full": "Full width"
+    },
+    "search": {
+        "placeholder": "Search…",
+        "shortcut_hint": "⌘K"
+    },
+    "nav": {
+        "styleguide": "Styleguide",
+        "overview": "Overview",
+        "fields": "Fields"
+    },
+    "empty_state": "Select a component in the sidebar",
+    "loading": "Loading…",
+    "usage": {
+        "used_in": "Used in",
+        "components_in_page": "Components used"
+    }
+}

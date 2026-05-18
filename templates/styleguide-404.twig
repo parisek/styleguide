@@ -1,0 +1,18 @@
+{# vendor/parisek/styleguide — 404 page for missing component/page #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Not found — {{ project.name|default('Styleguide')|e }}</title>
+	{% if project.favicon %}<link rel="icon" href="{{ project.favicon|e }}">{% endif %}
+	<style>
+		body { font: 14px ui-sans-serif, system-ui, sans-serif; padding: 40px; color: #71717a; background: #18181b; }
+		h1 { color: #fafafa; font-size: 24px; margin: 0 0 12px; }
+		code { background: #27272a; color: #fafafa; padding: 2px 6px; border-radius: 3px; }
+	</style>
+</head>
+<body>
+	<h1>404 — Component or page not found</h1>
+	<p>The requested resource <code>{{ kind|e }}/{{ slug|e }}</code> doesn't exist in this styleguide.</p>
+</body>
+</html>

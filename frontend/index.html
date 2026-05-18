@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="cs" data-default-locale="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>Styleguide</title>
+    <link rel="icon" id="sg-favicon-tag" href="">
+    <link rel="stylesheet" href="./styleguide.css">
+    <script type="module" src="./styleguide.js"></script>
+</head>
+<body
+    class="bg-zinc-950 text-zinc-100 font-sans antialiased"
+    data-project-name=""
+    data-project-favicon="">
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- ============== Sidebar ============== -->
+        <aside x-data="sidebar" class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col" :class="!$store.ui.sidebarOpen && 'hidden'">
+            <!-- Header -->
+            <div class="p-4 border-b border-zinc-800 flex items-center gap-3">
+                <img src="" alt="" class="w-8 h-8 rounded bg-zinc-50" id="sg-favicon">
+                <div>
+                    <div class="font-bold text-sm text-zinc-50" id="sg-project-name">Styleguide</div>
+                    <div class="text-[10px] uppercase tracking-wider text-zinc-500" x-text="$store.i18n.t('nav.styleguide')"></div>
+                </div>
+            </div>
+
+            <!-- Search -->
+            <div x-data="search" class="p-3 border-b border-zinc-800">
+                <input
+                    x-ref="input"
+                    x-model="query"
+                    type="text"
+                    class="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm placeholder-zinc-500"
+                    :placeholder="$store.i18n.t('search.placeholder')">
+            </div>
+
+            <!-- Sections + items (scroll) -->
+            <nav class="flex-1 overflow-y-auto p-3 space-y-2">
+                <!-- Overview link (pinned at top) -->
+                <a href="#" @click.prevent="select('overview', null)"
+                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded mb-2"
+                   :class="isActive('overview', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-white' : 'bg-zinc-600'"></span>
+                    <span x-text="$store.i18n.t('nav.overview')"></span>
+                </a>
+
+                <template x-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
+                    <div>
+                        <button @click="toggleSection(section)" class="w-full flex justify-between items-center px-2 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-300">
+                            <span x-text="$store.i18n.t(`sections.${section}`)"></span>
+                            <span class="text-zinc-600" x-text="$store.components.bySection(section).length"></span>
+                        </button>
+                        <ul x-show="sections[section]" class="mt-1 space-y-0.5">
+                            <template x-for="item in $store.components.bySection(section)" :key="item.id">
+                                <li>
+                                    <a href="#" @click.prevent="select('component', item.id)"
+                                       class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
+                                       :class="isActive('component', item.id) ? 'bg-white/10 text-white font-medium' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'">
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="isActive('component', item.id) ? 'bg-white' : 'bg-zinc-600'"></span>
+                                        <span x-text="item.name ?? item.id"></span>
+                                    </a>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+
+                <!-- Pages -->
+                <div x-show="$store.components.pages.length > 0">
+                    <button @click="toggleSection('pages')" class="w-full flex justify-between items-center px-2 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-300">
+                        <span x-text="$store.i18n.t('sections.pages')"></span>
+                        <span class="text-zinc-600" x-text="$store.components.pages.length"></span>
+                    </button>
+                    <ul x-show="sections.pages" class="mt-1 space-y-0.5">
+                        <template x-for="page in $store.components.pages" :key="page.id">
+                            <li>
+                                <a href="#" @click.prevent="select('page', page.id)"
+                                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
+                                   :class="isActive('page', page.id) ? 'bg-white/10 text-white font-medium' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('page', page.id) ? 'bg-white' : 'bg-zinc-600'"></span>
+                                    <span x-text="page.name ?? page.id"></span>
+                                </a>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Language switcher footer -->
+            <div x-data="languageSwitcher" class="border-t border-zinc-800 px-4 py-2 flex justify-end gap-1 text-xs font-mono">
+                <template x-for="(loc, idx) in supported" :key="loc">
+                    <span>
+                        <span x-show="idx > 0" class="text-zinc-600">·</span>
+                        <button @click="setLocale(loc)"
+                                :class="isActive(loc) ? 'text-zinc-50 font-semibold' : 'text-zinc-500 hover:text-zinc-300'"
+                                x-text="loc"></button>
+                    </span>
+                </template>
+            </div>
+        </aside>
+
+        <!-- ============== Main ============== -->
+        <main x-data="preview" class="flex-1 flex flex-col bg-zinc-950 select-none" :class="isDragging && 'cursor-ew-resize'">
+            <!-- Toolbar -->
+            <div class="flex justify-between items-center px-4 py-2.5 bg-zinc-900 border-b border-zinc-800">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button @click="$store.ui.toggleSidebar()" class="text-zinc-400 hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </button>
+                    <template x-if="$store.ui.route.type === 'overview'">
+                        <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.overview')"></span>
+                    </template>
+                    <template x-if="$store.ui.route.slug">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <span class="text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded shrink-0"
+                                  x-text="$store.ui.route.type === 'page' ? $store.i18n.t('toolbar.type_page') : $store.i18n.t('toolbar.type_component')"></span>
+                            <span class="font-semibold text-zinc-100 truncate" x-text="$store.ui.route.slug"></span>
+                        </div>
+                    </template>
+                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'overview'">
+                        <span class="text-zinc-500 text-sm" x-text="$store.i18n.t('toolbar.select_prompt')"></span>
+                    </template>
+                </div>
+
+                <!-- Viewport controls — Storybook-style named presets + dimension readout + open-in-new-tab -->
+                <template x-if="iframeSrc">
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline" x-text="`${currentWidth} px`"></span>
+                        <div class="flex gap-px rounded overflow-hidden bg-zinc-800">
+                            <template x-for="vp in viewports" :key="vp.key">
+                                <button @click="setPreset(vp.key)"
+                                        :title="vp.width ? `${vp.label} — ${vp.width} × ${vp.height} px` : `${vp.label} — 100%`"
+                                        class="px-2.5 h-7 flex items-center justify-center text-xs font-medium transition-colors"
+                                        :class="activePreset === vp.key ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700'">
+                                    <span x-text="vp.label"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <!-- Open the raw render endpoint in a new tab — the iframe HTML reveals
+                             its own "back to styleguide" navbar at the top when standalone. -->
+                        <a :href="iframeSrc" target="_blank" rel="noopener"
+                           :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                           class="h-7 w-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition-colors">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
+                            </svg>
+                        </a>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Usage cross-reference panel — what this component is used in, or which components a page uses -->
+            <div x-data="usagePanel" x-show="visible && items.length" class="px-4 py-2 bg-zinc-900/60 border-b border-zinc-800 flex items-center gap-2 flex-wrap text-xs">
+                <span class="uppercase tracking-wider font-semibold text-zinc-500 shrink-0" x-text="label"></span>
+                <template x-for="item in items" :key="`${item.type}:${item.id}`">
+                    <button @click="select(item)"
+                            :disabled="!item.type"
+                            :title="item.type ? `${item.type}/${item.id}` : item.id"
+                            class="px-2 py-0.5 rounded font-mono transition-colors"
+                            :class="item.type
+                                ? (item.type === 'page'
+                                    ? 'bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20'
+                                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white')
+                                : 'bg-zinc-800/40 text-zinc-600 cursor-not-allowed line-through'">
+                        <span x-text="item.name"></span>
+                    </button>
+                </template>
+            </div>
+
+            <!-- Preview area -->
+            <div class="flex-1 flex justify-center items-start p-6 bg-zinc-950 overflow-auto">
+                <template x-if="iframeSrc">
+                    <div x-ref="iframeWrapper"
+                         :style="`width: ${previewWidth}; max-width: 100%`"
+                         :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
+                         class="relative bg-white rounded shadow-lg">
+                        <iframe :src="iframeSrc" class="w-full h-[calc(100vh-120px)] rounded border-0" :class="isDragging && 'pointer-events-none'"></iframe>
+                        <!-- Drag handle: outside the iframe so cursor events aren't swallowed; rendered on both edges for centered-grow symmetry. -->
+                        <div @mousedown="startDrag" @touchstart="startDrag"
+                             class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
+                            <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
+                                 :class="isDragging && 'bg-zinc-200'"></div>
+                        </div>
+                        <div @mousedown="startDrag" @touchstart="startDrag"
+                             class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
+                            <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
+                                 :class="isDragging && 'bg-zinc-200'"></div>
+                        </div>
+                    </div>
+                </template>
+                <template x-if="!iframeSrc && !$store.components.loading">
+                    <p class="text-zinc-500 mt-20" x-text="$store.i18n.t('empty_state')"></p>
+                </template>
+                <template x-if="$store.components.loading">
+                    <p class="text-zinc-500 mt-20" x-text="$store.i18n.t('loading')"></p>
+                </template>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
