@@ -53,6 +53,9 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('<script type="module" src="/dist/script.js"></script>', $html);
         // Component body rendered inline (from sample.twig + context)
         self::assertStringContainsString('<div class="sample">Hello</div>', $html);
+        // Components render inside a padded wrapper so short bodies don't sit flush
+        // against the iframe's top edge underneath the styleguide chrome.
+        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
     }
 
     #[Test]

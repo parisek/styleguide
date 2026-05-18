@@ -21,23 +21,22 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
+        // Categories ship through the API verbatim from each component's YAML
+        // metadata (`category: ...`). Real projects use a wider vocabulary than
+        // just Block/Gutenberg — Basic, Layout, Page, Other, plus empty for
+        // un-categorised entries — so we fold related labels into three buckets
+        // and route everything unrecognised into `basic` instead of silently
+        // dropping it. Pages live in their own bucket regardless of category.
+        sectionOf(item, type = 'component') {
+            if (type === 'page') return 'pages';
+            const cat = (item?.category ?? '').toLowerCase();
+            if (cat === 'gutenberg') return 'gutenberg';
+            if (['block', 'blocks', 'layout'].includes(cat)) return 'blocks';
+            return 'basic';
+        },
+
         bySection(section) {
-            // Categories ship through the API verbatim from each component's YAML
-            // metadata (`category: ...`). Real projects use a wider vocabulary than
-            // just Block/Gutenberg — Basic, Layout, Page, Other, plus empty for
-            // un-categorised entries — so the matcher folds related labels into
-            // three buckets and routes everything unrecognised into `basic` instead
-            // of silently dropping it from the sidebar.
-            const norm = (c) => (c.category ?? '').toLowerCase();
-            const isGutenberg = (c) => norm(c) === 'gutenberg';
-            const isBlock     = (c) => ['block', 'blocks', 'layout'].includes(norm(c));
-            const matchers = {
-                gutenberg: isGutenberg,
-                blocks:    isBlock,
-                basic:     (c) => !isGutenberg(c) && !isBlock(c),
-            };
-            const match = matchers[section] ?? (() => false);
-            return this.items.filter(match);
+            return this.items.filter((c) => this.sectionOf(c) === section);
         },
 
         find(type, slug) {

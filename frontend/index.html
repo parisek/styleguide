@@ -116,7 +116,20 @@
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded shrink-0"
                                   x-text="$store.ui.route.type === 'page' ? $store.i18n.t('toolbar.type_page') : $store.i18n.t('toolbar.type_component')"></span>
-                            <span class="font-semibold text-zinc-100 truncate" x-text="$store.ui.route.slug"></span>
+                            <!-- Breadcrumb: Section / Component name (slug). The section
+                                 segment hides while the components API is still loading
+                                 so the toolbar doesn't flash a translated label like
+                                 `(undefined)` before data arrives. -->
+                            <nav class="flex items-center gap-1.5 min-w-0 text-sm">
+                                <template x-if="currentSectionKey">
+                                    <span class="text-zinc-500 shrink-0" x-text="$store.i18n.t(`sections.${currentSectionKey}`)"></span>
+                                </template>
+                                <template x-if="currentSectionKey">
+                                    <span class="text-zinc-600 shrink-0">/</span>
+                                </template>
+                                <span class="font-semibold text-zinc-100 truncate" x-text="currentItemName"></span>
+                                <span class="text-zinc-500 font-mono text-xs shrink-0" x-text="`(${$store.ui.route.slug})`"></span>
+                            </nav>
                         </div>
                     </template>
                     <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'overview'">
