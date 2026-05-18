@@ -9,6 +9,8 @@ use Twig\Environment;
 use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
 use Twig\Loader\LoaderInterface;
+use Twig\TwigFilter;
+use Twig\TwigFunction;
 
 /**
  * Public bootstrap entry for the styleguide.
@@ -50,6 +52,7 @@ final class Styleguide
      *   base_url?: string,
      *   twig_context?: array<string,mixed>,
      *   twig?: Environment,
+     *   typography_config?: string|null,
      * } $config
      *
      * If `twig` is provided, the package reuses the project's existing
@@ -76,6 +79,10 @@ final class Styleguide
             'base_url' => '/styleguide',
             'twig_context' => [],
             'twig' => null,
+            // Path-only config — `typography.yml` lives in the project's
+            // tree (each project has its own palette / fonts), and the
+            // bundled TypographyExtension just points at it.
+            'typography_config' => null,
         ];
 
         // Load styleguide.yaml content config (favicon, iframe.css/js/fonts, etc.)
@@ -90,6 +97,7 @@ final class Styleguide
             : $this->buildOwnTwig($config['templates_path']);
 
         $this->registerBundledExtensions($this->twig);
+        $this->registerBundledHelpers($this->twig);
 
         $this->parser = new ComponentParser($config['templates_path']);
         $this->renderer = new Renderer($this->twig, $this->config['twig_context']);
@@ -119,16 +127,373 @@ final class Styleguide
      */
     private function registerBundledExtensions(Environment $twig): void
     {
+        // TypographyExtension accepts an optional config-file path; when the
+        // project supplied one via `typography_config`, register the extension
+        // with that path instead of the default empty instance. Keep the
+        // hasExtension() check so projects that pre-registered it themselves
+        // win — their instance carries whatever runtime settings they tuned.
+        if (
+            class_exists(\Parisek\Twig\TypographyExtension::class)
+            && !$twig->hasExtension(\Parisek\Twig\TypographyExtension::class)
+        ) {
+            $typographyConfig = $this->config['typography_config'] ?? null;
+            $arg = (is_string($typographyConfig) && is_file($typographyConfig)) ? $typographyConfig : '';
+            $twig->addExtension(new \Parisek\Twig\TypographyExtension($arg));
+        }
+
         $extensions = [
             \Twig\Extra\Intl\IntlExtension::class,
             \Twig\Extra\String\StringExtension::class,
             \Parisek\Twig\CommonExtension::class,
             \Parisek\Twig\AttributeExtension::class,
-            \Parisek\Twig\TypographyExtension::class,
         ];
         foreach ($extensions as $class) {
             if (class_exists($class) && !$twig->hasExtension($class)) {
                 $twig->addExtension(new $class());
+            }
+        }
+    }
+
+    /**
+     * Register the generic Twig functions every styleguide consumer needs.
+     *
+     * These were previously duplicated in each consuming project's entry
+     * script (one big `$twig->addFunction(...)` block per project). They
+     * encode the styleguide's own conventions — `component_*` resolves to
+     * `@component/<name>/<name>.twig`, `page_*` to `@page/<name>/<name>.twig`,
+     * `__` / `_x` / `_n` / `_nx` are identity stubs that WordPress consumers
+     * override with the real translation functions, `merge_resizer` flattens
+     * multi-source `<picture>` candidates into one indexed list.
+     *
+     * Each helper is added only when the project hasn't already registered
+     * one with the same name — projects that need a customised version
+     * (e.g. real translation functions from WordPress's `__()` instead of
+     * the identity stub) keep their version; the package fills the rest.
+     *
+     * The `component_*` / `page_*` error fallbacks log via `error_log()`
+     * rather than `dump()` (Symfony VarDumper). The original
+     * `tailwind-base` code used `dump()` because its env had
+     * `DumpExtension` registered and `'debug' => TRUE`; calling `dump()`
+     * unguarded in a package that ships to arbitrary consumers would leak
+     * an HTML var-dump dump into the response on every miss, including
+     * in production. `error_log()` reaches the same audit trail without
+     * the side effect.
+     */
+    private function registerBundledHelpers(Environment $twig): void
+    {
+        // Important: do NOT use `$twig->getFunction(...) === null` /
+        // `$twig->getFilter(...)` to gate registration. Reading either
+        // initializes Twig's extension set (`ExtensionSet::initExtensions()`
+        // sets `initialized = true`), after which `addFunction`/`addFilter`
+        // throw `LogicException: Unable to add ... as extensions have
+        // already been initialized.` Result: the "idempotent override"
+        // pattern would defeat itself the moment the first check ran.
+        //
+        // Instead we attempt registration unconditionally via
+        // {@see self::tryAdd…()} which catches the *duplicate-name* case
+        // only — projects that pre-register any of these names on the
+        // shared env (real WP `__()` instead of identity stub, custom
+        // `placeholder`, …) keep their version because our `addFunction`
+        // throws "already registered" and we swallow that path. The
+        // "extensions initialized" case is a misuse signal (Styleguide
+        // constructed after the env was rendered with), so we re-throw.
+        self::tryAddFunction($twig, new TwigFunction(
+            'component_*',
+            static function (Environment $env, array $context, string $template_name, array $content = []): string {
+                return self::renderNamespaced($env, $context, '@component', $template_name, $content, 'Component');
+            },
+            ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['html']],
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            'page_*',
+            static function (Environment $env, array $context, string $template_name, array $content = []): string {
+                return self::renderNamespaced($env, $context, '@page', $template_name, $content, 'Page');
+            },
+            ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['html']],
+        ));
+
+        // Identity translation stubs — WordPress consumers register the
+        // real `__()` / `_x()` / `_n()` / `_nx()` BEFORE constructing
+        // `Styleguide` (their pre-registration wins because our
+        // `tryAddFunction` then swallows the duplicate-name exception).
+        // Non-WP projects get the passthrough so component templates that
+        // wrap strings in `_x()` don't need to branch on WP availability.
+        // Signatures match the WP originals so templates passing extra
+        // context / domain / number arguments don't trip ArgumentCountError.
+        self::tryAddFunction($twig, new TwigFunction(
+            '__',
+            static fn (string $text, string $domain = 'default'): string => $text,
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            '_x',
+            static fn (string $text, string $context = '', string $domain = 'default'): string => $text,
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            '_n',
+            static fn (string $single, string $plural, int $number = 1, string $domain = 'default'): string
+                => $number === 1 ? $single : $plural,
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            '_nx',
+            static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string {
+                return sprintf($number === 1 ? $single : $plural, $number);
+            },
+        ));
+
+        self::tryAddFunction($twig, new TwigFunction(
+            'merge_resizer',
+                static function (mixed ...$items): array {
+                    // Drop nulls / non-arrays before the loop. Twig templates
+                    // routinely call merge_resizer(image_xl, image_md, image)
+                    // where some sources are unset for a given record — those
+                    // resolve to `null` and used to TypeError on the typed-
+                    // variadic signature. array_values() re-indexes so the
+                    // "last list contributes its fallback" semantics below
+                    // refer to the last *real* list, not the last positional
+                    // arg.
+                    $items = array_values(array_filter($items, 'is_array'));
+                    // Cache the last index once — `array_key_last()` is
+                    // O(1) on an array but evaluating it inside the nested
+                    // loop is wasted work on every image.
+                    $lastKey = array_key_last($items);
+                    $images = [];
+                    foreach ($items as $key => $item) {
+                        foreach ($item as $image) {
+                            // All but the last list contribute only their
+                            // media-queried entries (variants with `media`).
+                            // The last list contributes everything — its
+                            // medialess fallback becomes the `<img>` baseline.
+                            if ($key !== $lastKey) {
+                                if (isset($image['media'])) {
+                                    $images[] = $image;
+                                }
+                            } else {
+                                $images[] = $image;
+                            }
+                        }
+                    }
+                    return $images;
+                },
+            ));
+
+        // `placeholder` + `|resizer` ride together — both delegate to the
+        // bundled {@see Placeholder} class (lazy-loaded via the standard
+        // PSR-4 autoloader on first use). Projects that need a tuned
+        // palette / subject set register their own `placeholder` Twig
+        // function on the env before constructing `Styleguide`; the
+        // tryAddFunction below swallows the duplicate-name throw, so
+        // the project's version stays.
+        self::tryAddFunction($twig, new TwigFunction(
+            'placeholder',
+            static fn (array $opts = []): array => Placeholder::generate($opts),
+        ));
+        self::tryAddFilter($twig, new TwigFilter('resizer', self::resizerFilter(...)));
+
+        self::tryAddFilter($twig, new TwigFilter(
+            'format_date',
+            /**
+             * Locale-light date formatter. Default output is the project's
+             * canonical "j. n. Y" (Czech short-date) layout; pass
+             * `'custom'` with a `format` to emit any PHP date() pattern.
+             * Accepts integer timestamps, numeric strings, or ISO/RFC
+             * strings that strtotime() can parse.
+             */
+            static function (int|string $timestamp, string $type = 'medium', string $format = ''): string {
+                if (is_string($timestamp) && !is_numeric($timestamp)) {
+                    // strtotime() returns false on parse failure; casting
+                    // false to int yields 0 → "1. 1. 1970", which is a
+                    // misleading "successful" output. Return the original
+                    // string so the caller can see what didn't parse.
+                    $parsed = strtotime($timestamp);
+                    if ($parsed === false) {
+                        return $timestamp;
+                    }
+                    $timestamp = $parsed;
+                } else {
+                    $timestamp = (int) $timestamp;
+                }
+                if ($type === 'custom' && $format !== '') {
+                    return date($format, $timestamp);
+                }
+                return date('j. n. Y', $timestamp);
+            },
+        ));
+
+        self::tryAddFilter($twig, new TwigFilter(
+            'custom_price_format',
+            /**
+             * Formats a `{ number, currency_code }` shape into the
+             * project's canonical price string. CZK: `1 234 Kč`
+             * (integer, narrow-space group, suffix). EUR: `€ 1 234,56`
+             * (prefix, comma decimal, narrow-space group). Any other
+             * currency falls through to the raw number — the project's
+             * Twig template should never see an unknown currency, but a
+             * passthrough is safer than throwing inside a filter.
+             */
+            static function (mixed $value): mixed {
+                if (!is_array($value) || !isset($value['number'], $value['currency_code'])) {
+                    return $value;
+                }
+                return match ($value['currency_code']) {
+                    'CZK' => number_format((float) $value['number'], 0, ',', ' ') . ' Kč',
+                    'EUR' => '€ ' . number_format((float) $value['number'], 2, ',', ' '),
+                    default => $value['number'],
+                };
+            },
+        ));
+    }
+
+    /**
+     * Register a Twig function, swallowing the "already registered"
+     * LogicException so projects that pre-registered the same name keep
+     * their version. See {@see registerBundledHelpers()} for the full
+     * rationale (avoiding `getFunction()` which triggers extension
+     * initialization and locks further `addFunction()` calls).
+     */
+    private static function tryAddFunction(Environment $twig, TwigFunction $function): void
+    {
+        try {
+            $twig->addFunction($function);
+        } catch (\LogicException $e) {
+            if (!str_contains($e->getMessage(), 'already registered')) {
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * Sibling of {@see tryAddFunction()} for filters.
+     */
+    private static function tryAddFilter(Environment $twig, TwigFilter $filter): void
+    {
+        try {
+            $twig->addFilter($filter);
+        } catch (\LogicException $e) {
+            if (!str_contains($e->getMessage(), 'already registered')) {
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * `<picture>` source-set builder. Reads `_placeholderOpts` from the input
+     * (set only by `placeholder()`) — without it the filter passes images
+     * through untouched, so real CMS-rendered images aren't accidentally
+     * regenerated as SVG fakes. Each requested size becomes one `<source>`
+     * with a `min-width` media query, except the last which is the bare
+     * fallback consumed as `<img>`.
+     */
+    private static function resizerFilter(mixed $value, mixed ...$sizes): mixed
+    {
+        if (!is_array($value) || empty($value) || empty($sizes)) {
+            return $value;
+        }
+        // Guard against CMS image shapes that arrive as associative arrays
+        // (`{src: …, alt: …}` directly, not wrapped in a list). Without this
+        // the `_placeholderOpts` lookup would throw on undefined offset.
+        // Real placeholder() output is always a list with at least `[0]` set.
+        if (!isset($value[0]) || !is_array($value[0])) {
+            return $value;
+        }
+        $base = $value[0];
+        $baseOpts = $base['_placeholderOpts'] ?? null;
+        if (!$baseOpts) {
+            return $value;
+        }
+        $baseW = (float) ($base['width'] ?? 0);
+        $baseH = (float) ($base['height'] ?? 0);
+        if ($baseW <= 0 || $baseH <= 0) {
+            return $value;
+        }
+        $aspect = $baseW / $baseH;
+
+        // Pre-filter the requested sizes to valid (positive, numeric) tuples
+        // so the cascade below can trust `count - 1` to mark the fallback.
+        $valid = [];
+        foreach ($sizes as $size) {
+            // The third tuple element is the viewport min-width at which
+            // this <source> becomes the chosen variant (passed through to
+            // `(min-width: Npx)` in the media query below). The historical
+            // tailwind-base API names this tuple slot `maxW` — preserved
+            // here only at the public boundary; internally we read it as
+            // `$minW` to match the `(min-width: ...)` semantics.
+            [$w, $h, $minW] = array_pad((array) $size, 3, '');
+            $w = is_numeric($w) ? (int) $w : null;
+            $h = is_numeric($h) ? (int) $h : null;
+            if (($w === null || $w <= 0) && ($h === null || $h <= 0)) {
+                continue;
+            }
+            if ($h === null || $h <= 0) {
+                $h = (int) round($w / $aspect);
+            }
+            if ($w === null || $w <= 0) {
+                $w = (int) round($h * $aspect);
+            }
+            $valid[] = [$w, $h, $minW];
+        }
+        if (!$valid) {
+            return $value;
+        }
+
+        $lastIdx = count($valid) - 1;
+        $entries = [];
+        foreach ($valid as $i => [$w, $h, $minW]) {
+            // Re-call placeholder() at the variant's dimensions so each
+            // <source> renders an SVG sized exactly to the breakpoint —
+            // makes it trivial to see which source the browser chose.
+            $opts = $baseOpts;
+            $opts['width'] = $w;
+            $opts['height'] = $h;
+            $opts['label'] = true;
+            unset($opts['aspect']);
+            $variant = Placeholder::generate($opts)[0];
+            unset($variant['_placeholderOpts']);
+            if ($minW !== '' && is_numeric($minW) && $i < $lastIdx) {
+                $variant['media'] = sprintf('(min-width: %dpx)', (int) $minW);
+            }
+            $entries[] = $variant;
+        }
+        return $entries;
+    }
+
+    /**
+     * Shared render path for `component_*` / `page_*`. Resolves
+     * `<namespace>/<name>/<name>.twig`; on miss falls back to the project's
+     * `@component/alert/alert.twig` with an error message; if that also
+     * misses, returns a bare inline error. `_` in the function name is
+     * normalised to `-` to match the directory convention
+     * (`component_header_menu` → `@component/header-menu/header-menu.twig`).
+     */
+    private static function renderNamespaced(
+        Environment $env,
+        array $context,
+        string $namespace,
+        string $template_name,
+        array $content,
+        string $kindLabel,
+    ): string {
+        $normalised = str_replace('_', '-', $template_name);
+        try {
+            $template = $env->load("$namespace/$normalised/$normalised.twig");
+            return $template->render(array_merge($context, ['content' => $content]));
+        } catch (\Throwable $e) {
+            error_log(sprintf('[parisek/styleguide] %s template "%s" missing: %s', $kindLabel, $normalised, $e->getMessage()));
+            try {
+                $alert = $env->load('@component/alert/alert.twig');
+                return $alert->render(array_merge($context, [
+                    'content' => [
+                        'type' => 'error',
+                        'container' => 'container',
+                        'message' => sprintf('%s template <strong>%s.twig</strong> not found', $kindLabel, $normalised),
+                    ],
+                ]));
+            } catch (\Throwable $inner) {
+                error_log(sprintf('[parisek/styleguide] alert fallback also failed: %s', $inner->getMessage()));
+                return sprintf(
+                    '<div>%s template <strong>%s.twig</strong> not found</div>',
+                    htmlspecialchars($kindLabel, ENT_QUOTES, 'UTF-8'),
+                    htmlspecialchars($normalised, ENT_QUOTES, 'UTF-8'),
+                );
             }
         }
     }
