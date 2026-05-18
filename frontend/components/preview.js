@@ -53,6 +53,25 @@ document.addEventListener('alpine:init', () => {
             else this.currentWidth = 0;
         },
 
+        // Breadcrumb pieces for the toolbar. `currentSectionKey` returns null
+        // while the components API hasn't loaded yet so the template hides the
+        // section segment instead of flashing an untranslated label.
+        get currentSectionKey() {
+            const route = Alpine.store('ui').route;
+            if (!route.slug) return null;
+            const components = Alpine.store('components');
+            if (route.type === 'page') return 'pages';
+            const item = components.find(route.type, route.slug);
+            if (!item) return null;
+            return components.sectionOf(item, route.type);
+        },
+
+        get currentItemName() {
+            const route = Alpine.store('ui').route;
+            const item = Alpine.store('components').find(route.type, route.slug);
+            return item?.name ?? route.slug;
+        },
+
         get iframeSrc() {
             const route = Alpine.store('ui').route;
             // Overview / fields render inside the iframe too — same project

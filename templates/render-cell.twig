@@ -40,6 +40,14 @@
 			document.getElementById('sg-standalone-bar').hidden = false;
 		}
 	</script>
+	{# Component-kind previews render a single small piece (button, breadcrumb, …)
+	   that would otherwise sit flush against the iframe's top edge — visually
+	   touching the styleguide chrome above. Pages render their own full layout
+	   (which already controls spacing), so they don't get the inset. Inline
+	   styles instead of utility classes so the inset works regardless of the
+	   project's CSS framework (Tailwind / Bootstrap / custom). #}
+	{% if kind == 'component' %}<div style="padding:1.5rem">{% endif %}
 	{{ body|raw }}
+	{% if kind == 'component' %}</div>{% endif %}
 </body>
 </html>
