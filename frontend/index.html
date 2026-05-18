@@ -176,7 +176,22 @@
                          :style="`width: ${previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
                          class="relative bg-white rounded shadow-lg">
-                        <iframe :src="iframeSrc" class="w-full h-[calc(100vh-120px)] rounded border-0" :class="isDragging && 'pointer-events-none'"></iframe>
+                        <iframe :src="iframeSrc" @load="onIframeLoad"
+                                class="w-full h-[calc(100vh-120px)] rounded border-0"
+                                :class="{ 'pointer-events-none': isDragging }"></iframe>
+                        <!-- Solid overlay during navigation — the iframe keeps showing the old
+                             slug's content until the browser finishes parsing the new src. The
+                             overlay sits ON TOP of the iframe so the user never sees the stale
+                             content. No enter transition: the old slug's body must be obscured
+                             instantly when navigation starts. The loading dot itself fades in
+                             with a 120ms delay so very fast loads (<120ms — common for cached
+                             responses) skip the dot entirely. -->
+                        <div x-show="isLoading"
+                             class="absolute inset-0 flex items-center justify-center rounded bg-white pointer-events-none">
+                            <div x-show="isLoading"
+                                 x-transition.opacity.duration.150ms.delay.120ms
+                                 class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
+                        </div>
                         <!-- Drag handle: outside the iframe so cursor events aren't swallowed; rendered on both edges for centered-grow symmetry. -->
                         <div @mousedown="startDrag" @touchstart="startDrag"
                              class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">

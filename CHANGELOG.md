@@ -6,6 +6,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stale iframe content no longer flashes when switching between
+  components / pages. A solid white overlay now covers the iframe
+  during navigation (synchronously, set in `setRoute()` before the
+  iframe `src` changes — `$watch` was lost to cached-response races
+  where `load` fired before the watcher could flip the flag). The
+  pulsing loading dot fades in after 120 ms so fast cached responses
+  don't visibly flash it.
+
 ## [0.1.0] - 2026-05-18
 
 ### Added

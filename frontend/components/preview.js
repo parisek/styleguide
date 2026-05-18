@@ -33,6 +33,19 @@ document.addEventListener('alpine:init', () => {
             queueMicrotask(() => this.observeWrapper());
         },
 
+        // The loading flag itself is set synchronously by setRoute() in the
+        // ui store (before the iframe src changes). Here we just clear it
+        // when the new document finishes parsing. Iframes fire `load` for
+        // every src change including the initial bind, so this reliably
+        // matches a previous setRoute() → isPreviewLoading = true.
+        onIframeLoad() {
+            Alpine.store('ui').isPreviewLoading = false;
+        },
+
+        get isLoading() {
+            return Alpine.store('ui').isPreviewLoading;
+        },
+
         observeWrapper() {
             this._ro.disconnect();
             const wrapper = document.querySelector('[x-ref="iframeWrapper"]');
