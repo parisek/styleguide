@@ -6,6 +6,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Packagist can now actually import tagged releases. The Phase 1
+  `composer.json` carried `"version": "0.1.0"` as a hardcoded field
+  to keep the local path repository constraint satisfied before any
+  git tag existed. After v0.1.0 was tagged that field stopped serving
+  any purpose — and on the v0.1.1 push Packagist logged
+  `Skipped tag v0.1.1, tag (0.1.1.0) does not match version (0.1.0.0)
+  in composer.json`, refusing to import every future tag. The field
+  is gone now; Packagist derives versions from `git tag` exclusively
+  as is convention for libraries.
+
 ## [0.1.1] - 2026-05-18
 
 ### Fixed
