@@ -6,6 +6,62 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- `Styleguide::registerBundledHelpers()` no longer initializes the Twig
+  extension set before adding functions/filters. Previously, the
+  idempotency check `getFunction(...) === null` triggered
+  `ExtensionSet::initExtensions()` which locks `addFunction`/`addFilter`
+  for the remainder of the env's life — every subsequent
+  `addFunction(...)` call raised `LogicException: Unable to add function
+  "<name>" as extensions have already been initialized.` The bug went
+  undetected through CI because the existing suite (Renderer / Router /
+  AssetServer / ComponentParser tests) didn't instantiate `Styleguide`
+  itself; only a downstream project bootstrapping the package would have
+  blown up at construction time. Fixed by switching to a `tryAdd…()`
+  pattern that catches the duplicate-name throw (preserving the
+  "project pre-registration wins" override path) without doing any
+  pre-read that triggers initialization.
+
+### Added
+
+- Bundled Twig helpers — every consuming project previously duplicated
+  the same `component_*` / `page_*` / `__` / `_x` / `_n` / `_nx` /
+  `merge_resizer` registrations plus the `placeholder` / `resizer` /
+  `format_date` / `custom_price_format` filters in its own `index.php`.
+  The bundled `merge_resizer` adds null-arg tolerance the originals
+  lacked: callers can pass any positional arg as `null` (typically a
+  Twig `content.image_xl ?? null` when that breakpoint's image is unset
+  for the given record) and the helper now silently drops it instead of
+  raising a `TypeError` on the typed-variadic signature.
+  The `Styleguide` bootstrap now registers all of them on the Twig env
+  it receives, idempotently (`getFunction('foo') === null` and
+  `getFilter('foo') === null` checks so projects can override any
+  individual helper before constructing the bootstrap and their
+  version wins).
+- New optional config key on `Styleguide(...)`:
+  - `typography_config` — path to the project's `typography.yml`.
+    When set, `Parisek\Twig\TypographyExtension` is auto-registered
+    with that path instead of the empty default.
+- Bundled deterministic SVG placeholder generator — `Parisek\Styleguide\Placeholder`
+  (lazy-loaded via the standard PSR-4 autoloader the moment Twig
+  resolves the `placeholder()` function or the `|resizer` filter).
+  Previously every project carried its own near-identical ~390-line
+  global-function copy in `static/inc/placeholder.php`; now the package
+  ships it as a regular namespaced class (`Placeholder::generate(opts)`)
+  and unconditionally wires the matching `placeholder` Twig function +
+  `|resizer` filter. Projects that need a tuned palette / subject set
+  register their own `placeholder` Twig function on the environment
+  before constructing `Styleguide`; the function-registration
+  idempotency check (`getFunction('placeholder') === null`) then
+  leaves the project's version in place.
+- `error_log()` instead of `dump()` in the `component_*` / `page_*`
+  error-fallback paths. The previous duplicate-in-project versions
+  used Symfony VarDumper's `dump()` because the project's env had
+  `DumpExtension` + `'debug' => true`; calling `dump()` unconditionally
+  in a packaged helper would leak HTML var-dump output in production.
+  Errors go to the server log instead.
+
 ## [0.1.2] - 2026-05-18
 
 ### Fixed
