@@ -56,6 +56,24 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function registers_bundled_extensions_including_dump(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        // The five Twig extensions that every consuming project previously
+        // had to register itself, plus DumpExtension (added in 0.2.0 — same
+        // rationale as the others: enables `{{ dump(var) }}` in templates,
+        // production leak risk caught by the DumpRule twig-cs-fixer lint
+        // instead of by withholding the extension).
+        self::assertTrue($twig->hasExtension(\Twig\Extra\Intl\IntlExtension::class));
+        self::assertTrue($twig->hasExtension(\Twig\Extra\String\StringExtension::class));
+        self::assertTrue($twig->hasExtension(\Parisek\Twig\CommonExtension::class));
+        self::assertTrue($twig->hasExtension(\Parisek\Twig\AttributeExtension::class));
+        self::assertTrue($twig->hasExtension(\Parisek\Twig\TypographyExtension::class));
+        self::assertTrue($twig->hasExtension(\Symfony\Bridge\Twig\Extension\DumpExtension::class));
+    }
+
+    #[Test]
     public function registers_format_date_and_custom_price_filters(): void
     {
         $twig = self::twigOf(self::newStyleguide());
