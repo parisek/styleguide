@@ -38,6 +38,11 @@
         "test": "vendor/bin/phpunit",
         "phpstan": "php -d memory_limit=512M vendor/bin/phpstan analyse"
     },
+    "config": {
+        "platform": {
+            "php": "8.3"
+        }
+    },
     "extra": {
         "branch-alias": {
             "dev-main": "0.1.x-dev"
