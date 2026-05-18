@@ -141,6 +141,22 @@ final class Styleguide
             $twig->addExtension(new \Parisek\Twig\TypographyExtension($arg));
         }
 
+        // DumpExtension needs a VarCloner instance — `new $class()` in the
+        // foreach below would error. The extension enables `{{ dump(var) }}`
+        // in templates; safe to register unconditionally because templates
+        // with a `dump()` call leaking into production are caught by the
+        // `DumpRule` twig-cs-fixer lint (see tailwind-base's lint config),
+        // not by withholding the extension itself.
+        if (
+            class_exists(\Symfony\Bridge\Twig\Extension\DumpExtension::class)
+            && class_exists(\Symfony\Component\VarDumper\Cloner\VarCloner::class)
+            && !$twig->hasExtension(\Symfony\Bridge\Twig\Extension\DumpExtension::class)
+        ) {
+            $twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
+                new \Symfony\Component\VarDumper\Cloner\VarCloner()
+            ));
+        }
+
         $extensions = [
             \Twig\Extra\Intl\IntlExtension::class,
             \Twig\Extra\String\StringExtension::class,

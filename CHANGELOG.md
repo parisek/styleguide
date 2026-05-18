@@ -25,6 +25,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `Symfony\Bridge\Twig\Extension\DumpExtension` is now bundled —
+  `Styleguide::registerBundledExtensions()` registers it alongside the
+  existing five (Intl / String / Common / Attribute / Typography) so
+  consuming projects no longer need their own
+  `$twig->addExtension(new DumpExtension(new VarCloner()))` line in
+  the bootstrap. The earlier split ("project keeps DumpExtension to
+  avoid packaged production leak") turned out orthogonal to the actual
+  risk: a `{{ dump(var) }}` leaking into production is caught by the
+  `DumpRule` `twig-cs-fixer` lint at commit time, not by withholding
+  the extension itself. New deps: `symfony/twig-bridge` and
+  `symfony/var-dumper` (both versions `^5.4 || ^6.2 || ^7.0`, same
+  constraints downstream projects already used).
 - Bundled Twig helpers — every consuming project previously duplicated
   the same `component_*` / `page_*` / `__` / `_x` / `_n` / `_nx` /
   `merge_resizer` registrations plus the `placeholder` / `resizer` /
