@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-18
+
 ### Fixed
 
 - Packagist can now actually import tagged releases. The Phase 1
