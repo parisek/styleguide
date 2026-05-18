@@ -2,7 +2,6 @@
     "name": "parisek/styleguide",
     "description": "Twig component styleguide as a self-contained Composer package",
     "type": "library",
-    "version": "0.1.0",
     "license": "MIT",
     "authors": [
         {
