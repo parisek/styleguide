@@ -2,7 +2,11 @@ import Alpine from 'alpinejs';
 
 document.addEventListener('alpine:init', () => {
     Alpine.store('ui', {
-        sidebarOpen: true,
+        // Sidebar open/closed state survives page reloads via the
+        // `@alpinejs/persist` plugin (registered in styleguide.js before
+        // Alpine.start()). The `.as(key)` namespaces the localStorage key so
+        // sibling apps can't accidentally collide with us.
+        sidebarOpen: Alpine.$persist(true).as('sg-sidebar-open'),
         previewWidth: '100%',
         isDragging: false,
         // Mirror of the preview's iframe loading state. Lives in the ui store
