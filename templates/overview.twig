@@ -310,4 +310,143 @@
 			{% endif %}
 		</section>
 	{% endif %}
+
+	{# ─────────────────────────────────────────────────────────────────
+	   Components — grouped card grid (Basic / Blocks / Gutenberg).
+	   Inputs: `components` array from Styleguide::dispatchRender (parsed
+	   metadata, same shape the API exposes). Section bucket logic mirrors
+	   the SPA sidebar's `sectionOf` (frontend/stores/components.js); kept
+	   in sync by copy because overview is server-rendered Twig and sidebar
+	   is client-side JS. Card links use `target="_top"` so a click breaks
+	   out of the iframe and the parent SPA's deep-link router takes over.
+	#}
+	{% if components %}
+		{% set component_sections = [
+			{ key: 'basic',     label: 'Základní prvky' },
+			{ key: 'blocks',    label: 'Bloky' },
+			{ key: 'gutenberg', label: 'Gutenberg' },
+		] %}
+		<section id="components" class="mb-12">
+			<div class="flex gap-3 items-center mb-6">
+				<div class="flex justify-center items-center w-8 h-8 rounded-lg bg-zinc-200 text-zinc-600">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M5 3a2 2 0 00-2 2v3h4V3H5zM3 17v3a2 2 0 002 2h3v-4H3zm14 4h3a2 2 0 002-2v-3h-4v5zm5-14V5a2 2 0 00-2-2h-3v4h5zM10 3v4h4V3h-4zm-7 7v4h4v-4H3zm14 0h4v4h-4v-4zM10 17v4h4v-4h-4z"/>
+					</svg>
+				</div>
+				<h2 class="font-bold text-lg text-zinc-900">Komponenty</h2>
+				<span class="ml-1 inline-flex items-center px-2 py-0.5 rounded-full bg-zinc-200 font-medium text-xs text-zinc-600">{{ components|length }}</span>
+			</div>
+
+			{% for section in component_sections %}
+				{% set items = [] %}
+				{% for c in components %}
+					{% set cat = (c.category|default(''))|lower %}
+					{% set is_gutenberg = cat == 'gutenberg' %}
+					{% set is_block = cat in ['block', 'blocks', 'layout'] %}
+					{% set bucket = is_gutenberg ? 'gutenberg' : (is_block ? 'blocks' : 'basic') %}
+					{% if bucket == section.key %}
+						{% set items = items|merge([c]) %}
+					{% endif %}
+				{% endfor %}
+				{% if items|length > 0 %}
+					<div class="mb-8">
+						<div class="flex gap-2 items-baseline mb-3">
+							<h3 class="font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ section.label }}</h3>
+							<span class="font-mono text-xs text-zinc-400">{{ items|length }}</span>
+						</div>
+						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+							{% for c in items %}
+								{% set usage_count = c.usage ? (c.usage|split(',')|filter(s => s|trim)|length) : 0 %}
+								{% set fields_count = c.fields is iterable ? c.fields|length : 0 %}
+								<a href="/styleguide/component/{{ c.id }}" target="_top"
+									class="group flex flex-col p-4 border border-zinc-200 rounded-lg bg-white shadow-sm hover:shadow-md hover:border-zinc-300 transition-all">
+									<div class="flex justify-between items-start gap-2 mb-2">
+										<div class="min-w-0">
+											<p class="font-semibold text-sm text-zinc-900 truncate group-hover:text-indigo-600 transition-colors">{{ c.name }}</p>
+											<p class="mt-0.5 font-mono text-[11px] text-zinc-500 truncate">{{ c.id }}</p>
+										</div>
+										{# External-link presence dots — mirror the linkBar but compressed.
+										   Per-icon URLs surface on the preview page's link bar, not the card. #}
+										<div class="flex gap-0.5 shrink-0 mt-0.5">
+											{% if c.asana %}<span class="w-1.5 h-1.5 rounded-full bg-rose-400" title="Asana"></span>{% endif %}
+											{% if c.figma %}<span class="w-1.5 h-1.5 rounded-full bg-violet-400" title="Figma"></span>{% endif %}
+											{% if c.drupal %}<span class="w-1.5 h-1.5 rounded-full bg-sky-500" title="Drupal"></span>{% endif %}
+											{% if c.web %}<span class="w-1.5 h-1.5 rounded-full bg-zinc-400" title="Web"></span>{% endif %}
+										</div>
+									</div>
+									{% if c.description %}
+										<p class="text-xs text-zinc-600 leading-snug line-clamp-2 mb-2">{{ c.description }}</p>
+									{% endif %}
+									<div class="flex flex-wrap gap-1.5 mt-auto pt-2 border-t border-zinc-100 text-[10px] text-zinc-500">
+										{% if fields_count > 0 %}
+											<span class="inline-flex items-center gap-1">
+												<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+												{{ fields_count }} {{ fields_count == 1 ? 'pole' : (fields_count < 5 ? 'pole' : 'polí') }}
+											</span>
+										{% endif %}
+										{% if usage_count > 0 %}
+											<span class="inline-flex items-center gap-1">
+												<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+												{{ usage_count }}×
+											</span>
+										{% endif %}
+										{% if c.category %}
+											<span class="ml-auto inline-flex items-center px-1.5 py-0.5 rounded bg-zinc-100 font-medium text-[10px] text-zinc-600">{{ c.category }}</span>
+										{% endif %}
+									</div>
+								</a>
+							{% endfor %}
+						</div>
+					</div>
+				{% endif %}
+			{% endfor %}
+		</section>
+	{% endif %}
+
+	{# Pages — flat card grid, separate section. No category split (pages don't
+	   currently use the same Basic/Blocks/Gutenberg taxonomy as components). #}
+	{% if pages %}
+		<section id="pages" class="mb-12">
+			<div class="flex gap-3 items-center mb-6">
+				<div class="flex justify-center items-center w-8 h-8 rounded-lg bg-zinc-200 text-zinc-600">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+					</svg>
+				</div>
+				<h2 class="font-bold text-lg text-zinc-900">Stránky</h2>
+				<span class="ml-1 inline-flex items-center px-2 py-0.5 rounded-full bg-zinc-200 font-medium text-xs text-zinc-600">{{ pages|length }}</span>
+			</div>
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+				{% for p in pages %}
+					{% set usage_count = p.usage ? (p.usage|split(',')|filter(s => s|trim)|length) : 0 %}
+					<a href="/styleguide/page/{{ p.id }}" target="_top"
+						class="group flex flex-col p-4 border border-indigo-200/50 rounded-lg bg-indigo-50/30 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all">
+						<div class="flex justify-between items-start gap-2 mb-2">
+							<div class="min-w-0">
+								<p class="font-semibold text-sm text-zinc-900 truncate group-hover:text-indigo-600 transition-colors">{{ p.name }}</p>
+								<p class="mt-0.5 font-mono text-[11px] text-zinc-500 truncate">{{ p.id }}</p>
+							</div>
+							<div class="flex gap-0.5 shrink-0 mt-0.5">
+								{% if p.asana %}<span class="w-1.5 h-1.5 rounded-full bg-rose-400" title="Asana"></span>{% endif %}
+								{% if p.figma %}<span class="w-1.5 h-1.5 rounded-full bg-violet-400" title="Figma"></span>{% endif %}
+								{% if p.drupal %}<span class="w-1.5 h-1.5 rounded-full bg-sky-500" title="Drupal"></span>{% endif %}
+								{% if p.web %}<span class="w-1.5 h-1.5 rounded-full bg-zinc-400" title="Web"></span>{% endif %}
+							</div>
+						</div>
+						{% if p.description %}
+							<p class="text-xs text-zinc-600 leading-snug line-clamp-2 mb-2">{{ p.description }}</p>
+						{% endif %}
+						{% if usage_count > 0 %}
+							<div class="mt-auto pt-2 border-t border-indigo-100 text-[10px] text-zinc-500">
+								<span class="inline-flex items-center gap-1">
+									<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+									{{ usage_count }} komponent
+								</span>
+							</div>
+						{% endif %}
+					</a>
+				{% endfor %}
+			</div>
+		</section>
+	{% endif %}
 </div>

@@ -666,6 +666,12 @@ final class Styleguide
             }
         } elseif ($route['kind'] === 'overview') {
             $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Overview');
+            // Overview lists every component + page so visitors see the surface
+            // area without first browsing the sidebar. Parsing both directories
+            // here mirrors what the components / pages API endpoints expose; the
+            // overview template reads the same shape.
+            $config['components'] = $this->parser->parseAll('component');
+            $config['pages'] = $this->parser->parseAll('page');
         }
 
         header('Content-Type: text/html; charset=utf-8');

@@ -76,6 +76,12 @@ final class Renderer
             'component', 'page' => $this->renderInner($kind, $slug),
             'overview' => $this->twig->render('overview.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
+                // Overview lists every component + page so visitors can see the
+                // surface area at a glance. The parsed metadata is the same
+                // structure the API surfaces (id, name, category, description,
+                // weight, usage, asana/figma/drupal/web, fields).
+                'components' => $config['components'] ?? [],
+                'pages' => $config['pages'] ?? [],
             ] + $this->context),
             default => null,
         };
