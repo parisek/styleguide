@@ -35,8 +35,12 @@ document.addEventListener('alpine:init', () => {
             return 'basic';
         },
 
+        // Filter out skeleton-only templates (no `styleguide.twig` AND no
+        // `styleguide:` key in YAML metadata) — they render empty content
+        // and would just clutter the sidebar. ComponentParser computes
+        // `hasStyleguide` server-side; we honour it here.
         bySection(section) {
-            return this.items.filter((c) => this.sectionOf(c) === section);
+            return this.items.filter((c) => this.sectionOf(c) === section && c.hasStyleguide !== false);
         },
 
         find(type, slug) {
