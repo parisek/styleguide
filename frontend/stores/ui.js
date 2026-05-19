@@ -12,6 +12,10 @@ document.addEventListener('alpine:init', () => {
         // an Alpine $watch lost the race on cached responses (load fired
         // before the watcher set isLoading=true → overlay stayed visible).
         isPreviewLoading: false,
+        // Sidebar search query. Lives in the ui store (rather than the search
+        // Alpine component) because the sidebar's `x-for` lives in a sibling
+        // Alpine scope — store gives both ends a single reactive source.
+        searchQuery: '',
         route: { type: 'landing', slug: null },
 
         setWidth(w) {
