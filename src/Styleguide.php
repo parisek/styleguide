@@ -633,6 +633,20 @@ final class Styleguide
             1
         );
 
+        // Sidebar header — <div id="sg-project-name">…</div> ships with "Styleguide"
+        // as the static placeholder. Same per-project request-time substitution
+        // pattern as the favicon nodes, so the bundled SPA doesn't have to know
+        // the project name at build time. Uses a callback so an escaped string
+        // containing `$1` style sequences can't accidentally interpolate as a
+        // back-reference.
+        $escapedName = $esc($projectName);
+        $html = (string) preg_replace_callback(
+            '/(<[^>]+id="sg-project-name"[^>]*>)[^<]*(<\/[^>]+>)/',
+            static fn (array $m): string => $m[1] . $escapedName . $m[2],
+            $html,
+            1
+        );
+
         // <title>
         $html = (string) preg_replace(
             '/<title>[^<]*<\/title>/',
