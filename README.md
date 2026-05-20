@@ -20,7 +20,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 | **Open in new tab** | Each render can be opened standalone — the iframe template auto-reveals a "← back to styleguide" navbar only when it detects it's NOT inside an iframe. |
 | **Asset serving** | `AssetServer` serves the bundled SPA + locale files from `vendor/parisek/styleguide/dist/` with path-traversal guard, ETag, and immutable cache headers for hashed filenames. |
 
-The whole package is ~5 PHP classes plus prebuilt JS/CSS — no Node.js required in production.
+The whole package is ~8 PHP classes plus prebuilt JS/CSS — no Node.js required in production.
 
 ---
 
@@ -30,19 +30,30 @@ The whole package is ~5 PHP classes plus prebuilt JS/CSS — no Node.js required
 composer require parisek/styleguide
 ```
 
-Pre-Packagist (local dev, sibling checkout, etc.) — register a path repository:
+Local dev against a sibling checkout — register a path repository so the consumer's `vendor/parisek/styleguide` is a live symlink:
 
 ```jsonc
-// composer.json
+// composer.json (in the consuming project)
 {
-    "repositories": [
-        { "type": "path", "url": "../styleguide", "options": { "symlink": true } }
-    ],
-    "require": {
-        "parisek/styleguide": "^0.1"
+    "repositories": {
+        "parisek-styleguide-local": {
+            "type": "path",
+            "url": "../styleguide",
+            "canonical": false,                 // critical: lets Packagist still supply ^0.1 when needed
+            "options": {
+                "symlink": true,
+                "versions": { "parisek/styleguide": "dev-local" }
+            }
+        }
+    },
+    "scripts": {
+        "styleguide:local":  "@composer require parisek/styleguide:dev-local --no-interaction",
+        "styleguide:remote": "@composer require parisek/styleguide:^0.1 --no-interaction"
     }
 }
 ```
+
+`canonical: false` is what keeps Packagist visible — without it the path repo would shadow it and the `^0.1` constraint would fail to resolve. The `versions` override pins the local copy to a fixed `dev-local` identifier so the switch scripts have a deterministic string to ask for. See `AGENTS.md` § *Local development against a consuming project* for the full mechanism.
 
 ---
 
@@ -60,7 +71,7 @@ require __DIR__ . '/vendor/autoload.php';
     'config_yaml'    => __DIR__ . '/styleguide.yaml',
     'default_locale' => 'cs',
     'twig'           => $twig,        // optional — reuse the project's Twig env
-    'twig_context'   => [             // optional — globals for inner template renders
+    'twig_context'   => [             // optional — globals merged into every inner render
         'homeUrl'     => '/styleguide/',
         'templateUrl' => '',
         'langcode'    => 'cs',
@@ -69,6 +80,21 @@ require __DIR__ . '/vendor/autoload.php';
 ```
 
 `run()` parses `$_SERVER['REQUEST_URI']`. If the URI starts with `/styleguide`, it dispatches (SPA, asset, render, or JSON endpoint) and **exits**. Otherwise it returns silently and the rest of your `index.php` continues to handle non-styleguide URLs.
+
+### Constructor config
+
+| Key | Required | Default | Purpose |
+|---|---|---|---|
+| `templates_path` | yes | — | Absolute path to the project's Twig templates root. Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). |
+| `static_path` | yes | — | Absolute path to the project's webroot (where `index.php` sits). Used to auto-register `@icons` (`/images/icons`) and `@images` (`/images`) if those directories exist. |
+| `config_yaml` | yes | — | Absolute path to `styleguide.yaml`. Missing file ≠ error — yaml just resolves to `[]` and the overview screen renders empty sections. |
+| `default_locale` | no | `'en'` | Two-letter code used by the SPA shell and forwarded to `Renderer` as `langcode`. |
+| `base_url` | no | `'/styleguide'` | Prefix the router matches against. Change only if you mount the styleguide under a non-default path. |
+| `twig` | no | `null` | Pre-built `Twig\Environment`. Pass when component templates need project-specific extensions / filters / functions (`component_*`, `_x()`, `placeholder()`, `|resizer`, …). If omitted, the package builds a pristine environment with sensible defaults (`cache: false`, `debug: true`, `autoescape: false`). See *`twig` config — when to pass it* below. |
+| `twig_context` | no | `[]` | Globals merged into every `component_*()` / `page_*()` render. Typical keys: `homeUrl`, `templateUrl`, `langcode`. |
+| `twig_options` | no | `[]` | Options merged onto the package defaults when building the pristine env. Ignored when `twig` is provided (the package never mutates a consumer-owned env). |
+| `typography_config` | no | `null` | Path to a typography settings yaml consumed by `\Parisek\Twig\TypographyExtension`. Only matters if your templates use `|typography` and you want non-default behavior. |
+| `namespaces` | no | `[]` | Extra Twig namespaces (`<name> => <absolute path>`) for paths that live outside `templates_path` and aren't covered by the auto-registered conventional namespaces. |
 
 ### `twig` config — when to pass it
 
@@ -166,12 +192,119 @@ labels:                                    # i18n labels shown on overview cards
 | `/styleguide/` | SPA HTML | Landing (auto-routes to overview) |
 | `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view |
 | `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide |
-| `/styleguide/overview` | SPA HTML | Colors / typography / fonts preview |
-| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare component / page / overview render — used as iframe src, also browsable directly |
-| `/styleguide/api/components` | JSON | List of components (id, name, category, usage, fields) |
-| `/styleguide/api/pages` | JSON | List of pages (same shape) |
-| `/styleguide/api/fields` | JSON | Field metadata aggregated across components |
-| `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames) |
+| `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
+| `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
+| `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
+| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted) to stamp `class="dark"` on the iframe `<html>` for consumers that opt into Tailwind dark mode. |
+| `/styleguide/api/components` | JSON | List of components — see [API](#api) below |
+| `/styleguide/api/pages` | JSON | List of pages — same shape as components |
+| `/styleguide/api/fields` | JSON | Field metadata flattened across components |
+| `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
+
+---
+
+## API
+
+Three read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
+
+The SPA consumes all three (`frontend/stores/components.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
+
+### `GET /styleguide/api/components`
+
+Flat list of every component template under `templates/component/**/<id>.twig` whose first `{# … #}` comment parses as YAML and carries at least a `name:` key. Order: `weight` ascending, then `name` (Czech collation when `intl` is available, otherwise byte-wise `strcmp`).
+
+**Response shape** — `array<Component>`:
+
+```jsonc
+[
+  {
+    "id":            "button",          // directory + filename (without .twig)
+    "name":          "Button",          // from metadata `name:`
+    "category":      "Basic",           // from `category:`, "" if absent
+    "description":   "Primary CTA…",    // from `description:`, "" if absent
+    "asana":         "",                // from `asana:`, "" if absent — task URL
+    "figma":         "",                // from `figma:`, "" if absent — Figma node URL
+    "drupal":        "",                // from `drupal:`, "" if absent — Drupal docs / module link
+    "web":           "",                // from `web:`, "" if absent — generic external link
+    "weight":        50,                // from `weight:`, default 50, sidebar order
+    "usage":         "404,article-list",// from `usage:`, raw comma-separated id string
+    "fields": {                          // from `fields:`, {} if absent
+      "url":   { "title": "URL",   "type": "url",  "required": 1 },
+      "title": { "title": "Label", "type": "text", "required": 1 }
+    },
+    "hasStyleguide": true               // true when a sibling styleguide.twig exists
+                                         // OR metadata declares `styleguide:`
+  }
+  // …
+]
+```
+
+**Notes**
+- `usage` is intentionally **a raw comma-separated string**, not a parsed array — the SPA splits client-side because templates use looser whitespace conventions (`"404, article-list"` vs `"404,article-list"`).
+- `fields` is passed through verbatim from the YAML. Shape is consumer-defined; the bundled SPA assumes `{ title, type, required }` per the convention in *Per-template metadata*, but extra keys are preserved end-to-end.
+- Templates without a parseable YAML block, or with YAML missing `name:`, are silently dropped — that's the only way to keep a `.twig` file under `templates/component/` and have the styleguide chrome ignore it.
+
+### `GET /styleguide/api/pages`
+
+Same shape as `/api/components`, scanned from `templates/page/**/<id>.twig` instead. Use this when your project renders entire page templates through Twig (Drupal `page--*.html.twig`, WordPress Timber `page-*.twig`) and you want them to appear in the styleguide alongside components.
+
+If `templates/page/` doesn't exist, response is `[]`. No error.
+
+### `GET /styleguide/api/fields`
+
+Aggregated view of every component's `fields:` metadata, **flattened across components**. Returns one entry per component that has at least one field defined; components with empty / missing `fields` are skipped.
+
+**Response shape** — `array<ComponentFields>`:
+
+```jsonc
+[
+  {
+    "component_id":   "button",
+    "component_name": "Button",
+    "fields": {
+      "url":   { "title": "URL",   "type": "url",  "required": 1 },
+      "title": { "title": "Label", "type": "text", "required": 1 }
+    }
+  }
+  // …
+]
+```
+
+Data source for the SPA's `/styleguide/fields` inspector — useful for one-shot answers like *"where do we use a `richtext` field?"* without walking the whole component list.
+
+### Caching
+
+Every endpoint sets `Cache-Control: no-cache`. Responses are recomputed per request because the underlying source (YAML in `.twig` files) changes during dev and there's no invalidation signal. The work is a filesystem walk + one YAML parse per file — acceptable even for large component libraries.
+
+If you need to serve these at scale, wrap them behind your project's own HTTP cache and bust on `templates/**/*.twig` change.
+
+### Adding a new endpoint
+
+The three endpoint classes (`src/Api/*Endpoint.php`) share the same shape: constructor takes the `ComponentParser`, `handle()` emits headers + `json_encode()`. New endpoints follow the same pattern:
+
+1. Create `src/Api/<Name>Endpoint.php` mirroring the existing trio.
+2. Wire it into `Styleguide::dispatchApi()` (the `match` block on `$route['endpoint']`).
+3. Add a test under `tests/Api/<Name>EndpointTest.php`.
+
+There's deliberately no shared base class — three near-identical classes are clearer than an abstraction that hides where the headers and encoding happen.
+
+---
+
+## Conventional Twig namespaces
+
+When the package builds its own Twig environment (or attaches loaders to a project-provided one), it auto-registers these namespaces whenever the matching directory exists. Component templates can rely on them without the consuming project calling `$loader->addPath(…)`:
+
+| Namespace | Source | Notes |
+|---|---|---|
+| `@project` | `templates_path` | Renderer template lookup. Always registered. |
+| `@component` | `templates_path/component` | Resolves `{% include '@component/<name>/<name>.twig' %}` and powers the `component_*()` helper. |
+| `@page` | `templates_path/page` | Sibling of `@component`; powers `page_*()`. |
+| `@macro` | `templates_path/macro` | Shared Twig macros. |
+| `@static` | `templates_path` | Fallback namespace for templates that live directly under the templates root. |
+| `@icons` | `static_path/images/icons` | Inline SVG icons referenced as `@icons/<file>.svg`. |
+| `@images` | `static_path/images` | Project image assets. |
+
+Anything else — non-standard image roots, third-party template packs — goes into the `namespaces` config map as `<name> => <absolute path>`. Last write wins, so you can also override a conventional location if your layout is exotic.
 
 ---
 
@@ -196,11 +329,16 @@ fields:
 | Key | Used by |
 |---|---|
 | `name` | sidebar label, iframe title |
-| `category` | sidebar bucket — `Basic` / `Blocks` / `Layout` → basic bucket, `Gutenberg` → gutenberg bucket, everything else folds into basic so nothing is silently dropped |
-| `weight` | sort order within a bucket (lower = earlier) |
+| `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/stores/components.js`. Unknown labels never get dropped, they fall into a default bucket. |
+| `weight` | sort order within a bucket (lower = earlier; default `50`) |
 | `usage` | comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view) — drives the cross-reference chip panel |
-| `description` | shown in the sidebar tooltip / overview cards |
-| `fields` | rendered by the `/api/fields` endpoint and the Fields overview |
+| `description` | sidebar tooltip + overview cards |
+| `fields` | `/api/fields` endpoint + the Fields inspector view |
+| `asana` | external link chip — Asana task URL |
+| `figma` | external link chip — Figma design URL |
+| `drupal` | external link chip — Drupal docs / module URL |
+| `web` | external link chip — generic external URL |
+| `styleguide` | optional flag — when set (or when a sibling `styleguide.twig` exists), the component exposes a separate styleguide-only render variant |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 

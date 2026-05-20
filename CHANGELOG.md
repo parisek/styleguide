@@ -6,6 +6,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation
+
+- README expanded with a full **API reference** for the three JSON
+  endpoints (`/styleguide/api/components`, `/api/pages`, `/api/fields`)
+  — response shape, ordering, caching behavior, and the pattern for
+  adding a fourth endpoint. Also adds a **Constructor config** table
+  covering every key accepted by `Styleguide::__construct()` (including
+  the previously undocumented `twig_options`, `typography_config`, and
+  `namespaces`), a **Conventional Twig namespaces** section listing
+  every auto-registered namespace and its source directory, and fills
+  the previously missing metadata keys (`asana`, `figma`, `drupal`,
+  `web`, `styleguide`) into the Per-template metadata table. The URL
+  surface table now lists `/styleguide/foundations`, `/styleguide/fields`,
+  and documents the whitelisted `?theme=light|dark` query param on
+  `/render/*`. The local-dev path repository snippet is rewritten to
+  match the canonical mechanism from `AGENTS.md` (`canonical: false` +
+  `versions` override + switch scripts).
+
 ### Added
 
 - New **/styleguide/overview** page (label „Přehled" / „Overview") —
