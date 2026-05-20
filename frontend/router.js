@@ -1,7 +1,7 @@
 import Alpine from 'alpinejs';
 
 function parse() {
-    const m = location.pathname.match(/^\/styleguide(?:\/(component|page|overview|fields)(?:\/(.+?))?)?\/?$/);
+    const m = location.pathname.match(/^\/styleguide(?:\/(component|page|overview|foundations|fields)(?:\/(.+?))?)?\/?$/);
     if (!m) return { type: 'landing', slug: null };
     return {
         type: m[1] ?? 'landing',

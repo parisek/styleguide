@@ -21,14 +21,19 @@ document.addEventListener('alpine:init', () => {
 
         // Reverse-usage index: component-id → array of {id, type, name} that
         // USE this component. Built lazily on first access; null until then.
+        // `_reverseMapForPagesCount` snapshots `store.pages.length` at build
+        // time so we can detect stale state — the components API resolves
+        // `items` and `pages` in two sequential awaits, so without this guard
+        // the map can be built from an empty pages array (every component
+        // ends up "Unused" forever).
         _reverseMap: null,
+        _reverseMapForPagesCount: -1,
 
-        _buildReverseMap() {
+        _buildReverseMap(store) {
             const map = new Map();
-            const components = Alpine.store('components');
             // Pages forward-declare their component usage in `page.usage`.
             // Inverting that into component → pages gives the reverse view.
-            for (const page of components.pages) {
+            for (const page of store.pages) {
                 const ids = String(page.usage ?? '')
                     .split(',').map((s) => s.trim()).filter(Boolean);
                 for (const id of ids) {
@@ -37,10 +42,18 @@ document.addEventListener('alpine:init', () => {
                 }
             }
             this._reverseMap = map;
+            this._reverseMapForPagesCount = store.pages.length;
         },
 
         reverseUsage(id) {
-            if (this._reverseMap === null) this._buildReverseMap();
+            // Reading `loading` + `pages.length` registers them as Alpine
+            // reactive dependencies of every chip template that calls us,
+            // so the chips re-render once the components API resolves.
+            const store = Alpine.store('components');
+            if (store.loading) return [];
+            if (this._reverseMap === null || this._reverseMapForPagesCount !== store.pages.length) {
+                this._buildReverseMap(store);
+            }
             return this._reverseMap.get(id) ?? [];
         },
 
