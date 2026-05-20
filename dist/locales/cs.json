@@ -34,9 +34,9 @@
         "title": "Komponenty a stránky",
         "subtitle": "Přehled všech komponent a stránek styleguidu.",
         "show_usage": "Zobrazit použití",
-        "directory": "Rejstřík",
-        "no_usage": "Nepoužito",
-        "pages": "Stránky"
+        "pages": "Stránky",
+        "components": "Komponenty",
+        "used_in": "Použito v"
     },
     "empty_state": "Vyberte komponentu v postranním panelu",
     "loading": "Načítám…",

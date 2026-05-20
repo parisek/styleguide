@@ -9,3 +9,34 @@
 /* No @theme block — zinc/slate/indigo palettes are already in Tailwind v4 defaults.
    No `important` qualifier — the iframe boundary handles isolation.
    No preflight disable — preflight runs for the SPA chrome itself. */
+
+/* Tailwind v4 removed the `cursor: pointer` default for buttons (preflight
+   now matches the browser, which is `cursor: default` on a button). Bring
+   the pointer back for every interactive button in the SPA chrome so users
+   get the correct affordance without sprinkling `cursor-pointer` everywhere.
+   :not([disabled]) skips disabled controls so they keep the not-allowed
+   feedback. */
+@layer base {
+    button:not([disabled]),
+    [role="button"]:not([disabled]),
+    summary {
+        cursor: pointer;
+    }
+    button[disabled],
+    [role="button"][disabled] {
+        cursor: not-allowed;
+    }
+}
+
+/* Description bar — surfaces YAML `description` metadata via x-html so
+   dev-authored anchor tags render as real crawlable links. Style the
+   anchors so they're readable against the dark zinc-900/40 strip and
+   visually distinguishable from the surrounding muted body text. */
+@layer components {
+    .sg-description-bar a {
+        @apply text-zinc-200 underline underline-offset-2 decoration-zinc-600 transition-colors;
+    }
+    .sg-description-bar a:hover {
+        @apply text-zinc-50 decoration-zinc-300;
+    }
+}

@@ -37,6 +37,14 @@ document.addEventListener('alpine:init', () => {
         // Full is active). Typing then Enter / blur writes through to the
         // store. The bidirectional sync is set up in init() below.
         customWidthInput: '',
+        // Auto-fitted iframe height for component / page previews — null
+        // before the iframe has loaded once; thereafter equals the inner
+        // body's scrollHeight, kept up-to-date by a ResizeObserver attached
+        // to the iframe's contentDocument so the iframe grows / shrinks
+        // with its content. Short components don't force an internal scroll
+        // bar; tall pages extend the outer preview area (which is
+        // overflow-auto) into a natural document flow.
+        iframeContentHeight: null,
 
         init() {
             // Track iframe wrapper width reactively. `offsetWidth` isn't an
@@ -76,8 +84,42 @@ document.addEventListener('alpine:init', () => {
         // when the new document finishes parsing. Iframes fire `load` for
         // every src change including the initial bind, so this reliably
         // matches a previous setRoute() → isPreviewLoading = true.
-        onIframeLoad() {
+        onIframeLoad(event) {
             Alpine.store('ui').isPreviewLoading = false;
+            const route = Alpine.store('ui').route;
+            if (route.type === 'component' || route.type === 'page') {
+                this._fitIframeToContent(event.target);
+            } else {
+                // Foundations / other routes use a fixed h-full layout and
+                // don't want auto-fit. Disconnect any previous observer and
+                // null out the explicit height so the CSS class wins.
+                this.iframeContentHeight = null;
+                if (this._iframeContentRO) this._iframeContentRO.disconnect();
+            }
+        },
+
+        // Same-origin iframes let the parent read contentDocument directly.
+        // Measure scrollHeight (which accounts for everything below the fold)
+        // and keep an observer so post-load DOM changes — image / font load,
+        // collapse / accordion expansion, JS-driven content swaps — feed
+        // back into the iframe element's explicit height. Sets a fresh
+        // observer on every load so navigating between components doesn't
+        // leak observers from the previous document.
+        _fitIframeToContent(iframe) {
+            const doc = iframe?.contentDocument;
+            if (!doc) return;
+            const measure = () => {
+                const h = Math.max(
+                    doc.documentElement?.scrollHeight ?? 0,
+                    doc.body?.scrollHeight ?? 0,
+                );
+                if (h > 0) this.iframeContentHeight = h;
+            };
+            measure();
+            if (this._iframeContentRO) this._iframeContentRO.disconnect();
+            this._iframeContentRO = new ResizeObserver(measure);
+            if (doc.documentElement) this._iframeContentRO.observe(doc.documentElement);
+            if (doc.body) this._iframeContentRO.observe(doc.body);
         },
 
         get isLoading() {
@@ -110,17 +152,30 @@ document.addEventListener('alpine:init', () => {
             return item?.name ?? route.slug;
         },
 
+        get currentItemDescription() {
+            const route = Alpine.store('ui').route;
+            const item = Alpine.store('components').find(route.type, route.slug);
+            return item?.description ?? '';
+        },
+
         get iframeSrc() {
             const route = Alpine.store('ui').route;
-            // Foundations / fields render inside the iframe too — same project
-            // CSS + Twig env as components / pages, just rendered against
-            // shared yaml context instead of one specific component.
-            if (route.type === 'foundations' || route.type === 'fields') {
+            // Foundations renders inside the iframe (same project CSS + Twig
+            // env as components / pages, just against the shared yaml context
+            // instead of one specific component). Fields used to do the same
+            // but is now a per-component SPA drawer — no top-level page.
+            if (route.type === 'foundations') {
                 return `/styleguide/render/${route.type}/index`;
             }
             if (!route.slug) return null;
             if (route.type !== 'component' && route.type !== 'page') return null;
             return `/styleguide/render/${route.type}/${route.slug}`;
+        },
+
+        get currentItemFields() {
+            const route = Alpine.store('ui').route;
+            const item = Alpine.store('components').find(route.type, route.slug);
+            return Array.isArray(item?.fields) ? item.fields : [];
         },
 
         get previewWidth() {
