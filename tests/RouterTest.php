@@ -36,9 +36,14 @@ final class RouterTest extends TestCase
     }
 
     #[Test]
-    public function parses_overview_and_fields(): void
+    public function parses_overview_foundations_and_fields(): void
     {
+        // /overview is the SPA-only Components & Pages index (kind=overview is
+        // never dispatched to Renderer — Styleguide::dispatchSpa handles it).
         self::assertSame(['type' => 'overview'], Router::parse('/styleguide/overview'));
+        // /foundations renders the logo/colors/typography page in the iframe
+        // (renamed from /overview in the slug swap).
+        self::assertSame(['type' => 'foundations'], Router::parse('/styleguide/foundations'));
         self::assertSame(['type' => 'fields'], Router::parse('/styleguide/fields'));
     }
 

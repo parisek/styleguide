@@ -24,7 +24,7 @@ final class Renderer
     }
 
     /**
-     * Render a component / page / overview / fields view into a full HTML
+     * Render a component / page / foundations view into a full HTML
      * document for iframe embedding.
      *
      * @param array{
@@ -34,11 +34,11 @@ final class Renderer
      *   component_name?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
-     *   plus, for overview/fields kinds, the full yaml under `styleguide`).
+     *   plus, for the foundations kind, the full yaml under `styleguide`).
      */
     public function render(string $kind, string $slug, array $config, string $langcode = 'en'): string
     {
-        if (!in_array($kind, ['component', 'page', 'overview'], true)) {
+        if (!in_array($kind, ['component', 'page', 'foundations'], true)) {
             return $this->render404($kind, $slug, $config);
         }
 
@@ -67,14 +67,14 @@ final class Renderer
 
     /**
      * Dispatch the inner body render by kind. Components / pages render the
-     * project's own template; overview / fields render package-shipped
-     * templates against the full styleguide.yaml.
+     * project's own template; foundations renders the package-shipped
+     * template against the full styleguide.yaml.
      */
     private function renderBody(string $kind, string $slug, array $config): ?string
     {
         return match ($kind) {
             'component', 'page' => $this->renderInner($kind, $slug),
-            'overview' => $this->twig->render('overview.twig', [
+            'foundations' => $this->twig->render('foundations.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
             ] + $this->context),
             default => null,
