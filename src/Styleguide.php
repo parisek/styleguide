@@ -53,6 +53,7 @@ final class Styleguide
      *   twig_context?: array<string,mixed>,
      *   twig?: Environment,
      *   typography_config?: string|null,
+     *   namespaces?: array<string,string>,
      * } $config
      *
      * If `twig` is provided, the package reuses the project's existing
@@ -65,6 +66,12 @@ final class Styleguide
      * If `twig` is omitted, the package builds a pristine environment with
      * only the project's templates wired up — sufficient for unit tests and
      * for projects whose templates don't reach for extension-provided helpers.
+     *
+     * Conventional namespaces (`@component`, `@macro`, `@page`, `@static`) are
+     * auto-registered when the matching directory exists under `templates_path`
+     * — projects no longer need to call `$loader->addPath(...)` for the usual
+     * layout. Anything outside `templates_path` (typically `@icons`, `@images`)
+     * goes into the `namespaces` config map as `<name> => <absolute path>`.
      */
     public function __construct(array $config)
     {
@@ -83,6 +90,11 @@ final class Styleguide
             // tree (each project has its own palette / fonts), and the
             // bundled TypographyExtension just points at it.
             'typography_config' => null,
+            // Extra Twig namespaces for paths that live outside `templates_path`
+            // (e.g. `images/`, `images/icons/`). Conventional subdirs of
+            // `templates_path` (component/macro/page) are auto-discovered and
+            // don't need to be listed here.
+            'namespaces' => [],
         ];
 
         // Load styleguide.yaml content config (favicon, iframe.css/js/fonts, etc.)
@@ -109,7 +121,74 @@ final class Styleguide
         $loader = new FilesystemLoader();
         $loader->addPath($templatesPath, 'project');
         $loader->addPath(__DIR__ . '/../templates');
+        $this->registerConventionalNamespaces($loader, $templatesPath);
         return new Environment($loader, ['cache' => false, 'debug' => true]);
+    }
+
+    /**
+     * Wire the conventional `@component`, `@macro`, `@page`, `@static`
+     * namespaces — plus any extras the project supplied via the `namespaces`
+     * config — onto a FilesystemLoader. Each entry is added only when the
+     * target directory exists AND the path isn't already registered under
+     * that namespace, so a project that constructs `Styleguide` twice
+     * (or pre-registered some of these on its own env before passing it in)
+     * doesn't end up with duplicate paths slowing down template resolution.
+     */
+    private function registerConventionalNamespaces(FilesystemLoader $loader, string $templatesPath): void
+    {
+        $candidates = [
+            'component' => $templatesPath . '/component',
+            'macro' => $templatesPath . '/macro',
+            'page' => $templatesPath . '/page',
+            'static' => $templatesPath,
+        ];
+
+        $extras = is_array($this->config['namespaces'] ?? null) ? $this->config['namespaces'] : [];
+        foreach ($extras as $name => $path) {
+            if (!is_string($name) || $name === '' || !is_string($path) || $path === '') {
+                continue;
+            }
+            $candidates[$name] = $path;
+        }
+
+        foreach ($candidates as $namespace => $path) {
+            if (!is_dir($path)) {
+                continue;
+            }
+            if ($this->loaderHasPath($loader, $namespace, $path)) {
+                continue;
+            }
+            $loader->addPath($path, $namespace);
+        }
+    }
+
+    /**
+     * True when `$path` is already registered under `$namespace` on the
+     * loader. Path comparison goes through `realpath()` because
+     * `FilesystemLoader::addPath()` normalises stored paths (trailing slash,
+     * symlinks), so a naive string match would miss equal-but-differently-
+     * spelled paths and the caller would add a duplicate.
+     */
+    private function loaderHasPath(FilesystemLoader $loader, string $namespace, string $path): bool
+    {
+        $real = realpath($path);
+        if ($real === false) {
+            return false;
+        }
+        // FilesystemLoader::getPaths() returns [] for unknown namespaces in
+        // current Twig versions, but historically threw — guard either way
+        // so callers (registerConventionalNamespaces) don't need to know.
+        try {
+            $paths = $loader->getPaths($namespace);
+        } catch (\Twig\Error\LoaderError) {
+            return false;
+        }
+        foreach ($paths as $existing) {
+            if (realpath($existing) === $real) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -539,12 +618,14 @@ final class Styleguide
             if (!in_array($packagePath, $existing->getPaths(), true)) {
                 $existing->addPath($packagePath);
             }
+            $this->registerConventionalNamespaces($existing, $templatesPath);
             return $twig;
         }
 
         $packageLoader = new FilesystemLoader();
         $packageLoader->addPath($templatesPath, 'project');
         $packageLoader->addPath($packagePath);
+        $this->registerConventionalNamespaces($packageLoader, $templatesPath);
         $twig->setLoader(new ChainLoader([$existing, $packageLoader]));
         return $twig;
     }
