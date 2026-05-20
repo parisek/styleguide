@@ -29,6 +29,45 @@ const VIEWPORTS = [
 const CUSTOM_MIN = 100;
 const CUSTOM_MAX = 4000;
 
+// Unknown types fall back to a neutral zinc pill so the drawer never
+// breaks on a new type a project introduces — the YAML schema is open-
+// ended and we don't want to gate rendering on a fixed vocabulary.
+const TYPE_PILL_CLASSES = {
+    array:    'bg-purple-500/20 text-purple-300',
+    object:   'bg-pink-500/20 text-pink-300',
+    text:     'bg-blue-500/20 text-blue-300',
+    textarea: 'bg-indigo-500/20 text-indigo-300',
+    image:    'bg-emerald-500/20 text-emerald-300',
+    link:     'bg-orange-500/20 text-orange-300',
+};
+const TYPE_PILL_FALLBACK = 'bg-zinc-800 text-zinc-300';
+
+// Depth-first walk over the YAML `fields:` map. Returns a flat list so
+// the Alpine template can iterate linearly — Alpine 3 doesn't support
+// self-referential templates inline, so the recursion lives here in JS.
+// Each row's `depth` drives the template's indentation and `└` glyph.
+function flattenFieldsTree(map, depth = 0) {
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return [];
+    const rows = [];
+    for (const [key, field] of Object.entries(map)) {
+        if (!field || typeof field !== 'object') continue;
+        rows.push({
+            key,
+            depth,
+            type: typeof field.type === 'string' ? field.type : '',
+            title: typeof field.title === 'string' ? field.title : '',
+            description: typeof field.description === 'string' ? field.description : '',
+            // YAML `required: 1` / `required: 0` parse to numbers; boolean
+            // coercion keeps the template's `x-if` clean.
+            required: !!field.required,
+        });
+        if (field.fields && typeof field.fields === 'object') {
+            rows.push(...flattenFieldsTree(field.fields, depth + 1));
+        }
+    }
+    return rows;
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('preview', () => ({
         viewports: VIEWPORTS,
@@ -172,10 +211,21 @@ document.addEventListener('alpine:init', () => {
             return `/styleguide/render/${route.type}/${route.slug}`;
         },
 
-        get currentItemFields() {
+        get currentItemFieldsTree() {
             const route = Alpine.store('ui').route;
             const item = Alpine.store('components').find(route.type, route.slug);
-            return Array.isArray(item?.fields) ? item.fields : [];
+            return flattenFieldsTree(item?.fields);
+        },
+
+        get currentItemFieldsCount() {
+            return this.currentItemFieldsTree.length;
+        },
+
+        // Lower-cased lookup so YAML can spell `Array` or `TEXT` and still
+        // hit the table; unknown types render neutral.
+        fieldsTypePill(type) {
+            const key = String(type ?? '').toLowerCase();
+            return TYPE_PILL_CLASSES[key] ?? TYPE_PILL_FALLBACK;
         },
 
         get previewWidth() {
