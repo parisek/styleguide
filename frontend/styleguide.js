@@ -37,6 +37,8 @@ Alpine.effect(() => {
         label = i18n.t('nav.overview');
     } else if (route.type === 'foundations') {
         label = i18n.t('nav.foundations');
+    } else if (route.type === 'fields') {
+        label = i18n.t('nav.fields');
     } else if (route.slug) {
         const item = Alpine.store('components').find(route.type, route.slug);
         label = item?.name ?? route.slug;

@@ -110,6 +110,12 @@ document.addEventListener('alpine:init', () => {
             return item?.name ?? route.slug;
         },
 
+        get currentItemDescription() {
+            const route = Alpine.store('ui').route;
+            const item = Alpine.store('components').find(route.type, route.slug);
+            return item?.description ?? '';
+        },
+
         get iframeSrc() {
             const route = Alpine.store('ui').route;
             // Foundations / fields render inside the iframe too — same project

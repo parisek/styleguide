@@ -788,6 +788,25 @@ final class Styleguide
             }
         } elseif ($route['kind'] === 'foundations') {
             $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
+        } elseif ($route['kind'] === 'fields') {
+            // Aggregate fields metadata across all components for the
+            // fields-inspector page — same shape as the /api/fields JSON
+            // endpoint, but injected into the Twig context for in-iframe
+            // server-side rendering.
+            $components = $this->parser->parseAll('component');
+            $fields_data = [];
+            foreach ($components as $c) {
+                if (empty($c['fields'])) {
+                    continue;
+                }
+                $fields_data[] = [
+                    'component_id' => $c['id'],
+                    'component_name' => $c['name'],
+                    'fields' => $c['fields'],
+                ];
+            }
+            $config['fields_data'] = $fields_data;
+            $config['component_name'] = 'Fields';
         }
 
         header('Content-Type: text/html; charset=utf-8');

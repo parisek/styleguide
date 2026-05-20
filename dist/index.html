@@ -6,8 +6,8 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.BTQcq3xw.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.4rWcQ8yA.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.BdWxJYJP.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.jdexQC7p.css">
 </head>
 <body
     class="bg-zinc-950 text-zinc-100 font-sans antialiased"
@@ -38,7 +38,7 @@
 
             <!-- Sections + items (scroll) -->
             <nav class="flex-1 overflow-y-auto p-3 space-y-2">
-                <!-- Pinned sectionless routes (overview + foundations) -->
+                <!-- Pinned sectionless routes (overview + foundations + fields) -->
                 <a href="#" @click.prevent="select('overview', null)"
                    class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
                    :class="isActive('overview', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
@@ -46,10 +46,16 @@
                     <span x-text="$store.i18n.t('nav.overview')"></span>
                 </a>
                 <a href="#" @click.prevent="select('foundations', null)"
-                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded mb-2"
+                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
                    :class="isActive('foundations', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
                     <span class="w-1.5 h-1.5 rounded-full" :class="isActive('foundations', null) ? 'bg-white' : 'bg-zinc-600'"></span>
                     <span x-text="$store.i18n.t('nav.foundations')"></span>
+                </a>
+                <a href="#" @click.prevent="select('fields', null)"
+                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded mb-2"
+                   :class="isActive('fields', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('fields', null) ? 'bg-white' : 'bg-zinc-600'"></span>
+                    <span x-text="$store.i18n.t('nav.fields')"></span>
                 </a>
 
                 <template x-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
@@ -126,6 +132,9 @@
                     <template x-if="$store.ui.route.type === 'foundations'">
                         <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.foundations')"></span>
                     </template>
+                    <template x-if="$store.ui.route.type === 'fields'">
+                        <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.fields')"></span>
+                    </template>
                     <template x-if="$store.ui.route.slug">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded shrink-0"
@@ -146,7 +155,7 @@
                             </nav>
                         </div>
                     </template>
-                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview' && $store.ui.route.type !== 'fields'">
                         <span class="text-zinc-500 text-sm" x-text="$store.i18n.t('toolbar.select_prompt')"></span>
                     </template>
                 </div>
@@ -156,7 +165,7 @@
                      route where responsive testing doesn't make sense (foundations shows
                      palette / typography / project surface; locking it to 100% width
                      keeps the layout stable across reloads). -->
-                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview' && $store.ui.route.type !== 'fields'">
                     <div class="flex items-center gap-3 shrink-0">
                         <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline" x-text="`${currentWidth} px`"></span>
                         <div class="flex gap-px rounded overflow-hidden bg-zinc-800">
@@ -198,9 +207,9 @@
                         </a>
                     </div>
                 </template>
-                <!-- Foundations route still gets the open-in-new-tab affordance, just
-                     without the viewport controls. -->
-                <template x-if="iframeSrc && $store.ui.route.type === 'foundations'">
+                <!-- Foundations / fields routes still get the open-in-new-tab
+                     affordance, just without the viewport controls. -->
+                <template x-if="iframeSrc && ($store.ui.route.type === 'foundations' || $store.ui.route.type === 'fields')">
                     <a :href="iframeSrc" target="_blank" rel="noopener"
                        :title="$store.i18n.t('toolbar.open_in_new_tab')"
                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition-colors shrink-0">
@@ -210,6 +219,16 @@
                     </a>
                 </template>
             </div>
+
+            <!-- Description bar — surfaces the component / page `description`
+                 from its YAML metadata in a subtle line between the toolbar
+                 and the usage panel. Hidden when description is empty or the
+                 route doesn't carry a slug (meta routes don't have one). -->
+            <template x-if="currentItemDescription && $store.ui.route.slug">
+                <div class="px-4 py-2 bg-zinc-900/40 border-b border-zinc-800 text-xs text-zinc-400 leading-relaxed">
+                    <span x-text="currentItemDescription"></span>
+                </div>
+            </template>
 
             <!-- Usage cross-reference panel — what this component is used in, or which components a page uses -->
             <div x-data="usagePanel" x-show="visible && items.length" class="px-4 py-2 bg-zinc-900/60 border-b border-zinc-800 flex items-center gap-2 flex-wrap text-xs">
@@ -255,12 +274,12 @@
                 </template>
             </div>
 
-            <!-- Foundations: full-bleed iframe, no frame / shadow / dark
-                 padding. Matches the Overview view's flat in-shell look so
-                 the styleguide-meta pages (overview + foundations) share a
-                 visual treatment distinct from the responsive-test surface
-                 used for component / page previews. -->
-            <template x-if="$store.ui.route.type === 'foundations'">
+            <!-- Foundations / fields: full-bleed iframe, no frame / shadow /
+                 dark padding. Matches the Overview view's flat in-shell look
+                 so the styleguide-meta pages (overview + foundations + fields)
+                 share a visual treatment distinct from the responsive-test
+                 surface used for component / page previews. -->
+            <template x-if="$store.ui.route.type === 'foundations' || $store.ui.route.type === 'fields'">
                 <div class="flex-1 relative bg-white overflow-hidden">
                     <iframe :src="iframeSrc" @load="onIframeLoad"
                             class="w-full h-full border-0"></iframe>
@@ -304,14 +323,14 @@
                              rendered on both edges for centered-grow symmetry. Hidden on the
                              foundations route — that view has no responsivity worth testing, and
                              the locked-100% iframe shouldn't be draggable. -->
-                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview' && $store.ui.route.type !== 'fields'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
                                      :class="isDragging && 'bg-zinc-200'"></div>
                             </div>
                         </template>
-                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview' && $store.ui.route.type !== 'fields'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
