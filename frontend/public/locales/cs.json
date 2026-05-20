@@ -43,5 +43,9 @@
     "usage": {
         "used_in": "Použito v",
         "components_in_page": "Komponenty na stránce"
+    },
+    "fields": {
+        "required": "Povinné pole",
+        "requiredLegend": "= Povinné pole"
     }
 }

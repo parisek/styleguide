@@ -42,6 +42,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- The Fields drawer is redrawn as a four-column tree
+  (Field / Type / Title / Description) with depth-indented child rows
+  (`└` glyph at depth > 0), a colour-coded Type pill per field-type
+  family (`array`/`object` purple-pink, `text` blue, `textarea` indigo,
+  `image` emerald, `link` orange, anything else neutral zinc), and a
+  red-dot Required indicator with a localised footer legend. Default
+  state stays collapsed; the trigger badge shows the recursive node
+  count. Design rationale in
+  `docs/superpowers/specs/2026-05-20-fields-drawer-design.md`.
 - `Styleguide::buildOwnTwig()` (the pristine env built when the consumer
   omits the `twig` config key) now defaults `autoescape: false` alongside
   the existing `cache: false` + `debug: true`. Previously the env fell
@@ -87,6 +96,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   exists only to clear the runtime-deprecation warning. Other actions
   (`actions/cache@v4`, `shivammathur/setup-php@v2`) are still on their
   current latest majors and were left alone.
+
+### Fixed
+
+- Per-component **Fields drawer** now actually renders for real-world
+  components. The previous incarnation gated on `Array.isArray(fields)`
+  but `ComponentParser` passes the YAML `fields:` map straight through
+  as a PHP associative array (JSON object on the wire), so the drawer
+  silently hid itself on every component with field metadata. The
+  drawer now walks the nested map via DFS in JS (Alpine 3 templates
+  can't self-recurse) and renders a flat, depth-tagged list — arbitrary
+  nesting depth supported.
 
 ## [0.1.3] - 2026-05-20
 

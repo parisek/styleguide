@@ -29,6 +29,53 @@ const VIEWPORTS = [
 const CUSTOM_MIN = 100;
 const CUSTOM_MAX = 4000;
 
+// Unknown types fall back to a neutral zinc pill so the drawer never
+// breaks on a new type a project introduces — the YAML schema is open-
+// ended and we don't want to gate rendering on a fixed vocabulary.
+const TYPE_PILL_CLASSES = {
+    array:    'bg-purple-500/20 text-purple-300',
+    object:   'bg-pink-500/20 text-pink-300',
+    text:     'bg-blue-500/20 text-blue-300',
+    textarea: 'bg-indigo-500/20 text-indigo-300',
+    image:    'bg-emerald-500/20 text-emerald-300',
+    link:     'bg-orange-500/20 text-orange-300',
+};
+const TYPE_PILL_FALLBACK = 'bg-zinc-800 text-zinc-300';
+
+// Depth-first walk over the YAML `fields:` map. Returns a flat list so
+// the Alpine template can iterate linearly — Alpine 3 doesn't support
+// self-referential templates inline, so the recursion lives here in JS.
+// Each row's `depth` drives the template's indentation and `└` glyph.
+function flattenFieldsTree(map, depth = 0, parentPath = '') {
+    if (!map || typeof map !== 'object' || Array.isArray(map)) return [];
+    const rows = [];
+    for (const [key, field] of Object.entries(map)) {
+        if (!field || typeof field !== 'object') continue;
+        const path = parentPath ? `${parentPath}.${key}` : key;
+        rows.push({
+            // Full dotted path (e.g. `items.title`) — unique within a tree
+            // even when leaf keys repeat across sibling branches, so it's
+            // the stable :key in the Alpine x-for. Without it, Alpine
+            // would reuse DOM nodes between siblings carrying the same
+            // leaf key and briefly flash mismatched row state on
+            // navigation between components.
+            path,
+            key,
+            depth,
+            type: typeof field.type === 'string' ? field.type : '',
+            title: typeof field.title === 'string' ? field.title : '',
+            description: typeof field.description === 'string' ? field.description : '',
+            // YAML `required: 1` / `required: 0` parse to numbers; boolean
+            // coercion keeps the template's `x-if` clean.
+            required: !!field.required,
+        });
+        if (field.fields && typeof field.fields === 'object') {
+            rows.push(...flattenFieldsTree(field.fields, depth + 1, path));
+        }
+    }
+    return rows;
+}
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('preview', () => ({
         viewports: VIEWPORTS,
@@ -45,6 +92,11 @@ document.addEventListener('alpine:init', () => {
         // bar; tall pages extend the outer preview area (which is
         // overflow-auto) into a natural document flow.
         iframeContentHeight: null,
+        // Cached output of flattenFieldsTree() for the current route. Filled
+        // by an Alpine.effect in init() that re-runs only when route/components
+        // change, so the DFS happens once per navigation rather than on every
+        // template re-render that touches the tree or its count.
+        _fieldsTree: [],
 
         init() {
             // Track iframe wrapper width reactively. `offsetWidth` isn't an
@@ -67,6 +119,16 @@ document.addEventListener('alpine:init', () => {
             // it's not the source of truth.
             this._syncCustomFromStore();
             Alpine.effect(() => this._syncCustomFromStore());
+
+            // Recompute the flattened fields tree once per route change.
+            // Reactive deps are the route + components store; the DFS now
+            // runs at most once per visible component instead of on every
+            // template access of currentItemFieldsTree / Count.
+            Alpine.effect(() => {
+                const route = Alpine.store('ui').route;
+                const item = Alpine.store('components').find(route.type, route.slug);
+                this._fieldsTree = flattenFieldsTree(item?.fields);
+            });
         },
 
         _syncCustomFromStore() {
@@ -172,10 +234,19 @@ document.addEventListener('alpine:init', () => {
             return `/styleguide/render/${route.type}/${route.slug}`;
         },
 
-        get currentItemFields() {
-            const route = Alpine.store('ui').route;
-            const item = Alpine.store('components').find(route.type, route.slug);
-            return Array.isArray(item?.fields) ? item.fields : [];
+        get currentItemFieldsTree() {
+            return this._fieldsTree;
+        },
+
+        get currentItemFieldsCount() {
+            return this._fieldsTree.length;
+        },
+
+        // Lower-cased lookup so YAML can spell `Array` or `TEXT` and still
+        // hit the table; unknown types render neutral.
+        fieldsTypePill(type) {
+            const key = String(type ?? '').toLowerCase();
+            return TYPE_PILL_CLASSES[key] ?? TYPE_PILL_FALLBACK;
         },
 
         get previewWidth() {
