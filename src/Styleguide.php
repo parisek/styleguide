@@ -52,6 +52,7 @@ final class Styleguide
      *   base_url?: string,
      *   twig_context?: array<string,mixed>,
      *   twig?: Environment,
+     *   twig_options?: array<string,mixed>,
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
      * } $config
@@ -75,6 +76,13 @@ final class Styleguide
      * package opts out at the env-construction layer rather than asking
      * every consumer to override it.
      *
+     * Consumers that need different defaults (e.g. `cache: '/tmp/twig'` in
+     * production, `autoescape: 'html'` for a project that opts back into
+     * Twig's escaping) can pass `twig_options` — a map merged on top of the
+     * three defaults. Only meaningful when `twig` is omitted; ignored when
+     * a fully-built Environment is provided, since the package never
+     * mutates options on a consumer-owned env.
+     *
      * Conventional namespaces are auto-registered when the matching directory
      * exists. Under `templates_path`: `@component` (`/component`), `@macro`
      * (`/macro`), `@page` (`/page`), `@static` (root). Under `static_path`:
@@ -96,6 +104,11 @@ final class Styleguide
             'base_url' => '/styleguide',
             'twig_context' => [],
             'twig' => null,
+            // Override map for the pristine Environment options. Empty by
+            // default so the three package defaults (cache/debug/autoescape)
+            // stay in force; consumers pass e.g. `['cache' => '/tmp/twig']`
+            // to override one or more without restating the rest.
+            'twig_options' => [],
             // Path-only config — `typography.yml` lives in the project's
             // tree (each project has its own palette / fonts), and the
             // bundled TypographyExtension just points at it.
@@ -132,11 +145,18 @@ final class Styleguide
         $loader->addPath($templatesPath, 'project');
         $loader->addPath(__DIR__ . '/../templates');
         $this->registerConventionalNamespaces($loader, $templatesPath);
-        return new Environment($loader, [
+
+        // Package defaults overridden by anything the consumer passed via
+        // `twig_options`. Right-hand side wins in array_merge, so a consumer
+        // that only sets `cache` keeps the other two defaults.
+        $overrides = is_array($this->config['twig_options'] ?? null) ? $this->config['twig_options'] : [];
+        $options = array_merge([
             'cache' => false,
             'debug' => true,
             'autoescape' => false,
-        ]);
+        ], $overrides);
+
+        return new Environment($loader, $options);
     }
 
     /**
