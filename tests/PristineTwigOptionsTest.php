@@ -11,17 +11,11 @@ use Twig\Environment;
 use Twig\Extension\EscaperExtension;
 
 /**
- * Covers the three pristine-env options (`cache`, `debug`, `autoescape`):
- * the package's own defaults when `twig_options` is omitted, plus the
- * override semantics when the consumer supplies a subset of options.
- *
- * Behavior is asserted observably via the env's public API —
- * `EscaperExtension::getDefaultStrategy()` for autoescape, `isDebug()` /
- * `getCache()` for the other two — rather than reflecting into Environment
- * internals, so the test survives Twig version bumps that re-shape the
- * option storage. `createTemplate()` is unsuitable for autoescape because
- * Twig's html strategy is bound to filename extensions and inline string
- * templates have none.
+ * Pristine-env defaults + override semantics for `cache` / `debug` /
+ * `autoescape`. Assertions go through the env's public API
+ * (`EscaperExtension::getDefaultStrategy()`, `isDebug()`, `getCache()`)
+ * rather than reflecting into internals, so the suite survives Twig
+ * version bumps that re-shape option storage.
  */
 final class PristineTwigOptionsTest extends TestCase
 {
@@ -93,10 +87,9 @@ final class PristineTwigOptionsTest extends TestCase
             'twig_options' => $overrides,
         ]);
 
-        // Styleguide doesn't expose the pristine env publicly — production
-        // consumers don't need it. Tests reach in via reflection so they can
-        // observe the constructed Environment without forcing a public getter
-        // that would widen the package's surface for no other caller.
+        // No public getter for the pristine env — production consumers don't
+        // need it, so the test reaches in via reflection rather than widening
+        // the package surface for a single caller.
         $ref = new \ReflectionProperty(Styleguide::class, 'twig');
         $twig = $ref->getValue($styleguide);
         self::assertInstanceOf(Environment::class, $twig);
@@ -104,12 +97,9 @@ final class PristineTwigOptionsTest extends TestCase
     }
 
     /**
-     * Resolve the env's autoescape default strategy through the public
-     * EscaperExtension API. Called with a filename that carries the `.html`
-     * suffix so the `name`-based strategy (filename-driven) would also
-     * resolve to `html` if anyone ever switched the package to that — keeps
-     * the assertion semantics stable across both fixed-string and
-     * filename-driven strategies.
+     * Filename ends in `.html.twig` so the `name`-based strategy would also
+     * resolve to `html` — assertion semantics survive a future switch away
+     * from the fixed-string strategy.
      */
     private function autoescapeStrategy(Environment $twig): string|false|callable
     {

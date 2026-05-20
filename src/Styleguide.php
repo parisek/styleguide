@@ -104,10 +104,9 @@ final class Styleguide
             'base_url' => '/styleguide',
             'twig_context' => [],
             'twig' => null,
-            // Override map for the pristine Environment options. Empty by
-            // default so the three package defaults (cache/debug/autoescape)
-            // stay in force; consumers pass e.g. `['cache' => '/tmp/twig']`
-            // to override one or more without restating the rest.
+            // Right-hand merged onto the package defaults inside
+            // buildOwnTwig(), so a partial override (`['cache' => '...']`)
+            // doesn't reset the other two flags.
             'twig_options' => [],
             // Path-only config — `typography.yml` lives in the project's
             // tree (each project has its own palette / fonts), and the
@@ -146,9 +145,8 @@ final class Styleguide
         $loader->addPath(__DIR__ . '/../templates');
         $this->registerConventionalNamespaces($loader, $templatesPath);
 
-        // Package defaults overridden by anything the consumer passed via
-        // `twig_options`. Right-hand side wins in array_merge, so a consumer
-        // that only sets `cache` keeps the other two defaults.
+        // Right-hand merge so a consumer who only sets one key (e.g. cache)
+        // keeps the other two package defaults.
         $overrides = is_array($this->config['twig_options'] ?? null) ? $this->config['twig_options'] : [];
         $options = array_merge([
             'cache' => false,

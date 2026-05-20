@@ -56,11 +56,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   this one flag. Behavior is unchanged for consumers that pass an
   explicit `twig` Environment — the package never touches options on a
   provided env, it just attaches loaders. Consumers that need different
-  pristine-env defaults (e.g. `cache: '/tmp/twig'` in production, or
-  `autoescape: 'html'` for a project that opts back into Twig's escaping)
-  can pass a `twig_options` config map — values are merged on top of the
-  three defaults, so a partial override (`['cache' => '…']`) keeps `debug`
-  and `autoescape` at the package's defaults.
+  pristine-env defaults can pass a `twig_options` config map — values are
+  merged on top of the three defaults, so a partial override
+  (`['cache' => '…']`) keeps `debug` and `autoescape` at the package's
+  defaults. Projects that expose their styleguide outside trusted local /
+  dev contexts and want Twig's XSS protection back on can opt in with
+  `'twig_options' => ['autoescape' => 'html']`.
 - **BREAKING (URL):** The `/styleguide/overview` URL now serves the new
   Components & Pages index above. The previous logo + colors +
   typography page has moved to **/styleguide/foundations** and its
