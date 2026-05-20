@@ -73,6 +73,59 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `DumpExtension` + `'debug' => true`; calling `dump()` unconditionally
   in a packaged helper would leak HTML var-dump output in production.
   Errors go to the server log instead.
+- `AGENTS.md` + `CLAUDE.md` at the repo root — full doctrine for
+  contributors and AI coding assistants. AGENTS.md is the shared
+  AgentMD contract (overview, dev commands, local-development-against-
+  a-consuming-project switch mechanism, repo layout, feature-addition
+  flow per layer, testing, release workflow, conventions). CLAUDE.md
+  is a thin pointer that imports AGENTS.md plus Claude-only runtime
+  notes — same pattern `tailwind-base` uses.
+- Component-kind iframe previews now render inside a `padding: 1.5rem`
+  wrapper so short components (button, breadcrumb, alert badges, …)
+  don't sit flush against the iframe's top edge underneath the
+  styleguide chrome. Inline style (not a utility class) so the inset
+  works regardless of which CSS framework the consuming project
+  ships. Pages render their own full layout and are left untouched.
+- Toolbar above the iframe now prints a full breadcrumb —
+  `[KOMPONENTA] Section / Component name (slug)` — instead of the raw
+  slug alone. Section label feeds through `i18n.t('sections.<key>')`
+  so cs/en both work; the section segment hides while the components
+  API is still loading to avoid an `(undefined)` flash.
+- Sidebar header now substitutes `{project.name}` from `styleguide.yaml`
+  into the `<div id="sg-project-name">` placeholder at request time,
+  same regex-substitution pattern that already handled
+  `<title>` / `<body data-project-name>` / favicon nodes.
+- Sidebar search input now actually filters the component list.
+  Previously `<input>` bound to a local `query` field on the `search`
+  Alpine component which the sidebar's sibling `x-for` couldn't read;
+  state now lives on `Alpine.store('ui').searchQuery`. The matcher
+  does NFKD-folded case-insensitive substring match against `name`
+  and `id`, so `drobeckova` finds `Drobečková navigace`. Sections
+  whose filter result is empty hide from the sidebar; an active
+  search force-opens otherwise-collapsed sections.
+- External-link icon row above the iframe — clickable chips for
+  `asana` / `figma` / `drupal` / `web` fields declared in a
+  component's YAML metadata. New `linkBar` Alpine component reads
+  the parsed metadata already exposed by
+  `ComponentParser::normaliseMetadata` and hides itself when nothing
+  is declared. Ports the four-icon badge row from the pre-migration
+  in-tree styleguide.
+- `document.title` follows the current route via `Alpine.effect` —
+  `{component name} — {project}` for component / page,
+  `{Overview label} — {project}` for overview, plain
+  `Styleguide — {project}` otherwise. Re-runs when the route flips,
+  the components API resolves, or the locale switches; project name
+  is read once from `document.body.dataset.projectName`.
+- Sidebar hides skeleton-only templates that have neither a
+  `styleguide.twig` sibling nor a `styleguide:` block in their YAML
+  metadata. `ComponentParser` already marked these with
+  `hasStyleguide: false`; the sidebar's `bySection()` just wasn't
+  honouring it. Components keep showing when they have either a
+  `styleguide.twig` file or the `styleguide:` YAML block.
+- Sidebar open / closed state persists across page reloads via
+  `Alpine.$persist` (the plugin was already in the bundle for the
+  per-section collapse state). LocalStorage key `sg-sidebar-open`
+  follows the existing `sg-*` namespace convention.
 
 ## [0.1.2] - 2026-05-18
 
