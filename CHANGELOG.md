@@ -9,19 +9,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `Styleguide` now auto-registers the conventional Twig namespaces
-  `@component`, `@macro`, `@page` and `@static` whenever the matching
-  directory exists under `templates_path`. Consumers no longer need to
-  enumerate
-  `$loader->addPath(__DIR__ . '/templates/component', 'component')`
-  (and siblings) in their `static/index.php` — the package walks the
-  templates root once at construction and wires the standard layout
-  itself. Paths that live outside `templates_path` (typically `images/`
-  and `images/icons/`) go into the new `namespaces` config key as
-  `<name> => <absolute path>`; missing directories are silently skipped
-  so a stray entry doesn't take the whole styleguide down. Re-running
-  the constructor on the same env is a no-op via `realpath()`-based
-  deduplication, which matters for projects that share one Twig
-  environment across requests.
+  whenever the matching directory exists: `@component`, `@macro`,
+  `@page` and `@static` under `templates_path`; `@icons` and `@images`
+  under `static_path` (i.e. `images/icons/` and `images/` as siblings
+  of `templates/`). Consumers no longer need to enumerate any
+  `$loader->addPath(__DIR__ . '/templates/component', 'component')` or
+  `$loader->addPath(__DIR__ . '/images', 'images')` lines in their
+  `static/index.php` — the package walks both roots once at
+  construction and wires the standard layout itself. Projects with a
+  non-standard image root (or any extra namespace) can still use the
+  new `namespaces` config key as `<name> => <absolute path>`; missing
+  directories are silently skipped so a stray entry doesn't take the
+  whole styleguide down. Re-running the constructor on the same env is
+  a no-op via `realpath()`-based deduplication, which matters for
+  projects that share one Twig environment across requests.
 
 ### Changed
 

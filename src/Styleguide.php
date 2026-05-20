@@ -67,11 +67,13 @@ final class Styleguide
      * only the project's templates wired up — sufficient for unit tests and
      * for projects whose templates don't reach for extension-provided helpers.
      *
-     * Conventional namespaces (`@component`, `@macro`, `@page`, `@static`) are
-     * auto-registered when the matching directory exists under `templates_path`
-     * — projects no longer need to call `$loader->addPath(...)` for the usual
-     * layout. Anything outside `templates_path` (typically `@icons`, `@images`)
-     * goes into the `namespaces` config map as `<name> => <absolute path>`.
+     * Conventional namespaces are auto-registered when the matching directory
+     * exists. Under `templates_path`: `@component` (`/component`), `@macro`
+     * (`/macro`), `@page` (`/page`), `@static` (root). Under `static_path`:
+     * `@icons` (`/images/icons`), `@images` (`/images`). Projects no longer
+     * need to call `$loader->addPath(...)` for any of these. Anything else
+     * (or non-standard image roots) goes into the `namespaces` config map as
+     * `<name> => <absolute path>`.
      */
     public function __construct(array $config)
     {
@@ -126,22 +128,47 @@ final class Styleguide
     }
 
     /**
-     * Wire the conventional `@component`, `@macro`, `@page`, `@static`
-     * namespaces — plus any extras the project supplied via the `namespaces`
-     * config — onto a FilesystemLoader. Each entry is added only when the
-     * target directory exists AND the path isn't already registered under
-     * that namespace, so a project that constructs `Styleguide` twice
-     * (or pre-registered some of these on its own env before passing it in)
-     * doesn't end up with duplicate paths slowing down template resolution.
+     * Wire the conventional namespaces onto a FilesystemLoader:
+     *
+     * Under `templates_path`:
+     *   - `templates_path/component` → `@component`
+     *   - `templates_path/macro`     → `@macro`
+     *   - `templates_path/page`      → `@page`
+     *   - `templates_path`           → `@static`
+     *
+     * Under `static_path` (project root, sibling of `templates/`):
+     *   - `static_path/images/icons` → `@icons`
+     *   - `static_path/images`       → `@images`
+     *
+     * Then any extras the project supplied via the `namespaces` config map
+     * (path-by-namespace, last write wins so a project can also override one
+     * of the conventional locations if its layout is exotic).
+     *
+     * Each entry is added only when the target directory exists AND the path
+     * isn't already registered under that namespace, so a project that
+     * constructs `Styleguide` twice (or pre-registered some of these on its
+     * own env before passing it in) doesn't end up with duplicate paths
+     * slowing down template resolution.
      */
     private function registerConventionalNamespaces(FilesystemLoader $loader, string $templatesPath): void
     {
+        $staticPath = (string) ($this->config['static_path'] ?? '');
+
         $candidates = [
             'component' => $templatesPath . '/component',
             'macro' => $templatesPath . '/macro',
             'page' => $templatesPath . '/page',
             'static' => $templatesPath,
         ];
+        // `images/` and `images/icons/` live next to `templates/` on every
+        // consuming project we've shipped, so detect them off `static_path`
+        // and register `@icons` / `@images` without forcing each project to
+        // re-declare them in the `namespaces` config. Projects with a non-
+        // standard image root can still override via that map (handled below).
+        if ($staticPath !== '') {
+            $candidates['icons'] = $staticPath . '/images/icons';
+            $candidates['images'] = $staticPath . '/images';
+        }
 
         $extras = is_array($this->config['namespaces'] ?? null) ? $this->config['namespaces'] : [];
         foreach ($extras as $name => $path) {

@@ -25,6 +25,30 @@ final class NamespacesTest extends TestCase
     }
 
     #[Test]
+    public function auto_discovers_images_and_icons_under_static_path(): void
+    {
+        $twig = new Environment(new FilesystemLoader(), ['cache' => false]);
+
+        new Styleguide([
+            'templates_path' => $this->templatesPath,
+            // Fixture lays out images/ and images/icons/ as siblings of
+            // templates/, mirroring the convention every consuming project
+            // ships with. Auto-discovery walks `static_path` for these.
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => $this->missingYaml,
+            'twig' => $twig,
+        ]);
+
+        /** @var FilesystemLoader $loader */
+        $loader = $twig->getLoader();
+        $namespaces = $loader->getNamespaces();
+        self::assertContains('icons', $namespaces);
+        self::assertContains('images', $namespaces);
+        self::assertSame([__DIR__ . '/fixtures/images/icons'], $loader->getPaths('icons'));
+        self::assertSame([__DIR__ . '/fixtures/images'], $loader->getPaths('images'));
+    }
+
+    #[Test]
     public function auto_discovers_conventional_subdirs_under_templates_path(): void
     {
         $twig = new Environment(new FilesystemLoader(), ['cache' => false]);
