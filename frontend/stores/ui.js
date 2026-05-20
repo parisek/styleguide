@@ -61,9 +61,9 @@ document.addEventListener('alpine:init', () => {
 
         setRoute(type, slug = null) {
             // Only flip the loading flag for routes that actually render an
-            // iframe — landing / overview don't, and triggering it would
-            // leave a phantom overlay with no `load` event to clear it.
-            if (['component', 'page', 'foundations', 'fields'].includes(type)) {
+            // iframe — landing / overview / fields don't, and triggering it
+            // would leave a phantom overlay with no `load` event to clear it.
+            if (['component', 'page', 'foundations'].includes(type)) {
                 this.isPreviewLoading = true;
             }
             this.route = { type, slug };

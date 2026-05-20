@@ -118,15 +118,22 @@ document.addEventListener('alpine:init', () => {
 
         get iframeSrc() {
             const route = Alpine.store('ui').route;
-            // Foundations / fields render inside the iframe too — same project
-            // CSS + Twig env as components / pages, just rendered against
-            // shared yaml context instead of one specific component.
-            if (route.type === 'foundations' || route.type === 'fields') {
+            // Foundations renders inside the iframe (same project CSS + Twig
+            // env as components / pages, just against the shared yaml context
+            // instead of one specific component). Fields used to do the same
+            // but is now a per-component SPA drawer — no top-level page.
+            if (route.type === 'foundations') {
                 return `/styleguide/render/${route.type}/index`;
             }
             if (!route.slug) return null;
             if (route.type !== 'component' && route.type !== 'page') return null;
             return `/styleguide/render/${route.type}/${route.slug}`;
+        },
+
+        get currentItemFields() {
+            const route = Alpine.store('ui').route;
+            const item = Alpine.store('components').find(route.type, route.slug);
+            return Array.isArray(item?.fields) ? item.fields : [];
         },
 
         get previewWidth() {

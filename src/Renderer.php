@@ -24,23 +24,21 @@ final class Renderer
     }
 
     /**
-     * Render a component / page / foundations / fields view into a full HTML
+     * Render a component / page / foundations view into a full HTML
      * document for iframe embedding.
      *
      * @param array{
      *   project?:array<string,mixed>,
      *   iframe?:array<string,mixed>,
      *   styleguide?:array<string,mixed>,
-     *   fields_data?:array<int,array<string,mixed>>,
      *   component_name?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
-     *   plus, for the foundations kind, the full yaml under `styleguide`;
-     *   for the fields kind, the aggregated `fields_data` from ComponentParser).
+     *   plus, for the foundations kind, the full yaml under `styleguide`).
      */
     public function render(string $kind, string $slug, array $config, string $langcode = 'en'): string
     {
-        if (!in_array($kind, ['component', 'page', 'foundations', 'fields'], true)) {
+        if (!in_array($kind, ['component', 'page', 'foundations'], true)) {
             return $this->render404($kind, $slug, $config);
         }
 
@@ -69,9 +67,8 @@ final class Renderer
 
     /**
      * Dispatch the inner body render by kind. Components / pages render the
-     * project's own template; foundations / fields render package-shipped
-     * templates against the full styleguide.yaml (foundations) or the
-     * aggregated component-fields data (fields).
+     * project's own template; foundations renders the package-shipped
+     * template against the full styleguide.yaml.
      */
     private function renderBody(string $kind, string $slug, array $config): ?string
     {
@@ -79,10 +76,6 @@ final class Renderer
             'component', 'page' => $this->renderInner($kind, $slug),
             'foundations' => $this->twig->render('foundations.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
-            ] + $this->context),
-            'fields' => $this->twig->render('fields.twig', [
-                'styleguide' => $config['styleguide'] ?? [],
-                'fields_data' => $config['fields_data'] ?? [],
             ] + $this->context),
             default => null,
         };
