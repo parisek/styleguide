@@ -15,6 +15,7 @@ import './components/search.js';
 import './components/preview.js';
 import './components/usage.js';
 import './components/linkBar.js';
+import './components/overview.js';
 import './components/languageSwitcher.js';
 
 Alpine.plugin(collapse);
@@ -34,6 +35,8 @@ Alpine.effect(() => {
     let label;
     if (route.type === 'overview') {
         label = i18n.t('nav.overview');
+    } else if (route.type === 'foundations') {
+        label = i18n.t('nav.foundations');
     } else if (route.slug) {
         const item = Alpine.store('components').find(route.type, route.slug);
         label = item?.name ?? route.slug;

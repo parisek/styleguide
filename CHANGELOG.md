@@ -8,6 +8,22 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- New **/styleguide/overview** page (label „Přehled" / „Overview") —
+  Components & Pages master index that lists every component and every
+  page shipped by the consumer project, grouped by sidebar section
+  (Základní prvky / Bloky / Gutenberg / Stránky), with a persisted
+  „Zobrazit použití" / „Show usage" toggle (`localStorage` key
+  `sg-overview-show-usage`) that reveals forward usage (page →
+  components used) and reverse usage (component → where it's used) as
+  clickable chips. A compact 4-column directory grid at the bottom
+  lists everything alphabetically per section as a fast-jump. Renders
+  directly in the SPA shell (NOT inside the iframe) so the visual
+  chrome ships with the package; visuals are unified across consuming
+  projects regardless of their own CSS. Data source is the existing
+  `/api/components` + `/api/pages` payloads parsed by `ComponentParser`
+  — no new backend endpoint, no new YAML metadata semantics. Reverse
+  usage is built lazily into a `Map<id, ids[]>` on first access and
+  then looked up in O(1).
 - `Styleguide` now auto-registers the conventional Twig namespaces
   whenever the matching directory exists: `@component`, `@macro`,
   `@page` and `@static` under `templates_path`; `@icons` and `@images`
@@ -26,6 +42,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **BREAKING (URL):** The `/styleguide/overview` URL now serves the new
+  Components & Pages index above. The previous logo + colors +
+  typography page has moved to **/styleguide/foundations** and its
+  internal `kind` likewise became `foundations` in `Router.php`,
+  `Renderer.php`, `Styleguide.php`, `templates/foundations.twig` (was
+  `templates/overview.twig`) and the corresponding frontend route-type
+  checks (`stores/ui.js`, `components/preview.js`, `index.html`,
+  `styleguide.js`). The page's user-visible label was simultaneously
+  renamed from „Přehled" / „Overview" to **„Základy" / „Foundations"**
+  to reflect what the page actually shows — the foundational design
+  layer beneath components — and to free up „Přehled" for the new
+  overview index. The i18n key in `frontend/public/locales/{cs,en}.json`
+  moved from `nav.overview` to `nav.foundations`; a fresh `nav.overview`
+  key now carries the new label. Bookmarks pointing at the OLD
+  `/styleguide/overview` will land on the new index page; the
+  pre-rename meaning was only in production for the duration of the
+  current `[Unreleased]` window so practical impact is limited to
+  in-progress dev branches.
 - CI workflows (`tests.yml`, `release.yml`, `release-stamp.yml`) bumped
   `actions/checkout@v4` → `actions/checkout@v5`. The v4 line runs on Node 20, which
   GitHub started flagging as deprecated in Actions logs; v5 moves to

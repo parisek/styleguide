@@ -112,10 +112,10 @@ document.addEventListener('alpine:init', () => {
 
         get iframeSrc() {
             const route = Alpine.store('ui').route;
-            // Overview / fields render inside the iframe too — same project
+            // Foundations / fields render inside the iframe too — same project
             // CSS + Twig env as components / pages, just rendered against
             // shared yaml context instead of one specific component.
-            if (route.type === 'overview' || route.type === 'fields') {
+            if (route.type === 'foundations' || route.type === 'fields') {
                 return `/styleguide/render/${route.type}/index`;
             }
             if (!route.slug) return null;

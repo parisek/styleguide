@@ -38,12 +38,18 @@
 
             <!-- Sections + items (scroll) -->
             <nav class="flex-1 overflow-y-auto p-3 space-y-2">
-                <!-- Overview link (pinned at top) -->
+                <!-- Pinned sectionless routes (overview + foundations) -->
                 <a href="#" @click.prevent="select('overview', null)"
-                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded mb-2"
+                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
                    :class="isActive('overview', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
                     <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-white' : 'bg-zinc-600'"></span>
                     <span x-text="$store.i18n.t('nav.overview')"></span>
+                </a>
+                <a href="#" @click.prevent="select('foundations', null)"
+                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded mb-2"
+                   :class="isActive('foundations', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('foundations', null) ? 'bg-white' : 'bg-zinc-600'"></span>
+                    <span x-text="$store.i18n.t('nav.foundations')"></span>
                 </a>
 
                 <template x-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
@@ -117,6 +123,9 @@
                     <template x-if="$store.ui.route.type === 'overview'">
                         <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.overview')"></span>
                     </template>
+                    <template x-if="$store.ui.route.type === 'foundations'">
+                        <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.foundations')"></span>
+                    </template>
                     <template x-if="$store.ui.route.slug">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="text-[10px] uppercase tracking-wider font-bold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded shrink-0"
@@ -137,17 +146,17 @@
                             </nav>
                         </div>
                     </template>
-                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'overview'">
+                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                         <span class="text-zinc-500 text-sm" x-text="$store.i18n.t('toolbar.select_prompt')"></span>
                     </template>
                 </div>
 
                 <!-- Viewport controls — Tailwind-aligned segmented control with explicit
-                     pixel labels + Custom number input + Full. Hidden on the overview
-                     route where responsive testing doesn't make sense (overview shows
+                     pixel labels + Custom number input + Full. Hidden on the foundations
+                     route where responsive testing doesn't make sense (foundations shows
                      palette / typography / project surface; locking it to 100% width
                      keeps the layout stable across reloads). -->
-                <template x-if="iframeSrc && $store.ui.route.type !== 'overview'">
+                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                     <div class="flex items-center gap-3 shrink-0">
                         <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline" x-text="`${currentWidth} px`"></span>
                         <div class="flex gap-px rounded overflow-hidden bg-zinc-800">
@@ -189,9 +198,9 @@
                         </a>
                     </div>
                 </template>
-                <!-- Overview route still gets the open-in-new-tab affordance, just
+                <!-- Foundations route still gets the open-in-new-tab affordance, just
                      without the viewport controls. -->
-                <template x-if="iframeSrc && $store.ui.route.type === 'overview'">
+                <template x-if="iframeSrc && $store.ui.route.type === 'foundations'">
                     <a :href="iframeSrc" target="_blank" rel="noopener"
                        :title="$store.i18n.t('toolbar.open_in_new_tab')"
                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition-colors shrink-0">
@@ -246,11 +255,14 @@
                 </template>
             </div>
 
-            <!-- Preview area -->
+            <!-- Preview area (iframe + empty/loading states) — hidden on the
+                 overview route, which renders its own light-themed SPA view
+                 in the sibling template below. -->
+            <template x-if="$store.ui.route.type !== 'overview'">
             <div class="flex-1 flex justify-center items-start p-6 bg-zinc-950 overflow-auto">
                 <template x-if="iframeSrc">
                     <div x-ref="iframeWrapper"
-                         :style="`width: ${$store.ui.route.type === 'overview' ? '100%' : previewWidth}; max-width: 100%`"
+                         :style="`width: ${$store.ui.route.type === 'foundations' ? '100%' : previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
                          class="relative bg-white rounded shadow-lg">
                         <iframe :src="iframeSrc" @load="onIframeLoad"
@@ -271,16 +283,16 @@
                         </div>
                         <!-- Drag handles: outside the iframe so cursor events aren't swallowed;
                              rendered on both edges for centered-grow symmetry. Hidden on the
-                             overview route — that view has no responsivity worth testing, and
+                             foundations route — that view has no responsivity worth testing, and
                              the locked-100% iframe shouldn't be draggable. -->
-                        <template x-if="$store.ui.route.type !== 'overview'">
+                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
                                      :class="isDragging && 'bg-zinc-200'"></div>
                             </div>
                         </template>
-                        <template x-if="$store.ui.route.type !== 'overview'">
+                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
@@ -296,6 +308,99 @@
                     <p class="text-zinc-500 mt-20" x-text="$store.i18n.t('loading')"></p>
                 </template>
             </div>
+            </template>
+
+            <!-- Components & Pages index — SPA-rendered (no iframe) so the
+                 visual chrome ships with the package and is identical across
+                 consuming projects regardless of their own CSS. -->
+            <template x-if="$store.ui.route.type === 'overview'">
+                <div x-data="overview" class="flex-1 overflow-y-auto bg-zinc-50 text-zinc-900">
+                    <div class="max-w-6xl mx-auto px-4 py-8 md:px-6 md:py-10 lg:px-8">
+                        <header class="mb-8">
+                            <h1 class="font-bold text-2xl sm:text-3xl lg:text-4xl tracking-tight" x-text="$store.i18n.t('overview.title')"></h1>
+                            <p class="mt-2 max-w-3xl text-base text-zinc-600 leading-relaxed" x-text="$store.i18n.t('overview.subtitle')"></p>
+                            <label class="mt-4 inline-flex items-center gap-2 text-sm text-zinc-700 cursor-pointer select-none">
+                                <input type="checkbox" x-model="showUsage" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900">
+                                <span x-text="$store.i18n.t('overview.show_usage')"></span>
+                            </label>
+                        </header>
+
+                        <!-- Pages block -->
+                        <section x-show="pages.length > 0" class="mb-10">
+                            <h2 class="flex items-center gap-2 mb-4 font-semibold text-lg text-zinc-900">
+                                <span x-text="$store.i18n.t('overview.pages')"></span>
+                                <span class="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-zinc-200 text-xs font-mono text-zinc-700" x-text="pages.length"></span>
+                            </h2>
+                            <ul class="divide-y divide-zinc-200 border border-zinc-200 rounded-xl bg-white shadow-sm">
+                                <template x-for="page in pages" :key="page.id">
+                                    <li class="p-4">
+                                        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                            <a href="#" @click.prevent="select({ id: page.id, type: 'page' })" class="font-medium text-zinc-900 hover:text-zinc-600" x-text="page.name ?? page.id"></a>
+                                            <code class="text-xs font-mono text-zinc-500" x-text="page.id"></code>
+                                        </div>
+                                        <template x-if="showUsage && forwardUsage(page).length > 0">
+                                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                                <template x-for="chip in forwardUsage(page)" :key="chip.id">
+                                                    <button type="button" @click="select(chip)" :class="chip.type ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 cursor-pointer' : 'bg-zinc-50 text-zinc-400 cursor-default'" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium" x-text="chip.name"></button>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </li>
+                                </template>
+                            </ul>
+                        </section>
+
+                        <!-- Components, grouped by sidebar section -->
+                        <template x-for="block in componentSections" :key="block.section">
+                            <section class="mb-10">
+                                <h2 class="flex items-center gap-2 mb-4 font-semibold text-lg text-zinc-900">
+                                    <span x-text="$store.i18n.t(`sections.${block.section}`)"></span>
+                                    <span class="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-zinc-200 text-xs font-mono text-zinc-700" x-text="block.items.length"></span>
+                                </h2>
+                                <ul class="divide-y divide-zinc-200 border border-zinc-200 rounded-xl bg-white shadow-sm">
+                                    <template x-for="item in block.items" :key="item.id">
+                                        <li class="p-4">
+                                            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                                                <a href="#" @click.prevent="select({ id: item.id, type: 'component' })" class="font-medium text-zinc-900 hover:text-zinc-600" x-text="item.name ?? item.id"></a>
+                                                <code class="text-xs font-mono text-zinc-500" x-text="item.id"></code>
+                                            </div>
+                                            <template x-if="showUsage">
+                                                <div class="mt-2 flex flex-wrap gap-1.5">
+                                                    <template x-if="reverseUsage(item.id).length === 0">
+                                                        <span class="text-xs text-zinc-400 italic" x-text="$store.i18n.t('overview.no_usage')"></span>
+                                                    </template>
+                                                    <template x-for="chip in reverseUsage(item.id)" :key="chip.id">
+                                                        <button type="button" @click="select(chip)" class="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-xs font-medium text-zinc-700 cursor-pointer" x-text="chip.name"></button>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </section>
+                        </template>
+
+                        <!-- Compact directory grid -->
+                        <section class="mt-12 pt-8 border-t border-zinc-200">
+                            <h2 class="mb-4 font-semibold text-sm uppercase tracking-wider text-zinc-500" x-text="$store.i18n.t('overview.directory')"></h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <template x-for="section in ['basic', 'blocks', 'gutenberg', 'pages']" :key="section">
+                                    <div x-show="directoryList(section).length > 0">
+                                        <h3 class="mb-2 font-semibold text-xs uppercase tracking-wider text-zinc-700" x-text="$store.i18n.t(`sections.${section}`)"></h3>
+                                        <ul class="space-y-1">
+                                            <template x-for="item in directoryList(section)" :key="item.id">
+                                                <li>
+                                                    <a href="#" @click.prevent="select({ id: item.id, type: section === 'pages' ? 'page' : 'component' })" class="text-sm text-zinc-600 hover:text-zinc-900" x-text="item.name ?? item.id"></a>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </template>
         </main>
     </div>
 </body>

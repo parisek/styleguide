@@ -21,8 +21,8 @@
 	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),
 	   revealed by the inline script when the document is the top-level window so
 	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
-	{# Overview is a sectionless route (`/styleguide/overview`); component/page carry a slug. #}
-	{% set sg_url = kind == 'overview' ? '/styleguide/overview' : '/styleguide/' ~ kind ~ '/' ~ slug %}
+	{# Foundations is a sectionless route (`/styleguide/foundations`); component/page carry a slug. #}
+	{% set sg_url = kind == 'foundations' ? '/styleguide/foundations' : '/styleguide/' ~ kind ~ '/' ~ slug %}
 	<div id="sg-standalone-bar" hidden style="position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#18181b;color:#e4e4e7;font:500 13px system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid #27272a">
 		{% if project.favicon %}<img src="{{ project.favicon|e }}" alt="" style="width:20px;height:20px;border-radius:4px;background:#fafafa">{% endif %}
 		<a href="{{ sg_url|e }}" style="display:inline-flex;align-items:center;gap:6px;color:#a1a1aa;text-decoration:none">

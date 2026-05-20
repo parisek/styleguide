@@ -64,8 +64,8 @@ final class Router
             return ['type' => $parts[0], 'slug' => $parts[1]];
         }
 
-        // /styleguide/overview, /styleguide/fields
-        if (in_array($parts[0], ['overview', 'fields'], true)) {
+        // /styleguide/overview, /styleguide/foundations, /styleguide/fields
+        if (in_array($parts[0], ['overview', 'foundations', 'fields'], true)) {
             return ['type' => $parts[0]];
         }
 

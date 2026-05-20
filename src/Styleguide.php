@@ -220,7 +220,7 @@ final class Styleguide
 
     /**
      * Register the Twig extensions the package's own templates depend on,
-     * idempotently. `overview.twig` uses `create_attribute()` (parisek/twig-
+     * idempotently. `foundations.twig` uses `create_attribute()` (parisek/twig-
      * attribute) and the `|typography` filter (parisek/twig-typography); the
      * sibling intl-extra / string-extra / twig-common are shipped together
      * because consumers' component templates routinely reach for them too.
@@ -773,7 +773,7 @@ final class Styleguide
         $config = [
             'project' => $this->yamlConfig['project'] ?? [],
             'iframe' => $this->yamlConfig['iframe'] ?? [],
-            // The overview body reads from `styleguide.colors`, `styleguide.logo`,
+            // The foundations body reads from `styleguide.colors`, `styleguide.logo`,
             // `styleguide.typography`, `styleguide.labels` — surface the whole yaml
             // map so component/page templates that look up styleguide.* also work.
             'styleguide' => $this->yamlConfig,
@@ -786,8 +786,8 @@ final class Styleguide
             if ($meta !== null && !empty($meta['name'])) {
                 $config['component_name'] = $meta['name'];
             }
-        } elseif ($route['kind'] === 'overview') {
-            $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Overview');
+        } elseif ($route['kind'] === 'foundations') {
+            $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
         }
 
         header('Content-Type: text/html; charset=utf-8');
