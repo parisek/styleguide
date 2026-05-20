@@ -11,7 +11,8 @@
         "toggle_sidebar": "Toggle sidebar",
         "select_prompt": "Select a component",
         "open_in_new_tab": "Open in new tab",
-        "custom_width": "Custom width in pixels (Enter to apply)"
+        "custom_width": "Custom width in pixels (Enter to apply)",
+        "custom_width_placeholder": "Custom"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

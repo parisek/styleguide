@@ -150,11 +150,14 @@ document.addEventListener('alpine:init', () => {
         },
 
         // Custom-input apply path. Triggered on Enter / blur from the number
-        // input. Validates against the same CUSTOM_MIN..CUSTOM_MAX range as
-        // the URL-param parser; out-of-range values snap back to the store's
-        // current width (and the $watch above re-syncs the input).
+        // input. Strict integer check (`Number(...)` + `Number.isInteger`)
+        // rejects decimals like 375.5 outright — otherwise `parseInt` would
+        // silently truncate to 375 and the user would see a different width
+        // than they typed. Out-of-range or non-integer values revert to the
+        // store's current width via _syncCustomFromStore so the input can't
+        // be left in a desync state.
         applyCustomWidth() {
-            const px = parseInt(this.customWidthInput, 10);
+            const px = Number(this.customWidthInput);
             if (!Number.isInteger(px) || px < CUSTOM_MIN || px > CUSTOM_MAX) {
                 this._syncCustomFromStore();
                 return;

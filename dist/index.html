@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.DhIuIe1S.js"></script>
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.Dfczw2rJ.js"></script>
   <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.Cuy8Ec7b.css">
 </head>
 <body
@@ -172,7 +172,8 @@
                                    @keydown.enter.prevent="applyCustomWidth(); $event.target.blur()"
                                    @blur="applyCustomWidth"
                                    :min="100" :max="4000"
-                                   placeholder="Custom"
+                                   :placeholder="$store.i18n.t('toolbar.custom_width_placeholder')"
+                                   :aria-label="$store.i18n.t('toolbar.custom_width')"
                                    :title="$store.i18n.t('toolbar.custom_width')"
                                    class="w-20 px-2 h-7 text-xs font-mono tabular-nums border-l border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400 transition-colors"
                                    :class="activePreset === 'custom' ? 'bg-zinc-100 text-zinc-900 placeholder-zinc-500' : 'bg-zinc-800 text-zinc-400 placeholder-zinc-500 hover:bg-zinc-700 hover:text-zinc-100'">

@@ -1,13 +1,15 @@
 import Alpine from 'alpinejs';
 
-// Parse a `?width=…` URL param. Accepts `full` / `100%` / a positive integer
-// in a sane 100..4000 px range. Anything else returns null and the persisted
-// value wins. Kept as a free function so it can be called at store boot time
-// before `Alpine.store('ui')` is fully constructed.
+// Parse a `?width=…` URL param. Accepts `full` / `100%` / a strict positive
+// integer in a sane 100..4000 px range. Anything else returns null and the
+// persisted value wins. The all-digits regex pre-check rejects `375.5` /
+// `375px` / `375junk` (all of which `parseInt` would silently coerce to 375)
+// so a malformed URL doesn't quietly resolve to an unintended width.
 function parseWidthParam(raw) {
     if (!raw) return null;
     if (raw === 'full' || raw === '100%') return '100%';
-    const px = parseInt(raw, 10);
+    if (!/^\d+$/.test(raw)) return null;
+    const px = Number(raw);
     if (Number.isInteger(px) && px >= 100 && px <= 4000) return `${px}px`;
     return null;
 }
