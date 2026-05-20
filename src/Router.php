@@ -20,20 +20,10 @@ final class Router
      * Parse a request URI to a route descriptor, or null if the URI doesn't belong
      * to the styleguide.
      *
-     * Render routes additionally carry a `theme` key (`'light'`, `'dark'`, or
-     * absent) extracted from the `?theme=` query param via a strict whitelist.
-     * Anything outside the whitelist — including missing values, unknown strings,
-     * empty values — leaves `theme` absent so the iframe renders with the
-     * consumer's own default.
-     *
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}|null
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string}|null
      */
     public static function parse(string $uri): ?array
     {
-        // Extract `theme=` BEFORE stripping the query string so the path-only
-        // parsing below stays a pure function of the path.
-        $theme = self::parseTheme($uri);
-
         // Strip query string and trailing slash
         $uri = (string) strtok($uri, '?');
         $uri = rtrim($uri, '/');
@@ -56,15 +46,11 @@ final class Router
 
         // /styleguide/render/<kind>/<slug>
         if ($parts[0] === 'render' && count($parts) >= 3) {
-            $route = [
+            return [
                 'type' => 'render',
                 'kind' => $parts[1],
                 'slug' => $parts[2],
             ];
-            if ($theme !== null) {
-                $route['theme'] = $theme;
-            }
-            return $route;
         }
 
         // /styleguide/api/<endpoint>
@@ -85,25 +71,5 @@ final class Router
 
         // Unknown path under /styleguide/ — default to landing (SPA handles it)
         return ['type' => 'landing'];
-    }
-
-    /**
-     * Extract a whitelisted `?theme=` value from a URI's query string.
-     *
-     * Returns 'light' or 'dark' on a match; null otherwise (including missing
-     * param, empty value, unknown string, malformed query). The strict
-     * whitelist matters because the value flows straight into the rendered
-     * iframe HTML as a class name — anything outside the two known modes
-     * shouldn't be honored.
-     */
-    public static function parseTheme(string $uri): ?string
-    {
-        $queryStart = strpos($uri, '?');
-        if ($queryStart === false) {
-            return null;
-        }
-        parse_str(substr($uri, $queryStart + 1), $params);
-        $theme = $params['theme'] ?? null;
-        return in_array($theme, ['light', 'dark'], true) ? $theme : null;
     }
 }

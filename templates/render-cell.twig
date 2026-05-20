@@ -1,12 +1,6 @@
 {# vendor/parisek/styleguide — iframe HTML wrapper for component/page preview #}
 <!DOCTYPE html>
-{# `theme == 'dark'` adds a `dark` class so consumers using Tailwind dark
-   mode (or any `.dark` selector) pick up the styleguide's chosen theme.
-   Renderer enforces the whitelist (`'light'` / `'dark'` / null) before
-   we get here. The space-separated concat with `iframe.html_class` lets
-   projects keep their custom html-level classes too. #}
-{% set html_classes = ((iframe.html_class|default(''))) ~ (theme == 'dark' ? ' dark' : '') %}
-<html lang="{{ langcode|default('en')|e }}"{% if html_classes|trim %} class="{{ html_classes|trim|e }}"{% endif %}>
+<html lang="{{ langcode|default('en')|e }}"{% if iframe.html_class %} class="{{ iframe.html_class|e }}"{% endif %}>
 <head>
 	<script>document.documentElement.classList.remove('no-js');</script>
 	<meta charset="UTF-8">

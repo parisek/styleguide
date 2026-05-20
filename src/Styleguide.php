@@ -826,7 +826,6 @@ final class Styleguide
             slug: $route['slug'],
             config: $config,
             langcode: $langcode,
-            theme: $route['theme'] ?? null,
         );
     }
 

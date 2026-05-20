@@ -2,17 +2,19 @@
 
 **Date:** 2026-05-20
 **Branch:** `feat/dark-mode`
-**Status:** Draft — pending implementation
+**Status:** Implemented (PR #13)
 
 ## Goal
 
-Make the entire Styleguide (SPA chrome + iframe-rendered component previews) usable in both light and dark themes. Use Tailwind v4 native dark mode, ship a toggle in the sidebar header, persist the choice in `localStorage`, and fall back to the OS `prefers-color-scheme` setting when no choice has been made.
+Make the Styleguide chrome (sidebar, toolbar, overview, foundations backdrop, fields drawer) usable in both light and dark themes. Use Tailwind v4 native dark mode, ship a toggle in the sidebar header, persist the choice in `localStorage`, and fall back to the OS `prefers-color-scheme` setting when no choice has been made.
+
+The iframe-rendered component previews are explicitly OUT of scope (see decision 3) — that's the consumer's domain and the consumer's theming concern.
 
 ## Decisions made during brainstorming
 
 1. **Toggle strategy:** class-based dark mode (`<html class="dark">`), opted into via Tailwind v4 `@custom-variant dark (&:where(.dark, .dark *))`. Not media-query mode — manual override is the whole point.
 2. **Toggle position:** sidebar header, next to the project name. Joins the language switcher (sidebar footer) as a global control.
-3. **Iframe propagation:** SPA passes `?theme=light|dark` to the render endpoint as a query parameter. `render-cell.twig` stamps `class="dark"` on `<html>` accordingly. Consumers that use Tailwind dark mode pick it up for free; consumers that don't are unaffected.
+3. **Iframe scope:** dark mode applies ONLY to the Styleguide's own chrome — NOT to the rendered iframe content. (Earlier draft proposed passing `?theme=` to the render endpoint and stamping `class="dark"` on the iframe `<html>`; reversed during implementation review.) Pushing the styleguide's theme into the iframe conflates two concerns: the styleguide's own UX (how the developer browses components) versus the rendered component's appearance (which is the consumer's design decision). Consumers without dark variants would receive a `.dark` html class that means nothing to their CSS; consumers WITH dark variants would have their theme decision overridden by a global SPA toggle rather than per-component intent. Clean separation: the toggle controls the chrome, the iframe content is the consumer's responsibility.
 4. **Three-state toggle:** `light` / `dark` / `system`. The `system` state is the default and live-reacts to `matchMedia('(prefers-color-scheme: dark)')` changes.
 
 ## Architecture
@@ -125,41 +127,11 @@ The description bar component styles in `styleguide.css` also get dark variants:
 }
 ```
 
-### Iframe theme propagation — backend
+### Iframe theme propagation — explicitly NOT done
 
-**`src/Router.php`** — extend the `?theme=` query parsing:
+(Earlier draft of this spec proposed pushing `?theme=` through the render endpoint into the iframe HTML. Removed during implementation per decision 3.)
 
-```php
-$theme = $_GET['theme'] ?? null;
-if (!in_array($theme, ['light', 'dark'], true)) {
-    $theme = null;
-}
-```
-
-Whitelist enforced at parse time. `null` means "let the consumer's own default win" — no class is stamped.
-
-**`src/Renderer.php`** — accept the `theme` value and pass it into the render context for `render-cell.twig` (and equivalents for foundations / page routes). Each call site that renders the iframe HTML wrapper gains a `theme` key in its context array.
-
-**`templates/render-cell.twig`** — opening `<html>` tag:
-
-```twig
-<html lang="{{ locale }}"{% if theme == 'dark' %} class="dark"{% endif %}>
-```
-
-### Iframe theme propagation — frontend
-
-**`frontend/components/preview.js`** — when computing `iframeSrc`, append the resolved theme as a query param:
-
-```js
-get iframeSrc() {
-    // existing logic ...
-    const url = new URL(rawSrc, location.origin);
-    url.searchParams.set('theme', Alpine.store('theme').resolved);
-    return url.toString();
-}
-```
-
-`Alpine.effect` already re-renders the iframe `src` binding when `resolved` flips → iframe gets a new URL → browser reloads it → new `class="dark"` on iframe `<html>`. Brief flash (~100-200ms cached), accepted tradeoff vs. a JS messaging dance that would only work for consumers that opt into a listener.
+The iframe stays untouched. `src/Router.php`, `src/Renderer.php`, `src/Styleguide.php`, and `templates/render-cell.twig` are unchanged on the backend. `frontend/components/preview.js` doesn't append any theme param to `iframeSrc`. Consumers that want dark mode inside their components implement it themselves — independently of the styleguide chrome's toggle.
 
 ### i18n — new keys
 
@@ -190,34 +162,23 @@ get iframeSrc() {
 [user clicks toggle]
   theme.cycle() → store.mode flips → Alpine.effect re-runs apply() → .dark class toggles
   $persist writes localStorage
-  preview.js iframeSrc effect re-runs → iframe src changes → iframe reloads with new ?theme= → render-cell.twig stamps new class
 
 [OS preference changes while mode==='system']
   matchMedia 'change' event → store.systemDark flips → Alpine.effect re-runs apply() → .dark toggles
-  iframeSrc re-renders if resolved value changed
 ```
+
+Iframe content does NOT participate in any of this — the SPA chrome and the iframe are theming-independent.
 
 ## Error handling
 
 - **`localStorage` blocked** (Safari private, embedded WKWebView): `try/catch` in the inline script swallows; `$persist` silently degrades; default `'system'` mode applies.
 - **`matchMedia` missing** (ancient browsers): inline script's `matchMedia(...)?.matches` defaults to `false` (treated as light). The store's `init()` would throw — wrap in `try/catch` and treat as `systemDark = false`.
-- **Invalid `?theme=` value**: Router whitelist rejects it; no class stamped on iframe `<html>`.
-- **Consumer overrides `<html>` class in their own template**: out of scope — they take precedence by virtue of being downstream.
 
 ## Testing
 
 ### PHP (PHPUnit)
 
-- `tests/RouterTest.php` — new tests:
-  - `?theme=dark` parses to `theme === 'dark'`
-  - `?theme=light` parses to `theme === 'light'`
-  - `?theme=foobar` parses to `theme === null` (whitelist)
-  - missing `theme` parses to `theme === null`
-
-- `tests/RendererTest.php` — new tests:
-  - `renders_with_dark_class_when_theme_is_dark` — assert iframe HTML contains `<html lang="…" class="dark">`
-  - `renders_without_dark_class_when_theme_is_light` — assert iframe HTML contains `<html lang="…">` with no `class="dark"`
-  - `renders_without_dark_class_when_theme_is_null` — same as above
+No new tests. The 44-test baseline holds — dark mode is a frontend-only concern with no backend surface area.
 
 ### Manual browser verification (per `CLAUDE.md`)
 
@@ -226,41 +187,34 @@ After `npm run build` in `frontend/`, verify on `https://tailwind-base.ddev.site
 1. Toggle cycles through light → dark → system → light. Each click changes the SPA chrome immediately.
 2. Reload preserves the chosen mode. Dark mode reload does not flash light.
 3. OS dark mode → SPA shows dark when in `system`. Switch OS to light → SPA flips live without reload.
-4. Iframe reloads with new `class="dark"` on each toggle (verifiable via DevTools → iframe inspect).
-5. Open-in-new-tab link (`render-cell.twig` standalone) inherits the current theme via the query param.
-6. Sidebar, toolbar, description bar, link bar, fields drawer, overview view, and foundations view all read clean in both themes.
+4. Iframe content is unaffected by the toggle (renders in the consumer's own theme regardless).
+5. Sidebar, toolbar, description bar, link bar, fields drawer, overview view, and foundations backdrop all read clean in both themes.
 
 ## Out of scope
 
-- **Theming `templates/overview.twig` (foundations route content)** — that's consumer-rendered content, not SPA chrome. If the consumer wants dark foundations, they handle it via their own Tailwind dark utilities and read `class="dark"` we pass down.
+- **Iframe content theming** — explicitly excluded (decision 3). Consumer's domain.
+- **Theming `templates/overview.twig` (foundations route content)** — that's consumer-rendered content, not SPA chrome.
 - **Custom dark palette / design tokens** — Tailwind v4 default zinc scale is sufficient. No `@theme` block additions.
-- **postMessage-based iframe theming** — rejected during brainstorming in favor of query param. Reload flash is acceptable.
 - **Keyboard shortcut for toggle** — out of scope for v1; can be added later (e.g. `Shift+T`).
 
 ## Risks
 
-1. **Large mechanical diff in `index.html`** (~150 lines). Code review burden; consider splitting into two commits: "wire up dark mode infrastructure" (store + CSS + script + toggle UI + backend + tests) and "rewrite chrome utilities for dark variants" (the mechanical zinc-rewrite). One-PR is fine, two commits inside it helps reviewers.
-2. **Iframe flash on toggle** (~100-200ms). Cached, but visible. Accepted tradeoff.
-3. **Consumer with conflicting `.dark` class** — extremely unlikely, but possible. Documented as a known interaction in CHANGELOG when shipped.
-4. **The `@alpinejs/persist` localStorage key format** (`_x_<name>` with JSON-encoded value) — the FOUC script depends on this internal naming. If `@alpinejs/persist` ever changes its key scheme, the FOUC script breaks silently (no JS error, just a flash). Mitigation: add a comment to both the store and the inline script noting the coupling.
+1. **Large mechanical diff in `index.html`** (~150 lines). Code review burden — the bulk of the PR is the zinc rewrite, which is mechanical but voluminous.
+2. **The `@alpinejs/persist` localStorage key format** (`_x_<name>` with JSON-encoded value) — the FOUC script depends on this internal naming. If `@alpinejs/persist` ever changes its key scheme, the FOUC script breaks silently (no JS error, just a flash). Mitigation: comments in both the store and the inline script note the coupling.
 
 ## Implementation order
 
 1. CSS: add `@custom-variant dark` to `styleguide.css`
 2. New store: `frontend/stores/theme.js` + register in `styleguide.js`
 3. Inline FOUC script in `frontend/index.html` `<head>`
-4. Sidebar toggle button (replacing/extending the project-name block)
+4. Sidebar toggle button next to the project-name block
 5. i18n keys in `cs.json` / `en.json`
 6. Mechanical zinc → dark variant rewrite across `index.html` chrome
-7. Backend: Router whitelist + Renderer context + `render-cell.twig` class stamp
-8. PHP tests for Router + Renderer
-9. Frontend preview.js: append `?theme=` to iframeSrc
-10. `npm run build`, manual browser verification
+7. `npm run build`, manual browser verification
 
 ## Release notes (CHANGELOG draft)
 
 ```
 ### Added
-- Dark mode for the entire styleguide chrome (sidebar, toolbar, overview, foundations, fields drawer). Toggle lives in the sidebar header and cycles light → dark → system. Choice persists in localStorage; system mode follows `prefers-color-scheme` live.
-- Iframe preview receives a `?theme=light|dark` query param so consumer projects using Tailwind dark mode pick up the theme automatically via `class="dark"` on the iframe `<html>`.
+- Dark mode for the styleguide chrome (sidebar, toolbar, overview, foundations backdrop, fields drawer). Toggle lives in the sidebar header and cycles light → dark → system. Choice persists in localStorage; system mode follows `prefers-color-scheme` live. The iframe-rendered component preview is intentionally NOT themed — that stays the consumer project's domain.
 ```
