@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.DMCTG3PX.js"></script>
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.m-eD7-3O.js"></script>
   <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.Cjmy9Qir.css">
 </head>
 <body
@@ -299,7 +299,7 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-zinc-800/60">
-                                    <template x-for="(row, idx) in currentItemFieldsTree" :key="idx">
+                                    <template x-for="row in currentItemFieldsTree" :key="row.path">
                                         <tr class="hover:bg-zinc-800/40 transition-colors">
                                             <td class="px-4 py-2 align-middle">
                                                 <!-- Tailwind utility classes can't take a runtime depth value;
@@ -307,7 +307,7 @@
                                                 <span class="inline-flex items-center gap-2"
                                                       :style="`padding-left: ${row.depth * 1.5}rem`">
                                                     <template x-if="row.depth > 0">
-                                                        <span class="text-zinc-600 font-mono text-base leading-none -mt-1">└</span>
+                                                        <span class="text-zinc-600 font-mono text-base leading-none -mt-1" aria-hidden="true">└</span>
                                                     </template>
                                                     <span class="font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded text-xs"
                                                           x-text="row.key"></span>

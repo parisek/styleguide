@@ -46,12 +46,20 @@ const TYPE_PILL_FALLBACK = 'bg-zinc-800 text-zinc-300';
 // the Alpine template can iterate linearly — Alpine 3 doesn't support
 // self-referential templates inline, so the recursion lives here in JS.
 // Each row's `depth` drives the template's indentation and `└` glyph.
-function flattenFieldsTree(map, depth = 0) {
+function flattenFieldsTree(map, depth = 0, parentPath = '') {
     if (!map || typeof map !== 'object' || Array.isArray(map)) return [];
     const rows = [];
     for (const [key, field] of Object.entries(map)) {
         if (!field || typeof field !== 'object') continue;
+        const path = parentPath ? `${parentPath}.${key}` : key;
         rows.push({
+            // Full dotted path (e.g. `items.title`) — unique within a tree
+            // even when leaf keys repeat across sibling branches, so it's
+            // the stable :key in the Alpine x-for. Without it, Alpine
+            // would reuse DOM nodes between siblings carrying the same
+            // leaf key and briefly flash mismatched row state on
+            // navigation between components.
+            path,
             key,
             depth,
             type: typeof field.type === 'string' ? field.type : '',
@@ -62,7 +70,7 @@ function flattenFieldsTree(map, depth = 0) {
             required: !!field.required,
         });
         if (field.fields && typeof field.fields === 'object') {
-            rows.push(...flattenFieldsTree(field.fields, depth + 1));
+            rows.push(...flattenFieldsTree(field.fields, depth + 1, path));
         }
     }
     return rows;
