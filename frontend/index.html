@@ -351,8 +351,15 @@
                          :style="`width: ${previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
                          class="relative bg-white rounded shadow-lg">
+                        <!-- Iframe height tracks inner contentDocument so the
+                             component sits in natural document flow rather
+                             than forcing an internal scroll bar inside a
+                             fixed-height shell. The 400px fallback shows
+                             before the first onload fires so the preview area
+                             has something visible during the initial paint. -->
                         <iframe :src="iframeSrc" @load="onIframeLoad"
-                                class="w-full h-[calc(100vh-120px)] rounded border-0"
+                                class="w-full rounded border-0 block"
+                                :style="`height: ${iframeContentHeight ? iframeContentHeight + 'px' : '400px'}`"
                                 :class="{ 'pointer-events-none': isDragging }"></iframe>
                         <!-- Solid overlay during navigation — the iframe keeps showing the old
                              slug's content until the browser finishes parsing the new src. The
