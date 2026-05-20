@@ -36,7 +36,9 @@
         "show_usage": "Show usage",
         "directory": "Directory",
         "no_usage": "Unused",
-        "pages": "Pages"
+        "pages": "Pages",
+        "components": "Components",
+        "used_in": "Used in"
     },
     "empty_state": "Select a component in the sidebar",
     "loading": "Loading…",

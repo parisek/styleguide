@@ -6,8 +6,8 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.mLozaiMw.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.C7hswiOg.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.B3KVE1Wc.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.D6BzKZnd.css">
 </head>
 <body
     class="bg-zinc-950 text-zinc-100 font-sans antialiased"
@@ -315,82 +315,143 @@
                  consuming projects regardless of their own CSS. -->
             <template x-if="$store.ui.route.type === 'overview'">
                 <div x-data="overview" class="flex-1 overflow-y-auto bg-zinc-50 text-zinc-900">
-                    <div class="max-w-6xl mx-auto px-4 py-8 md:px-6 md:py-10 lg:px-8">
-                        <header class="mb-8">
-                            <h1 class="font-bold text-2xl sm:text-3xl lg:text-4xl tracking-tight" x-text="$store.i18n.t('overview.title')"></h1>
-                            <p class="mt-2 max-w-3xl text-base text-zinc-600 leading-relaxed" x-text="$store.i18n.t('overview.subtitle')"></p>
-                            <label class="mt-4 inline-flex items-center gap-2 text-sm text-zinc-700 cursor-pointer select-none">
-                                <input type="checkbox" x-model="showUsage" class="rounded border-zinc-300 text-zinc-900 focus:ring-zinc-900">
-                                <span x-text="$store.i18n.t('overview.show_usage')"></span>
+                    <div class="max-w-7xl mx-auto px-6 py-10 lg:px-10 lg:py-14">
+
+                        <!-- Header: title + subtitle + switch toggle -->
+                        <header class="mb-10 pb-6 border-b border-zinc-200 flex flex-wrap items-end gap-4 justify-between">
+                            <div class="min-w-0">
+                                <h1 class="font-bold text-2xl sm:text-3xl tracking-tight text-zinc-900" x-text="$store.i18n.t('overview.title')"></h1>
+                                <p class="mt-2 max-w-2xl text-sm text-zinc-500 leading-relaxed" x-text="$store.i18n.t('overview.subtitle')"></p>
+                            </div>
+                            <label class="inline-flex items-center gap-3 cursor-pointer select-none group shrink-0">
+                                <span class="text-sm font-medium text-zinc-700 group-hover:text-zinc-900 transition-colors" x-text="$store.i18n.t('overview.show_usage')"></span>
+                                <span class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-200"
+                                      :class="showUsage ? 'bg-zinc-900' : 'bg-zinc-300 group-hover:bg-zinc-400'">
+                                    <input type="checkbox" x-model="showUsage" class="peer sr-only">
+                                    <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200"
+                                          :class="showUsage ? 'translate-x-[18px]' : 'translate-x-1'"></span>
+                                </span>
                             </label>
                         </header>
 
-                        <!-- Pages block -->
-                        <section x-show="pages.length > 0" class="mb-10">
-                            <h2 class="flex items-center gap-2 mb-4 font-semibold text-lg text-zinc-900">
-                                <span x-text="$store.i18n.t('overview.pages')"></span>
-                                <span class="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-zinc-200 text-xs font-mono text-zinc-700" x-text="pages.length"></span>
-                            </h2>
-                            <ul class="divide-y divide-zinc-200 border border-zinc-200 rounded-xl bg-white shadow-sm">
-                                <template x-for="page in pages" :key="page.id">
-                                    <li class="p-4">
-                                        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                            <a href="#" @click.prevent="select({ id: page.id, type: 'page' })" class="font-medium text-zinc-900 hover:text-zinc-600" x-text="page.name ?? page.id"></a>
-                                            <code class="text-xs font-mono text-zinc-500" x-text="page.id"></code>
+                        <!-- Sections grid: Pages + components, side by side on wide viewports -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+
+                            <!-- Pages section -->
+                            <section x-show="pages.length > 0">
+                                <div class="flex items-center mb-4">
+                                    <div class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                                        </svg>
+                                    </div>
+                                    <h2 class="text-base font-semibold tracking-tight mr-2" x-text="$store.i18n.t('overview.pages')"></h2>
+                                    <span class="inline-flex items-center justify-center px-2 h-6 min-w-6 rounded-full bg-zinc-100 text-zinc-500 text-xs font-mono" x-text="pages.length"></span>
+                                </div>
+                                <div class="rounded-2xl border border-zinc-200/80 bg-white">
+                                    <template x-for="(page, idx) in pages" :key="page.id">
+                                        <div :class="idx > 0 && 'border-t border-zinc-100'" class="p-5">
+                                            <div class="flex items-baseline gap-2 flex-wrap">
+                                                <a href="#" @click.prevent="select({ id: page.id, type: 'page' })"
+                                                   class="font-semibold text-zinc-900 hover:text-zinc-500 transition-colors"
+                                                   x-text="page.name ?? page.id"></a>
+                                                <code class="text-xs font-mono text-zinc-400" x-text="page.id"></code>
+                                            </div>
+                                            <template x-if="showUsage && forwardUsage(page).length > 0">
+                                                <div class="mt-4 pt-4 border-t border-zinc-100">
+                                                    <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2.5" x-text="$store.i18n.t('overview.components')"></p>
+                                                    <ul class="space-y-1">
+                                                        <template x-for="chip in forwardUsage(page)" :key="chip.id">
+                                                            <li>
+                                                                <button type="button" @click="select(chip)"
+                                                                        :class="chip.type ? 'text-zinc-700 hover:text-zinc-950 cursor-pointer' : 'text-zinc-400 cursor-default'"
+                                                                        class="text-sm text-left transition-colors"
+                                                                        x-text="chip.name"></button>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
                                         </div>
-                                        <template x-if="showUsage && forwardUsage(page).length > 0">
-                                            <div class="mt-2 flex flex-wrap gap-1.5">
-                                                <template x-for="chip in forwardUsage(page)" :key="chip.id">
-                                                    <button type="button" @click="select(chip)" :class="chip.type ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 cursor-pointer' : 'bg-zinc-50 text-zinc-400 cursor-default'" class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium" x-text="chip.name"></button>
+                                    </template>
+                                </div>
+                            </section>
+
+                            <!-- Component sections (basic / blocks / gutenberg) -->
+                            <template x-for="block in componentSections" :key="block.section">
+                                <section>
+                                    <div class="flex items-center mb-4">
+                                        <!-- Section icon (color + glyph per section key) -->
+                                        <template x-if="block.section === 'basic'">
+                                            <div class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/>
+                                                </svg>
+                                            </div>
+                                        </template>
+                                        <template x-if="block.section === 'blocks'">
+                                            <div class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L21.75 12l-4.179 2.25m0 0l4.179 2.25L12 21.75 2.25 16.5l4.179-2.25m11.142 0l-5.571 3-5.571-3"/>
+                                                </svg>
+                                            </div>
+                                        </template>
+                                        <template x-if="block.section === 'gutenberg'">
+                                            <div class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"/>
+                                                </svg>
+                                            </div>
+                                        </template>
+                                        <h2 class="text-base font-semibold tracking-tight mr-2" x-text="$store.i18n.t(`sections.${block.section}`)"></h2>
+                                        <span class="inline-flex items-center justify-center px-2 h-6 min-w-6 rounded-full bg-zinc-100 text-zinc-500 text-xs font-mono" x-text="block.items.length"></span>
+                                    </div>
+                                    <div class="rounded-2xl border border-zinc-200/80 bg-white">
+                                        <template x-for="(item, idx) in block.items" :key="item.id">
+                                            <div :class="idx > 0 && 'border-t border-zinc-100'" class="p-5">
+                                                <div class="flex items-baseline gap-2 flex-wrap">
+                                                    <a href="#" @click.prevent="select({ id: item.id, type: 'component' })"
+                                                       class="font-semibold text-zinc-900 hover:text-zinc-500 transition-colors"
+                                                       x-text="item.name ?? item.id"></a>
+                                                    <code class="text-xs font-mono text-zinc-400" x-text="item.id"></code>
+                                                </div>
+                                                <template x-if="showUsage && reverseUsage(item.id).length > 0">
+                                                    <div class="mt-4 pt-4 border-t border-zinc-100">
+                                                        <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2.5" x-text="$store.i18n.t('overview.used_in')"></p>
+                                                        <ul class="space-y-1">
+                                                            <template x-for="chip in reverseUsage(item.id)" :key="chip.id">
+                                                                <li>
+                                                                    <button type="button" @click="select(chip)"
+                                                                            class="text-sm text-left text-zinc-700 hover:text-zinc-950 cursor-pointer transition-colors"
+                                                                            x-text="chip.name"></button>
+                                                                </li>
+                                                            </template>
+                                                        </ul>
+                                                    </div>
                                                 </template>
                                             </div>
                                         </template>
-                                    </li>
-                                </template>
-                            </ul>
-                        </section>
+                                    </div>
+                                </section>
+                            </template>
+                        </div>
 
-                        <!-- Components, grouped by sidebar section -->
-                        <template x-for="block in componentSections" :key="block.section">
-                            <section class="mb-10">
-                                <h2 class="flex items-center gap-2 mb-4 font-semibold text-lg text-zinc-900">
-                                    <span x-text="$store.i18n.t(`sections.${block.section}`)"></span>
-                                    <span class="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-zinc-200 text-xs font-mono text-zinc-700" x-text="block.items.length"></span>
-                                </h2>
-                                <ul class="divide-y divide-zinc-200 border border-zinc-200 rounded-xl bg-white shadow-sm">
-                                    <template x-for="item in block.items" :key="item.id">
-                                        <li class="p-4">
-                                            <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                                                <a href="#" @click.prevent="select({ id: item.id, type: 'component' })" class="font-medium text-zinc-900 hover:text-zinc-600" x-text="item.name ?? item.id"></a>
-                                                <code class="text-xs font-mono text-zinc-500" x-text="item.id"></code>
-                                            </div>
-                                            <template x-if="showUsage">
-                                                <div class="mt-2 flex flex-wrap gap-1.5">
-                                                    <template x-if="reverseUsage(item.id).length === 0">
-                                                        <span class="text-xs text-zinc-400 italic" x-text="$store.i18n.t('overview.no_usage')"></span>
-                                                    </template>
-                                                    <template x-for="chip in reverseUsage(item.id)" :key="chip.id">
-                                                        <button type="button" @click="select(chip)" class="inline-flex items-center px-2 py-0.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-xs font-medium text-zinc-700 cursor-pointer" x-text="chip.name"></button>
-                                                    </template>
-                                                </div>
-                                            </template>
-                                        </li>
-                                    </template>
-                                </ul>
-                            </section>
-                        </template>
-
-                        <!-- Compact directory grid -->
-                        <section class="mt-12 pt-8 border-t border-zinc-200">
-                            <h2 class="mb-4 font-semibold text-sm uppercase tracking-wider text-zinc-500" x-text="$store.i18n.t('overview.directory')"></h2>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Compact directory grid at the bottom — fast jump-to list per section -->
+                        <section class="mt-16 pt-10 border-t border-zinc-200">
+                            <h2 class="mb-6 font-semibold text-xs uppercase tracking-[0.15em] text-zinc-500" x-text="$store.i18n.t('overview.directory')"></h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-8">
                                 <template x-for="section in ['basic', 'blocks', 'gutenberg', 'pages']" :key="section">
                                     <div x-show="directoryList(section).length > 0">
-                                        <h3 class="mb-2 font-semibold text-xs uppercase tracking-wider text-zinc-700" x-text="$store.i18n.t(`sections.${section}`)"></h3>
-                                        <ul class="space-y-1">
+                                        <h3 class="mb-3 pb-2 border-b border-zinc-200 font-medium text-xs uppercase tracking-wider text-zinc-600 flex items-baseline justify-between gap-2">
+                                            <span x-text="$store.i18n.t(`sections.${section}`)"></span>
+                                            <span class="font-mono text-[10px] text-zinc-400" x-text="directoryList(section).length"></span>
+                                        </h3>
+                                        <ul class="space-y-1.5">
                                             <template x-for="item in directoryList(section)" :key="item.id">
                                                 <li>
-                                                    <a href="#" @click.prevent="select({ id: item.id, type: section === 'pages' ? 'page' : 'component' })" class="text-sm text-zinc-600 hover:text-zinc-900" x-text="item.name ?? item.id"></a>
+                                                    <a href="#" @click.prevent="select({ id: item.id, type: section === 'pages' ? 'page' : 'component' })"
+                                                       class="text-sm text-zinc-700 hover:text-zinc-950 transition-colors"
+                                                       x-text="item.name ?? item.id"></a>
                                                 </li>
                                             </template>
                                         </ul>
