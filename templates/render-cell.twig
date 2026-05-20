@@ -3,6 +3,24 @@
 <html lang="{{ langcode|default('en')|e }}"{% if iframe.html_class %} class="{{ iframe.html_class|e }}"{% endif %}>
 <head>
 	<script>document.documentElement.classList.remove('no-js');</script>
+	{# Lock the iframe to a light backdrop regardless of OS `prefers-color-scheme`
+	   or the parent SPA's dark mode toggle. Two things are at play:
+	   1. `color-scheme: light` tells Chrome to render the iframe's canvas
+	      light (default form controls, scrollbars).
+	   2. Explicit `background: white` on <body> handles the case where the
+	      consumer's foundations / page template leaves portions of the
+	      document transparent — without this, Chrome's user-agent style
+	      paints the iframe element dark in OS dark mode, bleeding through
+	      transparent content. Setting it on `<body>` (not `<html>`) keeps
+	      consumer CSS able to override with their own body bg without an
+	      `!important` battle.
+	   Consumer projects that want iframe content to follow OS dark can
+	   override both with their own `:root { color-scheme: dark light }`
+	   and a body background-color declaration in their stylesheet. #}
+	<style>
+		:root { color-scheme: light; }
+		body { background-color: #fff; }
+	</style>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<meta name="robots" content="noindex,nofollow">

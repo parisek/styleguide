@@ -7,6 +7,7 @@ import './styleguide.css';
 import './stores/i18n.js';
 import './stores/ui.js';
 import './stores/components.js';
+import './stores/theme.js';
 
 import './router.js';
 
