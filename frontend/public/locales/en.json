@@ -43,5 +43,8 @@
     "usage": {
         "used_in": "Used in",
         "components_in_page": "Components used"
+    },
+    "fields": {
+        "requiredLegend": "= Required field"
     }
 }
