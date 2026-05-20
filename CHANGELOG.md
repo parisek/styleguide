@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-20
+
 ### Fixed
 
 - `Styleguide::registerBundledHelpers()` no longer initializes the Twig
