@@ -1,21 +1,42 @@
 import Alpine from 'alpinejs';
 
-// Storybook-inspired viewport presets. Width is the meaningful dimension
-// (iframe height tracks the available chrome). Height is shown in the toolbar
-// readout but doesn't constrain rendering — the iframe stays as tall as the
-// preview area, mirroring how Chrome DevTools' device toolbar works in
-// "Responsive" mode.
+// Viewport presets aligned with Tailwind v4 default breakpoints (md / lg / xl /
+// 2xl = 768 / 1024 / 1280 / 1536) plus four device-mythic anchors (320 / 375 /
+// 425 for mobiles, 1920 for Full HD). The first label group keeps the legacy
+// "Mobile / Tablet / Desktop" semantics for tooltips, while the width number is
+// the actual button text — Storybook-style segmented control with explicit
+// pixel values.
+//
+// Height is informational (shown in the tooltip); the iframe itself stays as
+// tall as the surrounding chrome allows, mirroring Chrome DevTools' Responsive
+// mode. Custom widths go through `applyCustomWidth()` and don't live in this
+// list — they're persisted as the raw px string via the ui store.
 const VIEWPORTS = [
-    { key: 'mobile',  label: 'Mobile',  width: 375,  height: 667  },
-    { key: 'tablet',  label: 'Tablet',  width: 768,  height: 1024 },
-    { key: 'desktop', label: 'Desktop', width: 1280, height: 800  },
-    { key: 'full',    label: 'Full',    width: null, height: null }, // 100%
+    { key: 'mobile-s',   label: 'Mobile S',   width: 320,  height: 568  },
+    { key: 'mobile',     label: 'Mobile',     width: 375,  height: 667  },
+    { key: 'mobile-l',   label: 'Mobile L',   width: 425,  height: 812  },
+    { key: 'tablet',     label: 'Tablet',     width: 768,  height: 1024 },
+    { key: 'tablet-l',   label: 'Tablet L',   width: 1024, height: 1366 },
+    { key: 'desktop',    label: 'Desktop',    width: 1280, height: 800  },
+    { key: 'desktop-l',  label: 'Desktop L',  width: 1536, height: 960  },
+    { key: 'desktop-xl', label: 'Desktop XL', width: 1920, height: 1080 },
+    { key: 'full',       label: 'Full',       width: null, height: null }, // 100%
 ];
+
+// Custom width sanity range — same bounds as the URL-param parser in ui.js,
+// kept in sync so all three input paths (URL, drag, custom input) reject
+// the same garbage.
+const CUSTOM_MIN = 100;
+const CUSTOM_MAX = 4000;
 
 document.addEventListener('alpine:init', () => {
     Alpine.data('preview', () => ({
         viewports: VIEWPORTS,
         currentWidth: 0,
+        // The Custom input always shows the current pixel value (or '' when
+        // Full is active). Typing then Enter / blur writes through to the
+        // store. The bidirectional sync is set up in init() below.
+        customWidthInput: '',
 
         init() {
             // Track iframe wrapper width reactively. `offsetWidth` isn't an
@@ -31,6 +52,23 @@ document.addEventListener('alpine:init', () => {
             });
             this.$watch('iframeSrc', () => queueMicrotask(() => this.observeWrapper()));
             queueMicrotask(() => this.observeWrapper());
+
+            // Mirror store width → custom input. Runs on every width change
+            // (preset click, drag, URL param boot, persisted load, custom
+            // input itself) so the input field stays a faithful readout when
+            // it's not the source of truth.
+            this._syncCustomFromStore();
+            Alpine.effect(() => this._syncCustomFromStore());
+        },
+
+        _syncCustomFromStore() {
+            const w = Alpine.store('ui').previewWidth;
+            if (w === '100%') {
+                this.customWidthInput = '';
+                return;
+            }
+            const px = parseInt(w, 10);
+            if (Number.isInteger(px)) this.customWidthInput = px;
         },
 
         // The loading flag itself is set synchronously by setRoute() in the
@@ -93,19 +131,35 @@ document.addEventListener('alpine:init', () => {
             return Alpine.store('ui').isDragging;
         },
 
-        // Which preset matches the current width? `null` means custom (drag-resize).
+        // Which preset matches the current width? Returns the preset key for
+        // an exact match, or 'custom' when the width is a pixel value that
+        // doesn't line up with any preset (drag-resize, manual input,
+        // URL-param override with a non-preset number).
         get activePreset() {
             const w = this.previewWidth;
             if (w === '100%') return 'full';
             const px = parseInt(w, 10);
             const match = VIEWPORTS.find((v) => v.width === px);
-            return match?.key ?? null;
+            return match?.key ?? 'custom';
         },
 
         setPreset(key) {
             const preset = VIEWPORTS.find((v) => v.key === key);
             if (!preset) return;
             Alpine.store('ui').setWidth(preset.width === null ? '100%' : `${preset.width}px`);
+        },
+
+        // Custom-input apply path. Triggered on Enter / blur from the number
+        // input. Validates against the same CUSTOM_MIN..CUSTOM_MAX range as
+        // the URL-param parser; out-of-range values snap back to the store's
+        // current width (and the $watch above re-syncs the input).
+        applyCustomWidth() {
+            const px = parseInt(this.customWidthInput, 10);
+            if (!Number.isInteger(px) || px < CUSTOM_MIN || px > CUSTOM_MAX) {
+                this._syncCustomFromStore();
+                return;
+            }
+            Alpine.store('ui').setWidth(`${px}px`);
         },
 
         startDrag(event) {

@@ -10,7 +10,8 @@
         "type_page": "Stránka",
         "toggle_sidebar": "Přepnout panel",
         "select_prompt": "Vyberte komponentu",
-        "open_in_new_tab": "Otevřít v novém okně"
+        "open_in_new_tab": "Otevřít v novém okně",
+        "custom_width": "Vlastní šířka v pixelech (Enter pro potvrzení)"
     },
     "preview": {
         "mobile": "Mobil (375 px)",
