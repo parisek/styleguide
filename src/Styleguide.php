@@ -52,6 +52,7 @@ final class Styleguide
      *   base_url?: string,
      *   twig_context?: array<string,mixed>,
      *   twig?: Environment,
+     *   twig_options?: array<string,mixed>,
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
      * } $config
@@ -66,6 +67,21 @@ final class Styleguide
      * If `twig` is omitted, the package builds a pristine environment with
      * only the project's templates wired up — sufficient for unit tests and
      * for projects whose templates don't reach for extension-provided helpers.
+     * The pristine env defaults to `cache: false`, `debug: true`,
+     * `autoescape: false`. The first two mirror what every consumer wants
+     * during local dev; the third matches the project-wide convention that
+     * `|typography`, WYSIWYG content, and `|raw`-equivalent filters return
+     * HTML that must NOT be re-escaped. Twig's own default of
+     * `autoescape: 'html'` would mangle that markup on render, so the
+     * package opts out at the env-construction layer rather than asking
+     * every consumer to override it.
+     *
+     * Consumers that need different defaults (e.g. `cache: '/tmp/twig'` in
+     * production, `autoescape: 'html'` for a project that opts back into
+     * Twig's escaping) can pass `twig_options` — a map merged on top of the
+     * three defaults. Only meaningful when `twig` is omitted; ignored when
+     * a fully-built Environment is provided, since the package never
+     * mutates options on a consumer-owned env.
      *
      * Conventional namespaces are auto-registered when the matching directory
      * exists. Under `templates_path`: `@component` (`/component`), `@macro`
@@ -88,6 +104,10 @@ final class Styleguide
             'base_url' => '/styleguide',
             'twig_context' => [],
             'twig' => null,
+            // Right-hand merged onto the package defaults inside
+            // buildOwnTwig(), so a partial override (`['cache' => '...']`)
+            // doesn't reset the other two flags.
+            'twig_options' => [],
             // Path-only config — `typography.yml` lives in the project's
             // tree (each project has its own palette / fonts), and the
             // bundled TypographyExtension just points at it.
@@ -124,7 +144,17 @@ final class Styleguide
         $loader->addPath($templatesPath, 'project');
         $loader->addPath(__DIR__ . '/../templates');
         $this->registerConventionalNamespaces($loader, $templatesPath);
-        return new Environment($loader, ['cache' => false, 'debug' => true]);
+
+        // Right-hand merge so a consumer who only sets one key (e.g. cache)
+        // keeps the other two package defaults.
+        $overrides = is_array($this->config['twig_options'] ?? null) ? $this->config['twig_options'] : [];
+        $options = array_merge([
+            'cache' => false,
+            'debug' => true,
+            'autoescape' => false,
+        ], $overrides);
+
+        return new Environment($loader, $options);
     }
 
     /**
