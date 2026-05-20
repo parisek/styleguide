@@ -26,8 +26,17 @@
     },
     "nav": {
         "styleguide": "Styleguide",
+        "overview": "Přehled",
         "foundations": "Základy",
         "fields": "Pole"
+    },
+    "overview": {
+        "title": "Komponenty a stránky",
+        "subtitle": "Přehled všech komponent a stránek styleguidu.",
+        "show_usage": "Zobrazit použití",
+        "directory": "Rejstřík",
+        "no_usage": "Nepoužito",
+        "pages": "Stránky"
     },
     "empty_state": "Vyberte komponentu v postranním panelu",
     "loading": "Načítám…",

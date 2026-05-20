@@ -26,8 +26,17 @@
     },
     "nav": {
         "styleguide": "Styleguide",
+        "overview": "Overview",
         "foundations": "Foundations",
         "fields": "Fields"
+    },
+    "overview": {
+        "title": "Components & pages",
+        "subtitle": "Index of every component and page in the styleguide.",
+        "show_usage": "Show usage",
+        "directory": "Directory",
+        "no_usage": "Unused",
+        "pages": "Pages"
     },
     "empty_state": "Select a component in the sidebar",
     "loading": "Loading…",
