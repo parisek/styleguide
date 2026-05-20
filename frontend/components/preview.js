@@ -84,6 +84,11 @@ document.addEventListener('alpine:init', () => {
         // bar; tall pages extend the outer preview area (which is
         // overflow-auto) into a natural document flow.
         iframeContentHeight: null,
+        // Cached output of flattenFieldsTree() for the current route. Filled
+        // by an Alpine.effect in init() that re-runs only when route/components
+        // change, so the DFS happens once per navigation rather than on every
+        // template re-render that touches the tree or its count.
+        _fieldsTree: [],
 
         init() {
             // Track iframe wrapper width reactively. `offsetWidth` isn't an
@@ -106,6 +111,16 @@ document.addEventListener('alpine:init', () => {
             // it's not the source of truth.
             this._syncCustomFromStore();
             Alpine.effect(() => this._syncCustomFromStore());
+
+            // Recompute the flattened fields tree once per route change.
+            // Reactive deps are the route + components store; the DFS now
+            // runs at most once per visible component instead of on every
+            // template access of currentItemFieldsTree / Count.
+            Alpine.effect(() => {
+                const route = Alpine.store('ui').route;
+                const item = Alpine.store('components').find(route.type, route.slug);
+                this._fieldsTree = flattenFieldsTree(item?.fields);
+            });
         },
 
         _syncCustomFromStore() {
@@ -212,13 +227,11 @@ document.addEventListener('alpine:init', () => {
         },
 
         get currentItemFieldsTree() {
-            const route = Alpine.store('ui').route;
-            const item = Alpine.store('components').find(route.type, route.slug);
-            return flattenFieldsTree(item?.fields);
+            return this._fieldsTree;
         },
 
         get currentItemFieldsCount() {
-            return this.currentItemFieldsTree.length;
+            return this._fieldsTree.length;
         },
 
         // Lower-cased lookup so YAML can spell `Array` or `TEXT` and still

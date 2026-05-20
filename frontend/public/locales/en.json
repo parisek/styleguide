@@ -45,6 +45,7 @@
         "components_in_page": "Components used"
     },
     "fields": {
+        "required": "Required field",
         "requiredLegend": "= Required field"
     }
 }

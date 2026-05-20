@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.72npUL4T.js"></script>
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.DMCTG3PX.js"></script>
   <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.Cjmy9Qir.css">
 </head>
 <body
@@ -312,7 +312,10 @@
                                                     <span class="font-mono text-zinc-100 bg-zinc-800 px-1.5 py-0.5 rounded text-xs"
                                                           x-text="row.key"></span>
                                                     <template x-if="row.required">
-                                                        <span class="w-2 h-2 rounded-full bg-red-500 shrink-0" title="Required"></span>
+                                                        <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"
+                                                              role="img"
+                                                              :title="$store.i18n.t('fields.required')"
+                                                              :aria-label="$store.i18n.t('fields.required')"></span>
                                                     </template>
                                                 </span>
                                             </td>
@@ -333,7 +336,9 @@
                                 </tbody>
                             </table>
                             <div class="px-4 py-2 border-t border-zinc-800 bg-zinc-900/60 text-[10px] text-zinc-500 flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full bg-red-500 inline-block"></span>
+                                <!-- Decorative: the localised legend text right next
+                                     to it already conveys meaning to screen readers. -->
+                                <span class="w-2 h-2 rounded-full bg-red-500 inline-block" aria-hidden="true"></span>
                                 <span x-text="$store.i18n.t('fields.requiredLegend')"></span>
                             </div>
                         </div>
