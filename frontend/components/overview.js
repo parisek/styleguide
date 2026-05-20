@@ -61,17 +61,44 @@ document.addEventListener('alpine:init', () => {
         // the components store so each chip carries a real name + nav target.
         // Unknown ids stay as greyed-out chips (type === null) so missing
         // metadata surfaces visibly instead of getting silently dropped.
-        forwardUsage(item) {
-            const ids = String(item?.usage ?? '')
-                .split(',').map((s) => s.trim()).filter(Boolean);
-            const components = Alpine.store('components');
-            return ids.map((id) => {
-                const page = components.pages.find((p) => p.id === id);
+        //
+        // Cached via `_forwardMap` (id → chips[]) because the template calls
+        // forwardUsage(page) twice per row (once in `x-if` for the length
+        // check, once in `x-for` for the list). Without the map each render
+        // would re-split the CSV and re-scan pages + items for every chip.
+        // Invalidated when store.pages.length OR items.length changes — same
+        // pattern as reverseUsage's pages-count snapshot.
+        _forwardMap: null,
+        _forwardMapForCount: -1,
+
+        _buildForwardMap(store) {
+            const map = new Map();
+            const resolve = (ids) => ids.map((id) => {
+                const page = store.pages.find((p) => p.id === id);
                 if (page) return { id, type: 'page', name: page.name ?? id };
-                const comp = components.items.find((c) => c.id === id);
+                const comp = store.items.find((c) => c.id === id);
                 if (comp) return { id, type: 'component', name: comp.name ?? id };
                 return { id, type: null, name: id };
             });
+            for (const collection of [store.pages, store.items]) {
+                for (const item of collection) {
+                    const ids = String(item?.usage ?? '')
+                        .split(',').map((s) => s.trim()).filter(Boolean);
+                    map.set(item.id, resolve(ids));
+                }
+            }
+            this._forwardMap = map;
+            this._forwardMapForCount = store.pages.length + store.items.length;
+        },
+
+        forwardUsage(item) {
+            const store = Alpine.store('components');
+            if (store.loading) return [];
+            const totalCount = store.pages.length + store.items.length;
+            if (this._forwardMap === null || this._forwardMapForCount !== totalCount) {
+                this._buildForwardMap(store);
+            }
+            return this._forwardMap.get(item?.id) ?? [];
         },
 
         get pages() {
