@@ -18,7 +18,17 @@ document.addEventListener('alpine:init', () => {
             try {
                 const mq = window.matchMedia('(prefers-color-scheme: dark)');
                 this.systemDark = mq.matches;
-                mq.addEventListener('change', (e) => { this.systemDark = e.matches; });
+                const onChange = (e) => { this.systemDark = e.matches; };
+                // Safari < 14 / iOS Safari < 14 ship MediaQueryList without
+                // `addEventListener`, only the legacy `addListener` API. Feature-
+                // detect both so `system` mode still tracks OS preference live
+                // on those engines instead of falling into the catch and
+                // freezing at boot-time `systemDark`.
+                if (typeof mq.addEventListener === 'function') {
+                    mq.addEventListener('change', onChange);
+                } else if (typeof mq.addListener === 'function') {
+                    mq.addListener(onChange);
+                }
             } catch (e) {
                 // matchMedia missing (extremely old browsers) — treat as light.
                 this.systemDark = false;

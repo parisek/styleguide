@@ -20,15 +20,20 @@
     -->
     <script>
         (function () {
+            // Narrow try/catch to the localStorage read alone — Safari private
+            // mode throws on `localStorage.getItem`. The matchMedia fallback
+            // for `system` mode lives outside the catch so a localStorage
+            // throw doesn't strand OS-dark users on a light flash.
+            var mode = 'system';
             try {
                 var stored = localStorage.getItem('sg-theme');
-                var mode = stored ? JSON.parse(stored) : 'system';
-                var dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-                if (dark) document.documentElement.classList.add('dark');
+                if (stored) mode = JSON.parse(stored);
             } catch (e) {}
+            var dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.DRER6fNH.js"></script>
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.C06TKRBd.js"></script>
   <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.CaMq82UO.css">
 </head>
 <body
