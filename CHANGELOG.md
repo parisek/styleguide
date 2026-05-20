@@ -6,6 +6,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Overview index column order is now **Pages → Blocks → Gutenberg →
+  Basic elements** (was Pages → Basic → Blocks → Gutenberg). Reading
+  flow puts the page-level surface first, then the composite component
+  buckets, and the fine-grained atomic elements ("Ostatní") last —
+  matches how readers usually scan a styleguide overview (top-down from
+  whole pages to leaf primitives). Empty buckets still hide; only the
+  ordering of present sections changed.
+
 ## [0.2.0] - 2026-05-20
 
 ### Documentation

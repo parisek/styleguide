@@ -138,7 +138,13 @@ document.addEventListener('alpine:init', () => {
                 if (!buckets[section]) buckets[section] = [];
                 buckets[section].push(item);
             }
-            return ['basic', 'blocks', 'gutenberg']
+            // Reading order on the overview: Pages → composite (Blocks /
+            // Gutenberg) → atomic (Basic, i.e. Ostatní). Pages render their
+            // own section above this getter; here we order the component
+            // buckets so the larger composite groups come before the
+            // fine-grained atomic-element bucket — readers care more about
+            // the page-level surface than the leaf components when scanning.
+            return ['blocks', 'gutenberg', 'basic']
                 .filter((section) => buckets[section]?.length > 0)
                 .map((section) => ({ section, items: buckets[section] }));
         },
