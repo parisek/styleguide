@@ -9,7 +9,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - CI workflows (`tests.yml`, `release.yml`, `release-stamp.yml`) bumped
-  `actions/checkout@v4` → `@v5`. The v4 line runs on Node 20, which
+  `actions/checkout@v4` → `actions/checkout@v5`. The v4 line runs on Node 20, which
   GitHub started flagging as deprecated in Actions logs; v5 moves to
   Node 24. No behavior change in the workflows themselves — the bump
   exists only to clear the runtime-deprecation warning. Other actions
