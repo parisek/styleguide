@@ -66,6 +66,14 @@ final class Styleguide
      * If `twig` is omitted, the package builds a pristine environment with
      * only the project's templates wired up — sufficient for unit tests and
      * for projects whose templates don't reach for extension-provided helpers.
+     * The pristine env defaults to `cache: false`, `debug: true`,
+     * `autoescape: false`. The first two mirror what every consumer wants
+     * during local dev; the third matches the project-wide convention that
+     * `|typography`, WYSIWYG content, and `|raw`-equivalent filters return
+     * HTML that must NOT be re-escaped. Twig's own default of
+     * `autoescape: 'html'` would mangle that markup on render, so the
+     * package opts out at the env-construction layer rather than asking
+     * every consumer to override it.
      *
      * Conventional namespaces are auto-registered when the matching directory
      * exists. Under `templates_path`: `@component` (`/component`), `@macro`
@@ -124,7 +132,11 @@ final class Styleguide
         $loader->addPath($templatesPath, 'project');
         $loader->addPath(__DIR__ . '/../templates');
         $this->registerConventionalNamespaces($loader, $templatesPath);
-        return new Environment($loader, ['cache' => false, 'debug' => true]);
+        return new Environment($loader, [
+            'cache' => false,
+            'debug' => true,
+            'autoescape' => false,
+        ]);
     }
 
     /**

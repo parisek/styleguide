@@ -42,6 +42,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- `Styleguide::buildOwnTwig()` (the pristine env built when the consumer
+  omits the `twig` config key) now defaults `autoescape: false` alongside
+  the existing `cache: false` + `debug: true`. Previously the env fell
+  back to Twig's own default of `autoescape: 'html'`, which meant every
+  consumer that didn't pass its own `Environment` had to either accept
+  HTML-mangled output from `|typography` / WYSIWYG / `|raw`-style filters
+  OR pre-build a one-off env just to flip that single option. Both
+  branches of the package's pristine-vs-provided-env contract now share
+  the same project-wide defaults; consumers can drop the boilerplate
+  `new Environment(..., ['cache' => false, 'debug' => true, 'autoescape'
+  => false])` block from their bootstrap if it was only there to override
+  this one flag. Behavior is unchanged for consumers that pass an
+  explicit `twig` Environment — the package never touches options on a
+  provided env, it just attaches loaders.
 - **BREAKING (URL):** The `/styleguide/overview` URL now serves the new
   Components & Pages index above. The previous logo + colors +
   typography page has moved to **/styleguide/foundations** and its
