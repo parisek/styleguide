@@ -6,9 +6,9 @@ import Alpine from 'alpinejs';
 // hard overrides.
 //
 // Coupling note: the FOUC-prevention inline script in `index.html` <head>
-// reads the SAME localStorage key (`_x_sg-theme`, where `_x_` is the
-// @alpinejs/persist namespace and `sg-theme` matches the `.as()` arg below).
-// If you rename either side, rename both.
+// reads the SAME localStorage key — bare `sg-theme` (the `.as()` arg
+// below). Current @alpinejs/persist writes keys verbatim, no `_x_`
+// prefix. If you rename either side, rename both.
 document.addEventListener('alpine:init', () => {
     Alpine.store('theme', {
         mode: Alpine.$persist('system').as('sg-theme'),

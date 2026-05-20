@@ -9,8 +9,11 @@
     <!--
         Synchronous FOUC-prevention: apply `.dark` on <html> BEFORE the
         stylesheet loads so a dark-mode reload doesn't flash light. Reads
-        the same localStorage key that @alpinejs/persist writes for the
-        theme store (`_x_` namespace prefix + the `.as('sg-theme')` name).
+        the same localStorage key @alpinejs/persist writes for the theme
+        store (bare `sg-theme` name from `.as('sg-theme')` — current
+        @alpinejs/persist does NOT prefix keys, despite the legacy `_x_`
+        convention some older write-ups still mention). The value is
+        JSON-encoded, hence the parse.
         Falls back to `prefers-color-scheme` when nothing is persisted yet.
         Wrapped in try/catch because Safari private mode throws on
         localStorage access.
@@ -18,15 +21,15 @@
     <script>
         (function () {
             try {
-                var stored = localStorage.getItem('_x_sg-theme');
+                var stored = localStorage.getItem('sg-theme');
                 var mode = stored ? JSON.parse(stored) : 'system';
                 var dark = mode === 'dark' || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 if (dark) document.documentElement.classList.add('dark');
             } catch (e) {}
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.CVT2nmlw.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.BfHnR6BT.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.DRER6fNH.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.CaMq82UO.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -393,18 +396,21 @@
                  padding. Matches the Overview view's flat in-shell look so
                  the styleguide-meta pages (overview + foundations) share a
                  visual treatment distinct from the responsive-test surface
-                 used for component / page previews. The wrapper carries a
-                 dark fallback colour so the brief moment before the iframe
-                 loads in dark mode doesn't flash white. -->
+                 used for component / page previews. The wrapper stays
+                 `bg-white` in both themes — it sits BEHIND the iframe and
+                 shows through any transparent parts of the consumer's
+                 foundations content, which is theme-agnostic from our
+                 perspective. Painting it dark in dark mode would put the
+                 consumer's light-rendered text on a dark backdrop. -->
             <template x-if="$store.ui.route.type === 'foundations'">
-                <div class="flex-1 relative bg-white dark:bg-zinc-900 overflow-hidden">
+                <div class="flex-1 relative bg-white overflow-hidden">
                     <iframe :src="iframeSrc" @load="onIframeLoad"
                             class="w-full h-full border-0"></iframe>
                     <div x-show="isLoading"
-                         class="absolute inset-0 flex items-center justify-center bg-white dark:bg-zinc-900 pointer-events-none">
+                         class="absolute inset-0 flex items-center justify-center bg-white pointer-events-none">
                         <div x-show="isLoading"
                              x-transition.opacity.duration.150ms.delay.120ms
-                             class="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-300 animate-pulse"></div>
+                             class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
                     </div>
                 </div>
             </template>
@@ -416,10 +422,14 @@
             <template x-if="$store.ui.route.type !== 'overview' && $store.ui.route.type !== 'foundations'">
             <div class="flex-1 flex justify-center items-start p-6 bg-zinc-100 dark:bg-zinc-950 overflow-auto">
                 <template x-if="iframeSrc">
+                    <!-- The wrapper bg stays white in both themes — iframe content
+                         is the consumer's domain (no theme propagation), and they
+                         render against an assumed light backdrop. A dark wrapper
+                         would bleed through transparent iframe areas. -->
                     <div x-ref="iframeWrapper"
                          :style="`width: ${previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
-                         class="relative bg-white dark:bg-zinc-900 rounded shadow-lg">
+                         class="relative bg-white rounded shadow-lg">
                         <!-- Iframe height tracks inner contentDocument so the
                              component sits in natural document flow rather
                              than forcing an internal scroll bar inside a
@@ -438,10 +448,10 @@
                              with a 120ms delay so very fast loads (<120ms — common for cached
                              responses) skip the dot entirely. -->
                         <div x-show="isLoading"
-                             class="absolute inset-0 flex items-center justify-center rounded bg-white dark:bg-zinc-900 pointer-events-none">
+                             class="absolute inset-0 flex items-center justify-center rounded bg-white pointer-events-none">
                             <div x-show="isLoading"
                                  x-transition.opacity.duration.150ms.delay.120ms
-                                 class="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-300 animate-pulse"></div>
+                                 class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
                         </div>
                         <!-- Drag handles: outside the iframe so cursor events aren't swallowed;
                              rendered on both edges for centered-grow symmetry. Hidden on the

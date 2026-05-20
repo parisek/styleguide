@@ -60,7 +60,7 @@ The `Alpine.effect` wrapper means the class on `<html>` re-syncs automatically w
 <script>
   (function() {
     try {
-      var stored = localStorage.getItem('_x_sg-theme');
+      var stored = localStorage.getItem('sg-theme');
       var mode = stored ? JSON.parse(stored) : 'system';
       var dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
       if (dark) document.documentElement.classList.add('dark');
@@ -152,7 +152,7 @@ The iframe stays untouched. `src/Router.php`, `src/Renderer.php`, `src/Styleguid
 
 ```
 [boot]
-  inline <head> script → reads localStorage['_x_sg-theme'] → applies .dark on <html> (synchronous, no FOUC)
+  inline <head> script → reads localStorage['sg-theme'] → applies .dark on <html> (synchronous, no FOUC)
   Vite CSS loads with .dark already in place → no flash
 
 [Alpine init]
