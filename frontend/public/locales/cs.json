@@ -26,7 +26,7 @@
     },
     "nav": {
         "styleguide": "Styleguide",
-        "overview": "Přehled",
+        "foundations": "Základy",
         "fields": "Pole"
     },
     "empty_state": "Vyberte komponentu v postranním panelu",

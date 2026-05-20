@@ -6,7 +6,7 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.Dfczw2rJ.js"></script>
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.BF-zGCe5.js"></script>
   <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.Cuy8Ec7b.css">
 </head>
 <body
@@ -39,11 +39,11 @@
             <!-- Sections + items (scroll) -->
             <nav class="flex-1 overflow-y-auto p-3 space-y-2">
                 <!-- Overview link (pinned at top) -->
-                <a href="#" @click.prevent="select('overview', null)"
+                <a href="#" @click.prevent="select('foundations', null)"
                    class="flex items-center gap-2 px-2 py-1.5 text-sm rounded mb-2"
-                   :class="isActive('overview', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
-                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-white' : 'bg-zinc-600'"></span>
-                    <span x-text="$store.i18n.t('nav.overview')"></span>
+                   :class="isActive('foundations', null) ? 'bg-white/10 text-white font-medium' : 'text-zinc-300 hover:bg-zinc-800 hover:text-white'">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('foundations', null) ? 'bg-white' : 'bg-zinc-600'"></span>
+                    <span x-text="$store.i18n.t('nav.foundations')"></span>
                 </a>
 
                 <template x-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
@@ -114,8 +114,8 @@
                     <button @click="$store.ui.toggleSidebar()" class="text-zinc-400 hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
-                    <template x-if="$store.ui.route.type === 'overview'">
-                        <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.overview')"></span>
+                    <template x-if="$store.ui.route.type === 'foundations'">
+                        <span class="font-semibold text-zinc-100" x-text="$store.i18n.t('nav.foundations')"></span>
                     </template>
                     <template x-if="$store.ui.route.slug">
                         <div class="flex items-center gap-2 min-w-0">
@@ -137,17 +137,17 @@
                             </nav>
                         </div>
                     </template>
-                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'overview'">
+                    <template x-if="!$store.ui.route.slug && $store.ui.route.type !== 'foundations'">
                         <span class="text-zinc-500 text-sm" x-text="$store.i18n.t('toolbar.select_prompt')"></span>
                     </template>
                 </div>
 
                 <!-- Viewport controls — Tailwind-aligned segmented control with explicit
-                     pixel labels + Custom number input + Full. Hidden on the overview
-                     route where responsive testing doesn't make sense (overview shows
+                     pixel labels + Custom number input + Full. Hidden on the foundations
+                     route where responsive testing doesn't make sense (foundations shows
                      palette / typography / project surface; locking it to 100% width
                      keeps the layout stable across reloads). -->
-                <template x-if="iframeSrc && $store.ui.route.type !== 'overview'">
+                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations'">
                     <div class="flex items-center gap-3 shrink-0">
                         <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline" x-text="`${currentWidth} px`"></span>
                         <div class="flex gap-px rounded overflow-hidden bg-zinc-800">
@@ -189,9 +189,9 @@
                         </a>
                     </div>
                 </template>
-                <!-- Overview route still gets the open-in-new-tab affordance, just
+                <!-- Foundations route still gets the open-in-new-tab affordance, just
                      without the viewport controls. -->
-                <template x-if="iframeSrc && $store.ui.route.type === 'overview'">
+                <template x-if="iframeSrc && $store.ui.route.type === 'foundations'">
                     <a :href="iframeSrc" target="_blank" rel="noopener"
                        :title="$store.i18n.t('toolbar.open_in_new_tab')"
                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition-colors shrink-0">
@@ -250,7 +250,7 @@
             <div class="flex-1 flex justify-center items-start p-6 bg-zinc-950 overflow-auto">
                 <template x-if="iframeSrc">
                     <div x-ref="iframeWrapper"
-                         :style="`width: ${$store.ui.route.type === 'overview' ? '100%' : previewWidth}; max-width: 100%`"
+                         :style="`width: ${$store.ui.route.type === 'foundations' ? '100%' : previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
                          class="relative bg-white rounded shadow-lg">
                         <iframe :src="iframeSrc" @load="onIframeLoad"
@@ -271,16 +271,16 @@
                         </div>
                         <!-- Drag handles: outside the iframe so cursor events aren't swallowed;
                              rendered on both edges for centered-grow symmetry. Hidden on the
-                             overview route — that view has no responsivity worth testing, and
+                             foundations route — that view has no responsivity worth testing, and
                              the locked-100% iframe shouldn't be draggable. -->
-                        <template x-if="$store.ui.route.type !== 'overview'">
+                        <template x-if="$store.ui.route.type !== 'foundations'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
                                      :class="isDragging && 'bg-zinc-200'"></div>
                             </div>
                         </template>
-                        <template x-if="$store.ui.route.type !== 'overview'">
+                        <template x-if="$store.ui.route.type !== 'foundations'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"

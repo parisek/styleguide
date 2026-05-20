@@ -64,7 +64,7 @@ document.addEventListener('alpine:init', () => {
             // iframe — landing / fields / future non-iframe views don't need
             // the overlay, and triggering it would leave a phantom overlay
             // with no `load` event to clear it.
-            if (['component', 'page', 'overview'].includes(type)) {
+            if (['component', 'page', 'foundations'].includes(type)) {
                 this.isPreviewLoading = true;
             }
             this.route = { type, slug };

@@ -26,7 +26,7 @@
     },
     "nav": {
         "styleguide": "Styleguide",
-        "overview": "Overview",
+        "foundations": "Foundations",
         "fields": "Fields"
     },
     "empty_state": "Select a component in the sidebar",
