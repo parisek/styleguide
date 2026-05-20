@@ -6,8 +6,8 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.Cy4sCWjw.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.D-qYvUnH.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.Dfczw2rJ.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.Cuy8Ec7b.css">
 </head>
 <body
     class="bg-zinc-950 text-zinc-100 font-sans antialiased"
@@ -142,19 +142,41 @@
                     </template>
                 </div>
 
-                <!-- Viewport controls — Storybook-style named presets + dimension readout + open-in-new-tab -->
-                <template x-if="iframeSrc">
+                <!-- Viewport controls — Tailwind-aligned segmented control with explicit
+                     pixel labels + Custom number input + Full. Hidden on the overview
+                     route where responsive testing doesn't make sense (overview shows
+                     palette / typography / project surface; locking it to 100% width
+                     keeps the layout stable across reloads). -->
+                <template x-if="iframeSrc && $store.ui.route.type !== 'overview'">
                     <div class="flex items-center gap-3 shrink-0">
                         <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline" x-text="`${currentWidth} px`"></span>
                         <div class="flex gap-px rounded overflow-hidden bg-zinc-800">
                             <template x-for="vp in viewports" :key="vp.key">
                                 <button @click="setPreset(vp.key)"
                                         :title="vp.width ? `${vp.label} — ${vp.width} × ${vp.height} px` : `${vp.label} — 100%`"
-                                        class="px-2.5 h-7 flex items-center justify-center text-xs font-medium transition-colors"
+                                        class="px-2.5 h-7 flex items-center justify-center text-xs font-medium tabular-nums transition-colors"
                                         :class="activePreset === vp.key ? 'bg-zinc-100 text-zinc-900' : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700'">
-                                    <span x-text="vp.label"></span>
+                                    <!-- Width number as label for the px-bearing presets;
+                                         "Full" label for the 100% preset. -->
+                                    <span x-text="vp.width ?? vp.label"></span>
                                 </button>
                             </template>
+                            <!-- Custom input — always visible. Typing then Enter / blur
+                                 applies the value (validated 100..4000 px). When the
+                                 store width matches a preset, the input still shows the
+                                 current pixel value so it's a readout + override knob
+                                 in one. activePreset === 'custom' flips the styling to
+                                 the selected state. -->
+                            <input type="number"
+                                   x-model.number="customWidthInput"
+                                   @keydown.enter.prevent="applyCustomWidth(); $event.target.blur()"
+                                   @blur="applyCustomWidth"
+                                   :min="100" :max="4000"
+                                   :placeholder="$store.i18n.t('toolbar.custom_width_placeholder')"
+                                   :aria-label="$store.i18n.t('toolbar.custom_width')"
+                                   :title="$store.i18n.t('toolbar.custom_width')"
+                                   class="w-20 px-2 h-7 text-xs font-mono tabular-nums border-l border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-400 transition-colors"
+                                   :class="activePreset === 'custom' ? 'bg-zinc-100 text-zinc-900 placeholder-zinc-500' : 'bg-zinc-800 text-zinc-400 placeholder-zinc-500 hover:bg-zinc-700 hover:text-zinc-100'">
                         </div>
                         <!-- Open the raw render endpoint in a new tab — the iframe HTML reveals
                              its own "back to styleguide" navbar at the top when standalone. -->
@@ -166,6 +188,17 @@
                             </svg>
                         </a>
                     </div>
+                </template>
+                <!-- Overview route still gets the open-in-new-tab affordance, just
+                     without the viewport controls. -->
+                <template x-if="iframeSrc && $store.ui.route.type === 'overview'">
+                    <a :href="iframeSrc" target="_blank" rel="noopener"
+                       :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                       class="h-7 w-7 flex items-center justify-center rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700 transition-colors shrink-0">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
+                        </svg>
+                    </a>
                 </template>
             </div>
 
@@ -217,7 +250,7 @@
             <div class="flex-1 flex justify-center items-start p-6 bg-zinc-950 overflow-auto">
                 <template x-if="iframeSrc">
                     <div x-ref="iframeWrapper"
-                         :style="`width: ${previewWidth}; max-width: 100%`"
+                         :style="`width: ${$store.ui.route.type === 'overview' ? '100%' : previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
                          class="relative bg-white rounded shadow-lg">
                         <iframe :src="iframeSrc" @load="onIframeLoad"
@@ -236,17 +269,24 @@
                                  x-transition.opacity.duration.150ms.delay.120ms
                                  class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
                         </div>
-                        <!-- Drag handle: outside the iframe so cursor events aren't swallowed; rendered on both edges for centered-grow symmetry. -->
-                        <div @mousedown="startDrag" @touchstart="startDrag"
-                             class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
-                            <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
-                                 :class="isDragging && 'bg-zinc-200'"></div>
-                        </div>
-                        <div @mousedown="startDrag" @touchstart="startDrag"
-                             class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
-                            <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
-                                 :class="isDragging && 'bg-zinc-200'"></div>
-                        </div>
+                        <!-- Drag handles: outside the iframe so cursor events aren't swallowed;
+                             rendered on both edges for centered-grow symmetry. Hidden on the
+                             overview route — that view has no responsivity worth testing, and
+                             the locked-100% iframe shouldn't be draggable. -->
+                        <template x-if="$store.ui.route.type !== 'overview'">
+                            <div @mousedown="startDrag" @touchstart="startDrag"
+                                 class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
+                                <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
+                                     :class="isDragging && 'bg-zinc-200'"></div>
+                            </div>
+                        </template>
+                        <template x-if="$store.ui.route.type !== 'overview'">
+                            <div @mousedown="startDrag" @touchstart="startDrag"
+                                 class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
+                                <div class="w-1 h-12 rounded-full bg-zinc-600 group-hover:bg-zinc-300 transition-colors"
+                                     :class="isDragging && 'bg-zinc-200'"></div>
+                            </div>
+                        </template>
                     </div>
                 </template>
                 <template x-if="!iframeSrc && !$store.components.loading">
