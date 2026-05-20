@@ -47,5 +47,11 @@
     "fields": {
         "required": "Required field",
         "requiredLegend": "= Required field"
+    },
+    "theme": {
+        "light": "Light theme",
+        "dark": "Dark theme",
+        "system": "Match system",
+        "toggle": "Toggle theme"
     }
 }

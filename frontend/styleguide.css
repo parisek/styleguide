@@ -6,6 +6,14 @@
 @source "./components/**/*.js";
 @source "./stores/**/*.js";
 
+/* Class-based dark mode. The `:where(...)` keeps specificity at 0 so consumer
+   styles inside the SPA chrome can still override without escalation. The
+   theme store in `stores/theme.js` toggles `.dark` on <html> and writes the
+   preference through `@alpinejs/persist` to `localStorage`. A synchronous
+   inline script in <head> (see index.html) applies the class before this CSS
+   loads so reloads in dark mode don't flash light. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* No @theme block — zinc/slate/indigo palettes are already in Tailwind v4 defaults.
    No `important` qualifier — the iframe boundary handles isolation.
    No preflight disable — preflight runs for the SPA chrome itself. */
@@ -34,9 +42,10 @@
    visually distinguishable from the surrounding muted body text. */
 @layer components {
     .sg-description-bar a {
-        @apply text-zinc-200 underline underline-offset-2 decoration-zinc-600 transition-colors;
+        @apply text-zinc-700 underline underline-offset-2 decoration-zinc-400 transition-colors
+               dark:text-zinc-200 dark:decoration-zinc-600;
     }
     .sg-description-bar a:hover {
-        @apply text-zinc-50 decoration-zinc-300;
+        @apply text-zinc-900 decoration-zinc-700 dark:text-zinc-50 dark:decoration-zinc-300;
     }
 }

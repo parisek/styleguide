@@ -47,5 +47,11 @@
     "fields": {
         "required": "Povinné pole",
         "requiredLegend": "= Povinné pole"
+    },
+    "theme": {
+        "light": "Světlé téma",
+        "dark": "Tmavé téma",
+        "system": "Podle systému",
+        "toggle": "Přepnout vzhled"
     }
 }

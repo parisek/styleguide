@@ -35,8 +35,13 @@ final class Renderer
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
      *   plus, for the foundations kind, the full yaml under `styleguide`).
+     * @param ?string $theme Whitelisted 'light' / 'dark' / null. Forwarded to
+     *   `render-cell.twig`, which stamps `class="dark"` on the iframe `<html>`
+     *   when it's `'dark'`. Consumers that opt into Tailwind dark mode then
+     *   pick the theme up automatically; consumers without a `.dark` style
+     *   are unaffected.
      */
-    public function render(string $kind, string $slug, array $config, string $langcode = 'en'): string
+    public function render(string $kind, string $slug, array $config, string $langcode = 'en', ?string $theme = null): string
     {
         if (!in_array($kind, ['component', 'page', 'foundations'], true)) {
             return $this->render404($kind, $slug, $config);
@@ -55,6 +60,7 @@ final class Renderer
             'kind' => $kind,
             'slug' => $slug,
             'langcode' => $langcode,
+            'theme' => $theme,
             'project' => $config['project'] ?? [],
             'iframe' => $config['iframe'] ?? [],
             'component' => [

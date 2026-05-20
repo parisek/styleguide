@@ -97,4 +97,48 @@ final class RouterTest extends TestCase
         self::assertNull(Router::parse('/'));
         self::assertNull(Router::parse('/styleguidedark')); // not a real /styleguide/ prefix
     }
+
+    #[Test]
+    public function parses_theme_on_render_routes(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'dark'],
+            Router::parse('/styleguide/render/component/hero?theme=dark')
+        );
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'home', 'theme' => 'light'],
+            Router::parse('/styleguide/render/page/home?theme=light')
+        );
+    }
+
+    #[Test]
+    public function ignores_invalid_theme_values(): void
+    {
+        // Unknown string, empty value, garbage — none should land on the route.
+        // The strict whitelist matters because the value flows into HTML as a
+        // class name; only the two known modes are honored.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
+            Router::parse('/styleguide/render/component/hero?theme=neon')
+        );
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
+            Router::parse('/styleguide/render/component/hero?theme=')
+        );
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
+            Router::parse('/styleguide/render/component/hero')
+        );
+    }
+
+    #[Test]
+    public function parse_theme_helper_whitelists_values(): void
+    {
+        self::assertSame('dark', Router::parseTheme('/anything?theme=dark'));
+        self::assertSame('light', Router::parseTheme('/anything?theme=light&extra=ignored'));
+        self::assertNull(Router::parseTheme('/anything?theme=neon'));
+        self::assertNull(Router::parseTheme('/anything?theme='));
+        self::assertNull(Router::parseTheme('/anything'));
+        self::assertNull(Router::parseTheme('/anything?lang=cs'));
+    }
 }

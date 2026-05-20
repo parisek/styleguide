@@ -226,12 +226,23 @@ document.addEventListener('alpine:init', () => {
             // env as components / pages, just against the shared yaml context
             // instead of one specific component). Fields used to do the same
             // but is now a per-component SPA drawer — no top-level page.
+            let path;
             if (route.type === 'foundations') {
-                return `/styleguide/render/${route.type}/index`;
+                path = `/styleguide/render/${route.type}/index`;
+            } else if (route.slug && (route.type === 'component' || route.type === 'page')) {
+                path = `/styleguide/render/${route.type}/${route.slug}`;
+            } else {
+                return null;
             }
-            if (!route.slug) return null;
-            if (route.type !== 'component' && route.type !== 'page') return null;
-            return `/styleguide/render/${route.type}/${route.slug}`;
+            // Propagate the resolved theme to the iframe. Re-reading
+            // `$store.theme.resolved` here makes the iframe src a reactive
+            // function of the theme — Alpine reruns the iframe :src binding
+            // when the user toggles, which reloads the iframe with the new
+            // ?theme= and lets render-cell.twig stamp `class="dark"` on the
+            // inner <html>. Consumers that don't use Tailwind dark mode
+            // ignore the param; the open-in-new-tab anchor inherits it.
+            const theme = Alpine.store('theme')?.resolved;
+            return theme ? `${path}?theme=${theme}` : path;
         },
 
         get currentItemFieldsTree() {

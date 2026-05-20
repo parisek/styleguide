@@ -84,4 +84,69 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('invalid/whatever', $html);
         http_response_code(200);
     }
+
+    #[Test]
+    public function stamps_dark_class_when_theme_is_dark(): void
+    {
+        $html = $this->renderer->render(
+            kind: 'component',
+            slug: 'sample',
+            config: ['project' => ['name' => 'TestProject'], 'iframe' => []],
+            langcode: 'en',
+            theme: 'dark',
+        );
+
+        // Single self-contained match so a future render-cell refactor that
+        // reorders attributes still passes — what matters is `class="dark"`
+        // landing on the iframe's <html>, not the attribute order.
+        self::assertMatchesRegularExpression('/<html[^>]*class="[^"]*\bdark\b[^"]*"/', $html);
+    }
+
+    #[Test]
+    public function omits_dark_class_for_light_theme(): void
+    {
+        $html = $this->renderer->render(
+            kind: 'component',
+            slug: 'sample',
+            config: ['project' => ['name' => 'TestProject'], 'iframe' => []],
+            langcode: 'en',
+            theme: 'light',
+        );
+
+        self::assertDoesNotMatchRegularExpression('/<html[^>]*class="[^"]*\bdark\b/', $html);
+    }
+
+    #[Test]
+    public function omits_dark_class_when_theme_unset(): void
+    {
+        $html = $this->renderer->render(
+            kind: 'component',
+            slug: 'sample',
+            config: ['project' => ['name' => 'TestProject'], 'iframe' => []],
+            langcode: 'en',
+        );
+
+        // No theme passed → render-cell shouldn't synthesise the class.
+        self::assertDoesNotMatchRegularExpression('/<html[^>]*class="[^"]*\bdark\b/', $html);
+    }
+
+    #[Test]
+    public function preserves_consumer_html_class_alongside_dark(): void
+    {
+        // When a project ships its own `iframe.html_class`, the dark class
+        // joins it space-separated rather than overwriting — projects that
+        // pin a global `notranslate` / `no-js` etc. shouldn't lose it.
+        $html = $this->renderer->render(
+            kind: 'component',
+            slug: 'sample',
+            config: [
+                'project' => ['name' => 'TestProject'],
+                'iframe' => ['html_class' => 'no-js'],
+            ],
+            langcode: 'en',
+            theme: 'dark',
+        );
+
+        self::assertMatchesRegularExpression('/<html[^>]*class="[^"]*\bno-js\b[^"]*\bdark\b/', $html);
+    }
 }
