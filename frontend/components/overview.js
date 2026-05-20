@@ -96,18 +96,6 @@ document.addEventListener('alpine:init', () => {
                 .map((section) => ({ section, items: buckets[section] }));
         },
 
-        // Flat alphabetical list per section, for the bottom directory grid.
-        directoryList(section) {
-            const store = Alpine.store('components');
-            const items = section === 'pages'
-                ? store.pages
-                : store.items.filter((c) => store.sectionOf(c, 'component') === section);
-            return items
-                .filter((i) => i.hasStyleguide !== false)
-                .slice()
-                .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id, 'cs'));
-        },
-
         select(item) {
             if (!item.type) return;
             window.sgNavigate(`/styleguide/${item.type}/${item.id}`);

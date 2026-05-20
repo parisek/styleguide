@@ -6,8 +6,8 @@
     <meta name="robots" content="noindex,nofollow">
     <title>Styleguide</title>
     <link rel="icon" id="sg-favicon-tag" href="">
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.B3KVE1Wc.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.D6BzKZnd.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.BTQcq3xw.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.4rWcQ8yA.css">
 </head>
 <body
     class="bg-zinc-950 text-zinc-100 font-sans antialiased"
@@ -255,14 +255,33 @@
                 </template>
             </div>
 
-            <!-- Preview area (iframe + empty/loading states) — hidden on the
-                 overview route, which renders its own light-themed SPA view
-                 in the sibling template below. -->
-            <template x-if="$store.ui.route.type !== 'overview'">
+            <!-- Foundations: full-bleed iframe, no frame / shadow / dark
+                 padding. Matches the Overview view's flat in-shell look so
+                 the styleguide-meta pages (overview + foundations) share a
+                 visual treatment distinct from the responsive-test surface
+                 used for component / page previews. -->
+            <template x-if="$store.ui.route.type === 'foundations'">
+                <div class="flex-1 relative bg-white overflow-hidden">
+                    <iframe :src="iframeSrc" @load="onIframeLoad"
+                            class="w-full h-full border-0"></iframe>
+                    <div x-show="isLoading"
+                         class="absolute inset-0 flex items-center justify-center bg-white pointer-events-none">
+                        <div x-show="isLoading"
+                             x-transition.opacity.duration.150ms.delay.120ms
+                             class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Component / page: framed iframe inside dark padding, drag
+                 handles + viewport controls active. Hidden for the meta
+                 routes (overview + foundations) which render in their own
+                 templates above and below. -->
+            <template x-if="$store.ui.route.type !== 'overview' && $store.ui.route.type !== 'foundations'">
             <div class="flex-1 flex justify-center items-start p-6 bg-zinc-950 overflow-auto">
                 <template x-if="iframeSrc">
                     <div x-ref="iframeWrapper"
-                         :style="`width: ${$store.ui.route.type === 'foundations' ? '100%' : previewWidth}; max-width: 100%`"
+                         :style="`width: ${previewWidth}; max-width: 100%`"
                          :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
                          class="relative bg-white rounded shadow-lg">
                         <iframe :src="iframeSrc" @load="onIframeLoad"
@@ -315,7 +334,7 @@
                  consuming projects regardless of their own CSS. -->
             <template x-if="$store.ui.route.type === 'overview'">
                 <div x-data="overview" class="flex-1 overflow-y-auto bg-zinc-50 text-zinc-900">
-                    <div class="max-w-7xl mx-auto px-6 py-10 lg:px-10 lg:py-14">
+                    <div class="px-6 py-10 lg:px-10 lg:py-14">
 
                         <!-- Header: title + subtitle + switch toggle -->
                         <header class="mb-10 pb-6 border-b border-zinc-200 flex flex-wrap items-end gap-4 justify-between">
@@ -435,30 +454,6 @@
                                 </section>
                             </template>
                         </div>
-
-                        <!-- Compact directory grid at the bottom — fast jump-to list per section -->
-                        <section class="mt-16 pt-10 border-t border-zinc-200">
-                            <h2 class="mb-6 font-semibold text-xs uppercase tracking-[0.15em] text-zinc-500" x-text="$store.i18n.t('overview.directory')"></h2>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-8">
-                                <template x-for="section in ['basic', 'blocks', 'gutenberg', 'pages']" :key="section">
-                                    <div x-show="directoryList(section).length > 0">
-                                        <h3 class="mb-3 pb-2 border-b border-zinc-200 font-medium text-xs uppercase tracking-wider text-zinc-600 flex items-baseline justify-between gap-2">
-                                            <span x-text="$store.i18n.t(`sections.${section}`)"></span>
-                                            <span class="font-mono text-[10px] text-zinc-400" x-text="directoryList(section).length"></span>
-                                        </h3>
-                                        <ul class="space-y-1.5">
-                                            <template x-for="item in directoryList(section)" :key="item.id">
-                                                <li>
-                                                    <a href="#" @click.prevent="select({ id: item.id, type: section === 'pages' ? 'page' : 'component' })"
-                                                       class="text-sm text-zinc-700 hover:text-zinc-950 transition-colors"
-                                                       x-text="item.name ?? item.id"></a>
-                                                </li>
-                                            </template>
-                                        </ul>
-                                    </div>
-                                </template>
-                            </div>
-                        </section>
                     </div>
                 </div>
             </template>
