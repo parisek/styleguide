@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-20
+
 ### Documentation
 
 - README expanded with a full **API reference** for the three JSON
@@ -117,6 +119,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **Overview index** restores the per-row external-link icons that the
+  pre-redesign styleguide carried — Asana / Figma / Drupal / Web SVG
+  badges fed from each component's parsed YAML metadata (`asana:`,
+  `figma:`, `drupal:`, `web:`). Icons render in two places: the row
+  header (full item, larger 28px badges) and every "Used in" / "Components"
+  chip (decorated chip from the forward / reverse map, smaller 24px
+  badges). `_buildForwardMap` and `_buildReverseMap` now copy the four
+  link fields onto each chip, so the chip-level row needs no second
+  store lookup. New `linksFor(item)` helper on the overview component
+  returns the same `{key, url, label}[]` shape the per-component
+  `linkBar` already uses above the iframe, so the four SVG `<template>`
+  blocks stay structurally identical across both surfaces.
+- **/styleguide/foundations** now ships its own Tailwind utility bundle.
+  Consumer projects scan only their own `templates/**/*.twig` in their
+  Tailwind v4 `@source` directives — the package's own
+  `templates/foundations.twig` is in `vendor/parisek/styleguide/templates/`
+  and therefore invisible to the consumer build. Without its layout
+  utilities (`h-32`, `max-w-48`, `min-h-32`, `prose-*`, etc.) the
+  foundations route rendered with broken sizing: the logo overflowed the
+  card, swatches collapsed to zero height, body samples lost their
+  responsive `prose` scale. The package now builds a dedicated
+  `dist/foundations.[hash].css` from a new `frontend/foundations.css`
+  Tailwind entry that explicitly `@source`s the foundations template;
+  `render-cell.twig` links it alongside `iframe.css` only on the
+  foundations route, after the consumer stylesheet so consumer overrides
+  on shared classes still win. Consumers don't add any `@source` path of
+  their own — pulling the new package version + running their existing
+  `composer update` is enough.
 - Per-component **Fields drawer** now actually renders for real-world
   components. The previous incarnation gated on `Array.isArray(fields)`
   but `ComponentParser` passes the YAML `fields:` map straight through
@@ -325,5 +355,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.gitattributes` `export-ignore` strips dev files from the Composer tarball.
 - CI: GitHub Actions runs PHPUnit on PHP 8.3 against every push + PR.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/parisek/styleguide/compare/v0.1.3...v0.2.0
+[0.1.3]: https://github.com/parisek/styleguide/compare/v0.1.2...v0.1.3
+[0.1.2]: https://github.com/parisek/styleguide/compare/v0.1.1...v0.1.2
+[0.1.1]: https://github.com/parisek/styleguide/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/parisek/styleguide/releases/tag/v0.1.0

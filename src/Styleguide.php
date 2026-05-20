@@ -818,6 +818,16 @@ final class Styleguide
             }
         } elseif ($route['kind'] === 'foundations') {
             $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
+            // foundations.twig uses Tailwind utility classes the consumer's
+            // own `iframe.css` doesn't generate (the consumer scans only its
+            // own templates/, not vendor/). The package ships a dedicated
+            // dist/foundations.[hash].css built from frontend/foundations.css
+            // that scans the foundations template, and render-cell.twig
+            // links it alongside iframe.css for foundations renders.
+            $cssUrl = $this->resolveFoundationsCssUrl();
+            if ($cssUrl !== null) {
+                $config['foundations_css_url'] = $cssUrl;
+            }
         }
 
         header('Content-Type: text/html; charset=utf-8');
@@ -827,6 +837,21 @@ final class Styleguide
             config: $config,
             langcode: $langcode,
         );
+    }
+
+    /**
+     * Locate the hashed dist/foundations.*.css file produced by the package's
+     * Vite build. Returns the public URL under /styleguide/assets/, or null
+     * when the bundle is missing (e.g. consumer hasn't run npm install/build
+     * after pulling a package version that introduced this file).
+     */
+    private function resolveFoundationsCssUrl(): ?string
+    {
+        $matches = glob($this->distRoot . '/foundations.*.css');
+        if ($matches === false || count($matches) === 0) {
+            return null;
+        }
+        return '/styleguide/assets/' . basename($matches[0]);
     }
 
     private function dispatchApi(array $route): void

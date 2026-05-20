@@ -32,6 +32,12 @@
 	{% endfor %}
 	{# Hlavní bundled CSS (Tailwind / Bootstrap / custom — vše v jednom souboru) #}
 	{% if iframe.css %}<link rel="stylesheet" href="{{ iframe.css|e }}">{% endif %}
+	{# Package-shipped Tailwind bundle for the foundations route. The consumer's
+	   iframe.css scans its own templates/ but not vendor/, so utility classes
+	   used only by templates/foundations.twig (h-32, max-w-48, prose-*, …)
+	   would otherwise be absent. Loaded after iframe.css so consumer overrides
+	   still win on shared classes. #}
+	{% if foundations_css_url %}<link rel="stylesheet" href="{{ foundations_css_url|e }}">{% endif %}
 	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
 	{% if iframe.js %}<script type="module" src="{{ iframe.js|e }}"></script>{% endif %}
 </head>

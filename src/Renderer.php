@@ -32,6 +32,7 @@ final class Renderer
      *   iframe?:array<string,mixed>,
      *   styleguide?:array<string,mixed>,
      *   component_name?:string,
+     *   foundations_css_url?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
      *   plus, for the foundations kind, the full yaml under `styleguide`).
@@ -62,6 +63,7 @@ final class Renderer
                 'name' => $config['component_name'] ?? $slug,
             ],
             'body' => $body,
+            'foundations_css_url' => $config['foundations_css_url'] ?? null,
         ]);
     }
 

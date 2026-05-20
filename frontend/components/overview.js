@@ -33,12 +33,23 @@ document.addEventListener('alpine:init', () => {
             const map = new Map();
             // Pages forward-declare their component usage in `page.usage`.
             // Inverting that into component → pages gives the reverse view.
+            // External-link fields (asana/figma/drupal/web) ride along on the
+            // chip so the "Used in" sub-list can render the same Asana/Figma
+            // badges as the row header without a second lookup.
             for (const page of store.pages) {
                 const ids = String(page.usage ?? '')
                     .split(',').map((s) => s.trim()).filter(Boolean);
                 for (const id of ids) {
                     if (!map.has(id)) map.set(id, []);
-                    map.get(id).push({ id: page.id, type: 'page', name: page.name ?? page.id });
+                    map.get(id).push({
+                        id: page.id,
+                        type: 'page',
+                        name: page.name ?? page.id,
+                        asana: page.asana,
+                        figma: page.figma,
+                        drupal: page.drupal,
+                        web: page.web,
+                    });
                 }
             }
             this._reverseMap = map;
@@ -73,11 +84,20 @@ document.addEventListener('alpine:init', () => {
 
         _buildForwardMap(store) {
             const map = new Map();
+            const decorate = (item, type) => ({
+                id: item.id,
+                type,
+                name: item.name ?? item.id,
+                asana: item.asana,
+                figma: item.figma,
+                drupal: item.drupal,
+                web: item.web,
+            });
             const resolve = (ids) => ids.map((id) => {
                 const page = store.pages.find((p) => p.id === id);
-                if (page) return { id, type: 'page', name: page.name ?? id };
+                if (page) return decorate(page, 'page');
                 const comp = store.items.find((c) => c.id === id);
-                if (comp) return { id, type: 'component', name: comp.name ?? id };
+                if (comp) return decorate(comp, 'component');
                 return { id, type: null, name: id };
             });
             for (const collection of [store.pages, store.items]) {
@@ -126,6 +146,23 @@ document.addEventListener('alpine:init', () => {
         select(item) {
             if (!item.type) return;
             window.sgNavigate(`/styleguide/${item.type}/${item.id}`);
+        },
+
+        // Resolves the external-link icon set for any item carrying the
+        // standard four metadata keys. Used by row headers (full item from
+        // the store) AND chip rows (decorated copy from `_buildForwardMap` /
+        // `_buildReverseMap`); both shapes carry the same four keys so the
+        // same template snippet renders either. Mirrors the order used by
+        // the per-component linkBar above the iframe: Asana → Figma →
+        // Drupal → Web.
+        linksFor(item) {
+            if (!item) return [];
+            return [
+                { key: 'asana',  url: item.asana,  label: 'Asana'  },
+                { key: 'figma',  url: item.figma,  label: 'Figma'  },
+                { key: 'drupal', url: item.drupal, label: 'Drupal' },
+                { key: 'web',    url: item.web,    label: 'Web'    },
+            ].filter((l) => l.url);
         },
     }));
 });

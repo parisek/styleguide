@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Dedicated stylesheet for the package-shipped `templates/foundations.twig`.
+   Consumer projects don't add `vendor/parisek/styleguide/templates/` to their
+   own Tailwind `@source` patterns, so without this bundle the foundations
+   route inherits no utility classes from the consumer's `iframe.css` and
+   renders unstyled (logo overflowing, missing heights, missing paddings).
+   render-cell.twig links this file via `foundations_css_url` only when the
+   foundations route is rendered, so component/page iframes still load only
+   the consumer's stylesheet. */
+@source "../templates/foundations.twig";
