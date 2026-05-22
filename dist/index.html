@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.DhVyKvzT.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.CtUGE1pJ.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.C0zcpYlI.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.C2-FThM4.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -472,7 +472,13 @@
                  routes (overview + foundations) which render in their own
                  templates above and below. -->
             <template x-if="$store.ui.route.type !== 'overview' && $store.ui.route.type !== 'foundations'">
-            <div class="flex-1 flex justify-center items-start p-6 bg-zinc-100 dark:bg-zinc-950 overflow-auto">
+            <!-- `items-stretch` in Full preset lets the wrapper's height: 100%
+                 resolve against this flex parent's intrinsic height (which
+                 itself fills the chrome's right pane via `flex-1`). For
+                 non-Full presets we revert to `items-start` so the device
+                 frame sits at the top of the area with breathing room. -->
+            <div class="flex-1 flex justify-center overflow-auto"
+                 :class="isFullPreset ? 'p-0 bg-white dark:bg-zinc-900 items-stretch' : 'p-6 bg-zinc-100 dark:bg-zinc-950 items-start'">
                 <template x-if="iframeSrc">
                     <!-- The wrapper bg stays white in both themes — iframe content
                          is the consumer's domain (no theme propagation), and they
@@ -480,8 +486,11 @@
                          would bleed through transparent iframe areas. -->
                     <div x-ref="iframeWrapper"
                          :style="wrapperStyle"
-                         :class="isDragging ? '' : 'transition-[width,height] duration-200 ease-out'"
-                         class="relative bg-white rounded shadow-lg overflow-hidden">
+                         :class="[
+                             isDragging ? '' : 'transition-[width,height] duration-200 ease-out',
+                             isFullPreset ? '' : 'rounded shadow-lg',
+                         ]"
+                         class="relative bg-white overflow-hidden">
                         <!-- Iframe height tracks inner contentDocument so the
                              component sits in natural document flow rather
                              than forcing an internal scroll bar inside a
