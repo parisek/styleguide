@@ -241,6 +241,21 @@
                                    class="w-20 px-2 h-7 text-xs font-mono tabular-nums border-l border-zinc-300 dark:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:focus:ring-zinc-400 transition-colors"
                                    :class="activePreset === 'custom' ? 'bg-zinc-900 text-white placeholder-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:placeholder-zinc-500' : 'bg-zinc-200 text-zinc-600 placeholder-zinc-500 hover:bg-zinc-300 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-400 dark:placeholder-zinc-500 dark:hover:bg-zinc-700 dark:hover:text-zinc-100'">
                         </div>
+                        <!-- Canvas mode — drops the iframe and navigates the parent
+                             window in-place to the same /render/<kind>/<slug> URL.
+                             In that view viewport units (vh / svh / dvh / h-screen)
+                             resolve against the real browser viewport, which fixes
+                             the device-emulation paradox documented in
+                             github.com/parisek/styleguide/issues/14 .
+                             render-cell.twig already detects standalone-mode (no
+                             iframe parent) and reveals a "← back to styleguide"
+                             navbar, so the user has a clear return path. -->
+                        <button type="button"
+                                @click="$store.ui.route.slug && (window.location.href = iframeSrc)"
+                                :title="$store.i18n.t('toolbar.canvas_mode')"
+                                class="px-2.5 h-7 flex items-center justify-center rounded text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                            <span x-text="$store.i18n.t('toolbar.canvas_mode_label')"></span>
+                        </button>
                         <!-- Open the raw render endpoint in a new tab — the iframe HTML reveals
                              its own "back to styleguide" navbar at the top when standalone. -->
                         <a :href="iframeSrc" target="_blank" rel="noopener"
