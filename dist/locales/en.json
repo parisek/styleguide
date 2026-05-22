@@ -14,7 +14,8 @@
         "custom_width": "Custom width in pixels (Enter to apply)",
         "custom_width_placeholder": "Custom",
         "canvas_mode": "Canvas — no iframe; viewport units (vh/svh/dvh) measure the real browser",
-        "canvas_mode_label": "Canvas"
+        "canvas_mode_label": "Canvas",
+        "rotate": "Rotate device (portrait ↔ landscape)"
     },
     "preview": {
         "mobile": "Mobile (375 px)",
