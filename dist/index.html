@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.CC2WmYFi.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.1p0L2GZl.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.ZuTLJQO9.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.DGdx2Fuv.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -251,7 +251,7 @@
                              iframe parent) and reveals a "← back to styleguide"
                              navbar, so the user has a clear return path. -->
                         <button type="button"
-                                @click="$store.ui.route.slug && (window.location.href = iframeSrc)"
+                                @click="$store.ui.route.slug && (window.location.href = iframeSrc + (iframeSrc.includes('?') ? '&' : '?') + 'canvas=1')"
                                 :title="$store.i18n.t('toolbar.canvas_mode')"
                                 class="px-2.5 h-7 flex items-center justify-center rounded text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
                             <span x-text="$store.i18n.t('toolbar.canvas_mode_label')"></span>
@@ -458,7 +458,7 @@
                              has something visible during the initial paint. -->
                         <iframe :src="iframeSrc" @load="onIframeLoad"
                                 class="w-full rounded border-0 block"
-                                :style="`height: ${iframeContentHeight ? iframeContentHeight + 'px' : '400px'}`"
+                                :style="`height: ${$store.ui.previewHeight ? $store.ui.previewHeight + 'px' : (iframeContentHeight ? iframeContentHeight + 'px' : '400px')}`"
                                 :class="{ 'pointer-events-none': isDragging }"></iframe>
                         <!-- Solid overlay during navigation — the iframe keeps showing the old
                              slug's content until the browser finishes parsing the new src. The

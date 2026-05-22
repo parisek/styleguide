@@ -272,7 +272,15 @@ document.addEventListener('alpine:init', () => {
         setPreset(key) {
             const preset = VIEWPORTS.find((v) => v.key === key);
             if (!preset) return;
-            Alpine.store('ui').setWidth(preset.width === null ? '100%' : `${preset.width}px`);
+            // Apply both width and height so the iframe carries the preset's
+            // aspect ratio. Height is what makes `h-svh` / `h-screen` inside
+            // the iframe resolve against a meaningful device viewport (e.g.
+            // Mobile 375 → h-svh = 667px, matching iPhone Safari). The "Full"
+            // preset has width=height=null → setWidth('100%', null) which
+            // signals auto-fit to content — content-driven height is correct
+            // when the iframe spans full width.
+            const w = preset.width === null ? '100%' : `${preset.width}px`;
+            Alpine.store('ui').setWidth(w, preset.height);
         },
 
         // Custom-input apply path. Triggered on Enter / blur from the number

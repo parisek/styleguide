@@ -28,6 +28,16 @@ document.addEventListener('alpine:init', () => {
         // PR will add History API updates so a chosen width also shows up
         // in the address bar.
         previewWidth: Alpine.$persist('100%').as('sg-preview-width'),
+        // Preset-derived iframe height in pixels — null means "auto-fit to
+        // content" (the historical behaviour). Set by setPreset() alongside
+        // width when the user picks a fixed device preset (Mobile 375, Tablet
+        // 1024, …) so the iframe carries the preset's aspect ratio and
+        // viewport units (h-svh / h-screen) inside resolve against it. Reset
+        // to null on custom-width input, drag, or Full — both auto-fit and
+        // 100%-wide modes want content-driven height. Persisted alongside
+        // previewWidth so the two stay in sync across reloads (setWidth
+        // writes both atomically).
+        previewHeight: Alpine.$persist(null).as('sg-preview-height'),
         isDragging: false,
         // Mirror of the preview's iframe loading state. Lives in the ui store
         // rather than the preview component because `setRoute()` needs to flip
@@ -51,8 +61,9 @@ document.addEventListener('alpine:init', () => {
             if (urlWidth) this.previewWidth = urlWidth;
         },
 
-        setWidth(w) {
+        setWidth(w, h = null) {
             this.previewWidth = w;
+            this.previewHeight = h;
         },
 
         toggleSidebar() {

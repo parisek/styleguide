@@ -60,7 +60,14 @@
 		// Reveal the back-bar only when this document is the top-level window;
 		// inside an iframe it stays hidden so the styleguide preview matches
 		// what the component would look like in production.
-		if (window.self === window.top) {
+		//
+		// `?canvas=1` query param suppresses the bar even when top-level —
+		// the SPA chrome's "Canvas" button passes that flag so the canvas view
+		// is truly 100% viewport without the sticky bar stealing ~40px at the
+		// top (which would push h-svh / h-screen content out of view). Users
+		// return via the browser back button; the URL bar is visible in
+		// canvas mode so the page is still navigable.
+		if (window.self === window.top && !new URLSearchParams(location.search).has('canvas')) {
 			document.getElementById('sg-standalone-bar').hidden = false;
 		}
 	</script>
