@@ -290,6 +290,30 @@ There's deliberately no shared base class — three near-identical classes are c
 
 ---
 
+## Command-line catalogue (CLI)
+
+After install, `vendor/bin/styleguide` exposes the component catalogue without needing the SPA. Useful for AI coding assistants and scripted tooling.
+
+```bash
+vendor/bin/styleguide list                       # all components (compact JSON)
+vendor/bin/styleguide list --pretty              # indented for terminals
+vendor/bin/styleguide list --type=page           # pages instead of components
+vendor/bin/styleguide show button                # one component, full detail
+vendor/bin/styleguide show landing --type=page   # one page
+```
+
+The CLI wraps `ComponentParser` — it returns the same normalised records as `GET /styleguide/api/components`, but without a running webserver. Run it from the consumer's repo root, or set `STYLEGUIDE_TEMPLATES=<path>` / pass `--templates=<path>` to override the templates directory location.
+
+Stdout is JSON; stderr carries error messages. Pipe to `jq` for filtering:
+
+```bash
+vendor/bin/styleguide list | jq '.[] | select(.category == "Block")'
+```
+
+`show <id>` exits `1` with an empty stdout when the component is not found, so a missing entry surfaces as a non-zero exit code rather than a parsing error downstream.
+
+---
+
 ## Conventional Twig namespaces
 
 When the package builds its own Twig environment (or attaches loaders to a project-provided one), it auto-registers these namespaces whenever the matching directory exists. Component templates can rely on them without the consuming project calling `$loader->addPath(…)`:
