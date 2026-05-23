@@ -56,4 +56,51 @@ final class CommandTest extends TestCase
         self::assertSame('Another', $decoded[0]['name'], 'weight 10 first');
         self::assertSame('Sample', $decoded[1]['name'], 'weight 20 second');
     }
+
+    #[Test]
+    public function show_returns_single_component_as_json(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            'sample',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(0, $exit, "stderr: $stderr");
+        self::assertSame('', $stderr);
+
+        $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertSame('sample', $decoded['id']);
+        self::assertSame('Sample', $decoded['name']);
+        self::assertSame('Block', $decoded['category']);
+        self::assertSame(20, $decoded['weight']);
+    }
+
+    #[Test]
+    public function show_returns_exit_1_and_stderr_message_when_not_found(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            'nonexistent',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Component "nonexistent" not found', $stderr);
+    }
+
+    #[Test]
+    public function show_returns_exit_1_when_id_is_missing(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Missing component id', $stderr);
+    }
 }
