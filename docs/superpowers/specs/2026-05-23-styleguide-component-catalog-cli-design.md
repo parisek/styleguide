@@ -1,7 +1,7 @@
 # Component Catalog CLI
 
 **Date:** 2026-05-23
-**Status:** Approved (brainstorming complete, pending spec review)
+**Status:** Approved — ready for implementation
 **Topic:** Expose `ComponentParser` data through a `vendor/bin/styleguide` CLI so AI coding assistants working in downstream projects can quickly discover what components exist and how to use them.
 
 ## Problem
@@ -194,8 +194,6 @@ This sits in the consumer because the package's own `CLAUDE.md` / `AGENTS.md` is
 - **`--format=table` / `--format=names`** for human terminal use. Skip until someone asks.
 - **MCP server.** Revisit only if a future feature needs persistent state, warm processes, or strongly-typed discoverable tools — discovery alone doesn't justify it.
 
-## Release impact
+## Release
 
-- New minor version (`0.2.x` → `0.3.0`) — adds a feature, no breaking changes.
-- `CHANGELOG.md` entry: `### Added — Component catalog CLI (vendor/bin/styleguide list|show)`.
-- No migration required in consumers; the CLI is opt-in.
+Out of scope for this change. The CLI lands on `main` without a new tag; consuming projects using the `dev-local` path repository pick it up immediately. A release will be cut later once any further follow-up work has accumulated.
