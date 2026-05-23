@@ -6,6 +6,50 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `|resizer` is now **polymorphic**: in addition to the historical
+  variadic-tuples shape, it also accepts a single orientation-keyed
+  map as its argument. When the input has a `landscape`, `portrait`,
+  or `square` key, the filter classifies the source image's aspect
+  (±10 % tolerance band around 1:1) and dispatches to the matched
+  bucket, falling through to `landscape` when the matched bucket is
+  empty / absent. Tolerance is hardcoded at `0.1` — the styleguide
+  has no WP-filter-equivalent override mechanism, and YAGNI applies
+  until a real demand for stricter classification surfaces.
+
+  Two shapes, one filter:
+
+  ```twig
+  {# Tuples mode — historical, unchanged #}
+  {{ image|resizer(['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']) }}
+
+  {# Orientation-aware mode — new #}
+  {{ component_picture({
+      image: item.image|resizer({
+          landscape: [['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']],
+          portrait:  [['720', '960', '1280', 'crop'], ['360', '480', '', 'crop']],
+          square:    [['800', '800', '1280', 'crop'], ['400', '400', '', 'crop']],
+      })
+  }) }}
+  ```
+
+  Detection: a single arg that's an associative array carrying at
+  least one of the orientation keys flips dispatch into orientation
+  mode. Tuples have integer keys (width / height / min-width / op),
+  so the two shapes can't collide on a realistic call — fully
+  backward compatible with existing variadic calls.
+
+  Square-band check uses cross-multiplication
+  (`abs(w - h) <= tolerance * h`) instead of `abs(w/h - 1) <= tolerance`
+  to keep the boundary inclusive under IEEE 754 (1100 ÷ 1000 in float
+  is `1.1 + 8.88e-17`, which would trip the naïve `<=` to false at
+  the exact 10 % edge for integer-dimensioned sources).
+
+  Mirrors the upstream `parisek/timber-kit` unification — a single
+  Twig template renders identically against the WordPress runtime
+  and the styleguide preview.
+
 ## [0.2.1] - 2026-05-20
 
 ### Changed

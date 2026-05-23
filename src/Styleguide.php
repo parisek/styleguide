@@ -439,7 +439,63 @@ final class Styleguide
             'placeholder',
             static fn (array $opts = []): array => Placeholder::generate($opts),
         ));
-        self::tryAddFilter($twig, new TwigFilter('resizer', self::resizerFilter(...)));
+        // `|resizer` is polymorphic. Two call shapes, one filter:
+        //
+        //   {# tuples — historical, variadic #}
+        //   {{ image|resizer(['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']) }}
+        //
+        //   {# orientation map — classifies aspect, picks the right bucket #}
+        //   {{ image|resizer({
+        //       landscape: [['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']],
+        //       portrait:  [['720', '960', '1280', 'crop'], ['360', '480', '', 'crop']],
+        //       square:    [['800', '800', '1280', 'crop'], ['400', '400', '', 'crop']],
+        //   }) }}
+        //
+        // Detection: a single arg that's an associative array carrying at
+        // least one of the orientation keys flips dispatch into orientation
+        // mode. Tuples have integer keys (width / height / min-width / op),
+        // so the two shapes can't collide on a realistic call. Lets a single
+        // Twig template render identically against the WordPress runtime
+        // (`parisek/timber-kit`) — same `|resizer` filter, same call shape.
+        // Tolerance for the square band is hardcoded at 0.1 — the styleguide
+        // has no WP-filter-equivalent override mechanism; YAGNI applies
+        // until a real demand for stricter classification surfaces.
+        self::tryAddFilter($twig, new TwigFilter(
+            'resizer',
+            static function (mixed $value, mixed ...$sizes): mixed {
+                $first = $sizes[0] ?? null;
+                $isOrientationMap = count($sizes) === 1
+                    && is_array($first)
+                    && (
+                        array_key_exists('landscape', $first)
+                        || array_key_exists('portrait', $first)
+                        || array_key_exists('square', $first)
+                    );
+                if ($isOrientationMap) {
+                    if (!is_array($value)) {
+                        return $value;
+                    }
+                    $bucket = self::classifyAspect($value);
+                    // `landscape` is the documented fallback when the
+                    // matched bucket is empty / absent. Null-coalescing
+                    // alone isn't enough — it only kicks in on `null` /
+                    // absent keys, but `square => []` would short-circuit
+                    // to `[]` and skip the landscape fallback. Treat
+                    // empty-or-non-array as "no tuples in this bucket"
+                    // before deciding whether to fall through.
+                    $matched = $first[$bucket] ?? null;
+                    $tuples = (is_array($matched) && !empty($matched))
+                        ? $matched
+                        : ($first['landscape'] ?? null);
+                    if (!is_array($tuples) || empty($tuples)) {
+                        return $value;
+                    }
+                    return self::resizerFilter($value, ...$tuples);
+                }
+                // Tuples mode — historical behaviour.
+                return self::resizerFilter($value, ...$sizes);
+            },
+        ));
 
         self::tryAddFilter($twig, new TwigFilter(
             'format_date',
@@ -525,6 +581,46 @@ final class Styleguide
                 throw $e;
             }
         }
+    }
+
+    /**
+     * Classifies a placeholder/CMS image's orientation by `width / height`
+     * ratio with a default ±0.1 tolerance band around 1:1. Public surface
+     * is just the `|resizer_aspect` Twig filter — this helper stays private
+     * because consumers needing the bucket outside Twig should call the
+     * upstream `Resizer::classifyAspect()` on the WordPress runtime, where
+     * the same method is intentionally exposed.
+     *
+     * Missing-metadata / non-numeric / zero-dimension sources fall back to
+     * `landscape` so legacy assets (pre-ACF imports, SVG without intrinsic
+     * dimensions) keep the kit's historical wide-crop default. Components
+     * adopting the new filter don't silently shift their rendering for
+     * legacy assets.
+     */
+    private static function classifyAspect(array $image, float $tolerance = 0.1): string
+    {
+        $first = $image[0] ?? null;
+        if (!is_array($first)) {
+            return 'landscape';
+        }
+        $rawW = $first['width'] ?? null;
+        $rawH = $first['height'] ?? null;
+        $w = is_numeric($rawW) ? (float) $rawW : 0.0;
+        $h = is_numeric($rawH) ? (float) $rawH : 0.0;
+        if ($w <= 0 || $h <= 0) {
+            return 'landscape';
+        }
+        // Cross-multiplication form of `abs($w/$h - 1) <= $tolerance`. Stays
+        // exact at the band boundary for integer dimensions (both CMS imports
+        // and our placeholder() output always are): IEEE 754 represents
+        // 1100/1000 as 1.1 + 8.88e-17, which would trip the naïve `<=` to
+        // false at the exact 10 % edge. Cross-multiplying keeps the comparison
+        // in integer/scaled-float arithmetic and makes the boundary inclusive
+        // as the spec promises.
+        if (abs($w - $h) <= $tolerance * $h) {
+            return 'square';
+        }
+        return $w > $h ? 'landscape' : 'portrait';
     }
 
     /**
