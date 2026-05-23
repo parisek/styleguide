@@ -298,6 +298,75 @@ final class CommandTest extends TestCase
     }
 
     #[Test]
+    public function unknown_command_does_not_require_templates(): void
+    {
+        $originalCwd = getcwd();
+        $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
+        chdir(sys_get_temp_dir());
+        putenv('STYLEGUIDE_TEMPLATES');
+        try {
+            [$exit, $stdout, $stderr] = $this->runCli(['destroy-all-humans']);
+            self::assertSame(1, $exit);
+            self::assertSame('', $stdout);
+            self::assertStringContainsString('Unknown command', $stderr);
+            self::assertStringNotContainsString('templates/', $stderr);
+        } finally {
+            if ($originalCwd !== false) {
+                chdir($originalCwd);
+            }
+            if ($originalEnv !== false) {
+                putenv('STYLEGUIDE_TEMPLATES=' . $originalEnv);
+            }
+        }
+    }
+
+    #[Test]
+    public function invalid_type_does_not_require_templates(): void
+    {
+        $originalCwd = getcwd();
+        $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
+        chdir(sys_get_temp_dir());
+        putenv('STYLEGUIDE_TEMPLATES');
+        try {
+            [$exit, $stdout, $stderr] = $this->runCli(['list', '--type=widget']);
+            self::assertSame(1, $exit);
+            self::assertSame('', $stdout);
+            self::assertStringContainsString('Invalid --type', $stderr);
+            self::assertStringNotContainsString('templates/', $stderr);
+        } finally {
+            if ($originalCwd !== false) {
+                chdir($originalCwd);
+            }
+            if ($originalEnv !== false) {
+                putenv('STYLEGUIDE_TEMPLATES=' . $originalEnv);
+            }
+        }
+    }
+
+    #[Test]
+    public function show_missing_id_does_not_require_templates(): void
+    {
+        $originalCwd = getcwd();
+        $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
+        chdir(sys_get_temp_dir());
+        putenv('STYLEGUIDE_TEMPLATES');
+        try {
+            [$exit, $stdout, $stderr] = $this->runCli(['show']);
+            self::assertSame(1, $exit);
+            self::assertSame('', $stdout);
+            self::assertStringContainsString('Missing component id', $stderr);
+            self::assertStringNotContainsString('templates/', $stderr);
+        } finally {
+            if ($originalCwd !== false) {
+                chdir($originalCwd);
+            }
+            if ($originalEnv !== false) {
+                putenv('STYLEGUIDE_TEMPLATES=' . $originalEnv);
+            }
+        }
+    }
+
+    #[Test]
     public function returns_exit_1_when_no_templates_directory_resolvable(): void
     {
         $originalEnv = getenv('STYLEGUIDE_TEMPLATES');

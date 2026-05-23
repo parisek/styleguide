@@ -36,18 +36,28 @@ final class Command
             return 0;
         }
 
-        $templates = $this->resolveTemplatesPath($flags['templates'] ?? null);
-        if ($templates === null) {
-            fwrite($stderr, "templates/ directory not found. Use --templates=<path>.\n");
-            return 1;
-        }
-
         $rawType = $flags['type'] ?? 'component';
         if (!is_string($rawType) || !in_array($rawType, self::ALLOWED_TYPES, true)) {
             fwrite($stderr, "Invalid --type. Allowed: component, page.\n");
             return 1;
         }
         $type = $rawType;
+
+        if ($command !== 'list' && $command !== 'show') {
+            fwrite($stderr, sprintf("Unknown command: %s\nRun: styleguide --help\n", $command));
+            return 1;
+        }
+
+        if ($command === 'show' && $positional === []) {
+            fwrite($stderr, sprintf("Missing %s id. Usage: styleguide show <id>\n", $type));
+            return 1;
+        }
+
+        $templates = $this->resolveTemplatesPath($flags['templates'] ?? null);
+        if ($templates === null) {
+            fwrite($stderr, "templates/ directory not found. Use --templates=<path>.\n");
+            return 1;
+        }
 
         $parser = new ComponentParser($templates);
         $pretty = isset($flags['pretty']);
@@ -57,23 +67,14 @@ final class Command
             return $this->writeJson($data, $pretty, $stdout, $stderr);
         }
 
-        if ($command === 'show') {
-            if ($positional === []) {
-                fwrite($stderr, sprintf("Missing %s id. Usage: styleguide show <id>\n", $type));
-                return 1;
-            }
-            $id = $positional[0];
-            $data = $parser->parse($type, $id);
-            if ($data === null) {
-                $label = ucfirst($type);
-                fwrite($stderr, sprintf("%s \"%s\" not found.\n", $label, $id));
-                return 1;
-            }
-            return $this->writeJson($data, $pretty, $stdout, $stderr);
+        $id = $positional[0];
+        $data = $parser->parse($type, $id);
+        if ($data === null) {
+            $label = ucfirst($type);
+            fwrite($stderr, sprintf("%s \"%s\" not found.\n", $label, $id));
+            return 1;
         }
-
-        fwrite($stderr, sprintf("Unknown command: %s\nRun: styleguide --help\n", $command));
-        return 1;
+        return $this->writeJson($data, $pretty, $stdout, $stderr);
     }
 
     private function helpText(): string
