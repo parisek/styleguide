@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.C0zcpYlI.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.C2-FThM4.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.CaH23Mt1.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.BDpuX5Lb.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -150,16 +150,36 @@
                 </div>
             </nav>
 
-            <!-- Language switcher footer -->
-            <div x-data="languageSwitcher" class="border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 flex justify-end gap-1 text-xs font-mono">
-                <template x-for="(loc, idx) in supported" :key="loc">
-                    <span>
-                        <span x-show="idx > 0" class="text-zinc-400 dark:text-zinc-600">·</span>
-                        <button @click="setLocale(loc)"
-                                :class="isActive(loc) ? 'text-zinc-900 dark:text-zinc-50 font-semibold' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                                x-text="loc"></button>
-                    </span>
-                </template>
+            <!-- Sidebar footer: Porta credit (left) + language switcher (right). Same baseline,
+                 single row, so locale switching never shifts vertical layout. -->
+            <div class="border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 flex justify-between items-center gap-3 text-xs">
+                <a href="https://portadesign.cz/?utm_source=parisek-styleguide&utm_medium=sidebar&utm_campaign=made-by"
+                   target="_blank"
+                   rel="noopener"
+                   class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+                   title="Made by Porta Design">
+                    <!-- Inline PORTA wordmark — vendored from tailwind-base/static/images/icons/ico-porta.svg
+                         so the chrome carries the maker brand without depending on consumer assets. -->
+                    <svg aria-label="Porta Design" role="img" class="h-3 w-auto" viewBox="0.143 0.667 39.714 8.665" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="currentColor" d="M4.773,3.828c0,0.708-0.431,1.063-1.294,1.063H2.406V2.731h1.062c0.871,0,1.306,0.358,1.306,1.073V3.828z M6.116,1.589 C5.509,1.082,4.684,0.83,3.643,0.83h-3.5v8.166h2.263V6.663h1.12c1.051,0,1.89-0.249,2.52-0.748 c0.661-0.527,0.993-1.259,0.993-2.191V3.7C7.038,2.806,6.73,2.103,6.116,1.589 M14.01,4.937c0,0.606-0.19,1.116-0.572,1.528 c-0.396,0.435-0.898,0.654-1.504,0.654c-0.607,0-1.108-0.224-1.505-0.666c-0.389-0.42-0.583-0.934-0.583-1.54V4.891 c0-0.607,0.19-1.117,0.57-1.528c0.389-0.437,0.887-0.655,1.493-0.655c0.608,0,1.113,0.223,1.518,0.667 c0.389,0.419,0.583,0.933,0.583,1.539V4.937z M15.071,1.904c-0.84-0.824-1.886-1.237-3.137-1.237c-1.253,0-2.303,0.415-3.15,1.248 c-0.841,0.816-1.26,1.815-1.26,2.998v0.023c0,1.183,0.417,2.177,1.248,2.986c0.841,0.824,1.887,1.236,3.138,1.236 c1.253,0,2.303-0.416,3.15-1.248c0.839-0.816,1.26-1.815,1.26-2.998V4.891C16.32,3.708,15.903,2.712,15.071,1.904 M31.796,0.83 h-7.163v1.983h2.449v6.183h2.264V2.813h2.45V0.83z M34.352,5.777l0.923-2.323l0.908,2.323H34.352z M36.382,0.771h-2.183 l-3.476,8.225h2.379l0.584-1.459h3.15l0.595,1.459h2.426L36.382,0.771z M19.266,2.791h1.483c0.816,0,1.225,0.322,1.225,0.967v0.023 c0,0.646-0.405,0.969-1.214,0.969h-1.494V2.791z M22.854,6.152l-0.075-0.101c0.979-0.487,1.469-1.291,1.469-2.411V3.618 c0-0.801-0.24-1.436-0.723-1.901c-0.576-0.591-1.462-0.887-2.66-0.887h-3.861v8.166h2.262V6.522h1.176l0.083,0.122 c0.874,1.285,1.782,2.38,3.649,2.688l0.72-1.709C23.874,7.233,23.319,6.784,22.854,6.152"/>
+                    </svg>
+                    <!-- Heart icon — pulses via .sg-heartbeat keyframe (styleguide.css). Solid fill,
+                         text-red-500 so dark-mode contrast stays high. aria-hidden because the
+                         parent <a> already carries the human-readable label. -->
+                    <svg aria-hidden="true" class="sg-heartbeat h-3 w-3 text-red-500" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 21s-7.2-4.35-9.6-9.6C.93 7.95 3.45 4.5 7.05 4.5c1.95 0 3.6.9 4.95 2.4 1.35-1.5 3-2.4 4.95-2.4 3.6 0 6.12 3.45 4.65 6.9C19.2 16.65 12 21 12 21z"/>
+                    </svg>
+                </a>
+                <div x-data="languageSwitcher" class="flex gap-1 font-mono">
+                    <template x-for="(loc, idx) in supported" :key="loc">
+                        <span>
+                            <span x-show="idx > 0" class="text-zinc-400 dark:text-zinc-600">·</span>
+                            <button @click="setLocale(loc)"
+                                    :class="isActive(loc) ? 'text-zinc-900 dark:text-zinc-50 font-semibold' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
+                                    x-text="loc"></button>
+                        </span>
+                    </template>
+                </div>
             </div>
         </aside>
 
