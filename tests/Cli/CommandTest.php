@@ -191,6 +191,31 @@ final class CommandTest extends TestCase
     }
 
     #[Test]
+    public function pretty_flag_emits_indented_json(): void
+    {
+        [$exit, $stdout, ] = $this->runCli([
+            'list',
+            '--templates=' . $this->fixtures,
+        ]);
+        self::assertSame(0, $exit);
+
+        [$exitPretty, $stdoutPretty, ] = $this->runCli([
+            'list',
+            '--templates=' . $this->fixtures,
+            '--pretty',
+        ]);
+        self::assertSame(0, $exitPretty);
+
+        self::assertStringNotContainsString("\n    ", $stdout);
+        self::assertStringContainsString("\n    ", $stdoutPretty);
+
+        self::assertSame(
+            json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR),
+            json_decode(trim($stdoutPretty), true, flags: JSON_THROW_ON_ERROR),
+        );
+    }
+
+    #[Test]
     public function returns_exit_1_when_no_templates_directory_resolvable(): void
     {
         $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
