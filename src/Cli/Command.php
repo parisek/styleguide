@@ -45,6 +45,22 @@ final class Command
             return 0;
         }
 
+        if ($command === 'show') {
+            if ($positional === []) {
+                fwrite($stderr, "Missing component id. Usage: styleguide show <id>\n");
+                return 1;
+            }
+            $id = $positional[0];
+            $data = $parser->parse($type, $id);
+            if ($data === null) {
+                $label = ucfirst($type);
+                fwrite($stderr, sprintf("%s \"%s\" not found.\n", $label, $id));
+                return 1;
+            }
+            fwrite($stdout, $this->encodeJson($data, $pretty) . "\n");
+            return 0;
+        }
+
         fwrite($stderr, sprintf("Unknown command: %s\n", $command));
         return 1;
     }
