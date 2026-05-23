@@ -35,6 +35,7 @@
             "Parisek\\Styleguide\\Tests\\": "tests/"
         }
     },
+    "bin": ["bin/styleguide"],
     "scripts": {
         "test": "vendor/bin/phpunit",
         "phpstan": "php -d memory_limit=512M vendor/bin/phpstan analyse"
