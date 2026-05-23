@@ -324,15 +324,16 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
-    public function resizer_passes_through_when_orientation_map_is_empty(): void
+    public function resizer_passes_through_when_orientation_map_has_no_tuples(): void
     {
         $twig = self::twigOf(self::newStyleguide());
 
-        // Orientation-shaped map but with no recognised keys → falls back
-        // to tuples mode (which then sees no tuples → passthrough).
-        // Render the source's own dimensions so a transform would be visible.
-        // Using an explicit `landscape: []` to make this orientation mode
-        // (otherwise the detector wouldn't even enter the orientation path).
+        // Map carries a recognised key (`landscape`) so the detector DOES
+        // enter orientation mode — but every bucket is empty, including the
+        // `landscape` fallback. With no tuples available anywhere, the
+        // filter returns the source unchanged rather than inventing a
+        // variant. Asserting the source's own dimensions makes an
+        // accidental transform visible in the output.
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1200, height: 800, seed: 'r'}) %}"
             . "{% set out = src|resizer({landscape: []}) %}"

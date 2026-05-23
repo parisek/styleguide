@@ -565,10 +565,10 @@ final class Styleguide
     /**
      * Classifies a placeholder/CMS image's orientation by `width / height`
      * ratio with a default ±0.1 tolerance band around 1:1. Public surface
-     * is just the `|resizer_aspect` Twig filter — this helper stays private
-     * because consumers needing the bucket outside Twig should call the
-     * upstream `Resizer::classifyAspect()` on the WordPress runtime, where
-     * the same method is intentionally exposed.
+     * is the orientation-mode shape of the `|resizer` Twig filter — this
+     * helper stays private because consumers needing the bucket outside
+     * Twig should call the upstream `Resizer::classifyAspect()` on the
+     * WordPress runtime, where the same method is intentionally exposed.
      *
      * Missing-metadata / non-numeric / zero-dimension sources fall back to
      * `landscape` so legacy assets (pre-ACF imports, SVG without intrinsic
