@@ -439,27 +439,6 @@ final class Styleguide
             'placeholder',
             static fn (array $opts = []): array => Placeholder::generate($opts),
         ));
-        // `|resizer` is polymorphic. Two call shapes, one filter:
-        //
-        //   {# tuples — historical, variadic #}
-        //   {{ image|resizer(['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']) }}
-        //
-        //   {# orientation map — classifies aspect, picks the right bucket #}
-        //   {{ image|resizer({
-        //       landscape: [['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']],
-        //       portrait:  [['720', '960', '1280', 'crop'], ['360', '480', '', 'crop']],
-        //       square:    [['800', '800', '1280', 'crop'], ['400', '400', '', 'crop']],
-        //   }) }}
-        //
-        // Detection: a single arg that's an associative array carrying at
-        // least one of the orientation keys flips dispatch into orientation
-        // mode. Tuples have integer keys (width / height / min-width / op),
-        // so the two shapes can't collide on a realistic call. Lets a single
-        // Twig template render identically against the WordPress runtime
-        // (`parisek/timber-kit`) — same `|resizer` filter, same call shape.
-        // Tolerance for the square band is hardcoded at 0.1 — the styleguide
-        // has no WP-filter-equivalent override mechanism; YAGNI applies
-        // until a real demand for stricter classification surfaces.
         self::tryAddFilter($twig, new TwigFilter(
             'resizer',
             static function (mixed $value, mixed ...$sizes): mixed {
