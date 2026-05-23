@@ -149,4 +149,66 @@ final class CommandTest extends TestCase
         self::assertSame(1, $exit);
         self::assertStringContainsString('Page "ghost" not found', $stderr);
     }
+
+    #[Test]
+    public function templates_path_from_env_var(): void
+    {
+        $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
+        putenv('STYLEGUIDE_TEMPLATES=' . $this->fixtures);
+        try {
+            [$exit, $stdout, $stderr] = $this->runCli(['list']);
+            self::assertSame(0, $exit, "stderr: $stderr");
+            self::assertNotSame('', $stdout, 'expected JSON on stdout');
+        } finally {
+            if ($originalEnv === false) {
+                putenv('STYLEGUIDE_TEMPLATES');
+            } else {
+                putenv('STYLEGUIDE_TEMPLATES=' . $originalEnv);
+            }
+        }
+    }
+
+    #[Test]
+    public function flag_overrides_env_var(): void
+    {
+        $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
+        putenv('STYLEGUIDE_TEMPLATES=/nonexistent/should/not/win');
+        try {
+            [$exit, $stdout, $stderr] = $this->runCli([
+                'list',
+                '--templates=' . $this->fixtures,
+            ]);
+            self::assertSame(0, $exit, "stderr: $stderr");
+            $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
+            self::assertCount(2, $decoded);
+        } finally {
+            if ($originalEnv === false) {
+                putenv('STYLEGUIDE_TEMPLATES');
+            } else {
+                putenv('STYLEGUIDE_TEMPLATES=' . $originalEnv);
+            }
+        }
+    }
+
+    #[Test]
+    public function returns_exit_1_when_no_templates_directory_resolvable(): void
+    {
+        $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
+        $originalCwd = getcwd();
+        chdir(sys_get_temp_dir());
+        putenv('STYLEGUIDE_TEMPLATES');
+        try {
+            [$exit, $stdout, $stderr] = $this->runCli(['list']);
+            self::assertSame(1, $exit);
+            self::assertSame('', $stdout);
+            self::assertStringContainsString('templates/ directory not found', $stderr);
+        } finally {
+            if ($originalCwd !== false) {
+                chdir($originalCwd);
+            }
+            if ($originalEnv !== false) {
+                putenv('STYLEGUIDE_TEMPLATES=' . $originalEnv);
+            }
+        }
+    }
 }
