@@ -64,22 +64,25 @@ final class NamespacesTest extends TestCase
         $loader = $twig->getLoader();
         $namespaces = $loader->getNamespaces();
 
-        // `component/` exists under the fixture → @component auto-registered.
+        // `component/` and `page/` exist under the fixture → both auto-registered.
         self::assertContains('component', $namespaces);
         self::assertSame(
             [$this->templatesPath . '/component'],
             $loader->getPaths('component'),
+        );
+        self::assertContains('page', $namespaces);
+        self::assertSame(
+            [$this->templatesPath . '/page'],
+            $loader->getPaths('page'),
         );
 
         // @static always points at templates_path itself.
         self::assertContains('static', $namespaces);
         self::assertSame([$this->templatesPath], $loader->getPaths('static'));
 
-        // No `macro/` or `page/` directories in the fixture, so no namespace
-        // for either of those — auto-discovery must skip missing dirs rather
-        // than fail loudly.
+        // No `macro/` directory in the fixture, so no namespace for it —
+        // auto-discovery must skip missing dirs rather than fail loudly.
         self::assertNotContains('macro', $namespaces);
-        self::assertNotContains('page', $namespaces);
     }
 
     #[Test]

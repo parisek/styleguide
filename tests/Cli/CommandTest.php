@@ -103,4 +103,50 @@ final class CommandTest extends TestCase
         self::assertSame('', $stdout);
         self::assertStringContainsString('Missing component id', $stderr);
     }
+
+    #[Test]
+    public function list_with_type_page_returns_pages(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'list',
+            '--type=page',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(0, $exit, "stderr: $stderr");
+        $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertCount(1, $decoded);
+        self::assertSame('Landing', $decoded[0]['name']);
+    }
+
+    #[Test]
+    public function show_with_type_page_returns_single_page(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            'landing',
+            '--type=page',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(0, $exit, "stderr: $stderr");
+        $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('landing', $decoded['id']);
+        self::assertSame('Marketing', $decoded['category']);
+    }
+
+    #[Test]
+    public function show_page_not_found_uses_page_in_message(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            'ghost',
+            '--type=page',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('Page "ghost" not found', $stderr);
+    }
 }
