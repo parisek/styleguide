@@ -216,6 +216,41 @@ final class CommandTest extends TestCase
     }
 
     #[Test]
+    public function help_flag_prints_usage_to_stdout(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli(['--help']);
+        self::assertSame(0, $exit);
+        self::assertSame('', $stderr);
+        self::assertStringContainsString('Usage:', $stdout);
+        self::assertStringContainsString('list', $stdout);
+        self::assertStringContainsString('show', $stdout);
+        self::assertStringContainsString('--type', $stdout);
+        self::assertStringContainsString('--templates', $stdout);
+        self::assertStringContainsString('--pretty', $stdout);
+    }
+
+    #[Test]
+    public function dash_h_is_an_alias_for_help(): void
+    {
+        [$exit, $stdout, ] = $this->runCli(['-h']);
+        self::assertSame(0, $exit);
+        self::assertStringContainsString('Usage:', $stdout);
+    }
+
+    #[Test]
+    public function unknown_command_exits_1_with_stderr_hint(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'destroy-all-humans',
+            '--templates=' . $this->fixtures,
+        ]);
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Unknown command', $stderr);
+        self::assertStringContainsString('--help', $stderr);
+    }
+
+    #[Test]
     public function returns_exit_1_when_no_templates_directory_resolvable(): void
     {
         $originalEnv = getenv('STYLEGUIDE_TEMPLATES');
