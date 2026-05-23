@@ -251,6 +251,53 @@ final class CommandTest extends TestCase
     }
 
     #[Test]
+    public function invalid_type_value_exits_1_with_stderr_message(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'list',
+            '--type=widget',
+            '--templates=' . $this->fixtures,
+        ]);
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Invalid --type', $stderr);
+    }
+
+    #[Test]
+    public function empty_type_flag_exits_1_with_stderr_message(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'list',
+            '--type',
+            '--templates=' . $this->fixtures,
+        ]);
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Invalid --type', $stderr);
+    }
+
+    #[Test]
+    public function dash_h_works_after_a_command(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli(['list', '-h']);
+        self::assertSame(0, $exit, "stderr: $stderr");
+        self::assertStringContainsString('Usage:', $stdout);
+    }
+
+    #[Test]
+    public function show_missing_id_with_type_page_says_page(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            '--type=page',
+            '--templates=' . $this->fixtures,
+        ]);
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('Missing page id', $stderr);
+    }
+
+    #[Test]
     public function returns_exit_1_when_no_templates_directory_resolvable(): void
     {
         $originalEnv = getenv('STYLEGUIDE_TEMPLATES');

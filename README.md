@@ -298,7 +298,7 @@ After install, `vendor/bin/styleguide` exposes the component catalogue without n
 vendor/bin/styleguide list                       # all components (compact JSON)
 vendor/bin/styleguide list --pretty              # indented for terminals
 vendor/bin/styleguide list --type=page           # pages instead of components
-vendor/bin/styleguide show card/promo            # one component, full detail
+vendor/bin/styleguide show button                # one component, full detail
 vendor/bin/styleguide show landing --type=page   # one page
 ```
 

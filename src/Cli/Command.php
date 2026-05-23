@@ -14,6 +14,8 @@ use Parisek\Styleguide\ComponentParser;
  */
 final class Command
 {
+    private const ALLOWED_TYPES = ['component', 'page'];
+
     /**
      * @param array<int,string> $argv  Arguments excluding program name.
      * @param resource $stdout
@@ -40,19 +42,24 @@ final class Command
             return 1;
         }
 
+        $rawType = $flags['type'] ?? 'component';
+        if (!is_string($rawType) || !in_array($rawType, self::ALLOWED_TYPES, true)) {
+            fwrite($stderr, "Invalid --type. Allowed: component, page.\n");
+            return 1;
+        }
+        $type = $rawType;
+
         $parser = new ComponentParser($templates);
-        $type = (string) ($flags['type'] ?? 'component');
         $pretty = isset($flags['pretty']);
 
         if ($command === 'list') {
             $data = $parser->parseAll($type);
-            fwrite($stdout, $this->encodeJson($data, $pretty) . "\n");
-            return 0;
+            return $this->writeJson($data, $pretty, $stdout, $stderr);
         }
 
         if ($command === 'show') {
             if ($positional === []) {
-                fwrite($stderr, "Missing component id. Usage: styleguide show <id>\n");
+                fwrite($stderr, sprintf("Missing %s id. Usage: styleguide show <id>\n", $type));
                 return 1;
             }
             $id = $positional[0];
@@ -62,8 +69,7 @@ final class Command
                 fwrite($stderr, sprintf("%s \"%s\" not found.\n", $label, $id));
                 return 1;
             }
-            fwrite($stdout, $this->encodeJson($data, $pretty) . "\n");
-            return 0;
+            return $this->writeJson($data, $pretty, $stdout, $stderr);
         }
 
         fwrite($stderr, sprintf("Unknown command: %s\nRun: styleguide --help\n", $command));
@@ -89,7 +95,7 @@ final class Command
         Examples:
           vendor/bin/styleguide list
           vendor/bin/styleguide list --type=page --pretty
-          vendor/bin/styleguide show card/promo
+          vendor/bin/styleguide show button
 
         TXT;
     }
@@ -103,6 +109,10 @@ final class Command
         $flags = [];
         $positional = [];
         foreach ($args as $arg) {
+            if ($arg === '-h') {
+                $flags['help'] = true;
+                continue;
+            }
             if (str_starts_with($arg, '--')) {
                 $body = substr($arg, 2);
                 if (str_contains($body, '=')) {
@@ -121,7 +131,7 @@ final class Command
     private function resolveTemplatesPath(string|bool|null $override): ?string
     {
         $envValue = getenv('STYLEGUIDE_TEMPLATES');
-        $cwd = (string) getcwd();
+        $cwd = getcwd();
         $candidates = [];
         if (is_string($override) && $override !== '') {
             $candidates[] = $override;
@@ -129,9 +139,11 @@ final class Command
         if ($envValue !== false && $envValue !== '') {
             $candidates[] = $envValue;
         }
-        $candidates[] = $cwd . '/templates';
-        if (str_ends_with($cwd, '/templates')) {
-            $candidates[] = $cwd;
+        if ($cwd !== false) {
+            $candidates[] = $cwd . '/templates';
+            if (str_ends_with($cwd, '/templates')) {
+                $candidates[] = $cwd;
+            }
         }
         foreach ($candidates as $path) {
             if (is_dir($path)) {
@@ -143,13 +155,22 @@ final class Command
 
     /**
      * @param array<int|string,mixed> $data
+     * @param resource $stdout
+     * @param resource $stderr
      */
-    private function encodeJson(array $data, bool $pretty): string
+    private function writeJson(array $data, bool $pretty, $stdout, $stderr): int
     {
-        $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+        $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR;
         if ($pretty) {
             $flags |= JSON_PRETTY_PRINT;
         }
-        return (string) json_encode($data, $flags);
+        try {
+            $encoded = json_encode($data, $flags);
+        } catch (\JsonException $e) {
+            fwrite($stderr, sprintf("Failed to encode JSON: %s\n", $e->getMessage()));
+            return 1;
+        }
+        fwrite($stdout, $encoded . "\n");
+        return 0;
     }
 }

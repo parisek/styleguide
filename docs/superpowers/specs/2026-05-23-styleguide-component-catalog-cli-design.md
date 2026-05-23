@@ -8,7 +8,7 @@
 
 When an AI assistant (Claude, Codex, …) works inside a consuming project (`tailwind-base`, WordPress/Drupal skeletons), it has two recurring pain points:
 
-1. **"What components exist?"** — The assistant builds a feature from scratch instead of reusing `card/promo` or `hero/centered` because discovering the catalog requires multiple `Glob` + `Read` calls.
+1. **"What components exist?"** — The assistant builds a feature from scratch instead of reusing existing single-segment IDs like `button` or `breadcrumb` (IDs are basename-derived: `templates/<type>/<id>/<id>.twig`) because discovering the catalog requires multiple `Glob` + `Read` calls.
 2. **"How do I use this component correctly?"** — Once a candidate is found, knowing its props/fields, variants, and intended use requires reading the `.twig` source and the styleguide page.
 
 The HTTP JSON API (`/styleguide/api/components`) already exposes this data, but requires the dev server to be running and the assistant to know the URL. The filesystem-level alternative (raw `.twig` files) is unstructured and slow to traverse.
@@ -158,7 +158,7 @@ Cases (use the existing `tests/fixtures/templates/component/sample/` fixture):
 4. `list --type=page` against an empty pages directory returns `[]` and exits zero.
 5. `--templates=<path>` override resolves correctly when `getcwd()` is unrelated.
 
-The CLI's entry script (`bin/styleguide`) is tested indirectly by invoking it as a real PHP process via `Symfony\Component\Process\Process` for one smoke test that asserts the bin file is executable end-to-end.
+The CLI's entry script (`bin/styleguide`) is tested indirectly by invoking it as a real PHP process via PHP's built-in `proc_open()` (no `symfony/process` dependency) for one smoke test that asserts the bin file is executable end-to-end.
 
 Static analysis: `composer phpstan` must continue to pass at the current level — the new `Cli\Command` class declares strict types and uses the same `final class` convention as the rest of `src/`.
 
@@ -174,7 +174,7 @@ Static analysis: `composer phpstan` must continue to pass at the current level �
 >
 > ```bash
 > vendor/bin/styleguide list                  # all components
-> vendor/bin/styleguide show card/promo       # one component, full detail
+> vendor/bin/styleguide show button            # one component, full detail
 > vendor/bin/styleguide list --type=page      # all pages
 > ```
 >
