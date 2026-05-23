@@ -51,7 +51,9 @@ final class ComponentParserTest extends TestCase
     #[Test]
     public function returns_empty_array_for_missing_directory(): void
     {
-        $parser = new ComponentParser($this->fixturesPath);
+        // Use a fixtures subtree that genuinely has no page/ subdirectory;
+        // tests/fixtures/templates/page/ is now populated for CLI tests.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/asset-server');
         self::assertSame([], $parser->parseAll('page'));
     }
 
