@@ -21,13 +21,18 @@ final class Command
      */
     public function run(array $argv, $stdout, $stderr): int
     {
-        if ($argv === []) {
-            fwrite($stderr, "Missing command. Run: styleguide --help\n");
-            return 1;
+        if ($argv === [] || $argv[0] === '--help' || $argv[0] === '-h') {
+            fwrite($stdout, $this->helpText());
+            return $argv === [] ? 1 : 0;
         }
 
         $command = $argv[0];
         [$flags, $positional] = $this->parseFlags(array_slice($argv, 1));
+
+        if (isset($flags['help'])) {
+            fwrite($stdout, $this->helpText());
+            return 0;
+        }
 
         $templates = $this->resolveTemplatesPath($flags['templates'] ?? null);
         if ($templates === null) {
@@ -61,8 +66,32 @@ final class Command
             return 0;
         }
 
-        fwrite($stderr, sprintf("Unknown command: %s\n", $command));
+        fwrite($stderr, sprintf("Unknown command: %s\nRun: styleguide --help\n", $command));
         return 1;
+    }
+
+    private function helpText(): string
+    {
+        return <<<TXT
+        Usage: styleguide <command> [options]
+
+        Commands:
+          list                List all components (or pages with --type=page) as JSON.
+          show <id>           Show full metadata for a single component or page.
+
+        Options:
+          --type=component|page  Select the catalogue type (default: component).
+          --templates=<path>     Override the templates/ directory location.
+                                 Default: \$STYLEGUIDE_TEMPLATES, then ./templates.
+          --pretty               Indent JSON output (use for terminals).
+          -h, --help             Show this help.
+
+        Examples:
+          vendor/bin/styleguide list
+          vendor/bin/styleguide list --type=page --pretty
+          vendor/bin/styleguide show card/promo
+
+        TXT;
     }
 
     /**
