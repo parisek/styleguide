@@ -427,8 +427,14 @@ document.addEventListener('alpine:init', () => {
                 return `width: ${Alpine.store('ui').previewWidth}; max-width: 100%`;
             }
             const z = this.zoom;
-            const scaledW = Math.round(w * z);
-            const scaledH = h !== null ? Math.round(h * z) : null;
+            // Clamp the scaled dimensions to a minimum of 1px so a tiny
+            // chrome pane (e.g. ResizeObserver firing during a transient
+            // 0.x-wide layout) can never produce `width: 0px` — that would
+            // make the preview wrapper visually disappear and the iframe
+            // collapse to zero box even though the logical viewport
+            // (effectiveWidth / effectiveHeight) is unchanged.
+            const scaledW = Math.max(1, Math.round(w * z));
+            const scaledH = h !== null ? Math.max(1, Math.round(h * z)) : null;
             return scaledH !== null
                 ? `width: ${scaledW}px; height: ${scaledH}px`
                 : `width: ${scaledW}px`;
@@ -510,13 +516,16 @@ document.addEventListener('alpine:init', () => {
 
         // Resolved device category for the active preset — drives the
         // wrapper's device-frame look ("phone bezel" for mobile, slimmer
-        // frame for tablet, monitor bevel for desktop). Custom widths
-        // fall back to 'desktop' since dragging from a Mobile preset to
-        // 380px shouldn't suddenly drop the phone aesthetic; 'full' has
-        // no frame (edge-to-edge intent).
+        // frame for tablet, monitor bevel for desktop). `full` has no
+        // frame (edge-to-edge intent). `custom` gets its own minimal
+        // `rounded shadow-lg` frame so the drag handles have a flat
+        // edge to anchor against without intruding into a chassis ring.
+        // Anything else (defensive fall-through for unrecognised keys)
+        // resolves to desktop.
         get activePresetCategory() {
             const key = this.activePreset;
             if (key === 'full') return 'full';
+            if (key === 'custom') return 'custom';
             const match = VIEWPORTS.find((v) => v.key === key);
             return match?.category ?? 'desktop';
         },

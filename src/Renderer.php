@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Parisek\Styleguide;
 
 use Twig\Environment;
-use Parisek\Styleguide\ComponentParser;
 
 /**
  * Renders a single component or page into a full HTML document for iframe embedding.
