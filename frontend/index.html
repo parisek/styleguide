@@ -201,7 +201,7 @@
                  break out of the toolbar's flow without getting clipped. -->
             <div class="flex justify-between items-center gap-3 px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
                 <div class="flex items-center gap-3 min-w-0">
-                    <button @click="$store.ui.toggleSidebar()" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')">
+                    <button @click="$store.ui.toggleSidebar()" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')" :aria-label="$store.i18n.t('toolbar.toggle_sidebar')">
                         <svg aria-hidden="true" focusable="false" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
                     <template x-if="$store.ui.route.type === 'overview'">
@@ -337,6 +337,7 @@
                                 @click="$store.ui.toggleRotation()"
                                 :disabled="$store.ui.previewHeight === null"
                                 :title="$store.i18n.t('toolbar.rotate')"
+                                :aria-label="$store.i18n.t('toolbar.rotate')"
                                 :aria-pressed="$store.ui.previewRotated ? 'true' : 'false'"
                                 class="h-7 w-7 flex items-center justify-center rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                 :class="$store.ui.previewRotated ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700'">
@@ -349,24 +350,31 @@
                             </svg>
                         </button>
                         <!-- Canvas mode — drops the iframe and navigates the parent
-                             window in-place to the same /render/<kind>/<slug> URL.
+                             window in-place to /render/<kind>/<slug>?canvas=1.
                              In that view viewport units (vh / svh / dvh / h-screen)
                              resolve against the real browser viewport, which fixes
                              the device-emulation paradox documented in
                              github.com/parisek/styleguide/issues/14 .
-                             render-cell.twig already detects standalone-mode (no
-                             iframe parent) and reveals a "← back to styleguide"
-                             navbar, so the user has a clear return path. -->
+                             The `?canvas=1` flag tells render-cell.twig to suppress
+                             its sticky back-bar — the bar would otherwise eat ~40px
+                             at the top of the viewport, defeating the "100% viewport"
+                             promise (h-svh content pushed off-screen). The browser
+                             back button remains the return path; the URL bar stays
+                             visible in canvas mode so navigation is still possible. -->
                         <button type="button"
                                 @click="$store.ui.route.slug && (window.location.href = iframeSrc + (iframeSrc.includes('?') ? '&' : '?') + 'canvas=1')"
                                 :title="$store.i18n.t('toolbar.canvas_mode')"
                                 class="px-2.5 h-7 flex items-center justify-center rounded text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
                             <span x-text="$store.i18n.t('toolbar.canvas_mode_label')"></span>
                         </button>
-                        <!-- Open the raw render endpoint in a new tab — the iframe HTML reveals
-                             its own "back to styleguide" navbar at the top when standalone. -->
+                        <!-- Open the raw render endpoint in a new tab. No `?canvas=1`
+                             flag here — render-cell.twig's standalone back-bar IS
+                             welcome in this flow (separate tab = no iframe parent to
+                             return to via browser back), so the user gets a visible
+                             "← back to styleguide" link at the top of the new tab. -->
                         <a :href="iframeSrc" target="_blank" rel="noopener"
                            :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                           :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
                            class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
                             <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
@@ -379,6 +387,7 @@
                 <template x-if="iframeSrc && $store.ui.route.type === 'foundations'">
                     <a :href="iframeSrc" target="_blank" rel="noopener"
                        :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                       :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
                         <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>

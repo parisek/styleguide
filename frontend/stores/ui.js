@@ -66,8 +66,17 @@ document.addEventListener('alpine:init', () => {
             // user's preset / drag / custom-input interactions write through
             // $persist normally. (Future: write back to URL via History API
             // when the width changes — keeps the chain symmetric.)
+            //
+            // `setWidth` (not direct assignment) is the entry point so the
+            // companion `previewHeight` resets to null in lockstep with
+            // `previewWidth` — the URL only carries width, so any preset
+            // height left over from a prior session must be cleared to
+            // avoid the highlight-by-width / height-still-set mismatch that
+            // would make rotate-button + dimension-badge state stale.
+            // Components that want preset width AND height in the URL can
+            // round-trip through setPreset() after the URL resolves.
             const urlWidth = parseWidthParam(new URLSearchParams(location.search).get('width'));
-            if (urlWidth) this.previewWidth = urlWidth;
+            if (urlWidth) this.setWidth(urlWidth);
         },
 
         setWidth(w, h = null) {

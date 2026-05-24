@@ -259,10 +259,15 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        // Logical (un-rotated) preset dimensions in CSS pixels, or null for
-        // non-preset modes (Full / Custom). The iframe is given these as its
-        // box-level width/height; auto-zoom then applies transform: scale()
-        // on top so the visual fits the available space.
+        // Logical (un-rotated) device-emulation width in CSS pixels —
+        // returns an integer for any fixed-px width (preset OR Custom),
+        // null only when the store carries `'100%'` (Full mode). Custom
+        // widths share the preset code path: a `'500px'` Custom width
+        // produces the same iframe-style chain as a `375px` preset, just
+        // without a `logicalPresetHeight` to pair with it (Custom is
+        // width-only; iframe height comes from content). The iframe is
+        // given these as its box-level width; auto-zoom then applies
+        // transform: scale() on top so the visual fits the available space.
         get logicalPresetWidth() {
             const w = Alpine.store('ui').previewWidth;
             if (w === '100%') return null;
@@ -500,10 +505,17 @@ document.addEventListener('alpine:init', () => {
             // Apply both width and height so the iframe carries the preset's
             // aspect ratio. Height is what makes `h-svh` / `h-screen` inside
             // the iframe resolve against a meaningful device viewport (e.g.
-            // Mobile 375 → h-svh = 667px, matching iPhone Safari). The "Full"
-            // preset has width=height=null → setWidth('100%', null) which
-            // signals auto-fit to content — content-driven height is correct
-            // when the iframe spans full width.
+            // Mobile 375 → h-svh = 667px, matching iPhone Safari).
+            //
+            // The "Full" preset is the exception: width = '100%', height = null,
+            // which signals "fill the entire chrome pane". `iframeStyle` /
+            // `wrapperStyle` route Full through a `height: 100%` branch
+            // (NOT content-auto) — the iframe spans the chrome's full vertical
+            // box so `h-svh` inside resolves against the real chrome height
+            // instead of collapsing to inner-document height (the issue #14
+            // paradox). Custom widths get `height: 400px` content-auto fallback
+            // because the user explicitly opted into device emulation by typing
+            // a width and there's no canonical height to use.
             const w = preset.width === null ? '100%' : `${preset.width}px`;
             Alpine.store('ui').setWidth(w, preset.height);
         },
