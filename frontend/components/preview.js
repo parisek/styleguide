@@ -306,11 +306,16 @@ document.addEventListener('alpine:init', () => {
         // box without stretching it up and without distorting its aspect
         // ratio. Picks the smaller of the two axis ratios so the scaled
         // device always fits in BOTH dimensions — a 2560×1440 preset on a
-        // 1280×800 chrome pane shrinks to ~0.55× width-driven OR ~0.55×
-        // height-driven, whichever bounds tighter. Clamped at 1 — never
-        // enlarges a preset that already fits. Returns 1 (no scaling) for
-        // non-preset modes — Full and Custom widths are already constrained
-        // to <=100% of the container, so no scaling helps there.
+        // 1280×800 chrome pane shrinks to ~0.55× whichever axis bounds
+        // tighter. Clamped at 1 — never enlarges a width that already fits.
+        //
+        // Returns 1 only for Full mode (effectiveWidth === null, so the
+        // early `!w` guard fires). Every other fixed-px width (preset OR
+        // Custom) is subject to scaling when it exceeds the container —
+        // Custom widths share the preset code path so typing `3000` on a
+        // 1100px chrome pane scales down to fit, same as Desktop 2K would.
+        // The height factor is `Infinity` (no-op against Math.min) for
+        // Custom widths since they carry no logical height.
         get zoom() {
             const w = this.effectiveWidth;
             const h = this.effectiveHeight;
@@ -433,11 +438,18 @@ document.addEventListener('alpine:init', () => {
             // make the preview wrapper visually disappear and the iframe
             // collapse to zero box even though the logical viewport
             // (effectiveWidth / effectiveHeight) is unchanged.
+            //
+            // For height we need a non-null source either way: preset modes
+            // carry an explicit `effectiveHeight`; Custom widths fall back to
+            // `iframeContentHeight` (the measured inner-document height).
+            // Without that fallback the wrapper would default to `height: auto`
+            // and follow the iframe's UNSCALED DOM size, while the iframe
+            // itself is `transform: scale(z)`d down — leaving a blank gap below
+            // the visible iframe equal to `unscaledH * (1 - z)`.
+            const sourceH = h ?? this.iframeContentHeight ?? 400;
             const scaledW = Math.max(1, Math.round(w * z));
-            const scaledH = h !== null ? Math.max(1, Math.round(h * z)) : null;
-            return scaledH !== null
-                ? `width: ${scaledW}px; height: ${scaledH}px`
-                : `width: ${scaledW}px`;
+            const scaledH = Math.max(1, Math.round(sourceH * z));
+            return `width: ${scaledW}px; height: ${scaledH}px`;
         },
 
         // Breadcrumb pieces for the toolbar. `currentSectionKey` returns null
