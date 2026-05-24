@@ -25,6 +25,7 @@ const VIEWPORTS = [
     { key: 'desktop',    label: 'Desktop',    category: 'desktop', width: 1280, height: 800  },
     { key: 'desktop-l',  label: 'Desktop L',  category: 'desktop', width: 1536, height: 960  },
     { key: 'desktop-xl', label: 'Desktop XL', category: 'desktop', width: 1920, height: 1080 },
+    { key: 'desktop-2k', label: 'Desktop 2K', category: 'desktop', width: 2560, height: 1440 },
     { key: 'full',       label: 'Full',       category: 'full',    width: null, height: null }, // 100%
 ];
 
@@ -206,14 +207,16 @@ document.addEventListener('alpine:init', () => {
             return Alpine.store('ui').isPreviewLoading;
         },
 
-        // Available width of the iframe's parent container — the .flex-1 box
-        // that hosts the wrapper. Drives auto-zoom: when the active preset's
-        // width exceeds this value (e.g. Desktop XL 1920 active on a 1280px
-        // laptop), the iframe gets uniformly scaled down so it fits without
-        // cutting off. 0 means "not yet measured" — getters fall back to no
-        // scaling. Padding (p-6 = 48px total horizontal) is subtracted to
-        // match the visual breathing room.
+        // Available dimensions of the iframe's parent container — the .flex-1
+        // box that hosts the wrapper. Drives auto-zoom: when the active preset's
+        // width OR height exceeds the available room (e.g. Desktop 2K 2560×1440
+        // active on a 1280×800 laptop), the iframe gets uniformly scaled down
+        // so it fits in both axes without cutting off and without distorting
+        // the device's aspect ratio. 0 means "not yet measured" — getters fall
+        // back to no scaling. Padding (p-6 = 48px total per axis) is subtracted
+        // to match the visual breathing room.
         containerAvailableWidth: 0,
+        containerAvailableHeight: 0,
 
         observeWrapper() {
             this._ro.disconnect();
@@ -239,16 +242,20 @@ document.addEventListener('alpine:init', () => {
             if (parent) {
                 this._containerRO = new ResizeObserver((entries) => {
                     for (const entry of entries) {
-                        // 48px = 2× p-6 horizontal padding on the parent.
-                        // Keeps the scaled iframe inside the visible chrome.
+                        // 48px = 2× p-6 padding on the parent (both axes).
+                        // Keeps the scaled iframe inside the visible chrome
+                        // with the same visual breathing room horizontally
+                        // and vertically.
                         this.containerAvailableWidth = Math.max(0, entry.contentRect.width - 48);
+                        this.containerAvailableHeight = Math.max(0, entry.contentRect.height - 48);
                     }
                 });
                 this._containerRO.observe(parent);
-                // Seed the initial value synchronously so the first paint
-                // already has the correct zoom; otherwise getter falls back
-                // to no scaling for one frame.
+                // Seed initial values synchronously so the first paint already
+                // has the correct zoom; otherwise getter falls back to no
+                // scaling for one frame.
                 this.containerAvailableWidth = Math.max(0, parent.clientWidth - 48);
+                this.containerAvailableHeight = Math.max(0, parent.clientHeight - 48);
             }
         },
 
@@ -284,15 +291,28 @@ document.addEventListener('alpine:init', () => {
         },
 
         // Scale factor that makes the iframe fit the container's available
-        // width without stretching it up. Clamped at 1 — never enlarges a
-        // preset that already fits. Returns 1 (no scaling) for non-preset
-        // modes — Full and Custom widths are already constrained to <=100%
-        // of the container, so no scaling helps.
+        // box without stretching it up and without distorting its aspect
+        // ratio. Picks the smaller of the two axis ratios so the scaled
+        // device always fits in BOTH dimensions — a 2560×1440 preset on a
+        // 1280×800 chrome pane shrinks to ~0.55× width-driven OR ~0.55×
+        // height-driven, whichever bounds tighter. Clamped at 1 — never
+        // enlarges a preset that already fits. Returns 1 (no scaling) for
+        // non-preset modes — Full and Custom widths are already constrained
+        // to <=100% of the container, so no scaling helps there.
         get zoom() {
             const w = this.effectiveWidth;
+            const h = this.effectiveHeight;
             if (!w) return 1;
             if (!this.containerAvailableWidth) return 1;
-            return Math.min(1, this.containerAvailableWidth / w);
+            const widthRatio = this.containerAvailableWidth / w;
+            // Only constrain by height when the preset actually has one
+            // (presets carry both width and height; Custom carries only
+            // width and its iframe grows to content). +Infinity is a
+            // no-op against Math.min so the width-only path stays intact.
+            const heightRatio = (h && this.containerAvailableHeight)
+                ? this.containerAvailableHeight / h
+                : Infinity;
+            return Math.min(1, widthRatio, heightRatio);
         },
 
         // CSS for the iframe element. Logical preset dimensions in CSS px
@@ -321,6 +341,20 @@ document.addEventListener('alpine:init', () => {
             // transform-origin: 0 0 + sized wrapper means scaled iframe
             // sits flush against the wrapper's top-left corner.
             return `width: ${w}px; height: ${h}px; transform: scale(${z}); transform-origin: 0 0`;
+        },
+
+        // Human-readable "W × H" string for the active preset (after any
+        // rotation), or null when the preset has no logical dimensions
+        // (Full mode, or Custom widths whose height is content-driven).
+        // The template binds this directly under the chassis so the user
+        // can read the device's real CSS pixel dimensions at a glance —
+        // useful when a 2K preset is scaled down to ~40% to fit the
+        // chrome and the visual size no longer matches the logical one.
+        get dimensionsLabel() {
+            const w = this.effectiveWidth;
+            const h = this.effectiveHeight;
+            if (!w || !h) return null;
+            return `${w} × ${h}`;
         },
 
         // True when the Full preset is active (previewWidth === '100%'). Drives
