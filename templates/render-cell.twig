@@ -19,15 +19,14 @@
 	   and a body background-color declaration in their stylesheet. #}
 	<style>
 		:root { color-scheme: light; }
-		body { background-color: #fff; }
-		{# Per-mode CSS injections for the iframe wrapper. See spec
+		body { background-color: #fff; }{# Per-mode CSS injections for the iframe wrapper. See spec
 		   2026-05-24-component-render-modes-design.md § Mode semantics.
 		   `bleed` / `chrome` / `overlay` all reset `--header-height` to 0
 		   so consumer "tuck under sticky header" hacks collapse cleanly
 		   in styleguide isolation; `chrome` additionally forces body to
 		   200vh so sticky / fixed chrome has scroll-room to demo. #}
-		{% if kind == 'component' and component.render in ['bleed', 'chrome', 'overlay'] %}:root { --header-height: 0px; }{% endif %}
-		{% if kind == 'component' and component.render == 'chrome' %}body { min-height: 200vh; }{% endif %}
+		{%- if kind == 'component' and component.render in ['bleed', 'chrome', 'overlay'] %} :root { --header-height: 0px; } {%- endif -%}
+		{%- if kind == 'component' and component.render == 'chrome' %} body { min-height: 200vh; } {%- endif -%}
 	</style>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">

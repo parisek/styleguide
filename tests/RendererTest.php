@@ -140,4 +140,19 @@ final class RendererTest extends TestCase
         // identical render-cell output today.
         self::assertSame($bleedHtml, $overlayHtml);
     }
+
+    #[Test]
+    public function inset_render_keeps_wrapper_and_leaves_header_height_unchanged(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+            // No 'render' key → normaliseRender → 'inset' (default).
+        ], 'cs');
+
+        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        // Inset must not inject the bleed/chrome/overlay CSS overrides.
+        self::assertStringNotContainsString('--header-height', $html);
+        self::assertStringNotContainsString('min-height: 200vh', $html);
+    }
 }
