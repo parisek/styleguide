@@ -187,9 +187,18 @@
         <!-- `select-none` only while actively dragging the iframe-width handle
              so text in toolbar / description / overview / foundations stays
              selectable (Ctrl+C, marking) during normal use. -->
-        <main x-data="preview" class="flex-1 flex flex-col bg-white dark:bg-zinc-950" :class="isDragging && 'cursor-ew-resize select-none'">
-            <!-- Toolbar -->
-            <div class="flex justify-between items-center px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
+        <!-- `min-w-0` lets <main> shrink below the toolbar's intrinsic width — without it
+             flex-1 defaults to min-width: auto = content size, so on ≤768 px viewports the
+             toolbar's preset buttons + Rotate + Canvas overflow horizontally and get clipped
+             by the parent overflow-hidden wrapper, making them unreachable. With min-w-0 the
+             toolbar's own overflow-x-auto can kick in and the row becomes horizontally
+             scrollable inside the chrome instead of disappearing. -->
+        <main x-data="preview" class="flex-1 flex flex-col min-w-0 bg-white dark:bg-zinc-950" :class="isDragging && 'cursor-ew-resize select-none'">
+            <!-- Toolbar. `overflow-x-auto` is the narrow-viewport escape hatch: when the
+                 preset row + Rotate + Canvas exceed available width, the user scrolls within
+                 the toolbar. `shrink-0` on each direct child keeps individual buttons from
+                 being squeezed unreadable. -->
+            <div class="flex justify-between items-center gap-3 px-4 py-2.5 overflow-x-auto bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
                 <div class="flex items-center gap-3 min-w-0">
                     <button @click="$store.ui.toggleSidebar()" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')">
                         <svg aria-hidden="true" focusable="false" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -503,12 +512,24 @@
                     <!-- The wrapper bg stays white in both themes — iframe content
                          is the consumer's domain (no theme propagation), and they
                          render against an assumed light backdrop. A dark wrapper
-                         would bleed through transparent iframe areas. -->
+                         would bleed through transparent iframe areas.
+
+                         Device frame: `activePresetCategory` drives the bezel look.
+                         Mobile presets get a chunky phone-style bezel (rounded-3xl
+                         + thick ring); tablet gets a softer bezel; desktop gets a
+                         monitor-bezel; Full/foundations skip the frame so the
+                         preview reads edge-to-edge. The ring color is zinc-800 in
+                         both themes so the bezel reads as the device chassis
+                         regardless of light/dark chrome. -->
                     <div x-ref="iframeWrapper"
                          :style="wrapperStyle"
                          :class="[
-                             isDragging ? '' : 'transition-[width,height] duration-200 ease-out',
-                             isFullPreset ? '' : 'rounded shadow-lg',
+                             isDragging ? '' : 'transition-[width,height,border-radius] duration-200 ease-out',
+                             activePresetCategory === 'mobile' ? 'rounded-[2.5rem] ring-[10px] ring-zinc-800 shadow-2xl' : '',
+                             activePresetCategory === 'tablet' ? 'rounded-2xl ring-[6px] ring-zinc-800 shadow-xl' : '',
+                             activePresetCategory === 'desktop' ? 'rounded-lg ring-2 ring-zinc-700 shadow-xl' : '',
+                             activePresetCategory === 'custom' ? 'rounded shadow-lg' : '',
+                             activePresetCategory === 'full' ? '' : '',
                          ]"
                          class="relative bg-white overflow-hidden">
                         <!-- Iframe height tracks inner contentDocument so the
@@ -608,8 +629,8 @@
                                 </div>
                                 <div class="rounded-2xl border border-zinc-200/80 bg-white dark:border-zinc-700/80 dark:bg-zinc-800">
                                     <template x-for="(page, idx) in pages" :key="page.id">
-                                        <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="p-5">
-                                            <div class="flex items-center gap-2 flex-wrap justify-between">
+                                        <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="px-5 py-3">
+                                            <div class="flex items-center gap-2 flex-wrap justify-between min-h-7">
                                                 <div class="flex items-baseline gap-2 flex-wrap min-w-0">
                                                     <a href="#" @click.prevent="select({ id: page.id, type: 'page' })"
                                                        class="font-semibold text-zinc-900 hover:text-zinc-500 dark:text-zinc-100 dark:hover:text-zinc-400 transition-colors"
@@ -632,8 +653,8 @@
                                                 </template>
                                             </div>
                                             <template x-if="showUsage && forwardUsage(page).length > 0">
-                                                <div class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700">
-                                                    <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2.5" x-text="$store.i18n.t('overview.components')"></p>
+                                                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                    <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2" x-text="$store.i18n.t('overview.components')"></p>
                                                     <ul class="space-y-1">
                                                         <template x-for="chip in forwardUsage(page)" :key="chip.id">
                                                             <li class="flex items-center justify-between gap-2">
@@ -696,8 +717,8 @@
                                     </div>
                                     <div class="rounded-2xl border border-zinc-200/80 bg-white dark:border-zinc-700/80 dark:bg-zinc-800">
                                         <template x-for="(item, idx) in block.items" :key="item.id">
-                                            <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="p-5">
-                                                <div class="flex items-center gap-2 flex-wrap justify-between">
+                                            <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="px-5 py-3">
+                                                <div class="flex items-center gap-2 flex-wrap justify-between min-h-7">
                                                     <div class="flex items-baseline gap-2 flex-wrap min-w-0">
                                                         <a href="#" @click.prevent="select({ id: item.id, type: 'component' })"
                                                            class="font-semibold text-zinc-900 hover:text-zinc-500 dark:text-zinc-100 dark:hover:text-zinc-400 transition-colors"
@@ -720,8 +741,8 @@
                                                     </template>
                                                 </div>
                                                 <template x-if="showUsage && reverseUsage(item.id).length > 0">
-                                                    <div class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700">
-                                                        <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2.5" x-text="$store.i18n.t('overview.used_in')"></p>
+                                                    <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                        <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2" x-text="$store.i18n.t('overview.used_in')"></p>
                                                         <ul class="space-y-1">
                                                             <template x-for="chip in reverseUsage(item.id)" :key="chip.id">
                                                                 <li class="flex items-center justify-between gap-2">
