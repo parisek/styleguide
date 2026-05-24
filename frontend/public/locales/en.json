@@ -13,6 +13,7 @@
         "open_in_new_tab": "Open in new tab",
         "custom_width": "Custom width in pixels (Enter to apply)",
         "custom_width_placeholder": "Custom",
+        "viewport_preset": "Viewport size",
         "canvas_mode": "Canvas — no iframe; viewport units (vh/svh/dvh) measure the real browser",
         "canvas_mode_label": "Canvas",
         "rotate": "Rotate device (portrait ↔ landscape)"

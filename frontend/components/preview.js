@@ -343,6 +343,20 @@ document.addEventListener('alpine:init', () => {
             return `width: ${w}px; height: ${h}px; transform: scale(${z}); transform-origin: 0 0`;
         },
 
+        // Compact label for the responsive dropdown trigger that replaces
+        // the segmented pill on narrow toolbars. Mirrors the in-pill text:
+        // bare width for px-bearing presets ("1280"), "Full" for the
+        // unconstrained preset, and the live pixel value for Custom
+        // (so the dropdown reads back the dragged size without needing
+        // to open the menu).
+        get activeLabel() {
+            const key = this.activePreset;
+            if (key === 'full') return 'Full';
+            if (key === 'custom') return `${this.currentWidth}`;
+            const match = VIEWPORTS.find((v) => v.key === key);
+            return match?.width ? String(match.width) : '?';
+        },
+
         // Human-readable "W × H" string for the active preset (after any
         // rotation), or null when the preset has no logical dimensions
         // (Full mode, or Custom widths whose height is content-driven).

@@ -13,6 +13,7 @@
         "open_in_new_tab": "Otevřít v novém okně",
         "custom_width": "Vlastní šířka v pixelech (Enter pro potvrzení)",
         "custom_width_placeholder": "Vlastní",
+        "viewport_preset": "Velikost zobrazení",
         "canvas_mode": "Canvas — bez iframu, viewport jednotky (vh/svh/dvh) měří skutečný browser",
         "canvas_mode_label": "Canvas",
         "rotate": "Otočit zařízení (na šířku ↔ na výšku)"
