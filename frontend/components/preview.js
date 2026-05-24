@@ -221,14 +221,21 @@ document.addEventListener('alpine:init', () => {
             if (wrapper) this._ro.observe(wrapper);
             else this.currentWidth = 0;
 
-            // Observe the wrapper's parent (the `.flex-1 ... overflow-auto`
+            // Observe the chrome preview pane (the `.flex-1 ... overflow-auto`
             // container) so containerAvailableWidth tracks viewport resize.
             // Separate observer from the wrapper one because the wrapper
             // itself is constrained by `max-width: 100%` — its measured
             // width can't tell us how much room there'd be without the
             // constraint.
+            //
+            // We `.closest('.overflow-auto')` instead of taking wrapper's
+            // direct parentElement because the chassis-frame decoration layer
+            // introduces an `inline-block` ancestor between the wrapper and
+            // the chrome pane. Observing that inline-block would create a
+            // feedback loop: it sizes to the wrapper, observer reads the
+            // shrunk width, recomputes zoom smaller, wrapper shrinks again.
             if (this._containerRO) this._containerRO.disconnect();
-            const parent = wrapper?.parentElement;
+            const parent = wrapper?.closest('.overflow-auto');
             if (parent) {
                 this._containerRO = new ResizeObserver((entries) => {
                     for (const entry of entries) {
