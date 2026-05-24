@@ -17,19 +17,17 @@ use Symfony\Component\Yaml\Exception\ParseException;
  */
 final class ComponentParser
 {
+    /**
+     * Allowed render modes. See docs/superpowers/specs/2026-05-24-component-render-modes-design.md.
+     */
+    public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
+
     private string $templatesPath;
 
     public function __construct(string $templatesPath)
     {
         $this->templatesPath = rtrim($templatesPath, '/');
     }
-
-    /**
-     * Allowed render modes. See docs/superpowers/specs/2026-05-24-component-render-modes-design.md.
-     *
-     * @var list<string>
-     */
-    public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
 
     /**
      * Coerce an arbitrary YAML value into one of the canonical render modes.

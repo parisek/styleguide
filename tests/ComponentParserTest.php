@@ -105,6 +105,15 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function normalise_render_falls_back_to_inset_for_non_string(): void
+    {
+        // YAML like `render: 42` or `render: [inset]` parses to int/array;
+        // the helper must not pass those through to the iframe template.
+        self::assertSame('inset', ComponentParser::normaliseRender(42));
+        self::assertSame('inset', ComponentParser::normaliseRender(['inset']));
+    }
+
+    #[Test]
     public function parse_emits_normalised_render_mode(): void
     {
         $parser = new ComponentParser($this->fixturesPath);
