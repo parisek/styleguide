@@ -891,6 +891,13 @@ final class Styleguide
             if ($meta !== null && !empty($meta['name'])) {
                 $config['component_name'] = $meta['name'];
             }
+            // Render mode lives on the component (not the page) per spec
+            // 2026-05-24-component-render-modes-design.md. Pages render their
+            // own layout and don't go through render-cell's inset wrapper, so
+            // the mode is forwarded only when kind == component.
+            if ($meta !== null && $route['kind'] === 'component') {
+                $config['render'] = $meta['render'] ?? 'inset';
+            }
         } elseif ($route['kind'] === 'foundations') {
             $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
             // foundations.twig uses Tailwind utility classes the consumer's

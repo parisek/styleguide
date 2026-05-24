@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide;
 
 use Twig\Environment;
+use Parisek\Styleguide\ComponentParser;
 
 /**
  * Renders a single component or page into a full HTML document for iframe embedding.
@@ -61,6 +62,10 @@ final class Renderer
             'component' => [
                 'id' => $slug,
                 'name' => $config['component_name'] ?? $slug,
+                // Re-normalise defensively: callers other than Styleguide.php
+                // (notably tests) may pass an unvalidated string. ComponentParser
+                // owns the canonical list, so we route the coercion through it.
+                'render' => ComponentParser::normaliseRender($config['render'] ?? null),
             ],
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,
