@@ -25,6 +25,26 @@ final class ComponentParser
     }
 
     /**
+     * Allowed render modes. See docs/superpowers/specs/2026-05-24-component-render-modes-design.md.
+     *
+     * @var list<string>
+     */
+    public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
+
+    /**
+     * Coerce an arbitrary YAML value into one of the canonical render modes.
+     * Null / missing / typos all fall back to 'inset' (the safe default that
+     * matches pre-feature behaviour). Strict-equals against the allowed list
+     * so e.g. integers or arrays from a malformed YAML can't slip through.
+     */
+    public static function normaliseRender(mixed $value): string
+    {
+        return is_string($value) && in_array($value, self::RENDER_MODES, true)
+            ? $value
+            : 'inset';
+    }
+
+    /**
      * Parse metadata from a single component/page .twig file.
      *
      * @return array<string,mixed>|null  Null when file missing or metadata invalid.
@@ -141,6 +161,11 @@ final class ComponentParser
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
             'usage' => $metadata['usage'] ?? '',
             'fields' => $metadata['fields'] ?? [],
+            // Canonical render mode for the iframe wrapper. See spec
+            // 2026-05-24-component-render-modes-design.md — drives the
+            // padding wrapper, --header-height reset, and body min-height
+            // in render-cell.twig.
+            'render' => self::normaliseRender($metadata['render'] ?? null),
             'hasStyleguide' => $hasStyleguide,
         ];
     }

@@ -66,4 +66,60 @@ final class ComponentParserTest extends TestCase
         self::assertNotFalse($result);
         self::assertSame('Tabbed', $result['name']);
     }
+
+    #[Test]
+    public function normalise_render_accepts_inset(): void
+    {
+        self::assertSame('inset', ComponentParser::normaliseRender('inset'));
+    }
+
+    #[Test]
+    public function normalise_render_accepts_bleed(): void
+    {
+        self::assertSame('bleed', ComponentParser::normaliseRender('bleed'));
+    }
+
+    #[Test]
+    public function normalise_render_accepts_chrome(): void
+    {
+        self::assertSame('chrome', ComponentParser::normaliseRender('chrome'));
+    }
+
+    #[Test]
+    public function normalise_render_accepts_overlay(): void
+    {
+        self::assertSame('overlay', ComponentParser::normaliseRender('overlay'));
+    }
+
+    #[Test]
+    public function normalise_render_defaults_inset_for_null(): void
+    {
+        self::assertSame('inset', ComponentParser::normaliseRender(null));
+    }
+
+    #[Test]
+    public function normalise_render_falls_back_to_inset_for_unknown(): void
+    {
+        // YAML typo or stale value — coerce silently instead of throwing.
+        self::assertSame('inset', ComponentParser::normaliseRender('hero'));
+    }
+
+    #[Test]
+    public function parse_emits_normalised_render_mode(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $sample = $parser->parse('component', 'sample');
+        self::assertNotNull($sample);
+        self::assertSame('inset', $sample['render']);
+    }
+
+    #[Test]
+    public function parse_defaults_render_to_inset_when_missing(): void
+    {
+        // The `another` fixture has no `render:` key in its YAML.
+        $parser = new ComponentParser($this->fixturesPath);
+        $another = $parser->parse('component', 'another');
+        self::assertNotNull($another);
+        self::assertSame('inset', $another['render']);
+    }
 }
