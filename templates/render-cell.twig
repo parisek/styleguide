@@ -19,8 +19,7 @@
 	   and a body background-color declaration in their stylesheet. #}
 	<style>
 		:root { color-scheme: light; }
-		body { background-color: #fff; }{# Per-mode CSS injections for the iframe wrapper. See spec
-		   2026-05-24-component-render-modes-design.md § Mode semantics.
+		body { background-color: #fff; }{# Per-mode CSS injections for the iframe wrapper.
 		   `bleed` / `chrome` / `overlay` all reset `--header-height` to 0
 		   so consumer "tuck under sticky header" hacks collapse cleanly
 		   in styleguide isolation; `chrome` additionally forces body to
@@ -86,8 +85,7 @@
 	   project's CSS framework (Tailwind / Bootstrap / custom). Only `inset`
 	   mode (the default for unannotated components) gets the wrapper;
 	   `bleed` / `chrome` / `overlay` render edge-to-edge so hero / slider /
-	   sticky / modal components can fill the iframe. See spec
-	   2026-05-24-component-render-modes-design.md § Mode semantics. #}
+	   sticky / modal components can fill the iframe. #}
 	{% set use_inset = kind == 'component' and component.render == 'inset' %}
 	{% if use_inset %}<div style="padding:1.5rem">{% endif %}
 	{{ body|raw }}

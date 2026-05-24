@@ -125,8 +125,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `image` emerald, `link` orange, anything else neutral zinc), and a
   red-dot Required indicator with a localised footer legend. Default
   state stays collapsed; the trigger badge shows the recursive node
-  count. Design rationale in
-  `docs/superpowers/specs/2026-05-20-fields-drawer-design.md`.
+  count.
 - `Styleguide::buildOwnTwig()` (the pristine env built when the consumer
   omits the `twig` config key) now defaults `autoescape: false` alongside
   the existing `cache: false` + `debug: true`. Previously the env fell

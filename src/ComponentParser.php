@@ -18,7 +18,10 @@ use Symfony\Component\Yaml\Exception\ParseException;
 final class ComponentParser
 {
     /**
-     * Allowed render modes. See docs/superpowers/specs/2026-05-24-component-render-modes-design.md.
+     * Allowed render modes driving the iframe wrapper in render-cell.twig:
+     * `inset` is the default 24px-padded wrapper for atomic components;
+     * `bleed` / `chrome` / `overlay` skip the wrapper for full-bleed
+     * components (hero / slider / sticky page chrome / modals).
      */
     public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
 
@@ -159,8 +162,7 @@ final class ComponentParser
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
             'usage' => $metadata['usage'] ?? '',
             'fields' => $metadata['fields'] ?? [],
-            // Canonical render mode for the iframe wrapper. See spec
-            // 2026-05-24-component-render-modes-design.md — drives the
+            // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
             'render' => self::normaliseRender($metadata['render'] ?? null),
