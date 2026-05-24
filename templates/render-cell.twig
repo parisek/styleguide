@@ -20,6 +20,14 @@
 	<style>
 		:root { color-scheme: light; }
 		body { background-color: #fff; }
+		{# Per-mode CSS injections for the iframe wrapper. See spec
+		   2026-05-24-component-render-modes-design.md § Mode semantics.
+		   `bleed` / `chrome` / `overlay` all reset `--header-height` to 0
+		   so consumer "tuck under sticky header" hacks collapse cleanly
+		   in styleguide isolation; `chrome` additionally forces body to
+		   200vh so sticky / fixed chrome has scroll-room to demo. #}
+		{% if kind == 'component' and component.render in ['bleed', 'chrome', 'overlay'] %}:root { --header-height: 0px; }{% endif %}
+		{% if kind == 'component' and component.render == 'chrome' %}body { min-height: 200vh; }{% endif %}
 	</style>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
@@ -76,9 +84,14 @@
 	   touching the styleguide chrome above. Pages render their own full layout
 	   (which already controls spacing), so they don't get the inset. Inline
 	   styles instead of utility classes so the inset works regardless of the
-	   project's CSS framework (Tailwind / Bootstrap / custom). #}
-	{% if kind == 'component' %}<div style="padding:1.5rem">{% endif %}
+	   project's CSS framework (Tailwind / Bootstrap / custom). Only `inset`
+	   mode (the default for unannotated components) gets the wrapper;
+	   `bleed` / `chrome` / `overlay` render edge-to-edge so hero / slider /
+	   sticky / modal components can fill the iframe. See spec
+	   2026-05-24-component-render-modes-design.md § Mode semantics. #}
+	{% set use_inset = kind == 'component' and component.render == 'inset' %}
+	{% if use_inset %}<div style="padding:1.5rem">{% endif %}
 	{{ body|raw }}
-	{% if kind == 'component' %}</div>{% endif %}
+	{% if use_inset %}</div>{% endif %}
 </body>
 </html>
