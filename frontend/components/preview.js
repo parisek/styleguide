@@ -341,18 +341,13 @@ document.addEventListener('alpine:init', () => {
             const w = this.effectiveWidth;
             const h = this.effectiveHeight ?? this.iframeContentHeight ?? 400;
             if (w === null) {
-                // No preset dimensions — either Full ('100%') or Custom width.
-                // Full fills the chrome's right pane vertically too, so the
-                // iframe's viewport matches the available chrome height and
-                // `h-svh` inside resolves against it (instead of collapsing
-                // to content height — the issue #14 paradox). Custom widths
-                // keep the historical content-auto-fit behaviour because
-                // the user explicitly opted into device emulation by picking
-                // a width.
-                if (this.isFullPreset) {
-                    return 'width: 100%; height: 100%';
-                }
-                return `width: 100%; height: ${this.iframeContentHeight ? this.iframeContentHeight + 'px' : '400px'}`;
+                // Full mode (previewWidth === '100%') — `effectiveWidth` is null
+                // ONLY here, since every fixed-px width (preset or Custom)
+                // parses to an integer in `logicalPresetWidth`. Iframe fills
+                // the chrome's right pane vertically too so `h-svh` inside
+                // resolves against the real chrome height instead of
+                // collapsing to inner-document height (the issue #14 paradox).
+                return 'width: 100%; height: 100%';
             }
             const z = this.zoom;
             // transform-origin: 0 0 + sized wrapper means scaled iframe
@@ -414,22 +409,20 @@ document.addEventListener('alpine:init', () => {
             return Alpine.store('ui').previewWidth === '100%';
         },
 
-        // CSS for the wrapper element. When a preset is active, wrapper takes
-        // the *scaled* dimensions so it occupies the visible amount of space
-        // in flow (drag handles + shadow track the scaled box). For Full /
-        // Custom, defer to the historical previewWidth + max-width: 100%
-        // behaviour.
+        // CSS for the wrapper element. Every fixed-px width (preset or
+        // Custom) takes the *scaled* dimensions so the wrapper occupies the
+        // visible amount of space in flow — drag handles + shadow + chassis
+        // ring all anchor against the visible (scaled) box, not the logical
+        // CSS-pixel size. Only Full mode (effectiveWidth null) bypasses the
+        // scaling math.
         get wrapperStyle() {
             const w = this.effectiveWidth;
             const h = this.effectiveHeight;
             if (w === null) {
-                // Full → wrapper takes full chrome-pane height too so the
-                // iframe's `height: 100%` resolves against it. Custom keeps
-                // max-width: 100% with auto height (content-driven).
-                if (this.isFullPreset) {
-                    return 'width: 100%; height: 100%';
-                }
-                return `width: ${Alpine.store('ui').previewWidth}; max-width: 100%`;
+                // Full mode (previewWidth === '100%') — `effectiveWidth` is null
+                // only here. Wrapper takes the full chrome-pane height so the
+                // iframe's `height: 100%` resolves against a real container.
+                return 'width: 100%; height: 100%';
             }
             const z = this.zoom;
             // Clamp the scaled dimensions to a minimum of 1px so a tiny
