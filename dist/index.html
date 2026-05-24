@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.Cn1DRMoG.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.BocZ_2pi.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.Dv60fOv6.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.BKKKB3YA.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -509,64 +509,92 @@
             <div class="flex-1 flex justify-center overflow-auto"
                  :class="isFullPreset ? 'p-0 bg-white dark:bg-zinc-900 items-stretch' : 'p-6 bg-zinc-100 dark:bg-zinc-950 items-start'">
                 <template x-if="iframeSrc">
-                    <!-- The wrapper bg stays white in both themes — iframe content
-                         is the consumer's domain (no theme propagation), and they
-                         render against an assumed light backdrop. A dark wrapper
-                         would bleed through transparent iframe areas.
+                    <!-- Outer positioning ancestor — sized to the inner wrapper via
+                         inline-block, so it inherits the scaled device dimensions.
+                         Hosts the chassis decorations (speaker slot, home indicator)
+                         and drag handles as absolute-positioned siblings of the
+                         iframe-bearing wrapper. The iframe wrapper itself keeps
+                         overflow-hidden (needed to clip iframe corners against the
+                         rounded chassis); putting decorations here lets them sit on
+                         the ring area without being clipped. -->
+                    <div class="relative inline-block">
+                        <!-- Mobile chassis: speaker slot top + home indicator bottom.
+                             Positioned to sit on the 10px ring (top/bottom -7px puts
+                             the pill roughly centered on the chassis bezel). Colors
+                             read against ring-zinc-800/ring-zinc-700 in both themes. -->
+                        <template x-if="activePresetCategory === 'mobile'">
+                            <div class="pointer-events-none">
+                                <div class="absolute left-1/2 -translate-x-1/2 -top-[7px] h-1 w-12 rounded-full bg-zinc-600 dark:bg-zinc-500"></div>
+                                <div class="absolute left-1/2 -translate-x-1/2 -bottom-[7px] h-1 w-20 rounded-full bg-zinc-500 dark:bg-zinc-400"></div>
+                            </div>
+                        </template>
+                        <!-- Tablet chassis: lone camera dot. The 6px ring is too thin
+                             for a speaker pill — a centered dot reads as "tablet". -->
+                        <template x-if="activePresetCategory === 'tablet'">
+                            <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-[5px] h-1 w-1 rounded-full bg-zinc-600 dark:bg-zinc-400"></div>
+                        </template>
 
-                         Device frame: `activePresetCategory` drives the bezel look.
-                         Mobile presets get a chunky phone-style bezel (rounded-3xl
-                         + thick ring); tablet gets a softer bezel; desktop gets a
-                         monitor-bezel; Full/foundations skip the frame so the
-                         preview reads edge-to-edge. The ring color is zinc-800 in
-                         both themes so the bezel reads as the device chassis
-                         regardless of light/dark chrome. -->
-                    <div x-ref="iframeWrapper"
-                         :style="wrapperStyle"
-                         :class="[
-                             isDragging ? '' : 'transition-[width,height,border-radius] duration-200 ease-out',
-                             activePresetCategory === 'mobile' ? 'rounded-[2.5rem] ring-[10px] ring-zinc-800 shadow-2xl' : '',
-                             activePresetCategory === 'tablet' ? 'rounded-2xl ring-[6px] ring-zinc-800 shadow-xl' : '',
-                             activePresetCategory === 'desktop' ? 'rounded-lg ring-2 ring-zinc-700 shadow-xl' : '',
-                             activePresetCategory === 'custom' ? 'rounded shadow-lg' : '',
-                             activePresetCategory === 'full' ? '' : '',
-                         ]"
-                         class="relative bg-white overflow-hidden">
-                        <!-- Iframe height tracks inner contentDocument so the
-                             component sits in natural document flow rather
-                             than forcing an internal scroll bar inside a
-                             fixed-height shell. The 400px fallback shows
-                             before the first onload fires so the preview area
-                             has something visible during the initial paint. -->
-                        <iframe :src="iframeSrc" @load="onIframeLoad"
-                                class="rounded border-0 block"
-                                :style="iframeStyle"
-                                :class="{ 'pointer-events-none': isDragging }"></iframe>
-                        <!-- Solid overlay during navigation — the iframe keeps showing the old
-                             slug's content until the browser finishes parsing the new src. The
-                             overlay sits ON TOP of the iframe so the user never sees the stale
-                             content. No enter transition: the old slug's body must be obscured
-                             instantly when navigation starts. The loading dot itself fades in
-                             with a 120ms delay so very fast loads (<120ms — common for cached
-                             responses) skip the dot entirely. -->
-                        <div x-show="isLoading"
-                             class="absolute inset-0 flex items-center justify-center rounded bg-white pointer-events-none">
+                        <!-- The wrapper bg stays white in both themes — iframe content
+                             is the consumer's domain (no theme propagation), and they
+                             render against an assumed light backdrop. A dark wrapper
+                             would bleed through transparent iframe areas.
+
+                             Device frame: `activePresetCategory` drives the bezel look.
+                             Mobile presets get a chunky phone-style bezel (rounded-3xl
+                             + thick ring); tablet gets a softer bezel; desktop gets a
+                             monitor-bezel; Full/foundations skip the frame so the
+                             preview reads edge-to-edge. Ring color shifts in dark mode
+                             so the chassis still contrasts against dark:bg-zinc-950
+                             (zinc-800 there would visually dissolve). -->
+                        <div x-ref="iframeWrapper"
+                             :style="wrapperStyle"
+                             :class="[
+                                 isDragging ? '' : 'transition-[width,height,border-radius] duration-200 ease-out',
+                                 activePresetCategory === 'mobile' ? 'rounded-[2.5rem] ring-[10px] ring-zinc-800 dark:ring-zinc-700 shadow-2xl' : '',
+                                 activePresetCategory === 'tablet' ? 'rounded-2xl ring-[6px] ring-zinc-800 dark:ring-zinc-700 shadow-xl' : '',
+                                 activePresetCategory === 'desktop' ? 'rounded-lg ring-2 ring-zinc-300 dark:ring-zinc-700 shadow-xl' : '',
+                                 activePresetCategory === 'custom' ? 'rounded shadow-lg' : '',
+                                 activePresetCategory === 'full' ? '' : '',
+                             ]"
+                             class="relative bg-white overflow-hidden">
+                            <!-- Iframe height tracks inner contentDocument so the
+                                 component sits in natural document flow rather
+                                 than forcing an internal scroll bar inside a
+                                 fixed-height shell. The 400px fallback shows
+                                 before the first onload fires so the preview area
+                                 has something visible during the initial paint. -->
+                            <iframe :src="iframeSrc" @load="onIframeLoad"
+                                    class="border-0 block"
+                                    :style="iframeStyle"
+                                    :class="{ 'pointer-events-none': isDragging }"></iframe>
+                            <!-- Solid overlay during navigation — the iframe keeps showing the old
+                                 slug's content until the browser finishes parsing the new src. The
+                                 overlay sits ON TOP of the iframe so the user never sees the stale
+                                 content. No enter transition: the old slug's body must be obscured
+                                 instantly when navigation starts. The loading dot itself fades in
+                                 with a 120ms delay so very fast loads (<120ms — common for cached
+                                 responses) skip the dot entirely. -->
                             <div x-show="isLoading"
-                                 x-transition.opacity.duration.150ms.delay.120ms
-                                 class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
+                                 class="absolute inset-0 flex items-center justify-center bg-white pointer-events-none">
+                                <div x-show="isLoading"
+                                     x-transition.opacity.duration.150ms.delay.120ms
+                                     class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
+                            </div>
                         </div>
-                        <!-- Drag handles: outside the iframe so cursor events aren't swallowed;
-                             rendered on both edges for centered-grow symmetry. Hidden on the
-                             foundations route — that view has no responsivity worth testing, and
-                             the locked-100% iframe shouldn't be draggable. -->
-                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                        <!-- Drag handles: siblings of the iframe wrapper (not inside it) so
+                             they can extend onto the chassis ring without being clipped by the
+                             wrapper's overflow-hidden. Visible only in Custom mode — presets
+                             carry a fixed device width, and dragging would silently kick the
+                             user out of the preset (confusing). Foundations route has no
+                             responsivity to test, so it's also excluded. -->
+                        <template x-if="activePreset === 'custom' && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-400 dark:bg-zinc-600 group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors"
                                      :class="isDragging && '!bg-zinc-500 dark:!bg-zinc-200'"></div>
                             </div>
                         </template>
-                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                        <template x-if="activePreset === 'custom' && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-400 dark:bg-zinc-600 group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors"

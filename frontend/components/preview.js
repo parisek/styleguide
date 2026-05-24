@@ -426,6 +426,19 @@ document.addEventListener('alpine:init', () => {
             return match?.key ?? 'custom';
         },
 
+        // Resolved device category for the active preset — drives the
+        // wrapper's device-frame look ("phone bezel" for mobile, slimmer
+        // frame for tablet, monitor bevel for desktop). Custom widths
+        // fall back to 'desktop' since dragging from a Mobile preset to
+        // 380px shouldn't suddenly drop the phone aesthetic; 'full' has
+        // no frame (edge-to-edge intent).
+        get activePresetCategory() {
+            const key = this.activePreset;
+            if (key === 'full') return 'full';
+            const match = VIEWPORTS.find((v) => v.key === key);
+            return match?.category ?? 'desktop';
+        },
+
         setPreset(key) {
             const preset = VIEWPORTS.find((v) => v.key === key);
             if (!preset) return;
