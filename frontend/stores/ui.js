@@ -97,6 +97,16 @@ document.addEventListener('alpine:init', () => {
             this.previewRotated = !this.previewRotated;
         },
 
+        // Explicit orientation setter — used by the segmented portrait /
+        // landscape switch in the toolbar. The switch's two buttons each
+        // call this with a concrete value (false / true) rather than
+        // toggling, so the active button reflects the current orientation
+        // and the user sees both states at once.
+        setOrientation(rotated) {
+            if (this.previewHeight === null) return;
+            this.previewRotated = !!rotated;
+        },
+
         // Effective iframe dimensions after applying rotation. `displayWidth`
         // and `displayHeight` are what the template should push onto the
         // iframe element; they swap previewWidth ↔ previewHeight when

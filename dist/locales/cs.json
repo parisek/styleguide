@@ -16,7 +16,9 @@
         "viewport_preset": "Velikost zobrazení",
         "canvas_mode": "Canvas — bez iframu, viewport jednotky (vh/svh/dvh) měří skutečný browser",
         "canvas_mode_label": "Canvas",
-        "rotate": "Otočit zařízení (na šířku ↔ na výšku)"
+        "rotate": "Otočit zařízení (na šířku ↔ na výšku)",
+        "orientation_portrait": "Na výšku",
+        "orientation_landscape": "Na šířku"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

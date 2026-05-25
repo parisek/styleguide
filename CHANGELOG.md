@@ -6,6 +6,34 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.9] - 2026-05-25
+
+### Changed
+
+- **Subtler device chassis bezels.** Mobile ring dropped from 10 px to
+  6 px, rounded from 2.5 rem to 2 rem, shadow from 2xl to xl. Tablet
+  ring from 6 px to 5 px. Desktop ring color in light mode bumped from
+  zinc-300 to zinc-200 so the 2K preset (and other desktop sizes) reads
+  as a thin rectangular frame, not as "no frame at all" against the
+  light chrome. Mobile chassis-decoration positions (speaker slot +
+  home indicator) adjusted to match the new ring thickness.
+
+- **More breathing room between chassis and dimension badge.** Badge
+  margin-top from 0.5 rem to 1 rem so the `W × H (Z %)` readout no
+  longer sticks against the chassis edge.
+
+- **Rotation: single icon-only button replaced by a 2-state segmented
+  switch.** Old button toggled `previewRotated` and showed a phone +
+  curved-arrow glyph that meant "click to rotate" — actionable but
+  with no visible state. The new switch is two adjacent buttons:
+  a vertical-rectangle (Portrait) and a horizontal-rectangle
+  (Landscape), with the active orientation highlighted. The user
+  reads which orientation they're in at a glance instead of guessing
+  what the toggle will produce. New `setOrientation(rotated)` store
+  method backs the explicit-value semantics; the old `toggleRotation()`
+  remains for keyboard shortcuts or programmatic callers that prefer
+  the toggle shape.
+
 ## [0.3.8] - 2026-05-25
 
 ### Added

@@ -16,7 +16,9 @@
         "viewport_preset": "Viewport size",
         "canvas_mode": "Canvas — no iframe; viewport units (vh/svh/dvh) measure the real browser",
         "canvas_mode_label": "Canvas",
-        "rotate": "Rotate device (portrait ↔ landscape)"
+        "rotate": "Rotate device (portrait ↔ landscape)",
+        "orientation_portrait": "Portrait",
+        "orientation_landscape": "Landscape"
     },
     "preview": {
         "mobile": "Mobile (375 px)",
