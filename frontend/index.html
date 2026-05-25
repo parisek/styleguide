@@ -574,7 +574,17 @@
                          overflow-hidden (needed to clip iframe corners against the
                          rounded chassis); putting decorations here lets them sit on
                          the ring area without being clipped. -->
-                    <div class="relative inline-block">
+                    <!-- For preset/Custom modes the ancestor is `inline-block` so chassis
+                         pills (speaker slot, camera dot, home indicator) can sit on
+                         the ring as absolute-positioned siblings of the wrapper
+                         without being clipped by the wrapper's `overflow-hidden`.
+                         Full mode is the exception: the wrapper wants `width: 100%;
+                         height: 100%` against the chrome pane, but `inline-block`
+                         collapses to the iframe's intrinsic UA width (~300px), so
+                         percentage widths resolved against a 300px ancestor — not
+                         the chrome pane. For Full we promote to a `block` element
+                         that stretches via the flex parent's `items-stretch`. -->
+                    <div class="relative" :class="isFullPreset ? 'block w-full h-full' : 'inline-block'">
                         <!-- Mobile chassis: speaker slot top + home indicator bottom.
                              Positioned to sit on the 10px ring (top/bottom -7px puts
                              the pill roughly centered on the chassis bezel). Colors

@@ -6,6 +6,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-05-25
+
+### Fixed
+
+- **Full mode no longer collapses to ~300 px.** The chassis decoration
+  ancestor div (added in v0.3.0 to host mobile/tablet bezel pills as
+  positioning siblings of the iframe wrapper) was unconditionally
+  `inline-block`. In Full mode the wrapper carries `width: 100%; height:
+  100%` to fill the chrome pane, but a percentage width resolves against
+  the iframe's UA-default intrinsic width (~300 px) when the ancestor
+  is `inline-block`, so the visible preview collapsed to that 300 px
+  box. Promote the ancestor to `block w-full h-full` whenever
+  `isFullPreset` is true so the wrapper's 100% computes against the
+  flex parent's chrome pane (1632 px wide in a typical layout).
+  Preset / Custom modes keep `inline-block` for chassis-decoration
+  positioning.
+
 ### Migration notes
 
 - **Render-endpoint rename (carry-over from v0.2.0).** Consumer E2E
