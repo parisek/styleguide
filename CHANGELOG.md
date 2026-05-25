@@ -6,6 +6,102 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Canvas navigation mode.** A toolbar button next to "Open in new tab"
+  drops the iframe entirely and navigates the parent window in-place to
+  `/styleguide/render/<kind>/<slug>?canvas=1`. In that view viewport
+  units (`vh` / `svh` / `dvh` / Tailwind `h-screen`) resolve against the
+  real browser viewport, not the iframe's — fixes the truncated-hero
+  problem where `h-svh` collapsed to inner-document height inside an
+  iframe. The `?canvas=1` flag tells `render-cell.twig` to suppress its
+  standalone back-bar so the hero exactly fills the viewport; the
+  browser back button is the return path.
+
+- **Per-component render modes.** New YAML metadata key on components:
+
+  ```yaml
+  render: inset | bleed | chrome | overlay
+  ```
+
+  Drives the iframe wrapper in `render-cell.twig`:
+
+  | Mode | Inset wrap | `--header-height` | Body `min-height` | Use for |
+  |---|---|---|---|---|
+  | `inset` (default) | 24 px on all sides | unchanged | unchanged | Atomic UI (button, alert, breadcrumb, picture). |
+  | `bleed` | none | `0px` injected at `:root` | unchanged | Hero, slider, page-header — fills the iframe edge-to-edge. |
+  | `chrome` | none | `0px` injected at `:root` | `200vh` on `<body>` | Sticky / fixed page chrome (`header`, `footer`, `cookieconsent`) that needs scrollable host content to demo sticky behaviour. |
+  | `overlay` | none | `0px` injected at `:root` | unchanged | Modals / dialogs. Functionally identical to `bleed` at the iframe level today; the separate label exists for future UI surfacing. |
+
+  Default is `inset`, so legacy components without the new key keep
+  their pre-feature padding wrapper — **zero breaking change**. The
+  `--header-height: 0px` reset for `bleed/chrome/overlay` collapses
+  consumer "tuck under sticky header" hacks like
+  `margin-top: var(--header-height, 75px) * -1` to a no-op in
+  styleguide isolation (no sticky chrome above to hide behind).
+
+  Validated against the canonical set: `ComponentParser::normaliseRender()`
+  coerces typos and non-string values silently to `inset`, never throws.
+
+- **Device chassis frames** for mobile / tablet presets. An abstract
+  rounded bezel with speaker slot + home indicator (mobile) or camera
+  dot (tablet) wraps the preview iframe so the device reads as a
+  device, not a white box. Pure Tailwind ring + absolute-positioned
+  decoration; the iframe itself still carries the preset's exact
+  logical CSS pixel dimensions, so `@media`, `vw`, `vh`, and breakpoints
+  inside resolve identically to the real device. Desktop keeps a clean
+  card; Full + Custom stay frame-free. Adapts to light + dark chrome.
+
+- **Desktop 2K preset** (`2560 × 1440`) — the QHD/2K resolution commonly
+  emulated for 27" monitor design work, alongside the existing Mobile S/M/L,
+  Tablet/L, Desktop/L/XL, and Full presets.
+
+- **Fit-to-bounds preview zoom.** The zoom getter now picks the smaller
+  of the width-ratio and the height-ratio (`Math.min(widthRatio,
+  heightRatio, 1)`), so a 2560 × 1440 preset on a 1280 × 800 chrome
+  pane shrinks proportionally in **both** axes — preserving the device's
+  aspect ratio — instead of overflowing the vertical edge. Custom
+  widths (no logical height) fall through via `Infinity` so the
+  width-only path is unchanged.
+
+- **Vertically centred chassis + dimension badge.** Non-Full presets
+  now sit centred in the canvas (`items-center` instead of `items-start`)
+  with a small font-mono `W × H` badge underneath the chassis. Helpful
+  when a wide preset is scaled down to 15 % and the visual size no
+  longer matches the logical CSS pixel size — the badge always reports
+  the emulated viewport, not the visible scale.
+
+- **Responsive toolbar dropdown.** Below `xl` (1280 px) the 10-button
+  segmented viewport pill collapses into a single trigger button that
+  opens a popover listing the same presets. The Custom-width input
+  stays next to the trigger on both layouts so typing-then-Enter never
+  costs an extra click. Removes the toolbar's historical
+  `overflow-x-auto` escape hatch — the dropdown keeps the row narrow
+  enough that overflow no longer happens, and the missing overflow
+  lets the popover break out of the toolbar's flow without getting
+  clipped.
+
+- **Logical-pixel readouts everywhere.** Toolbar readout, dropdown
+  trigger label, and drag-to-resize all read the emulated CSS pixel
+  width from the store, not the scaled wrapper DOM box. Drag math now
+  compensates for the active zoom factor so a 50-screen-px cursor move
+  on a 0.5×-scaled 2K preset applies a 100-logical-px width change
+  (was 50). `currentWidth` is now a getter sourced from `previewWidth`
+  with a fallback to the ResizeObserver-tracked DOM measurement only
+  for Full mode (where the wrapper truly carries the real viewport).
+
+- **`render-cell.twig`** wrapper height now falls back to
+  `iframeContentHeight` × `zoom` when the active mode has no logical
+  height (Custom widths), eliminating a blank gap below the visible
+  iframe equal to `unscaledH * (1 - zoom)` that previously appeared
+  when a Custom width was wider than the chrome pane.
+
+### Accessibility
+
+- Icon-only toolbar controls (rotate, sidebar toggle, open-in-new-tab)
+  now carry `aria-label` alongside `title` so screen readers get an
+  accessible name independent of hover tooltips.
+
 ### Changed
 
 - `|resizer` is now **polymorphic**: in addition to the historical

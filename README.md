@@ -362,9 +362,35 @@ fields:
 | `figma` | external link chip — Figma design URL |
 | `drupal` | external link chip — Drupal docs / module URL |
 | `web` | external link chip — generic external URL |
+| `render` | iframe-wrapper rendering mode for components — see *Component render modes* below |
 | `styleguide` | optional flag — when set (or when a sibling `styleguide.twig` exists), the component exposes a separate styleguide-only render variant |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
+
+### Component render modes
+
+By default every component renders inside a 24 px-padded wrapper — right for atomic UI (button, alert, breadcrumb) that would otherwise sit flush against the iframe edge. Hero / slider / page-chrome / modal components want the full viewport instead. The `render` YAML key opts each component into one of four modes:
+
+| Mode | Effect | Use for |
+|---|---|---|
+| `inset` *(default)* | 24 px padding wrapper, body `min-height` untouched. | Atomic UI: button, alert, breadcrumb, picture, pagination, accordion. |
+| `bleed` | No wrapper. Resets `--header-height` to `0px` so consumer "tuck under sticky header" hacks (`margin-top: var(--header-height, 75px) * -1`) collapse cleanly in styleguide isolation. | Hero, slider, page-header — anything that wants to fill the iframe edge-to-edge. |
+| `chrome` | Same as `bleed`, plus `body { min-height: 200vh }`. Sticky / fixed elements have room to scroll against. | `header` with sticky variant, `footer`, `cookieconsent`. |
+| `overlay` | Same iframe wrapper as `bleed`. Separate label exists so future UI can surface "this is a modal" without a wrapper change. | Native `<dialog>` modals. |
+
+```twig
+{#
+name: "Slider"
+category: "Gutenberg"
+render: bleed
+fields:
+  items:
+    type: array
+    required: 1
+#}
+```
+
+Missing key, typo, or non-string value falls back to `inset` — legacy components without `render:` keep their pre-feature wrapper, so adopting the package is a no-op until you opt in.
 
 ---
 
