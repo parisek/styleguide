@@ -6,6 +6,29 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.10] - 2026-05-25
+
+### Changed
+
+- **Toolbar consolidated to a single display-options dropdown.** Was
+  three separate UI surfaces fighting for toolbar width:
+  (a) the segmented preset pill (10 buttons on xl+),
+  (b) the standalone Custom-width number input,
+  (c) the segmented Portrait/Landscape switch,
+  (d) the Canvas-mode button.
+  All four now live inside the dropdown panel as labelled sections.
+  The toolbar carries only the dropdown trigger, the dimension readout,
+  and the open-in-new-tab link. Open-in-new-tab stays outside because
+  it's a different action class — leave-styleguide vs configure-preview.
+  The xl+ /-below-xl branch (`hidden xl:flex` + `xl:hidden`) is gone;
+  the same dropdown shows at every viewport for a consistent layout.
+
+### Added
+
+- **Section labels in the dropdown** — `Custom`, `Orientation`, plus
+  a top border under each section so the panel reads as "presets,
+  then your overrides" rather than as a flat list. Localised in cs/en.
+
 ## [0.3.9] - 2026-05-25
 
 ### Changed
