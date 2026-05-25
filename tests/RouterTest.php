@@ -97,4 +97,91 @@ final class RouterTest extends TestCase
         self::assertNull(Router::parse('/'));
         self::assertNull(Router::parse('/styleguidedark')); // not a real /styleguide/ prefix
     }
+
+    #[Test]
+    public function synthesize_embedded_swaps_component_route_for_render(): void
+    {
+        // Iframe-context request on /styleguide/component/hero → render endpoint.
+        // Without the swap the SPA shell would load inside the parent iframe,
+        // producing nested chrome.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'component', 'slug' => 'hero'],
+                'iframe'
+            )
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_swaps_page_route_for_render(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'page', 'slug' => 'homepage'],
+                'iframe'
+            )
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_swaps_foundations_with_index_slug(): void
+    {
+        // Foundations carries no slug in the SPA route; the render dispatcher
+        // ignores the slug for that branch, but the route shape contract still
+        // expects one. 'index' mirrors the public render-endpoint convention.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'foundations', 'slug' => 'index'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'foundations'],
+                'iframe'
+            )
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_passes_through_when_not_iframe(): void
+    {
+        // Top-level navigation — `Sec-Fetch-Dest: document` (or empty on older
+        // browsers) means the user is browsing the SPA directly. Route stays
+        // unchanged so dispatchSpa() serves the chrome.
+        $route = ['type' => 'page', 'slug' => 'homepage'];
+        self::assertSame($route, Router::synthesizeEmbeddedRoute($route, 'document'));
+        self::assertSame($route, Router::synthesizeEmbeddedRoute($route, ''));
+        // Other Sec-Fetch-Dest values (image, script, …) shouldn't trigger the
+        // synthesis either — only the iframe value swaps the route.
+        self::assertSame($route, Router::synthesizeEmbeddedRoute($route, 'image'));
+    }
+
+    #[Test]
+    public function synthesize_embedded_leaves_render_route_unchanged(): void
+    {
+        // Direct /styleguide/render/... requests already hit the isolated
+        // dispatch path — no synthesis needed, no double-wrapping.
+        $route = ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'];
+        self::assertSame($route, Router::synthesizeEmbeddedRoute($route, 'iframe'));
+    }
+
+    #[Test]
+    public function synthesize_embedded_leaves_other_routes_unchanged(): void
+    {
+        // Routes outside the SPA-shell set don't have an iframe-nesting problem.
+        // `asset` / `api` / `overview` / `fields` / `landing` pass through.
+        foreach (
+            [
+                ['type' => 'asset', 'path' => 'styleguide.css'],
+                ['type' => 'api', 'endpoint' => 'components'],
+                ['type' => 'overview'],
+                ['type' => 'fields'],
+                ['type' => 'landing'],
+            ] as $route
+        ) {
+            self::assertSame(
+                $route,
+                Router::synthesizeEmbeddedRoute($route, 'iframe'),
+                'Route type ' . $route['type'] . ' must pass through'
+            );
+        }
+    }
 }

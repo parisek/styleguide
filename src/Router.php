@@ -72,4 +72,46 @@ final class Router
         // Unknown path under /styleguide/ — default to landing (SPA handles it)
         return ['type' => 'landing'];
     }
+
+    /**
+     * Swap an SPA route (`component`, `page`, `foundations`) for its `render`
+     * equivalent when the request was issued from inside an iframe.
+     *
+     * The SPA shell (sidebar + toolbar + iframe) is meant to load only as the
+     * top-level document. When a component / page in an iframe links to another
+     * styleguide URL — e.g. a header nav's "Projects" link emitting
+     * `/styleguide/page/projects` — the browser would otherwise load the full
+     * SPA shell INSIDE the iframe, producing a confusing chrome-in-chrome
+     * layout (a second sidebar and another nested iframe).
+     *
+     * `Sec-Fetch-Dest: iframe` is the browser's authoritative signal for any
+     * sub-frame request — both the initial iframe SRC and every same-target
+     * link click within it. Synthesising the matching `render` route lets the
+     * existing dispatch path serve the response (raw render-cell document, no
+     * chrome) while the link's href stays semantically correct as the SPA URL.
+     *
+     * Routes outside the SPA-shell set (`asset`, `render`, `api`, `overview`,
+     * `fields`, `landing`) pass through unchanged — they have no iframe-nesting
+     * problem to solve.
+     *
+     * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string} $route
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string}
+     */
+    public static function synthesizeEmbeddedRoute(array $route, string $secFetchDest): array
+    {
+        if ($secFetchDest !== 'iframe') {
+            return $route;
+        }
+        if (!in_array($route['type'] ?? null, ['component', 'page', 'foundations'], true)) {
+            return $route;
+        }
+        return [
+            'type' => 'render',
+            'kind' => $route['type'],
+            // Foundations carries no slug; `dispatchRender()` ignores the slug
+            // for the foundations branch, but the shape contract still expects
+            // a string. `'index'` mirrors the public render-endpoint convention.
+            'slug' => $route['slug'] ?? 'index',
+        ];
+    }
 }

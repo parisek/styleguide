@@ -777,6 +777,12 @@ final class Styleguide
             return;
         }
 
+        // Iframe-embedded request → render endpoint (no SPA shell). See
+        // {@see Router::synthesizeEmbeddedRoute()} for the rationale + decision
+        // table. Centralising the swap there keeps the dispatch here simple
+        // and lets the synthesis logic be tested in isolation.
+        $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
+
         match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path']),
             'render' => $this->dispatchRender($route),

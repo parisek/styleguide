@@ -6,6 +6,36 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-05-25
+
+### Changed
+
+- **Iframe-link rewrite moved from JS to server-side `Sec-Fetch-Dest`
+  detection.** v0.3.4 shipped a capture-phase click listener in
+  `render-cell.twig` that rewrote `/styleguide/{component,page,foundations}/X`
+  hrefs to the `/render/...` endpoint before browser navigation. The same
+  goal is now achieved at the routing layer: `Styleguide::run()` calls a
+  new `Router::synthesizeEmbeddedRoute()` helper that swaps the SPA route
+  for the `render` equivalent whenever the request carries
+  `Sec-Fetch-Dest: iframe` (the browser's authoritative signal for any
+  sub-frame load — the initial iframe SRC and every same-target link
+  click within it).
+
+  Consumer-visible behaviour is unchanged: iframe links to
+  `/styleguide/page/X` still load render-cell contents (no nested chrome).
+  But the implementation now lives in one testable PHP method instead of
+  a JS interceptor inside every iframe, the link's `href` in component
+  markup stays semantically correct as the SPA URL, and the synthesis
+  rule is covered by 6 new unit tests in `RouterTest`.
+
+  Top-level navigation (`Sec-Fetch-Dest: document`) and any other Dest
+  value (image, script, …) pass through unchanged — only sub-frame
+  requests trigger the swap. Older browsers without the
+  `Sec-Fetch-Dest` header (Safari < 16.4) fall through to the SPA shell
+  as before; previewing in those browsers will show the old nested
+  chrome inside the iframe, but the dev-tools target (Chrome / Firefox
+  / Edge / Safari 16.4+) gets the clean path.
+
 ## [0.3.4] - 2026-05-25
 
 ### Fixed
