@@ -33,11 +33,13 @@
 	<title>{{ component.name|default(component.id)|e }} — {{ project.name|default('Styleguide')|e }}</title>
 	{% if project.favicon %}<link rel="icon" href="{{ project.favicon|e }}">{% endif %}
 	{% if iframe.base_href %}<base href="{{ iframe.base_href|e }}">{% endif %}
-	{# Fonty — samostatné stylesheets s @font-face deklaracemi #}
-	{% for url in iframe.fonts|default([]) %}<link rel="stylesheet" href="{{ url|e }}">
+	{# Fonty — samostatné stylesheets s @font-face deklaracemi. `|cachebust`
+	   appends ?v=<mtime> so a rebuild instantly invalidates the browser
+	   cache without per-project Apache / nginx config. #}
+	{% for url in iframe.fonts|default([]) %}<link rel="stylesheet" href="{{ url|cachebust|e }}">
 	{% endfor %}
-	{# Hlavní bundled CSS (Tailwind / Bootstrap / custom — vše v jednom souboru) #}
-	{% if iframe.css %}<link rel="stylesheet" href="{{ iframe.css|e }}">{% endif %}
+	{# Hlavní bundled CSS (Tailwind / Bootstrap / custom — vše v jednom souboru). #}
+	{% if iframe.css %}<link rel="stylesheet" href="{{ iframe.css|cachebust|e }}">{% endif %}
 	{# Package-shipped Tailwind bundle for the foundations route. The consumer's
 	   iframe.css scans its own templates/ but not vendor/, so utility classes
 	   used only by templates/foundations.twig (h-32, max-w-48, prose-*, …)
@@ -45,7 +47,7 @@
 	   still win on shared classes. #}
 	{% if foundations_css_url %}<link rel="stylesheet" href="{{ foundations_css_url|e }}">{% endif %}
 	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
-	{% if iframe.js %}<script type="module" src="{{ iframe.js|e }}"></script>{% endif %}
+	{% if iframe.js %}<script type="module" src="{{ iframe.js|cachebust|e }}"></script>{% endif %}
 </head>
 <body{% if iframe.body_class %} class="{{ iframe.body_class|e }}"{% endif %}>
 	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),

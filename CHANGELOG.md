@@ -6,6 +6,30 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.8] - 2026-05-25
+
+### Added
+
+- **Automatic cache-busting on iframe entry assets.** `render-cell.twig`
+  now appends `?v=<filemtime>` to `iframe.css`, `iframe.js`, and each
+  `iframe.fonts[]` URL via a new `|cachebust` Twig filter. Removes the
+  failure mode where a Vite rebuild produced fresh bundle hashes but the
+  consumer's browser kept fetching the previous `script.js` from HTTP
+  cache (long `Cache-Control: max-age=…` on a hash-less entry file),
+  which then dynamically imported stale-hashed bundles → 404 → broken
+  iframe scripts (e.g. lightbox failing in a gallery component).
+
+  The filter walks up from `static_path` looking for an ancestor whose
+  URL-rooted lookup resolves to a real file on disk. Handles WordPress
+  (`wp-content/themes/<theme>/static`), Drupal
+  (`web/themes/custom/<theme>/static`), and standalone (`static/` IS
+  the docroot) without per-project configuration. URLs that don't
+  resolve to a local file (external `https://`, `data:`, `mailto:`,
+  `#anchor`, missing files) pass through unchanged.
+
+  Zero consumer action required — `composer update parisek/styleguide`
+  delivers the fix.
+
 ## [0.3.7] - 2026-05-25
 
 ### Changed

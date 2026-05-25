@@ -484,6 +484,52 @@ final class Styleguide
             },
         ));
 
+        // Cache-buster for `iframe.css` / `iframe.js` / `iframe.fonts[]`
+        // URLs. The iframe loads the consumer's entry files (typically
+        // `dist/css/style.css` + `dist/js/script.js`) which are referenced
+        // in `styleguide.yaml` WITHOUT a build hash — so a long HTTP
+        // `Cache-Control: max-age=…` on those entry files keeps the browser
+        // serving the previous build's content, which then dynamically
+        // imports stale-hashed bundles → 404 → broken iframe scripts.
+        //
+        // Appending `?v=<file_mtime>` makes every rebuild's entry URL
+        // unique — browsers re-fetch on first request after a rebuild
+        // (filemtime changes), then cache aggressively until the next
+        // rebuild. Zero work for the consumer; works for WordPress,
+        // Drupal, and standalone layouts because the algorithm walks up
+        // from `static_path` to find the docroot the URL is rooted at.
+        //
+        // Pass-through cases: non-string values, empty strings, external
+        // http(s)://, data: / mailto: / tel:, anchor (`#…`), or any URL
+        // that doesn't resolve to a real file on disk. Existing query
+        // strings are preserved (the buster is appended with `&`).
+        $staticPath = (string) ($this->config['static_path'] ?? '');
+        self::tryAddFilter($twig, new TwigFilter(
+            'cachebust',
+            static function (mixed $url) use ($staticPath): mixed {
+                if (!is_string($url) || $url === '' || !str_starts_with($url, '/')) {
+                    return $url;
+                }
+                $relativeUrl = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
+                $dir = $staticPath;
+                // Walk up max 6 levels — covers `wp-content/themes/<theme>/static`
+                // (3 hops to docroot) and `web/themes/custom/<theme>/static`
+                // (3 hops). 6 leaves headroom for nested fork projects.
+                for ($i = 0; $i < 6 && $dir !== '' && $dir !== '/' && $dir !== '.'; $i++) {
+                    $candidate = $dir . '/' . $relativeUrl;
+                    if (is_file($candidate)) {
+                        $mtime = @filemtime($candidate);
+                        if ($mtime !== false) {
+                            $sep = str_contains($url, '?') ? '&' : '?';
+                            return $url . $sep . 'v=' . $mtime;
+                        }
+                    }
+                    $dir = dirname($dir);
+                }
+                return $url;
+            },
+        ));
+
         self::tryAddFilter($twig, new TwigFilter(
             'format_date',
             /**

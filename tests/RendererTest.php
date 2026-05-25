@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
+use Twig\TwigFilter;
 
 final class RendererTest extends TestCase
 {
@@ -27,6 +28,12 @@ final class RendererTest extends TestCase
         $loader2->addPath(__DIR__ . '/fixtures/templates', 'project');
 
         $twig = new Environment($loader2, ['cache' => false]);
+        // render-cell.twig applies `|cachebust` to iframe.css / iframe.js /
+        // iframe.fonts URLs (registered by Styleguide::registerBundledHelpers
+        // in the real boot path; not present on this bare test env).
+        // Identity-pass it through here so the template parses and the
+        // existing assertions can target the unprefixed URLs.
+        $twig->addFilter(new TwigFilter('cachebust', static fn (mixed $u): mixed => $u));
         $this->renderer = new Renderer($twig, ['content' => ['title' => 'Hello']]);
     }
 
