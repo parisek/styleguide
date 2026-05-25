@@ -260,8 +260,8 @@ final class Styleguide
      * Register the Twig extensions the package's own templates depend on,
      * idempotently. `foundations.twig` uses `create_attribute()` (parisek/twig-
      * attribute) and the `|typography` filter (parisek/twig-typography); the
-     * sibling intl-extra / string-extra / twig-common are shipped together
-     * because consumers' component templates routinely reach for them too.
+     * sibling intl-extra / string-extra are shipped together because
+     * consumers' component templates routinely reach for them too.
      *
      * The check via `hasExtension($class)` makes this safe to call after
      * `attachLoaders()` — projects that already registered any of these
@@ -304,7 +304,6 @@ final class Styleguide
         $extensions = [
             \Twig\Extra\Intl\IntlExtension::class,
             \Twig\Extra\String\StringExtension::class,
-            \Parisek\Twig\CommonExtension::class,
             \Parisek\Twig\AttributeExtension::class,
         ];
         foreach ($extensions as $class) {
@@ -323,7 +322,9 @@ final class Styleguide
      * `@component/<name>/<name>.twig`, `page_*` to `@page/<name>/<name>.twig`,
      * `__` / `_x` / `_n` / `_nx` are identity stubs that WordPress consumers
      * override with the real translation functions, `merge_resizer` flattens
-     * multi-source `<picture>` candidates into one indexed list.
+     * multi-source `<picture>` candidates into one indexed list, `uniqueId`
+     * mints an HTML-id-safe random token for components that need ARIA wiring
+     * without a caller-supplied id.
      *
      * Each helper is added only when the project hasn't already registered
      * one with the same name — projects that need a customised version
@@ -397,6 +398,26 @@ final class Styleguide
             '_nx',
             static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string {
                 return sprintf($number === 1 ? $single : $plural, $number);
+            },
+        ));
+
+        // HTML id mint — letter prefix because HTML4 forbade ids starting
+        // with a digit and CSS selectors like `#1foo` still need escaping,
+        // so a letter front keeps the result drop-in for both. The closure
+        // keeps a private collision set across calls within a single Twig
+        // env lifetime — same-render duplicates are vanishingly unlikely
+        // with bin2hex(random_bytes(3)) = 24 bits of entropy per call, but
+        // the bag is free insurance for templates that mint dozens of ids
+        // (galleries, accordions) on one page.
+        $uniqueIds = [];
+        self::tryAddFunction($twig, new TwigFunction(
+            'uniqueId',
+            static function () use (&$uniqueIds): string {
+                do {
+                    $id = chr(random_int(97, 122)) . bin2hex(random_bytes(3));
+                } while (isset($uniqueIds[$id]));
+                $uniqueIds[$id] = true;
+                return $id;
             },
         ));
 

@@ -44,6 +44,24 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function registers_uniqueId_letter_prefix_and_unique(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        // Mint a batch and assert: each id starts with a lowercase letter
+        // (HTML4 / CSS-selector safety), each is unique within the env, and
+        // the length is predictable (1 letter + 6 hex chars = 7).
+        $tpl = $twig->createTemplate('{% for _ in 1..50 %}{{ uniqueId() }}|{% endfor %}');
+        $ids = array_filter(explode('|', $tpl->render()));
+
+        self::assertCount(50, $ids);
+        self::assertCount(50, array_unique($ids));
+        foreach ($ids as $id) {
+            self::assertMatchesRegularExpression('/^[a-z][0-9a-f]{6}$/', $id);
+        }
+    }
+
+    #[Test]
     public function registers_translation_stubs_with_wp_compatible_signatures(): void
     {
         $twig = self::twigOf(self::newStyleguide());
@@ -60,14 +78,15 @@ final class BundledHelpersTest extends TestCase
     {
         $twig = self::twigOf(self::newStyleguide());
 
-        // The five Twig extensions that every consuming project previously
-        // had to register itself, plus DumpExtension (added in 0.2.0 — same
-        // rationale as the others: enables `{{ dump(var) }}` in templates,
-        // production leak risk caught by the DumpRule twig-cs-fixer lint
-        // instead of by withholding the extension).
+        // The Twig extensions that every consuming project previously had to
+        // register itself, plus DumpExtension (added in 0.2.0 — same rationale
+        // as the others: enables `{{ dump(var) }}` in templates, production
+        // leak risk caught by the DumpRule twig-cs-fixer lint instead of by
+        // withholding the extension). CommonExtension was dropped because the
+        // only feature in real use — `uniqueId()` — is now a bundled helper
+        // registered directly on the env (see uniqueId test below).
         self::assertTrue($twig->hasExtension(\Twig\Extra\Intl\IntlExtension::class));
         self::assertTrue($twig->hasExtension(\Twig\Extra\String\StringExtension::class));
-        self::assertTrue($twig->hasExtension(\Parisek\Twig\CommonExtension::class));
         self::assertTrue($twig->hasExtension(\Parisek\Twig\AttributeExtension::class));
         self::assertTrue($twig->hasExtension(\Parisek\Twig\TypographyExtension::class));
         self::assertTrue($twig->hasExtension(\Symfony\Bridge\Twig\Extension\DumpExtension::class));

@@ -12,11 +12,10 @@
     "require": {
         "php": "^8.3",
         "twig/twig": "^3.0",
-        "symfony/yaml": "^6.0 || ^7.0",
-        "symfony/twig-bridge": "^5.4 || ^6.2 || ^7.0",
-        "symfony/var-dumper": "^5.4 || ^6.2 || ^7.0",
+        "symfony/yaml": "^6.0 || ^7.0 || ^8.0",
+        "symfony/twig-bridge": "^5.4 || ^6.2 || ^7.0 || ^8.0",
+        "symfony/var-dumper": "^5.4 || ^6.2 || ^7.0 || ^8.0",
         "parisek/twig-attribute": "^1.0",
-        "parisek/twig-common": "^1.0",
         "parisek/twig-typography": "^1.0",
         "twig/intl-extra": "^3.3",
         "twig/string-extra": "^3.3"

@@ -6,6 +6,83 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Symfony 8 support in the dependency constraints.** Widened
+  `symfony/yaml`, `symfony/twig-bridge`, and `symfony/var-dumper`
+  ranges to include `^8.0` alongside the existing `^5.4 || ^6.x || ^7.0`
+  branches. The package's own PHP requirement stays at `^8.3` — Composer
+  resolves the appropriate Symfony major based on the consumer's PHP
+  runtime (PHP 8.3 stays on Symfony 7.x because Symfony 8 requires PHP
+  >= 8.4.1; PHP 8.4+ can pull Symfony 8). No `src/` changes were needed:
+  our Symfony surface is limited to `Yaml::parse()`, `ParseException`,
+  and guarded `class_exists()` checks for `DumpExtension` + `VarCloner`,
+  none of which carry BC breaks in Symfony 8.0.
+
+  The `parisek/twig-typography` 1.2.0 release widens its own
+  `symfony/yaml` constraint to `^6.0 || ^7.0 || ^8.0`, so a consumer
+  on PHP 8.4+ now resolves all Symfony components to 8.x cleanly via
+  this package — no transitive 7.x pin remains.
+
+### Changed
+
+- **`parisek/twig-typography` updated to 1.2.0** (transitively via
+  `composer update`, no constraint change — `^1.0` already covers 1.2).
+  Modernization release: source moved to `src/`, full PHPUnit + PHPStan
+  level 8 baseline, PHP-array constructor overload alongside the existing
+  YAML-path overload, Symfony 8 + Twig 4 forward-compat in the require
+  constraints. No consumer template changes required; the `|typography`
+  filter keeps its signature and `is_safe => ['html']` semantics.
+
+- **`parisek/twig-attribute` updated to 1.6.0** (transitively via
+  `composer update`, no constraint change — `^1.0` already covers 1.6).
+  The package was refreshed from Drupal 11.x core (additive methods:
+  `hasAttribute()`, `removeClass()`, `getClass()`, `jsonSerialize()`,
+  `__clone()`), now ships a 41-test PHPUnit suite, dropped both
+  `drupal/core-render` and `drupal/core-utility` from its `require`
+  (Drupal core's `Html::escape()` inlined as a 5-LOC helper;
+  `NestedArray::mergeDeep[Array]` and `PlainTextOutput::renderFromHtml`
+  inlined as minimal shims under `Parisek\Twig\Internal\*`;
+  `MarkupInterface` replaced by a local marker under
+  `Drupal\Component\Attribute`), tightened constraints to Twig 3+ and
+  PHP ^8.3 explicitly — both already implied transitively by Drupal 11.
+  No consumer template changes required; `create_attribute()` keeps
+  its signature, return type, and `is_safe => ['html']` semantics.
+  Net effect on the styleguide's `vendor/` tree: the entire
+  `vendor/drupal/` subtree disappears.
+
+- **Toolbar revert: xl+ keeps the expanded controls, only narrow viewports
+  collapse into the dropdown.** v0.3.10 unified all four controls (preset
+  pill, Custom input, Orientation switch, Canvas button) into a single
+  dropdown across every viewport. On wide screens this made cross-viewport
+  testing slower — every change required two clicks (open dropdown, pick
+  preset). Restored: xl+ shows the segmented preset pill + standalone
+  Custom input + Portrait/Landscape switch + Canvas button inline; below
+  xl, the dropdown still consolidates the same four controls.
+- **Orientation toggle mounted on the chassis itself for mobile + tablet
+  presets.** A small button floats `-top-9 right-0` of the device frame
+  with a phone glyph that rotates 90° via `transition-transform` to mirror
+  the chosen orientation. Sibling of the iframe wrapper (not child) so it
+  isn't clipped by the wrapper's `overflow-hidden`. Hidden on desktop /
+  custom / full where orientation has no canonical meaning. Coexists with
+  the toolbar's segmented Portrait/Landscape switch — both write to the
+  same `$store.ui.previewRotated`, so the two stay in sync.
+
+### Removed
+
+- **`parisek/twig-common` dependency.** Only one of its four features —
+  `uniqueId()` — was reaching real consumer templates (4 components in
+  tailwind-base, 1 in pm-a); `|yaml_parse`, the no-op `|t` filter, and
+  the no-op `{% trans %}` token parser saw zero use. `uniqueId()` is now
+  registered directly in `Styleguide::registerBundledHelpers()` with the
+  same signature (letter + 6 hex chars), so `.twig` templates that call
+  `uniqueId()` keep working without changes. Dropping the dependency also
+  removes a latent Twig 4 incompatibility — twig-common's `TransTokenParser`
+  references `\Twig_Token::NAME_TYPE`, the Twig 2.x class alias that's
+  being phased out (Twig 4.0.0-alpha1 is already published). Net effect:
+  one fewer slow-upstream package in the chain, one fewer future bump
+  blocker for Symfony 8 / Twig 4 future-proofing.
+
 ## [0.3.10] - 2026-05-25
 
 ### Changed
