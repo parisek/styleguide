@@ -28,6 +28,25 @@ document.addEventListener('alpine:init', () => {
         // PR will add History API updates so a chosen width also shows up
         // in the address bar.
         previewWidth: Alpine.$persist('100%').as('sg-preview-width'),
+        // Preset-derived iframe height in pixels — null means "auto-fit to
+        // content" (the historical behaviour). Set by setPreset() alongside
+        // width when the user picks a fixed device preset (Mobile 375, Tablet
+        // 1024, …) so the iframe carries the preset's aspect ratio and
+        // viewport units (h-svh / h-screen) inside resolve against it. Reset
+        // to null on custom-width input, drag, or Full — both auto-fit and
+        // 100%-wide modes want content-driven height. Persisted alongside
+        // previewWidth so the two stay in sync across reloads (setWidth
+        // writes both atomically).
+        previewHeight: Alpine.$persist(null).as('sg-preview-height'),
+        // Landscape-orientation flag. When true, the iframe renders with
+        // previewWidth and previewHeight swapped — so Mobile 375 × 667
+        // portrait becomes 667 × 375 landscape. Stays a flag (not direct
+        // swap of the underlying width/height) so `activePreset` keeps
+        // matching the canonical preset entry and the highlight stays
+        // accurate. Auto-reset to false on any non-preset width change
+        // (custom input, drag, Full) — those modes have no canonical
+        // orientation to rotate.
+        previewRotated: Alpine.$persist(false).as('sg-preview-rotated'),
         isDragging: false,
         // Mirror of the preview's iframe loading state. Lives in the ui store
         // rather than the preview component because `setRoute()` needs to flip
@@ -47,12 +66,55 @@ document.addEventListener('alpine:init', () => {
             // user's preset / drag / custom-input interactions write through
             // $persist normally. (Future: write back to URL via History API
             // when the width changes — keeps the chain symmetric.)
+            //
+            // `setWidth` (not direct assignment) is the entry point so the
+            // companion `previewHeight` resets to null in lockstep with
+            // `previewWidth` — the URL only carries width, so any preset
+            // height left over from a prior session must be cleared to
+            // avoid the highlight-by-width / height-still-set mismatch that
+            // would make rotate-button + dimension-badge state stale.
+            // Components that want preset width AND height in the URL can
+            // round-trip through setPreset() after the URL resolves.
             const urlWidth = parseWidthParam(new URLSearchParams(location.search).get('width'));
-            if (urlWidth) this.previewWidth = urlWidth;
+            if (urlWidth) this.setWidth(urlWidth);
         },
 
-        setWidth(w) {
+        setWidth(w, h = null) {
             this.previewWidth = w;
+            this.previewHeight = h;
+            // Any width change that isn't a preset application drops the
+            // landscape flag — custom widths, drag, Full have no canonical
+            // orientation. setPreset() passes h explicitly to opt back in.
+            if (h === null) this.previewRotated = false;
+        },
+
+        // Toggle landscape orientation. Only meaningful when both
+        // previewWidth and previewHeight have pixel values (i.e. a device
+        // preset is active). Callers should gate the rotate button on
+        // `previewHeight !== null`.
+        toggleRotation() {
+            if (this.previewHeight === null) return;
+            this.previewRotated = !this.previewRotated;
+        },
+
+        // Effective iframe dimensions after applying rotation. `displayWidth`
+        // and `displayHeight` are what the template should push onto the
+        // iframe element; they swap previewWidth ↔ previewHeight when
+        // previewRotated is true.
+        get displayWidth() {
+            if (this.previewRotated && this.previewHeight !== null) {
+                return `${this.previewHeight}px`;
+            }
+            return this.previewWidth;
+        },
+        get displayHeight() {
+            if (this.previewRotated && this.previewHeight !== null) {
+                // previewWidth is a string like "375px" or "100%" — extract
+                // the integer for the rotated-height numeric value.
+                const px = parseInt(this.previewWidth, 10);
+                return Number.isInteger(px) ? px : this.previewHeight;
+            }
+            return this.previewHeight;
         },
 
         toggleSidebar() {

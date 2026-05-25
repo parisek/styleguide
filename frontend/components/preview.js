@@ -11,16 +11,22 @@ import Alpine from 'alpinejs';
 // tall as the surrounding chrome allows, mirroring Chrome DevTools' Responsive
 // mode. Custom widths go through `applyCustomWidth()` and don't live in this
 // list — they're persisted as the raw px string via the ui store.
+// `category` drives the leading icon glyph in the preset row (mobile / tablet /
+// desktop / full). Categories cluster naturally by width: anything < 600 is a
+// phone, 600–1199 is a tablet, ≥ 1200 is a desktop. The fourth category 'full'
+// is the unconstrained 100%-wide preset — rendered with a different icon (a
+// stretch / fit-screen glyph) to signal "no device, free width".
 const VIEWPORTS = [
-    { key: 'mobile-s',   label: 'Mobile S',   width: 320,  height: 568  },
-    { key: 'mobile',     label: 'Mobile',     width: 375,  height: 667  },
-    { key: 'mobile-l',   label: 'Mobile L',   width: 425,  height: 812  },
-    { key: 'tablet',     label: 'Tablet',     width: 768,  height: 1024 },
-    { key: 'tablet-l',   label: 'Tablet L',   width: 1024, height: 1366 },
-    { key: 'desktop',    label: 'Desktop',    width: 1280, height: 800  },
-    { key: 'desktop-l',  label: 'Desktop L',  width: 1536, height: 960  },
-    { key: 'desktop-xl', label: 'Desktop XL', width: 1920, height: 1080 },
-    { key: 'full',       label: 'Full',       width: null, height: null }, // 100%
+    { key: 'mobile-s',   label: 'Mobile S',   category: 'mobile',  width: 320,  height: 568  },
+    { key: 'mobile',     label: 'Mobile',     category: 'mobile',  width: 375,  height: 667  },
+    { key: 'mobile-l',   label: 'Mobile L',   category: 'mobile',  width: 425,  height: 812  },
+    { key: 'tablet',     label: 'Tablet',     category: 'tablet',  width: 768,  height: 1024 },
+    { key: 'tablet-l',   label: 'Tablet L',   category: 'tablet',  width: 1024, height: 1366 },
+    { key: 'desktop',    label: 'Desktop',    category: 'desktop', width: 1280, height: 800  },
+    { key: 'desktop-l',  label: 'Desktop L',  category: 'desktop', width: 1536, height: 960  },
+    { key: 'desktop-xl', label: 'Desktop XL', category: 'desktop', width: 1920, height: 1080 },
+    { key: 'desktop-2k', label: 'Desktop 2K', category: 'desktop', width: 2560, height: 1440 },
+    { key: 'full',       label: 'Full',       category: 'full',    width: null, height: null }, // 100%
 ];
 
 // Custom width sanity range — same bounds as the URL-param parser in ui.js,
@@ -76,10 +82,30 @@ function flattenFieldsTree(map, depth = 0, parentPath = '') {
     return rows;
 }
 
+// Device-class icon SVG inner paths, keyed by VIEWPORTS[i].category. The
+// outer <svg> shell lives in the template; this is just the inner content
+// — Alpine's x-html injects the right group based on category. Inline
+// rather than separate files because they're small, simple, and live next
+// to the data they decorate.
+const CATEGORY_ICON_PATHS = {
+    mobile: '<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/>',
+    tablet: '<rect x="4" y="3" width="16" height="18" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/>',
+    desktop: '<rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+    full: '<polyline points="4 8 4 4 8 4"/><polyline points="20 8 20 4 16 4"/><polyline points="4 16 4 20 8 20"/><polyline points="20 16 20 20 16 20"/>',
+};
+
 document.addEventListener('alpine:init', () => {
     Alpine.data('preview', () => ({
         viewports: VIEWPORTS,
-        currentWidth: 0,
+        categoryIconPaths: CATEGORY_ICON_PATHS,
+        // Live wrapper measurement — meaningful only in Full mode where the
+        // iframe-bearing wrapper takes 100% of the chrome pane width with no
+        // transform-scale, so its DOM box width equals the real CSS pixel
+        // viewport inside. For preset/Custom modes the wrapper is `transform:
+        // scale(z)` of a fixed-px box, so its DOM width is the *display* size,
+        // not the emulated logical width — the `currentWidth` getter below
+        // routes around this property in those modes.
+        _measuredWrapperWidth: 0,
         // The Custom input always shows the current pixel value (or '' when
         // Full is active). Typing then Enter / blur writes through to the
         // store. The bidirectional sync is set up in init() below.
@@ -107,7 +133,7 @@ document.addEventListener('alpine:init', () => {
             // x-data's $refs in Alpine 3, so we query the DOM directly.
             this._ro = new ResizeObserver((entries) => {
                 for (const entry of entries) {
-                    this.currentWidth = Math.round(entry.contentRect.width);
+                    this._measuredWrapperWidth = Math.round(entry.contentRect.width);
                 }
             });
             this.$watch('iframeSrc', () => queueMicrotask(() => this.observeWrapper()));
@@ -188,11 +214,235 @@ document.addEventListener('alpine:init', () => {
             return Alpine.store('ui').isPreviewLoading;
         },
 
+        // Available dimensions of the iframe's parent container — the .flex-1
+        // box that hosts the wrapper. Drives auto-zoom: when the active preset's
+        // width OR height exceeds the available room (e.g. Desktop 2K 2560×1440
+        // active on a 1280×800 laptop), the iframe gets uniformly scaled down
+        // so it fits in both axes without cutting off and without distorting
+        // the device's aspect ratio. 0 means "not yet measured" — getters fall
+        // back to no scaling. Padding (p-6 = 48px total per axis) is subtracted
+        // to match the visual breathing room.
+        containerAvailableWidth: 0,
+        containerAvailableHeight: 0,
+
         observeWrapper() {
             this._ro.disconnect();
             const wrapper = document.querySelector('[x-ref="iframeWrapper"]');
             if (wrapper) this._ro.observe(wrapper);
-            else this.currentWidth = 0;
+            else this._measuredWrapperWidth = 0;
+
+            // Observe the chrome preview pane (the `.flex-1 ... overflow-auto`
+            // container) so containerAvailableWidth tracks viewport resize.
+            // Separate observer from the wrapper one because the wrapper
+            // itself is constrained by `max-width: 100%` — its measured
+            // width can't tell us how much room there'd be without the
+            // constraint.
+            //
+            // We `.closest('.overflow-auto')` instead of taking wrapper's
+            // direct parentElement because the chassis-frame decoration layer
+            // introduces an `inline-block` ancestor between the wrapper and
+            // the chrome pane. Observing that inline-block would create a
+            // feedback loop: it sizes to the wrapper, observer reads the
+            // shrunk width, recomputes zoom smaller, wrapper shrinks again.
+            if (this._containerRO) this._containerRO.disconnect();
+            const parent = wrapper?.closest('.overflow-auto');
+            if (parent) {
+                this._containerRO = new ResizeObserver((entries) => {
+                    for (const entry of entries) {
+                        // 48px = 2× p-6 padding on the parent (both axes).
+                        // Keeps the scaled iframe inside the visible chrome
+                        // with the same visual breathing room horizontally
+                        // and vertically.
+                        this.containerAvailableWidth = Math.max(0, entry.contentRect.width - 48);
+                        this.containerAvailableHeight = Math.max(0, entry.contentRect.height - 48);
+                    }
+                });
+                this._containerRO.observe(parent);
+                // Seed initial values synchronously so the first paint already
+                // has the correct zoom; otherwise getter falls back to no
+                // scaling for one frame.
+                this.containerAvailableWidth = Math.max(0, parent.clientWidth - 48);
+                this.containerAvailableHeight = Math.max(0, parent.clientHeight - 48);
+            }
+        },
+
+        // Logical (un-rotated) device-emulation width in CSS pixels —
+        // returns an integer for any fixed-px width (preset OR Custom),
+        // null only when the store carries `'100%'` (Full mode). Custom
+        // widths share the preset code path: a `'500px'` Custom width
+        // produces the same iframe-style chain as a `375px` preset, just
+        // without a `logicalPresetHeight` to pair with it (Custom is
+        // width-only; iframe height comes from content). The iframe is
+        // given these as its box-level width; auto-zoom then applies
+        // transform: scale() on top so the visual fits the available space.
+        get logicalPresetWidth() {
+            const w = Alpine.store('ui').previewWidth;
+            if (w === '100%') return null;
+            const px = parseInt(w, 10);
+            return Number.isInteger(px) ? px : null;
+        },
+        get logicalPresetHeight() {
+            return Alpine.store('ui').previewHeight;
+        },
+
+        // Effective iframe dimensions after rotation. When previewRotated is
+        // true, width and height swap so the iframe renders landscape (e.g.
+        // Mobile 375×667 → 667×375). When no preset height is set (Full or
+        // Custom), rotation is inert and only width is returned.
+        get effectiveWidth() {
+            if (Alpine.store('ui').previewRotated && this.logicalPresetHeight !== null) {
+                return this.logicalPresetHeight;
+            }
+            return this.logicalPresetWidth;
+        },
+        get effectiveHeight() {
+            if (Alpine.store('ui').previewRotated && this.logicalPresetHeight !== null && this.logicalPresetWidth !== null) {
+                return this.logicalPresetWidth;
+            }
+            return this.logicalPresetHeight;
+        },
+
+        // Scale factor that makes the iframe fit the container's available
+        // box without stretching it up and without distorting its aspect
+        // ratio. Picks the smaller of the two axis ratios so the scaled
+        // device always fits in BOTH dimensions — a 2560×1440 preset on a
+        // 1280×800 chrome pane shrinks to ~0.55× whichever axis bounds
+        // tighter. Clamped at 1 — never enlarges a width that already fits.
+        //
+        // Returns 1 only for Full mode (effectiveWidth === null, so the
+        // early `!w` guard fires). Every other fixed-px width (preset OR
+        // Custom) is subject to scaling when it exceeds the container —
+        // Custom widths share the preset code path so typing `3000` on a
+        // 1100px chrome pane scales down to fit, same as Desktop 2K would.
+        // The height factor is `Infinity` (no-op against Math.min) for
+        // Custom widths since they carry no logical height.
+        get zoom() {
+            const w = this.effectiveWidth;
+            const h = this.effectiveHeight;
+            if (!w) return 1;
+            if (!this.containerAvailableWidth) return 1;
+            const widthRatio = this.containerAvailableWidth / w;
+            // Only constrain by height when the preset actually has one
+            // (presets carry both width and height; Custom carries only
+            // width and its iframe grows to content). +Infinity is a
+            // no-op against Math.min so the width-only path stays intact.
+            const heightRatio = (h && this.containerAvailableHeight)
+                ? this.containerAvailableHeight / h
+                : Infinity;
+            return Math.min(1, widthRatio, heightRatio);
+        },
+
+        // CSS for the iframe element. Logical preset dimensions in CSS px
+        // (so viewport units inside resolve against the device's "true"
+        // size) plus a uniform transform: scale() to fit visually. Wrapper
+        // gets the *scaled* dimensions so layout flow uses the visible
+        // size, not the logical one.
+        get iframeStyle() {
+            const w = this.effectiveWidth;
+            const h = this.effectiveHeight ?? this.iframeContentHeight ?? 400;
+            if (w === null) {
+                // Full mode (previewWidth === '100%') — `effectiveWidth` is null
+                // ONLY here, since every fixed-px width (preset or Custom)
+                // parses to an integer in `logicalPresetWidth`. Iframe fills
+                // the chrome's right pane vertically too so `h-svh` inside
+                // resolves against the real chrome height instead of
+                // collapsing to inner-document height (the issue #14 paradox).
+                return 'width: 100%; height: 100%';
+            }
+            const z = this.zoom;
+            // transform-origin: 0 0 + sized wrapper means scaled iframe
+            // sits flush against the wrapper's top-left corner.
+            return `width: ${w}px; height: ${h}px; transform: scale(${z}); transform-origin: 0 0`;
+        },
+
+        // Logical (CSS-pixel) width of the iframe the user has emulated. This
+        // is what every consumer of "the current width" actually wants —
+        // toolbar readout, dropdown trigger label, drag start anchor — none of
+        // them care about the scaled DISPLAY size of the wrapper. The wrapper's
+        // DOM width drifts from this value whenever `zoom < 1` (preset / Custom
+        // wider than the chrome pane), so we route around the measurement and
+        // read straight from the store, falling back to the measured DOM width
+        // only when the store value is the unbounded `'100%'` (Full mode).
+        get currentWidth() {
+            const w = Alpine.store('ui').previewWidth;
+            if (w === '100%') return this._measuredWrapperWidth;
+            const px = parseInt(w, 10);
+            return Number.isInteger(px) ? px : 0;
+        },
+
+        // Compact label for the responsive dropdown trigger that replaces
+        // the segmented pill on narrow toolbars. Mirrors the in-pill text:
+        // bare width for px-bearing presets ("1280"), "Full" for the
+        // unconstrained preset, and the live pixel value for Custom
+        // (so the dropdown reads back the dragged size without needing
+        // to open the menu).
+        get activeLabel() {
+            const key = this.activePreset;
+            if (key === 'full') return 'Full';
+            if (key === 'custom') return `${this.currentWidth}`;
+            const match = VIEWPORTS.find((v) => v.key === key);
+            return match?.width ? String(match.width) : '?';
+        },
+
+        // Human-readable "W × H" string for the active preset (after any
+        // rotation), or null when the preset has no logical dimensions
+        // (Full mode, or Custom widths whose height is content-driven).
+        // The template binds this directly under the chassis so the user
+        // can read the device's real CSS pixel dimensions at a glance —
+        // useful when a 2K preset is scaled down to ~40% to fit the
+        // chrome and the visual size no longer matches the logical one.
+        get dimensionsLabel() {
+            const w = this.effectiveWidth;
+            const h = this.effectiveHeight;
+            if (!w || !h) return null;
+            return `${w} × ${h}`;
+        },
+
+        // True when the Full preset is active (previewWidth === '100%'). Drives
+        // chrome decoration: in Full mode we drop the .p-6 padding on the
+        // outer container AND the wrapper's `rounded shadow-lg` device-frame
+        // styling so the iframe truly fills the available chrome area edge
+        // to edge — matches the user expectation that "Full" means full.
+        // Fixed presets keep the breathing room + device-frame look so the
+        // preview reads like a device on a desk.
+        get isFullPreset() {
+            return Alpine.store('ui').previewWidth === '100%';
+        },
+
+        // CSS for the wrapper element. Every fixed-px width (preset or
+        // Custom) takes the *scaled* dimensions so the wrapper occupies the
+        // visible amount of space in flow — drag handles + shadow + chassis
+        // ring all anchor against the visible (scaled) box, not the logical
+        // CSS-pixel size. Only Full mode (effectiveWidth null) bypasses the
+        // scaling math.
+        get wrapperStyle() {
+            const w = this.effectiveWidth;
+            const h = this.effectiveHeight;
+            if (w === null) {
+                // Full mode (previewWidth === '100%') — `effectiveWidth` is null
+                // only here. Wrapper takes the full chrome-pane height so the
+                // iframe's `height: 100%` resolves against a real container.
+                return 'width: 100%; height: 100%';
+            }
+            const z = this.zoom;
+            // Clamp the scaled dimensions to a minimum of 1px so a tiny
+            // chrome pane (e.g. ResizeObserver firing during a transient
+            // 0.x-wide layout) can never produce `width: 0px` — that would
+            // make the preview wrapper visually disappear and the iframe
+            // collapse to zero box even though the logical viewport
+            // (effectiveWidth / effectiveHeight) is unchanged.
+            //
+            // For height we need a non-null source either way: preset modes
+            // carry an explicit `effectiveHeight`; Custom widths fall back to
+            // `iframeContentHeight` (the measured inner-document height).
+            // Without that fallback the wrapper would default to `height: auto`
+            // and follow the iframe's UNSCALED DOM size, while the iframe
+            // itself is `transform: scale(z)`d down — leaving a blank gap below
+            // the visible iframe equal to `unscaledH * (1 - z)`.
+            const sourceH = h ?? this.iframeContentHeight ?? 400;
+            const scaledW = Math.max(1, Math.round(w * z));
+            const scaledH = Math.max(1, Math.round(sourceH * z));
+            return `width: ${scaledW}px; height: ${scaledH}px`;
         },
 
         // Breadcrumb pieces for the toolbar. `currentSectionKey` returns null
@@ -269,10 +519,41 @@ document.addEventListener('alpine:init', () => {
             return match?.key ?? 'custom';
         },
 
+        // Resolved device category for the active preset — drives the
+        // wrapper's device-frame look ("phone bezel" for mobile, slimmer
+        // frame for tablet, monitor bevel for desktop). `full` has no
+        // frame (edge-to-edge intent). `custom` gets its own minimal
+        // `rounded shadow-lg` frame so the drag handles have a flat
+        // edge to anchor against without intruding into a chassis ring.
+        // Anything else (defensive fall-through for unrecognised keys)
+        // resolves to desktop.
+        get activePresetCategory() {
+            const key = this.activePreset;
+            if (key === 'full') return 'full';
+            if (key === 'custom') return 'custom';
+            const match = VIEWPORTS.find((v) => v.key === key);
+            return match?.category ?? 'desktop';
+        },
+
         setPreset(key) {
             const preset = VIEWPORTS.find((v) => v.key === key);
             if (!preset) return;
-            Alpine.store('ui').setWidth(preset.width === null ? '100%' : `${preset.width}px`);
+            // Apply both width and height so the iframe carries the preset's
+            // aspect ratio. Height is what makes `h-svh` / `h-screen` inside
+            // the iframe resolve against a meaningful device viewport (e.g.
+            // Mobile 375 → h-svh = 667px, matching iPhone Safari).
+            //
+            // The "Full" preset is the exception: width = '100%', height = null,
+            // which signals "fill the entire chrome pane". `iframeStyle` /
+            // `wrapperStyle` route Full through a `height: 100%` branch
+            // (NOT content-auto) — the iframe spans the chrome's full vertical
+            // box so `h-svh` inside resolves against the real chrome height
+            // instead of collapsing to inner-document height (the issue #14
+            // paradox). Custom widths get `height: 400px` content-auto fallback
+            // because the user explicitly opted into device emulation by typing
+            // a width and there's no canonical height to use.
+            const w = preset.width === null ? '100%' : `${preset.width}px`;
+            Alpine.store('ui').setWidth(w, preset.height);
         },
 
         // Custom-input apply path. Triggered on Enter / blur from the number
@@ -304,7 +585,12 @@ document.addEventListener('alpine:init', () => {
             // Anchor the calculation to the parent's center so the cursor
             // stays under the drag handle.
             const centerX = parentRect.left + parentRect.width / 2;
-            const startHalf = wrapper.offsetWidth / 2;
+            // Snapshot the current zoom factor so the cursor-to-logical-width
+            // conversion stays consistent for the whole drag, even if the
+            // visible scale would otherwise recompute mid-drag (it shouldn't —
+            // zoom depends on container width and effective width, both stable
+            // during a drag — but snapshotting makes that guarantee explicit).
+            const dragZoom = this.zoom || 1;
 
             Alpine.store('ui').isDragging = true;
 
@@ -321,9 +607,15 @@ document.addEventListener('alpine:init', () => {
             const move = (e) => {
                 const x = e.clientX ?? e.touches?.[0]?.clientX;
                 if (x == null) return;
-                // Distance from center under cursor → that's the half-width.
-                // Clamp to a sensible minimum so the iframe doesn't collapse.
-                const half = Math.max(160, x - centerX);
+                // Cursor's screen-pixel distance from the parent's center is
+                // the wrapper's visible half-width under the cursor. The
+                // iframe is emulating a `1 / dragZoom` larger logical viewport,
+                // so a screen-px distance of d maps to a logical half-width
+                // of d / dragZoom. Without the divide, dragging a 2K preset
+                // (zoom ≈ 0.5) would only move logical width by half what
+                // the user expected. Clamp to a sensible minimum so the
+                // iframe doesn't collapse.
+                const half = Math.max(160, (x - centerX) / dragZoom);
                 // Snap to whole pixels to avoid sub-pixel flicker.
                 pendingWidth = Math.round(half * 2);
                 if (!raf) raf = requestAnimationFrame(flush);

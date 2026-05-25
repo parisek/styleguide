@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.CC2WmYFi.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.1p0L2GZl.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.BHzN946D.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.DP4TcmzT.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -150,16 +150,36 @@
                 </div>
             </nav>
 
-            <!-- Language switcher footer -->
-            <div x-data="languageSwitcher" class="border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 flex justify-end gap-1 text-xs font-mono">
-                <template x-for="(loc, idx) in supported" :key="loc">
-                    <span>
-                        <span x-show="idx > 0" class="text-zinc-400 dark:text-zinc-600">·</span>
-                        <button @click="setLocale(loc)"
-                                :class="isActive(loc) ? 'text-zinc-900 dark:text-zinc-50 font-semibold' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
-                                x-text="loc"></button>
-                    </span>
-                </template>
+            <!-- Sidebar footer: Porta credit (left) + language switcher (right). Same baseline,
+                 single row, so locale switching never shifts vertical layout. -->
+            <div class="border-t border-zinc-200 dark:border-zinc-800 px-4 py-2 flex justify-between items-center gap-3 text-xs">
+                <a href="https://portadesign.cz/?utm_source=parisek-styleguide&utm_medium=sidebar&utm_campaign=made-by"
+                   target="_blank"
+                   rel="noopener"
+                   class="flex items-center gap-1.5 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors"
+                   title="Made by Porta Design">
+                    <!-- Inline PORTA wordmark — vendored from tailwind-base/static/images/icons/ico-porta.svg
+                         so the chrome carries the maker brand without depending on consumer assets. -->
+                    <svg aria-label="Porta Design" role="img" class="h-3 w-auto" viewBox="0.143 0.667 39.714 8.665" xmlns="http://www.w3.org/2000/svg">
+                        <path fill="currentColor" d="M4.773,3.828c0,0.708-0.431,1.063-1.294,1.063H2.406V2.731h1.062c0.871,0,1.306,0.358,1.306,1.073V3.828z M6.116,1.589 C5.509,1.082,4.684,0.83,3.643,0.83h-3.5v8.166h2.263V6.663h1.12c1.051,0,1.89-0.249,2.52-0.748 c0.661-0.527,0.993-1.259,0.993-2.191V3.7C7.038,2.806,6.73,2.103,6.116,1.589 M14.01,4.937c0,0.606-0.19,1.116-0.572,1.528 c-0.396,0.435-0.898,0.654-1.504,0.654c-0.607,0-1.108-0.224-1.505-0.666c-0.389-0.42-0.583-0.934-0.583-1.54V4.891 c0-0.607,0.19-1.117,0.57-1.528c0.389-0.437,0.887-0.655,1.493-0.655c0.608,0,1.113,0.223,1.518,0.667 c0.389,0.419,0.583,0.933,0.583,1.539V4.937z M15.071,1.904c-0.84-0.824-1.886-1.237-3.137-1.237c-1.253,0-2.303,0.415-3.15,1.248 c-0.841,0.816-1.26,1.815-1.26,2.998v0.023c0,1.183,0.417,2.177,1.248,2.986c0.841,0.824,1.887,1.236,3.138,1.236 c1.253,0,2.303-0.416,3.15-1.248c0.839-0.816,1.26-1.815,1.26-2.998V4.891C16.32,3.708,15.903,2.712,15.071,1.904 M31.796,0.83 h-7.163v1.983h2.449v6.183h2.264V2.813h2.45V0.83z M34.352,5.777l0.923-2.323l0.908,2.323H34.352z M36.382,0.771h-2.183 l-3.476,8.225h2.379l0.584-1.459h3.15l0.595,1.459h2.426L36.382,0.771z M19.266,2.791h1.483c0.816,0,1.225,0.322,1.225,0.967v0.023 c0,0.646-0.405,0.969-1.214,0.969h-1.494V2.791z M22.854,6.152l-0.075-0.101c0.979-0.487,1.469-1.291,1.469-2.411V3.618 c0-0.801-0.24-1.436-0.723-1.901c-0.576-0.591-1.462-0.887-2.66-0.887h-3.861v8.166h2.262V6.522h1.176l0.083,0.122 c0.874,1.285,1.782,2.38,3.649,2.688l0.72-1.709C23.874,7.233,23.319,6.784,22.854,6.152"/>
+                    </svg>
+                    <!-- Heart icon — pulses via .sg-heartbeat keyframe (styleguide.css). Solid fill,
+                         text-red-500 so dark-mode contrast stays high. aria-hidden because the
+                         parent <a> already carries the human-readable label. -->
+                    <svg aria-hidden="true" class="sg-heartbeat h-3 w-3 text-red-500" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 21s-7.2-4.35-9.6-9.6C.93 7.95 3.45 4.5 7.05 4.5c1.95 0 3.6.9 4.95 2.4 1.35-1.5 3-2.4 4.95-2.4 3.6 0 6.12 3.45 4.65 6.9C19.2 16.65 12 21 12 21z"/>
+                    </svg>
+                </a>
+                <div x-data="languageSwitcher" class="flex gap-1 font-mono">
+                    <template x-for="(loc, idx) in supported" :key="loc">
+                        <span>
+                            <span x-show="idx > 0" class="text-zinc-400 dark:text-zinc-600">·</span>
+                            <button @click="setLocale(loc)"
+                                    :class="isActive(loc) ? 'text-zinc-900 dark:text-zinc-50 font-semibold' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
+                                    x-text="loc"></button>
+                        </span>
+                    </template>
+                </div>
             </div>
         </aside>
 
@@ -167,11 +187,21 @@
         <!-- `select-none` only while actively dragging the iframe-width handle
              so text in toolbar / description / overview / foundations stays
              selectable (Ctrl+C, marking) during normal use. -->
-        <main x-data="preview" class="flex-1 flex flex-col bg-white dark:bg-zinc-950" :class="isDragging && 'cursor-ew-resize select-none'">
-            <!-- Toolbar -->
-            <div class="flex justify-between items-center px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
+        <!-- `min-w-0` lets <main> shrink below the toolbar's intrinsic width — without it
+             flex-1 defaults to min-width: auto = content size, so on ≤768 px viewports the
+             toolbar's preset buttons + Rotate + Canvas overflow horizontally and get clipped
+             by the parent overflow-hidden wrapper, making them unreachable. With min-w-0 the
+             toolbar's own overflow-x-auto can kick in and the row becomes horizontally
+             scrollable inside the chrome instead of disappearing. -->
+        <main x-data="preview" class="flex-1 flex flex-col min-w-0 bg-white dark:bg-zinc-950" :class="isDragging && 'cursor-ew-resize select-none'">
+            <!-- Toolbar. `shrink-0` on each direct child keeps individual buttons
+                 from being squeezed unreadable. No horizontal overflow — the
+                 viewport dropdown below xl keeps the row narrow enough to fit
+                 even on ~720px screens, so the dropdown popover is free to
+                 break out of the toolbar's flow without getting clipped. -->
+            <div class="flex justify-between items-center gap-3 px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
                 <div class="flex items-center gap-3 min-w-0">
-                    <button @click="$store.ui.toggleSidebar()" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')">
+                    <button @click="$store.ui.toggleSidebar()" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="$store.i18n.t('toolbar.toggle_sidebar')" :aria-label="$store.i18n.t('toolbar.toggle_sidebar')">
                         <svg aria-hidden="true" focusable="false" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
                     <template x-if="$store.ui.route.type === 'overview'">
@@ -212,39 +242,139 @@
                      keeps the layout stable across reloads). -->
                 <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                     <div class="flex items-center gap-3 shrink-0">
-                        <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline" x-text="`${currentWidth} px`"></span>
-                        <div class="flex gap-px rounded overflow-hidden bg-zinc-200 dark:bg-zinc-800">
+                        <!-- Live readout — shows W × H px when a preset is active (so the
+                             editor sees both dimensions at a glance), or just W px when
+                             Custom/Full (no canonical height). Tracks rotation: rotated
+                             Mobile 375 × 667 reads as "667 × 375 px". -->
+                        <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline"
+                              x-text="$store.ui.previewHeight ? `${parseInt($store.ui.displayWidth, 10) || currentWidth} × ${$store.ui.displayHeight} px` : `${currentWidth} px`"></span>
+                        <!-- Segmented pill: full preset list visible on xl+ toolbars,
+                             where the 10-button strip fits next to the breadcrumb without
+                             overlap. Below xl the same controls collapse into the
+                             dropdown below; both surfaces share `activePreset` + `setPreset`
+                             so the active selection stays in sync regardless of viewport. -->
+                        <div class="hidden xl:flex gap-px rounded overflow-hidden bg-zinc-200 dark:bg-zinc-800">
                             <template x-for="vp in viewports" :key="vp.key">
                                 <button @click="setPreset(vp.key)"
                                         :title="vp.width ? `${vp.label} — ${vp.width} × ${vp.height} px` : `${vp.label} — 100%`"
-                                        class="px-2.5 h-7 flex items-center justify-center text-xs font-medium tabular-nums transition-colors"
+                                        class="px-2 h-7 flex items-center justify-center gap-1 text-xs font-medium tabular-nums transition-colors"
                                         :class="activePreset === vp.key ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-300 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700'">
+                                    <!-- Device-class icon: mobile = phone, tablet = tablet,
+                                         desktop = monitor, full = stretch-arrows. Same icon
+                                         glyphs across the three width steps in each class so
+                                         the eye can scan-group quickly (Mobile S/M/L all
+                                         carry the same phone icon — only the px number
+                                         differs). -->
+                                    <svg aria-hidden="true" focusable="false" class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="categoryIconPaths[vp.category]"></svg>
                                     <!-- Width number as label for the px-bearing presets;
                                          "Full" label for the 100% preset. -->
                                     <span x-text="vp.width ?? vp.label"></span>
                                 </button>
                             </template>
-                            <!-- Custom input — always visible. Typing then Enter / blur
-                                 applies the value (validated 100..4000 px). When the
-                                 store width matches a preset, the input still shows the
-                                 current pixel value so it's a readout + override knob
-                                 in one. activePreset === 'custom' flips the styling to
-                                 the selected state. -->
-                            <input type="number"
-                                   x-model.number="customWidthInput"
-                                   @keydown.enter.prevent="applyCustomWidth(); $event.target.blur()"
-                                   @blur="applyCustomWidth"
-                                   :min="100" :max="4000"
-                                   :placeholder="$store.i18n.t('toolbar.custom_width_placeholder')"
-                                   :aria-label="$store.i18n.t('toolbar.custom_width')"
-                                   :title="$store.i18n.t('toolbar.custom_width')"
-                                   class="w-20 px-2 h-7 text-xs font-mono tabular-nums border-l border-zinc-300 dark:border-zinc-700 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:focus:ring-zinc-400 transition-colors"
-                                   :class="activePreset === 'custom' ? 'bg-zinc-900 text-white placeholder-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:placeholder-zinc-500' : 'bg-zinc-200 text-zinc-600 placeholder-zinc-500 hover:bg-zinc-300 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-400 dark:placeholder-zinc-500 dark:hover:bg-zinc-700 dark:hover:text-zinc-100'">
                         </div>
-                        <!-- Open the raw render endpoint in a new tab — the iframe HTML reveals
-                             its own "back to styleguide" navbar at the top when standalone. -->
+
+                        <!-- Narrow-toolbar dropdown — visible below xl. Single trigger
+                             button + click-anywhere-to-close popover that lists the same
+                             10 presets as the segmented pill above. State is local to
+                             this Alpine fragment because the open/close concern doesn't
+                             belong on the global ui store. -->
+                        <div class="xl:hidden relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
+                            <button type="button"
+                                    @click="open = !open"
+                                    :aria-expanded="open"
+                                    :title="$store.i18n.t('toolbar.viewport_preset')"
+                                    class="px-2 h-7 flex items-center gap-1.5 rounded text-xs font-medium tabular-nums transition-colors"
+                                    :class="open ? 'bg-zinc-300 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-300 dark:hover:bg-zinc-700'">
+                                <!-- Active-preset icon (matches the pill's per-row icon
+                                     for the SAME row that is currently selected). -->
+                                <svg aria-hidden="true" focusable="false" class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="categoryIconPaths[activePresetCategory]"></svg>
+                                <span x-text="activeLabel"></span>
+                                <!-- Chevron-down. Rotates 180° when open as a tiny
+                                     affordance that this is a dropdown, not a button. -->
+                                <svg aria-hidden="true" focusable="false" class="w-3 h-3 shrink-0 transition-transform" :class="open && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="6 9 12 15 18 9"/>
+                                </svg>
+                            </button>
+                            <div x-show="open"
+                                 x-transition.opacity.duration.100ms
+                                 class="absolute right-0 top-full mt-1 z-50 min-w-[180px] rounded shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 py-1"
+                                 style="display: none">
+                                <template x-for="vp in viewports" :key="vp.key">
+                                    <button @click="setPreset(vp.key); open = false"
+                                            class="w-full px-3 py-1.5 flex items-center gap-2 text-xs tabular-nums transition-colors"
+                                            :class="activePreset === vp.key ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
+                                        <svg aria-hidden="true" focusable="false" class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" x-html="categoryIconPaths[vp.category]"></svg>
+                                        <span class="font-medium" x-text="vp.label"></span>
+                                        <span class="ml-auto opacity-70" x-text="vp.width ? `${vp.width} × ${vp.height}` : '100%'"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Custom input — always visible alongside whichever preset surface
+                             is active (segmented pill on xl+, dropdown trigger on smaller).
+                             Typing then Enter / blur applies the value (validated
+                             100..4000 px). When the store width matches a preset, the
+                             input still shows the current pixel value so it's a readout +
+                             override knob in one. activePreset === 'custom' flips the
+                             styling to the selected state. -->
+                        <input type="number"
+                               x-model.number="customWidthInput"
+                               @keydown.enter.prevent="applyCustomWidth(); $event.target.blur()"
+                               @blur="applyCustomWidth"
+                               :min="100" :max="4000"
+                               :placeholder="$store.i18n.t('toolbar.custom_width_placeholder')"
+                               :aria-label="$store.i18n.t('toolbar.custom_width')"
+                               :title="$store.i18n.t('toolbar.custom_width')"
+                               class="w-20 px-2 h-7 text-xs font-mono tabular-nums rounded focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:focus:ring-zinc-400 transition-colors"
+                               :class="activePreset === 'custom' ? 'bg-zinc-900 text-white placeholder-zinc-400 dark:bg-zinc-100 dark:text-zinc-900 dark:placeholder-zinc-500' : 'bg-zinc-200 text-zinc-600 placeholder-zinc-500 hover:bg-zinc-300 hover:text-zinc-900 dark:bg-zinc-800 dark:text-zinc-400 dark:placeholder-zinc-500 dark:hover:bg-zinc-700 dark:hover:text-zinc-100'">
+                        <!-- Rotate button — swaps iframe width × height. Only enabled when
+                             a device preset is active (Mobile / Tablet / Desktop) — Full and
+                             Custom modes have no canonical orientation to rotate. Active
+                             state when previewRotated is true so the editor sees they're in
+                             landscape. -->
+                        <button type="button"
+                                @click="$store.ui.toggleRotation()"
+                                :disabled="$store.ui.previewHeight === null"
+                                :title="$store.i18n.t('toolbar.rotate')"
+                                :aria-label="$store.i18n.t('toolbar.rotate')"
+                                :aria-pressed="$store.ui.previewRotated ? 'true' : 'false'"
+                                class="h-7 w-7 flex items-center justify-center rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                                :class="$store.ui.previewRotated ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700'">
+                            <!-- Rotate-device glyph: phone in portrait + curved arrow over
+                                 it suggesting the swap to landscape. -->
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="7" y="3" width="10" height="14" rx="2"/>
+                                <path d="M16 19h2a3 3 0 0 0 3-3v-2"/>
+                                <polyline points="18 17 21 14 24 17" transform="translate(-3 0)"/>
+                            </svg>
+                        </button>
+                        <!-- Canvas mode — drops the iframe and navigates the parent
+                             window in-place to /render/<kind>/<slug>?canvas=1.
+                             In that view viewport units (vh / svh / dvh / h-screen)
+                             resolve against the real browser viewport, which fixes
+                             the device-emulation paradox documented in
+                             github.com/parisek/styleguide/issues/14 .
+                             The `?canvas=1` flag tells render-cell.twig to suppress
+                             its sticky back-bar — the bar would otherwise eat ~40px
+                             at the top of the viewport, defeating the "100% viewport"
+                             promise (h-svh content pushed off-screen). The browser
+                             back button remains the return path; the URL bar stays
+                             visible in canvas mode so navigation is still possible. -->
+                        <button type="button"
+                                @click="$store.ui.route.slug && (window.location.href = iframeSrc + (iframeSrc.includes('?') ? '&' : '?') + 'canvas=1')"
+                                :title="$store.i18n.t('toolbar.canvas_mode')"
+                                class="px-2.5 h-7 flex items-center justify-center rounded text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                            <span x-text="$store.i18n.t('toolbar.canvas_mode_label')"></span>
+                        </button>
+                        <!-- Open the raw render endpoint in a new tab. No `?canvas=1`
+                             flag here — render-cell.twig's standalone back-bar IS
+                             welcome in this flow (separate tab = no iframe parent to
+                             return to via browser back), so the user gets a visible
+                             "← back to styleguide" link at the top of the new tab. -->
                         <a :href="iframeSrc" target="_blank" rel="noopener"
                            :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                           :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
                            class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
                             <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
@@ -257,6 +387,7 @@
                 <template x-if="iframeSrc && $store.ui.route.type === 'foundations'">
                     <a :href="iframeSrc" target="_blank" rel="noopener"
                        :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                       :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
                         <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
@@ -425,56 +556,119 @@
                  routes (overview + foundations) which render in their own
                  templates above and below. -->
             <template x-if="$store.ui.route.type !== 'overview' && $store.ui.route.type !== 'foundations'">
-            <div class="flex-1 flex justify-center items-start p-6 bg-zinc-100 dark:bg-zinc-950 overflow-auto">
+            <!-- `items-stretch` in Full preset lets the wrapper's height: 100%
+                 resolve against this flex parent's intrinsic height (which
+                 itself fills the chrome's right pane via `flex-1`). For
+                 non-Full presets we use `items-center` so the scaled device
+                 sits visually centred in the canvas — matches how a device
+                 lying on a desk reads, and uses the extra vertical room a
+                 wide preset (2K, etc.) leaves after fit-to-bounds zoom. -->
+            <div class="flex-1 flex justify-center overflow-auto"
+                 :class="isFullPreset ? 'p-0 bg-white dark:bg-zinc-900 items-stretch' : 'p-6 bg-zinc-100 dark:bg-zinc-950 items-center'">
                 <template x-if="iframeSrc">
-                    <!-- The wrapper bg stays white in both themes — iframe content
-                         is the consumer's domain (no theme propagation), and they
-                         render against an assumed light backdrop. A dark wrapper
-                         would bleed through transparent iframe areas. -->
-                    <div x-ref="iframeWrapper"
-                         :style="`width: ${previewWidth}; max-width: 100%`"
-                         :class="isDragging ? '' : 'transition-[width] duration-200 ease-out'"
-                         class="relative bg-white rounded shadow-lg">
-                        <!-- Iframe height tracks inner contentDocument so the
-                             component sits in natural document flow rather
-                             than forcing an internal scroll bar inside a
-                             fixed-height shell. The 400px fallback shows
-                             before the first onload fires so the preview area
-                             has something visible during the initial paint. -->
-                        <iframe :src="iframeSrc" @load="onIframeLoad"
-                                class="w-full rounded border-0 block"
-                                :style="`height: ${iframeContentHeight ? iframeContentHeight + 'px' : '400px'}`"
-                                :class="{ 'pointer-events-none': isDragging }"></iframe>
-                        <!-- Solid overlay during navigation — the iframe keeps showing the old
-                             slug's content until the browser finishes parsing the new src. The
-                             overlay sits ON TOP of the iframe so the user never sees the stale
-                             content. No enter transition: the old slug's body must be obscured
-                             instantly when navigation starts. The loading dot itself fades in
-                             with a 120ms delay so very fast loads (<120ms — common for cached
-                             responses) skip the dot entirely. -->
-                        <div x-show="isLoading"
-                             class="absolute inset-0 flex items-center justify-center rounded bg-white pointer-events-none">
+                    <!-- Outer positioning ancestor — sized to the inner wrapper via
+                         inline-block, so it inherits the scaled device dimensions.
+                         Hosts the chassis decorations (speaker slot, home indicator)
+                         and drag handles as absolute-positioned siblings of the
+                         iframe-bearing wrapper. The iframe wrapper itself keeps
+                         overflow-hidden (needed to clip iframe corners against the
+                         rounded chassis); putting decorations here lets them sit on
+                         the ring area without being clipped. -->
+                    <div class="relative inline-block">
+                        <!-- Mobile chassis: speaker slot top + home indicator bottom.
+                             Positioned to sit on the 10px ring (top/bottom -7px puts
+                             the pill roughly centered on the chassis bezel). Colors
+                             read against ring-zinc-800/ring-zinc-700 in both themes. -->
+                        <template x-if="activePresetCategory === 'mobile'">
+                            <div class="pointer-events-none">
+                                <div class="absolute left-1/2 -translate-x-1/2 -top-[7px] h-1 w-12 rounded-full bg-zinc-600 dark:bg-zinc-500"></div>
+                                <div class="absolute left-1/2 -translate-x-1/2 -bottom-[7px] h-1 w-20 rounded-full bg-zinc-500 dark:bg-zinc-400"></div>
+                            </div>
+                        </template>
+                        <!-- Tablet chassis: lone camera dot. The 6px ring is too thin
+                             for a speaker pill — a centered dot reads as "tablet". -->
+                        <template x-if="activePresetCategory === 'tablet'">
+                            <div class="pointer-events-none absolute left-1/2 -translate-x-1/2 -top-[5px] h-1 w-1 rounded-full bg-zinc-600 dark:bg-zinc-400"></div>
+                        </template>
+
+                        <!-- The wrapper bg stays white in both themes — iframe content
+                             is the consumer's domain (no theme propagation), and they
+                             render against an assumed light backdrop. A dark wrapper
+                             would bleed through transparent iframe areas.
+
+                             Device frame: `activePresetCategory` drives the bezel look.
+                             Mobile presets get a chunky phone-style bezel (rounded-3xl
+                             + thick ring); tablet gets a softer bezel; desktop gets a
+                             monitor-bezel; Full/foundations skip the frame so the
+                             preview reads edge-to-edge. Ring color shifts in dark mode
+                             so the chassis still contrasts against dark:bg-zinc-950
+                             (zinc-800 there would visually dissolve). -->
+                        <div x-ref="iframeWrapper"
+                             :style="wrapperStyle"
+                             :class="[
+                                 isDragging ? '' : 'transition-[width,height,border-radius] duration-200 ease-out',
+                                 activePresetCategory === 'mobile' ? 'rounded-[2.5rem] ring-[10px] ring-zinc-800 dark:ring-zinc-700 shadow-2xl' : '',
+                                 activePresetCategory === 'tablet' ? 'rounded-2xl ring-[6px] ring-zinc-800 dark:ring-zinc-700 shadow-xl' : '',
+                                 activePresetCategory === 'desktop' ? 'rounded-lg ring-2 ring-zinc-300 dark:ring-zinc-700 shadow-xl' : '',
+                                 activePresetCategory === 'custom' ? 'rounded shadow-lg' : '',
+                                 activePresetCategory === 'full' ? '' : '',
+                             ]"
+                             class="relative bg-white overflow-hidden">
+                            <!-- Iframe height tracks inner contentDocument so the
+                                 component sits in natural document flow rather
+                                 than forcing an internal scroll bar inside a
+                                 fixed-height shell. The 400px fallback shows
+                                 before the first onload fires so the preview area
+                                 has something visible during the initial paint. -->
+                            <iframe :src="iframeSrc" @load="onIframeLoad"
+                                    class="border-0 block"
+                                    :style="iframeStyle"
+                                    :class="{ 'pointer-events-none': isDragging }"></iframe>
+                            <!-- Solid overlay during navigation — the iframe keeps showing the old
+                                 slug's content until the browser finishes parsing the new src. The
+                                 overlay sits ON TOP of the iframe so the user never sees the stale
+                                 content. No enter transition: the old slug's body must be obscured
+                                 instantly when navigation starts. The loading dot itself fades in
+                                 with a 120ms delay so very fast loads (<120ms — common for cached
+                                 responses) skip the dot entirely. -->
                             <div x-show="isLoading"
-                                 x-transition.opacity.duration.150ms.delay.120ms
-                                 class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
+                                 class="absolute inset-0 flex items-center justify-center bg-white pointer-events-none">
+                                <div x-show="isLoading"
+                                     x-transition.opacity.duration.150ms.delay.120ms
+                                     class="w-2 h-2 rounded-full bg-zinc-300 animate-pulse"></div>
+                            </div>
                         </div>
-                        <!-- Drag handles: outside the iframe so cursor events aren't swallowed;
-                             rendered on both edges for centered-grow symmetry. Hidden on the
-                             foundations route — that view has no responsivity worth testing, and
-                             the locked-100% iframe shouldn't be draggable. -->
-                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                        <!-- Drag handles: siblings of the iframe wrapper (not inside it) so
+                             they can extend onto the chassis ring without being clipped by the
+                             wrapper's overflow-hidden. Visible only in Custom mode — presets
+                             carry a fixed device width, and dragging would silently kick the
+                             user out of the preset (confusing). Foundations route has no
+                             responsivity to test, so it's also excluded. -->
+                        <template x-if="activePreset === 'custom' && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -right-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-400 dark:bg-zinc-600 group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors"
                                      :class="isDragging && '!bg-zinc-500 dark:!bg-zinc-200'"></div>
                             </div>
                         </template>
-                        <template x-if="$store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                        <template x-if="activePreset === 'custom' && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
                             <div @mousedown="startDrag" @touchstart="startDrag"
                                  class="absolute -left-2 top-0 bottom-0 w-4 flex items-center justify-center cursor-ew-resize group">
                                 <div class="w-1 h-12 rounded-full bg-zinc-400 dark:bg-zinc-600 group-hover:bg-zinc-700 dark:group-hover:bg-zinc-300 transition-colors"
                                      :class="isDragging && '!bg-zinc-500 dark:!bg-zinc-200'"></div>
                             </div>
+                        </template>
+                        <!-- Dimension badge under the chassis: visible only when the
+                             preset actually has logical W×H (not Full, not Custom
+                             whose height is content-driven). Position is `absolute`
+                             so it sits in the gap below the chassis ring without
+                             taking layout space — `top: 100%` puts it flush against
+                             the ring's outer edge; an extra mt-2 gives a touch of
+                             breathing room from the home-indicator pill on mobile. -->
+                        <template x-if="dimensionsLabel && activePreset !== 'custom' && activePreset !== 'full'">
+                            <div class="absolute left-1/2 -translate-x-1/2 mt-2 font-mono text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap pointer-events-none"
+                                 style="top: 100%"
+                                 x-text="dimensionsLabel"></div>
                         </template>
                     </div>
                 </template>
@@ -532,8 +726,8 @@
                                 </div>
                                 <div class="rounded-2xl border border-zinc-200/80 bg-white dark:border-zinc-700/80 dark:bg-zinc-800">
                                     <template x-for="(page, idx) in pages" :key="page.id">
-                                        <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="p-5">
-                                            <div class="flex items-center gap-2 flex-wrap justify-between">
+                                        <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="px-5 py-3">
+                                            <div class="flex items-center gap-2 flex-wrap justify-between min-h-7">
                                                 <div class="flex items-baseline gap-2 flex-wrap min-w-0">
                                                     <a href="#" @click.prevent="select({ id: page.id, type: 'page' })"
                                                        class="font-semibold text-zinc-900 hover:text-zinc-500 dark:text-zinc-100 dark:hover:text-zinc-400 transition-colors"
@@ -556,8 +750,8 @@
                                                 </template>
                                             </div>
                                             <template x-if="showUsage && forwardUsage(page).length > 0">
-                                                <div class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700">
-                                                    <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2.5" x-text="$store.i18n.t('overview.components')"></p>
+                                                <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                    <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2" x-text="$store.i18n.t('overview.components')"></p>
                                                     <ul class="space-y-1">
                                                         <template x-for="chip in forwardUsage(page)" :key="chip.id">
                                                             <li class="flex items-center justify-between gap-2">
@@ -620,8 +814,8 @@
                                     </div>
                                     <div class="rounded-2xl border border-zinc-200/80 bg-white dark:border-zinc-700/80 dark:bg-zinc-800">
                                         <template x-for="(item, idx) in block.items" :key="item.id">
-                                            <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="p-5">
-                                                <div class="flex items-center gap-2 flex-wrap justify-between">
+                                            <div :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="px-5 py-3">
+                                                <div class="flex items-center gap-2 flex-wrap justify-between min-h-7">
                                                     <div class="flex items-baseline gap-2 flex-wrap min-w-0">
                                                         <a href="#" @click.prevent="select({ id: item.id, type: 'component' })"
                                                            class="font-semibold text-zinc-900 hover:text-zinc-500 dark:text-zinc-100 dark:hover:text-zinc-400 transition-colors"
@@ -644,8 +838,8 @@
                                                     </template>
                                                 </div>
                                                 <template x-if="showUsage && reverseUsage(item.id).length > 0">
-                                                    <div class="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-700">
-                                                        <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2.5" x-text="$store.i18n.t('overview.used_in')"></p>
+                                                    <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-700">
+                                                        <p class="text-[10px] uppercase tracking-[0.12em] font-medium text-zinc-400 mb-2" x-text="$store.i18n.t('overview.used_in')"></p>
                                                         <ul class="space-y-1">
                                                             <template x-for="chip in reverseUsage(item.id)" :key="chip.id">
                                                                 <li class="flex items-center justify-between gap-2">

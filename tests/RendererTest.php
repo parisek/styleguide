@@ -84,4 +84,75 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('invalid/whatever', $html);
         http_response_code(200);
     }
+
+    #[Test]
+    public function bleed_render_drops_inset_wrapper_and_resets_header_height(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+            'render' => 'bleed',
+        ], 'cs');
+
+        // No inset wrapper — the component renders edge-to-edge.
+        self::assertStringNotContainsString('<div style="padding:1.5rem">', $html);
+        // --header-height is reset so consumer hacks like
+        // `margin-top: var(--header-height, 75px) * -1` collapse to 0 in
+        // styleguide isolation (no sticky chrome above to hide behind).
+        self::assertStringContainsString('--header-height: 0px', $html);
+        // Bleed leaves body min-height alone.
+        self::assertStringNotContainsString('min-height: 200vh', $html);
+    }
+
+    #[Test]
+    public function chrome_render_adds_body_min_height_for_sticky_demos(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+            'render' => 'chrome',
+        ], 'cs');
+
+        self::assertStringNotContainsString('<div style="padding:1.5rem">', $html);
+        self::assertStringContainsString('--header-height: 0px', $html);
+        // 200vh on body gives sticky / fixed page chrome something to scroll
+        // against so the sticky behaviour is demonstrable in isolation.
+        self::assertStringContainsString('min-height: 200vh', $html);
+    }
+
+    #[Test]
+    public function overlay_render_matches_bleed_iframe_shape(): void
+    {
+        $bleedHtml = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+            'render' => 'bleed',
+        ], 'cs');
+
+        $overlayHtml = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+            'render' => 'overlay',
+        ], 'cs');
+
+        // overlay ≡ bleed at the iframe-wrapper level (see spec § Mode semantics).
+        // The separate label exists for future UI surfacing; both modes must emit
+        // identical render-cell output today.
+        self::assertSame($bleedHtml, $overlayHtml);
+    }
+
+    #[Test]
+    public function inset_render_keeps_wrapper_and_leaves_header_height_unchanged(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+            // No 'render' key → normaliseRender → 'inset' (default).
+        ], 'cs');
+
+        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        // Inset must not inject the bleed/chrome/overlay CSS overrides.
+        self::assertStringNotContainsString('--header-height', $html);
+        self::assertStringNotContainsString('min-height: 200vh', $html);
+    }
 }

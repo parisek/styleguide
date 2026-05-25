@@ -32,6 +32,7 @@ final class Renderer
      *   iframe?:array<string,mixed>,
      *   styleguide?:array<string,mixed>,
      *   component_name?:string,
+     *   render?:string,
      *   foundations_css_url?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
@@ -61,6 +62,10 @@ final class Renderer
             'component' => [
                 'id' => $slug,
                 'name' => $config['component_name'] ?? $slug,
+                // Re-normalise defensively: callers other than Styleguide.php
+                // (notably tests) may pass an unvalidated string. ComponentParser
+                // owns the canonical list, so we route the coercion through it.
+                'render' => ComponentParser::normaliseRender($config['render'] ?? null),
             ],
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,
