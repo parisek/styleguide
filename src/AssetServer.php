@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Parisek\Styleguide;
 
 /**
+ * @internal Implementation detail of `Styleguide::run()`. Signature can change
+ *           in any minor release. The asset URL surface
+ *           (`/styleguide/assets/<path>`) is part of the public contract — see
+ *           `docs/API.md` § URL surface.
+ *
  * Serves static assets from the package's dist/ directory.
  *
  * - Path-traversal guard via realpath() + str_starts_with()

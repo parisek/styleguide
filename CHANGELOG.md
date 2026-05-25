@@ -6,6 +6,33 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-05-25
+
+### Docs
+
+- **Public API contract committed to writing.** New `docs/API.md`
+  enumerates exactly what's covered by SemVer: the narrow PHP surface
+  (`Styleguide::__construct/run` + `ComponentParser::RENDER_MODES` +
+  `ComponentParser::normaliseRender()`), the YAML schemas (project +
+  iframe + component metadata + render modes), the JSON API response
+  shapes (`/api/components`, `/api/pages`, `/api/fields`), the URL
+  surface, the Twig functions/filters injected into iframes, and the
+  CLI commands. Plus an explicit list of things NOT covered: `dist/`
+  bundle internals, SPA-chrome class names, internal template
+  structure, frontend symbol exports.
+- **`@api` / `@internal` PHPDoc annotations** on every PHP class.
+  `Styleguide`, `ComponentParser::RENDER_MODES`, and
+  `ComponentParser::normaliseRender()` are `@api`. Everything else
+  (`Router`, `Renderer`, `AssetServer`, `Placeholder`, instance
+  methods of `ComponentParser`, `Api\*Endpoint`) is `@internal` —
+  consumers must not depend on them directly; refactors can happen in
+  any minor release. IDE tooling and `phpstan` will surface
+  inappropriate usage.
+- README links the new docs/API.md from a new § Stability & versioning
+  near the bottom.
+
+No behavioural change; suite remains 98 tests / 305 assertions.
+
 ## [0.3.5] - 2026-05-25
 
 ### Changed

@@ -5,6 +5,10 @@ declare(strict_types=1);
 namespace Parisek\Styleguide;
 
 /**
+ * @internal Implementation detail of the bundled `placeholder()` Twig
+ *           function. The Twig function itself IS public (see `docs/API.md` §
+ *           Twig functions); the underlying PHP class shape can change.
+ *
  * Deterministic, professional-looking SVG placeholder generator.
  *
  * Returns an image-array shape compatible with `component_picture`. Use

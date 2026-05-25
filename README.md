@@ -444,6 +444,14 @@ Changes to PHP `src/` are picked up immediately (no build step). Changes to `fro
 
 ---
 
+## Stability & versioning
+
+The package follows [SemVer](https://semver.org/). For an exhaustive list of what's covered by the public API contract (PHP classes/methods, YAML schemas, JSON endpoints, Twig functions, URL surface, CLI), see **[`docs/API.md`](./docs/API.md)**.
+
+PHP classes outside of `Styleguide` itself are marked `@internal` and can change in any minor release. Consumers should only call `new Styleguide([…])->run()` — the rest of the surface is reached via YAML config, JSON endpoints, or Twig functions in component templates.
+
+---
+
 ## License
 
 [MIT](./LICENSE) © Petr Parimucha

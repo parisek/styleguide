@@ -7,6 +7,10 @@ namespace Parisek\Styleguide\Api;
 use Parisek\Styleguide\ComponentParser;
 
 /**
+ * @internal Implementation detail of `Styleguide::run()`. Consumer-facing
+ *           contract is the HTTP URL (`/styleguide/api/components`) and its
+ *           JSON response shape — see `docs/API.md` § JSON API endpoints.
+ *
  * GET /styleguide/api/components — JSON list of all parsed components.
  */
 final class ComponentsEndpoint

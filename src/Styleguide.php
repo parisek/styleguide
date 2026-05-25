@@ -15,6 +15,14 @@ use Twig\TwigFunction;
 /**
  * Public bootstrap entry for the styleguide.
  *
+ * @api This class and its public methods (`__construct`, `run`) are the only
+ *      part of the PHP surface covered by SemVer. The config array shape passed
+ *      to the constructor is part of the contract — see `docs/API.md` § PHP API.
+ *      All other classes in `Parisek\Styleguide\*` (Router, Renderer,
+ *      ComponentParser methods other than `RENDER_MODES`/`normaliseRender`,
+ *      AssetServer, Placeholder, Api\*) are `@internal` — refactor without
+ *      bumping major is allowed.
+ *
  * Usage in project's static/index.php:
  *
  *     (new \Parisek\Styleguide\Styleguide([

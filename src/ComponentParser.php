@@ -8,6 +8,14 @@ use Symfony\Component\Yaml\Yaml;
 use Symfony\Component\Yaml\Exception\ParseException;
 
 /**
+ * @internal The class itself is implementation detail. Two members ARE public
+ *           API (annotated individually below): `RENDER_MODES` and the static
+ *           `normaliseRender()` — both used by the `vendor/bin/styleguide` CLI
+ *           and external tooling that needs the canonical render-mode list.
+ *           The instance methods (`parse`, `parseAll`, `parseTwigComment`)
+ *           are wrapped by JSON API endpoints — direct PHP access by consumer
+ *           is not supported. See `docs/API.md`.
+ *
  * Parses styleguide metadata from Twig components & pages in the project's templates/ directory.
  *
  * Reads the first {# ... #} comment in each `.twig` file, parses it as YAML, and produces
@@ -18,6 +26,11 @@ use Symfony\Component\Yaml\Exception\ParseException;
 final class ComponentParser
 {
     /**
+     * @api Public contract. Used by the `vendor/bin/styleguide` CLI and by
+     *      downstream tooling that needs to validate the YAML key. Adding
+     *      new render modes is a minor bump; removing or renaming any of
+     *      the four is a major bump.
+     *
      * Allowed render modes driving the iframe wrapper in render-cell.twig:
      * `inset` is the default 24px-padded wrapper for atomic components;
      * `bleed` / `chrome` / `overlay` skip the wrapper for full-bleed
@@ -33,6 +46,11 @@ final class ComponentParser
     }
 
     /**
+     * @api Public contract. Used by the `vendor/bin/styleguide` CLI and any
+     *      downstream tooling that needs to coerce a YAML value. Signature
+     *      and fall-through semantics ('inset' for anything unrecognised)
+     *      are SemVer-protected.
+     *
      * Coerce an arbitrary YAML value into one of the canonical render modes.
      * Null / missing / typos all fall back to 'inset' (the safe default that
      * matches pre-feature behaviour). Strict-equals against the allowed list

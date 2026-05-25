@@ -7,6 +7,11 @@ namespace Parisek\Styleguide;
 use Twig\Environment;
 
 /**
+ * @internal Implementation detail of `Styleguide::run()` dispatch path.
+ *           Signature and behaviour can change in any minor release. The
+ *           rendered output (HTML shape served at `/styleguide/render/...`)
+ *           is loosely contractual via the URL surface in `docs/API.md`.
+ *
  * Renders a single component or page into a full HTML document for iframe embedding.
  *
  * The HTML structure (`<!DOCTYPE>`, `<head>` with project CSS/JS/fonts, `<body>`)

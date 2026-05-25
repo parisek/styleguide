@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace Parisek\Styleguide;
 
 /**
+ * @internal Implementation detail of `Styleguide::run()`. Signature and
+ *           behaviour can change in any minor release. Consumers must not
+ *           depend on this class directly. The observable URL surface
+ *           (which the router parses) IS part of the public contract —
+ *           see `docs/API.md` § URL surface.
+ *
  * Parses /styleguide/* request URIs into structured route descriptors.
  *
  * All share-able URLs (`/styleguide/component/<slug>`, `/page/<slug>`, `/overview`, `/fields`)
