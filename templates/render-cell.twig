@@ -61,6 +61,23 @@
 		</a>
 		<span style="color:#52525b">/</span>
 		<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#fafafa">{{ kind|e }}/{{ slug|e }}</span>
+		{# Close button — drops the bar so the standalone preview becomes a
+		   truly clean canvas (no chrome eating top-of-viewport pixels). Bar
+		   is sticky+sticky-coordinate (top:0), so DOM-removing it pushes
+		   content up by its own height instantly without any further layout
+		   coordination. Browser back button is still the return path; the
+		   URL bar stays visible so navigation isn't lost. Inline onclick
+		   keeps the bar self-contained — no project JS framework dependency. #}
+		<button type="button"
+		        onclick="this.parentElement.remove()"
+		        title="Skrýt panel"
+		        aria-label="Skrýt panel"
+		        style="margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:none;border:0;color:#a1a1aa;cursor:pointer;border-radius:4px;padding:0">
+			<svg aria-hidden="true" focusable="false" width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round">
+				<line x1="3" y1="3" x2="11" y2="11"/>
+				<line x1="11" y1="3" x2="3" y2="11"/>
+			</svg>
+		</button>
 	</div>
 	<script>
 		// Reveal the back-bar only when this document is the top-level window;

@@ -6,6 +6,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-25
+
+### Added
+
+- **Close button on the standalone back-bar.** A × control on the right
+  side of `#sg-standalone-bar` removes the bar from the DOM so the
+  standalone preview becomes a truly clean canvas — useful when
+  reviewing a hero / slider / page-header in isolation without the
+  chrome eating top-of-viewport pixels. Browser back button remains
+  the return path; URL bar stays visible so navigation isn't lost.
+  Inline onclick keeps the bar self-contained without depending on the
+  project's JS framework.
+
 ## [0.3.0] - 2026-05-25
 
 ### Added
