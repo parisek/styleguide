@@ -303,33 +303,25 @@ document.addEventListener('alpine:init', () => {
         },
 
         // Scale factor that makes the iframe fit the container's available
-        // box without stretching it up and without distorting its aspect
-        // ratio. Picks the smaller of the two axis ratios so the scaled
-        // device always fits in BOTH dimensions — a 2560×1440 preset on a
-        // 1280×800 chrome pane shrinks to ~0.55× whichever axis bounds
-        // tighter. Clamped at 1 — never enlarges a width that already fits.
+        // width. Width-only by design — users intuitively expect that
+        // hiding the sidebar (more horizontal room) visibly enlarges the
+        // preview. A previous fit-to-bounds version also constrained by
+        // height, which surprised users on wide monitors where a 2K
+        // preset would lock to ~81% because the chrome pane was
+        // vertically shorter than 1440 px. Width-only gives the
+        // expected mental model "more space → bigger"; vertical overflow
+        // falls back to the chrome pane's `overflow-auto` scrollbar.
         //
         // Returns 1 only for Full mode (effectiveWidth === null, so the
         // early `!w` guard fires). Every other fixed-px width (preset OR
         // Custom) is subject to scaling when it exceeds the container —
         // Custom widths share the preset code path so typing `3000` on a
         // 1100px chrome pane scales down to fit, same as Desktop 2K would.
-        // The height factor is `Infinity` (no-op against Math.min) for
-        // Custom widths since they carry no logical height.
         get zoom() {
             const w = this.effectiveWidth;
-            const h = this.effectiveHeight;
             if (!w) return 1;
             if (!this.containerAvailableWidth) return 1;
-            const widthRatio = this.containerAvailableWidth / w;
-            // Only constrain by height when the preset actually has one
-            // (presets carry both width and height; Custom carries only
-            // width and its iframe grows to content). +Infinity is a
-            // no-op against Math.min so the width-only path stays intact.
-            const heightRatio = (h && this.containerAvailableHeight)
-                ? this.containerAvailableHeight / h
-                : Infinity;
-            return Math.min(1, widthRatio, heightRatio);
+            return Math.min(1, this.containerAvailableWidth / w);
         },
 
         // CSS for the iframe element. Logical preset dimensions in CSS px

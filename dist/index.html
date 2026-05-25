@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.CarzPBrc.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.DP4TcmzT.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.BOXBLeFX.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.CcxkYp8k.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -44,13 +44,21 @@
 
         <!-- ============== Sidebar ============== -->
         <aside x-data="sidebar" class="w-72 bg-zinc-50 border-r border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col" :class="!$store.ui.sidebarOpen && 'hidden'">
-            <!-- Header -->
+            <!-- Header. Logo + project name link to the project's real
+                 homepage at `/` (the consumer's WordPress / Drupal / static
+                 site root, not the styleguide). `target="_top"` makes the
+                 click escape any embedding iframe context. The theme toggle
+                 sits outside the link so it doesn't navigate. -->
             <div class="p-4 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-                <img src="" alt="" class="w-8 h-8 rounded bg-zinc-200 dark:bg-zinc-50" id="sg-favicon">
-                <div class="min-w-0 flex-1">
-                    <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate" id="sg-project-name">Styleguide</div>
-                    <div class="text-[10px] uppercase tracking-wider text-zinc-500" x-text="$store.i18n.t('nav.styleguide')"></div>
-                </div>
+                <a href="/" target="_top"
+                   :title="$store.i18n.t('nav.homepage_link') || 'Otevřít projekt'"
+                   class="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity">
+                    <img src="" alt="" class="w-8 h-8 rounded bg-zinc-200 dark:bg-zinc-50 shrink-0" id="sg-favicon">
+                    <div class="min-w-0 flex-1">
+                        <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate" id="sg-project-name">Styleguide</div>
+                        <div class="text-[10px] uppercase tracking-wider text-zinc-500" x-text="$store.i18n.t('nav.styleguide')"></div>
+                    </div>
+                </a>
                 <!-- Theme toggle: cycles light → dark → system → light. The
                      icon swap follows the *chosen* mode (not the resolved
                      theme) so the user sees which mode they're in, including
@@ -89,18 +97,23 @@
 
             <!-- Sections + items (scroll) -->
             <nav class="flex-1 overflow-y-auto p-3 space-y-2">
-                <!-- Pinned sectionless routes (overview + foundations + fields) -->
-                <a href="#" @click.prevent="select('overview', null)"
-                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
-                   :class="isActive('overview', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
-                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
-                    <span x-text="$store.i18n.t('nav.overview')"></span>
-                </a>
+                <!-- Pinned sectionless routes. Foundations sits ABOVE Overview
+                     because it's the styleguide's default landing — design
+                     tokens (colors, typography, logo) are the natural first
+                     view when someone opens the styleguide. The Overview
+                     index of every component / page is the secondary, more
+                     detailed view. -->
                 <a href="#" @click.prevent="select('foundations', null)"
                    class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
                    :class="isActive('foundations', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
                     <span class="w-1.5 h-1.5 rounded-full" :class="isActive('foundations', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
                     <span x-text="$store.i18n.t('nav.foundations')"></span>
+                </a>
+                <a href="#" @click.prevent="select('overview', null)"
+                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
+                   :class="isActive('overview', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
+                    <span x-text="$store.i18n.t('nav.overview')"></span>
                 </a>
 
                 <template x-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">

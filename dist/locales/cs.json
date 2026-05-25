@@ -32,7 +32,8 @@
         "styleguide": "Styleguide",
         "overview": "Přehled",
         "foundations": "Základy",
-        "fields": "Pole"
+        "fields": "Pole",
+        "homepage_link": "Otevřít projekt (homepage)"
     },
     "overview": {
         "title": "Komponenty a stránky",

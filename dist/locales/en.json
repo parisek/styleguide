@@ -32,7 +32,8 @@
         "styleguide": "Styleguide",
         "overview": "Overview",
         "foundations": "Foundations",
-        "fields": "Fields"
+        "fields": "Fields",
+        "homepage_link": "Open project homepage"
     },
     "overview": {
         "title": "Components & pages",

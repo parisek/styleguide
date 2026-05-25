@@ -6,6 +6,37 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.7] - 2026-05-25
+
+### Changed
+
+- **Zoom is now width-only.** v0.3.0 introduced fit-to-bounds zoom that
+  also constrained by chrome-pane height — so a 2K preset on a wide-but-
+  short pane locked to ~81 % and hiding the sidebar didn't visibly grow
+  the preview (height stayed binding). Users intuitively expect "more
+  horizontal room → bigger preview", so the height factor is dropped:
+  `zoom = min(1, containerAvailableWidth / effectiveWidth)`. Vertical
+  overflow falls back to the chrome pane's existing `overflow-auto`
+  scrollbar — acceptable cost for the cleaner mental model.
+
+- **Foundations is the default landing.** The SPA router now redirects
+  bare `/styleguide/` to `/styleguide/foundations` (was `/overview`).
+  Foundations — design tokens (colors, typography, logo) — is the
+  natural first thing to look at when someone opens the styleguide;
+  the catalog of every component and page is one click away in Overview.
+  URL still stays `/styleguide` (virtual rewrite, no history pushState),
+  so bookmarks and back-button to the landing keep working.
+
+- **Sidebar order: Foundations above Overview.** Matches the new
+  landing priority.
+
+- **Sidebar logo / project name now links to `/` with `target="_top"`.**
+  Clicking the project name or favicon in the sidebar header opens the
+  consumer's actual homepage (project root), not the styleguide root.
+  `target="_top"` ensures the click escapes any iframe-embedding
+  context. The theme toggle button stays outside the link so it
+  doesn't navigate.
+
 ## [0.3.6] - 2026-05-25
 
 ### Docs
