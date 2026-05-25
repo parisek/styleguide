@@ -55,12 +55,18 @@
 	{% set sg_url = kind == 'foundations' ? '/styleguide/foundations' : '/styleguide/' ~ kind ~ '/' ~ slug %}
 	<div id="sg-standalone-bar" hidden style="position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#18181b;color:#e4e4e7;font:500 13px system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid #27272a">
 		{% if project.favicon %}<img src="{{ project.favicon|e }}" alt="" style="width:20px;height:20px;border-radius:4px;background:#fafafa">{% endif %}
-		<a href="{{ sg_url|e }}" style="display:inline-flex;align-items:center;gap:6px;color:#a1a1aa;text-decoration:none">
+		{# Back link — just the arrow. The project name lived next to it
+		   historically but it's redundant with the favicon (same logical
+		   signal: "you're inside this project's styleguide"). #}
+		<a href="{{ sg_url|e }}" title="{{ project.name|default('Styleguide')|e }} — Styleguide" style="display:inline-flex;align-items:center;color:#a1a1aa;text-decoration:none">
 			<span aria-hidden="true">←</span>
-			<span>{{ project.name|default('Styleguide')|e }} — Styleguide</span>
 		</a>
-		<span style="color:#52525b">/</span>
-		<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#fafafa">{{ kind|e }}/{{ slug|e }}</span>
+		{# Friendly name + raw slug in parens. Mirrors how the SPA chrome's
+		   breadcrumb shows components in the catalog view: humans read the
+		   YAML `name:`, devs read the slug. Foundations has no slug, so we
+		   skip the parens block when slug is empty. #}
+		<span style="color:#fafafa">{{ component.name|default(slug)|e }}</span>
+		{% if slug %}<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#71717a">({{ slug|e }})</span>{% endif %}
 		{# Close button — drops the bar so the standalone preview becomes a
 		   truly clean canvas (no chrome eating top-of-viewport pixels). Bar
 		   is sticky+sticky-coordinate (top:0), so DOM-removing it pushes

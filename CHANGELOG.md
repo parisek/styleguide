@@ -6,6 +6,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-05-25
+
+### Changed
+
+- **Simplified standalone back-bar.** The bar now reads
+  `[logo] [←] {YAML name} ({slug}) ... [×]` instead of the previous
+  verbose `[logo] [← Project — Styleguide] / {kind}/{slug}`. Logic
+  matches the SPA breadcrumb: humans read the YAML `name:`, devs read
+  the slug. Project name moved into the back-link `title` so it's still
+  reachable on hover without eating bar width. The favicon already
+  signals which project's styleguide you're in, so the redundant
+  text label was dropped.
+
 ## [0.3.1] - 2026-05-25
 
 ### Added
