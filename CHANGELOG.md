@@ -6,6 +6,32 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-05-25
+
+### Fixed
+
+- **Iframe links no longer load nested chrome.** A component's own
+  links to other styleguide routes (e.g. `<a href="/styleguide/page/X">`
+  emitted by a consumer's URL helper) used to reload the iframe at the
+  SPA endpoint, which loads the entire chrome shell — sidebar +
+  toolbar + a second iframe — INSIDE the iframe. In standalone canvas
+  mode the same click navigated the whole tab back to the SPA, losing
+  the isolated preview. `render-cell.twig` now ships a capture-phase
+  click listener that rewrites `/styleguide/{component,page,foundations}/X`
+  hrefs to the matching `/styleguide/render/{kind}/{slug}` endpoint, so
+  clicks stay within the isolated render context. External URLs,
+  fragments, and already-/render/ links pass through unchanged.
+
+### Added
+
+- **Zoom %  in the dimension readout.** When `zoom < 1` (preset taller
+  or wider than the chrome pane), the toolbar readout and the
+  under-chassis dimension badge both append ` (N %)` — e.g.
+  `2560 × 1440 (85 %)` — so the user can tell at a glance that the
+  visible preview isn't 1:1 with the emulated viewport. On a wide
+  monitor a 2K preset can visually fill the canvas at ~85 %; the
+  suffix surfaces that without a DevTools probe.
+
 ## [0.3.3] - 2026-05-25
 
 ### Fixed

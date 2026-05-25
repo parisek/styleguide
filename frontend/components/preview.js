@@ -387,15 +387,18 @@ document.addEventListener('alpine:init', () => {
         // Human-readable "W × H" string for the active preset (after any
         // rotation), or null when the preset has no logical dimensions
         // (Full mode, or Custom widths whose height is content-driven).
-        // The template binds this directly under the chassis so the user
-        // can read the device's real CSS pixel dimensions at a glance —
-        // useful when a 2K preset is scaled down to ~40% to fit the
-        // chrome and the visual size no longer matches the logical one.
+        // When the iframe is scaled down (zoom < 1, fit-to-bounds), the
+        // label also carries a ` (N %)` suffix so the user notices the
+        // preview isn't 1:1 with the emulated device — easy to miss on a
+        // wide monitor where a 2K preset visually fills the canvas but is
+        // actually being scaled to ~85 %.
         get dimensionsLabel() {
             const w = this.effectiveWidth;
             const h = this.effectiveHeight;
             if (!w || !h) return null;
-            return `${w} × ${h}`;
+            const z = this.zoom;
+            const dims = `${w} × ${h}`;
+            return z < 1 ? `${dims} (${Math.round(z * 100)} %)` : dims;
         },
 
         // True when the Full preset is active (previewWidth === '100%'). Drives

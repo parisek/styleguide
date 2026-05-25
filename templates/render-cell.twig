@@ -86,6 +86,39 @@
 		</button>
 	</div>
 	<script>
+		// Iframe-link rewrite — keep clicks INSIDE the styleguide's isolated
+		// render context.
+		//
+		// A component / page often links to other styleguide routes (a header
+		// nav, a "back to homepage" CTA, etc.). When the consumer's URL
+		// generator targets `/styleguide/page/<slug>` (the SPA route), clicking
+		// the link in iframe-embedded mode loads the full SPA shell INSIDE the
+		// iframe — a nested chrome with sidebar + toolbar + another iframe.
+		// In standalone canvas mode (top-level window), the same click would
+		// navigate the whole tab back to the SPA, losing the standalone view.
+		//
+		// Rewriting the link's `href` to the matching `/styleguide/render/...`
+		// endpoint keeps the click loading just the next component/page body
+		// without any chrome — embedded clicks stay embedded, standalone
+		// clicks stay standalone. Capture phase runs before any default
+		// navigation, so the rewrite is applied to the first click.
+		//
+		// External URLs, already-/render/ links, fragments (#anchor),
+		// mailto:/tel:, and any non-styleguide path pass through unchanged.
+		document.addEventListener('click', function (e) {
+			var a = e.target.closest && e.target.closest('a[href]');
+			if (!a) return;
+			var href = a.getAttribute('href');
+			if (!href) return;
+			var match = href.match(/^\/styleguide\/(component|page|foundations)(?:\/([^?#]*))?/);
+			if (!match) return;
+			var kind = match[1];
+			// foundations carries no slug; the render endpoint expects `/index` as a placeholder.
+			var slug = match[2] || 'index';
+			var tail = href.slice(match[0].length);
+			a.setAttribute('href', '/styleguide/render/' + kind + '/' + slug + tail);
+		}, true);
+
 		// Reveal the back-bar only when this document is the top-level window;
 		// inside an iframe it stays hidden so the styleguide preview matches
 		// what the component would look like in production.

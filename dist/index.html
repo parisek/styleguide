@@ -33,7 +33,7 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.BHzN946D.js"></script>
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.CarzPBrc.js"></script>
   <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.DP4TcmzT.css">
 </head>
 <body
@@ -246,8 +246,12 @@
                              editor sees both dimensions at a glance), or just W px when
                              Custom/Full (no canonical height). Tracks rotation: rotated
                              Mobile 375 × 667 reads as "667 × 375 px". -->
+                        <!-- Append ` (N %)` when the iframe is auto-scaled below 1:1 (zoom < 1).
+                             Without the suffix, a 2K preset on a wide monitor visually fills the
+                             canvas at 85 % and the user can mistake the scaled-down view for a
+                             1:1 render. -->
                         <span class="font-mono text-xs text-zinc-500 tabular-nums hidden sm:inline"
-                              x-text="$store.ui.previewHeight ? `${parseInt($store.ui.displayWidth, 10) || currentWidth} × ${$store.ui.displayHeight} px` : `${currentWidth} px`"></span>
+                              x-text="($store.ui.previewHeight ? `${parseInt($store.ui.displayWidth, 10) || currentWidth} × ${$store.ui.displayHeight} px` : `${currentWidth} px`) + (zoom < 1 ? ` (${Math.round(zoom * 100)} %)` : '')"></span>
                         <!-- Segmented pill: full preset list visible on xl+ toolbars,
                              where the 10-button strip fits next to the breadcrumb without
                              overlap. Below xl the same controls collapse into the
