@@ -6,6 +6,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Migration notes
+
+- **Render-endpoint rename (carry-over from v0.2.0).** Consumer E2E
+  suites that assert a 200 on `GET /styleguide/render/overview/index`
+  must update the path to `GET /styleguide/render/foundations/index`.
+  The endpoint rename shipped together with the SPA URL swap in
+  v0.2.0 (PR [#9](https://github.com/parisek/styleguide/pull/9)) when
+  the `/overview` slug was repurposed for the new SPA-only Components
+  & Pages index. The v0.2.0 BREAKING note covered the user-facing
+  `/styleguide/overview` URL move but didn't explicitly call out the
+  render-endpoint variant, which is why consumers' Layer A HTTP smoke
+  tests (e.g. `portadesign/tailwind-base` `static/tests/e2e/run.sh`)
+  have been red on this single assertion since the upgrade. Content
+  is identical — only the slug changed. The router's whitelist now
+  accepts `component | page | foundations` for the render kind; see
+  `src/Renderer.php:43` and `tests/RouterTest.php:39-46`. Tracked in
+  [#19](https://github.com/parisek/styleguide/issues/19).
+
 ## [0.3.2] - 2026-05-25
 
 ### Changed
