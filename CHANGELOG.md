@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.11] - 2026-05-26
+
 ### Added
 
 - **Symfony 8 support in the dependency constraints.** Widened
