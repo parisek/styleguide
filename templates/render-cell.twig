@@ -55,7 +55,14 @@
 	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
 	{# Foundations is a sectionless route (`/styleguide/foundations`); component/page carry a slug. #}
 	{% set sg_url = kind == 'foundations' ? '/styleguide/foundations' : '/styleguide/' ~ kind ~ '/' ~ slug %}
-	<div id="sg-standalone-bar" hidden style="position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:12px;padding:8px 16px;background:#18181b;color:#e4e4e7;font:500 13px system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid #27272a">
+	{# Default to `display:none` (NOT the `hidden` HTML attribute) because the bar's
+	   own inline `display:flex` would otherwise win the CSS cascade over the user-
+	   agent `[hidden] { display: none }` rule (UA rules have lower specificity than
+	   inline styles), making the bar permanently visible — including inside iframes
+	   where it shouldn't appear at all. The reveal script below flips `display`
+	   directly so the bar opens to its intended flex layout when this document is
+	   the top-level window. #}
+	<div id="sg-standalone-bar" style="display:none;position:sticky;top:0;z-index:9999;align-items:center;gap:12px;padding:8px 16px;background:#18181b;color:#e4e4e7;font:500 13px system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid #27272a">
 		{% if project.favicon %}<img src="{{ project.favicon|e }}" alt="" style="width:20px;height:20px;border-radius:4px;background:#fafafa">{% endif %}
 		{# Back link — just the arrow. The project name lived next to it
 		   historically but it's redundant with the favicon (same logical
@@ -99,7 +106,7 @@
 		// return via the browser back button; the URL bar is visible in
 		// canvas mode so the page is still navigable.
 		if (window.self === window.top && !new URLSearchParams(location.search).has('canvas')) {
-			document.getElementById('sg-standalone-bar').hidden = false;
+			document.getElementById('sg-standalone-bar').style.display = 'flex';
 		}
 	</script>
 	{# Component-kind previews render a single small piece (button, breadcrumb, …)
