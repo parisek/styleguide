@@ -6,6 +6,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Standalone back-bar (`#sg-standalone-bar`) was permanently visible —
+  including inside iframes where its purpose is meaningless.** The element
+  was authored as `<div hidden style="...display:flex;...">` and the reveal
+  script flipped the `hidden` boolean attribute on top-level window detection.
+  But the inline `display:flex` already overrode the user-agent
+  `[hidden] { display: none }` rule (UA stylesheets have lower CSS specificity
+  than inline styles), so the bar showed everywhere — visually breaking the
+  iframe preview of every component / page / foundations render. Switched to
+  inline `display:none` baseline (wins the cascade unambiguously) and the
+  reveal script now flips `element.style.display = 'flex'` directly. No
+  public API change; reveal conditions unchanged (`window.self === window.top`
+  + no `?canvas=1`). Reported by a downstream WordPress consumer. (#23)
+
 ## [0.3.11] - 2026-05-26
 
 ### Added
