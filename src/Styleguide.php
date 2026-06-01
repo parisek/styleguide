@@ -42,7 +42,9 @@ use Twig\TwigFunction;
  */
 final class Styleguide
 {
+    /** @var array<string, mixed> */
     private array $config;
+    /** @var array<string, mixed> */
     private array $yamlConfig;
     private Environment $twig;
     private ComponentParser $parser;
@@ -649,6 +651,7 @@ final class Styleguide
      * dimensions) keep the kit's historical wide-crop default. Components
      * adopting the new filter don't silently shift their rendering for
      * legacy assets.
+     * @param array<string, mixed> $image
      */
     private static function classifyAspect(array $image, float $tolerance = 0.1): string
     {
@@ -764,6 +767,8 @@ final class Styleguide
      * misses, returns a bare inline error. `_` in the function name is
      * normalised to `-` to match the directory convention
      * (`component_header_menu` → `@component/header-menu/header-menu.twig`).
+     * @param array<string, mixed> $content
+     * @param array<string, mixed> $context
      */
     private static function renderNamespaced(
         Environment $env,
@@ -858,7 +863,7 @@ final class Styleguide
         $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
 
         match ($route['type']) {
-            'asset' => $this->assetServer->serve($route['path']),
+            'asset' => $this->assetServer->serve($route['path'] ?? ''),
             'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
@@ -868,6 +873,9 @@ final class Styleguide
         exit;
     }
 
+    /**
+     * @param array<string, mixed> $route
+     */
     private function dispatchSpa(array $route): void
     {
         $indexPath = $this->distRoot . '/index.html';
@@ -953,6 +961,9 @@ final class Styleguide
         echo $html;
     }
 
+    /**
+     * @param array<string, mixed> $route
+     */
     private function dispatchRender(array $route): void
     {
         $config = [
@@ -1015,6 +1026,9 @@ final class Styleguide
         return '/styleguide/assets/' . basename($matches[0]);
     }
 
+    /**
+     * @param array<string, mixed> $route
+     */
     private function dispatchApi(array $route): void
     {
         $endpoint = match ($route['endpoint']) {

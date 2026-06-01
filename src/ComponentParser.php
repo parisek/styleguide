@@ -126,15 +126,17 @@ final class ComponentParser
             $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide);
         }
 
-        usort($items, function ($a, $b) {
+        usort($items, function ($a, $b): int {
             if ($a['weight'] === $b['weight']) {
+                $an = (string) $a['name'];
+                $bn = (string) $b['name'];
                 if (class_exists(\Collator::class)) {
-                    $collator = new \Collator('cs');
-                    return $collator->compare($a['name'], $b['name']);
+                    $cmp = (new \Collator('cs'))->compare($an, $bn);
+                    return $cmp === false ? 0 : $cmp;
                 }
-                return strcmp($a['name'], $b['name']);
+                return strcmp($an, $bn);
             }
-            return $a['weight'] - $b['weight'];
+            return $a['weight'] <=> $b['weight'];
         });
 
         return $items;
