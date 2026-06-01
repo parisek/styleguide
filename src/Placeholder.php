@@ -31,6 +31,10 @@ final class Placeholder
 {
     private static int $counter = 0;
 
+    /**
+     * @param array<string, mixed> $opts
+     * @return list<array<string, mixed>>
+     */
     public static function generate(array $opts = []): array
     {
         // Strip caller-supplied nulls before merging defaults — `$opts += [...]`
@@ -74,6 +78,10 @@ final class Placeholder
         ]];
     }
 
+    /**
+     * @param array<string, mixed> $opts
+     * @return array{int, int}
+     */
     private static function resolveDimensions(array $opts): array
     {
         // Normalize width/height up front: non-numeric strings (`'auto'`) or
@@ -118,6 +126,7 @@ final class Placeholder
     /**
      * Mood → palette. Saturation/lightness tuned for muted, photographic feel —
      * less playground colours, more editorial.
+     * @return array<string, string>
      */
     private static function palette(string $mood, string $seed): array
     {
@@ -159,6 +168,10 @@ final class Placeholder
         ];
     }
 
+    /**
+     * @param array<string, string> $palette
+     * @param array<string, mixed> $opts
+     */
     private static function svg(int $w, int $h, string $subject, array $palette, string $seed, array $opts): string
     {
         $blurAmount = (int) round(min($w, $h) * 0.04);
@@ -244,6 +257,7 @@ final class Placeholder
 
     /**
      * Three large overlapping ellipses, blurred — generic editorial backdrop.
+     * @param array<string, string> $palette
      */
     private static function subjectAbstract(int $w, int $h, array $palette, string $seed): string
     {
@@ -275,6 +289,7 @@ final class Placeholder
     /**
      * Horizontal layered bands with smooth bezier transitions and soft sun glow.
      * Reads as "horizon" without drawing actual mountains.
+     * @param array<string, string> $palette
      */
     private static function subjectLandscape(int $w, int $h, array $palette, string $seed): string
     {
@@ -343,6 +358,7 @@ final class Placeholder
     /**
      * Vertical gradient + radial spotlight in upper third — studio portrait
      * lighting. No literal head/shoulders shape.
+     * @param array<string, string> $palette
      */
     private static function subjectPortrait(int $w, int $h, array $palette, string $seed): string
     {
@@ -371,6 +387,7 @@ final class Placeholder
     /**
      * Centred radial spotlight with soft falloff — product photographed against
      * a clean backdrop. Lit-from-above feel.
+     * @param array<string, string> $palette
      */
     private static function subjectProduct(int $w, int $h, array $palette, string $seed): string
     {
@@ -396,6 +413,7 @@ final class Placeholder
     /**
      * Warm-tinted off-centre radial glow — food-styling lighting cue without
      * drawing a plate.
+     * @param array<string, string> $palette
      */
     private static function subjectFood(int $w, int $h, array $palette, string $seed): string
     {
@@ -428,6 +446,7 @@ final class Placeholder
     /**
      * Vertical bands of varying lightness — abstract urban "skyline" without
      * window grids.
+     * @param array<string, string> $palette
      */
     private static function subjectArchitecture(int $w, int $h, array $palette, string $seed): string
     {
@@ -463,6 +482,7 @@ final class Placeholder
 
     /**
      * Tight square-ish framing of portrait lighting — for comment / quote tiles.
+     * @param array<string, string> $palette
      */
     private static function subjectAvatar(int $w, int $h, array $palette, string $seed): string
     {

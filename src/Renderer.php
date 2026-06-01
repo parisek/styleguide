@@ -22,6 +22,9 @@ use Twig\Environment;
  */
 final class Renderer
 {
+    /**
+     * @param array<string, mixed> $context
+     */
     public function __construct(
         private Environment $twig,
         private array $context = [],
@@ -80,6 +83,7 @@ final class Renderer
      * Dispatch the inner body render by kind. Components / pages render the
      * project's own template; foundations renders the package-shipped
      * template against the full styleguide.yaml.
+     * @param array<string, mixed> $config
      */
     private function renderBody(string $kind, string $slug, array $config): ?string
     {
@@ -117,6 +121,9 @@ final class Renderer
         return null;
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function render404(string $kind, string $slug, array $config): string
     {
         http_response_code(404);
