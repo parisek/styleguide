@@ -1,0 +1,26 @@
+project:
+  name: Styleguide Fixture
+  slug: styleguide-fixture
+  description: Fixture project that the package's own e2e smoke tests render against
+  locale: cs_CZ
+  body_classes: ''
+  favicon: /images/favicon.svg
+
+# The render iframe injects these into its <head>. They don't need to resolve for
+# the smoke tests (assertions check the emitted path strings + DOM, not asset
+# loading), so a fixture project that ships no compiled CSS/JS is fine.
+iframe:
+  css: /dist/css/style.css
+  js: /dist/js/script.js
+  fonts: []
+  html_class: ''
+  body_class: ''
+  base_href: /
+
+logo:
+  main:
+    src: /images/logo.svg
+    alt: Logo
+    label: Logo
+    background: light
+  favicon:

@@ -58,6 +58,7 @@
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "phpstan": "php -d memory_limit=512M vendor/bin/phpstan analyse",
-        "test": "vendor/bin/phpunit"
+        "test": "vendor/bin/phpunit",
+        "test:e2e": "bash tests/e2e/run.sh"
     }
 }
