@@ -9,7 +9,6 @@ use Parisek\Styleguide\Styleguide;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
-use Twig\Loader\FilesystemLoader;
 
 final class BundledHelpersTest extends TestCase
 {
@@ -123,7 +122,7 @@ final class BundledHelpersTest extends TestCase
             . '[{src: "a.avif", media: "(min-width: 1024px)"}], '
             . 'null, '
             . '[{src: "b.avif"}]'
-            . ') %}{{ out|length }}|{{ out[0].media|default("") }}|{{ out[1].src }}'
+            . ') %}{{ out|length }}|{{ out[0].media|default("") }}|{{ out[1].src }}',
         );
 
         // First list contributes its media-queried entry. Second list is null (dropped).
@@ -138,7 +137,7 @@ final class BundledHelpersTest extends TestCase
         $tpl = $twig->createTemplate(
             '{{ {number: 1234, currency_code: "CZK"}|custom_price_format }}'
             . '|'
-            . '{{ {number: 1234.5, currency_code: "EUR"}|custom_price_format }}'
+            . '{{ {number: 1234.5, currency_code: "EUR"}|custom_price_format }}',
         );
 
         self::assertSame('1 234 Kč|€ 1 234,50', $tpl->render());
@@ -224,7 +223,7 @@ final class BundledHelpersTest extends TestCase
     {
         // Tighten to 0 → only exact 1:1 counts as square.
         self::assertSame('landscape', self::classifyAspect([['width' => 1001, 'height' => 1000]], 0.0));
-        self::assertSame('square',    self::classifyAspect([['width' => 1000, 'height' => 1000]], 0.0));
+        self::assertSame('square', self::classifyAspect([['width' => 1000, 'height' => 1000]], 0.0));
         // Loosen to 0.5 → 1.5 / 1 aspect is still square.
         self::assertSame('square', self::classifyAspect([['width' => 1500, 'height' => 1000]], 0.5));
     }
@@ -258,12 +257,12 @@ final class BundledHelpersTest extends TestCase
         // portrait/square alternatives.
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1200, height: 800, seed: 'r'}) %}"
-            . "{% set out = src|resizer({"
+            . '{% set out = src|resizer({'
             . "  landscape: [['960', '720', '1024', 'crop'], ['480', '360', '', 'crop']],"
             . "  portrait:  [['720', '960', '1024', 'crop'], ['360', '480', '', 'crop']],"
             . "  square:    [['800', '800', '1024', 'crop'], ['400', '400', '', 'crop']],"
-            . "}) %}"
-            . '{{ out|length }}|{{ out[0].width }}x{{ out[0].height }}|{{ out[1].width }}x{{ out[1].height }}'
+            . '}) %}'
+            . '{{ out|length }}|{{ out[0].width }}x{{ out[0].height }}|{{ out[1].width }}x{{ out[1].height }}',
         );
 
         self::assertSame('2|960x720|480x360', $tpl->render());
@@ -276,11 +275,11 @@ final class BundledHelpersTest extends TestCase
 
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 800, height: 1200, seed: 'r'}) %}"
-            . "{% set out = src|resizer({"
+            . '{% set out = src|resizer({'
             . "  landscape: [['960', '720', '', 'crop']],"
             . "  portrait:  [['720', '960', '', 'crop']],"
-            . "}) %}"
-            . '{{ out[0].width }}x{{ out[0].height }}'
+            . '}) %}'
+            . '{{ out[0].width }}x{{ out[0].height }}',
         );
 
         self::assertSame('720x960', $tpl->render());
@@ -293,11 +292,11 @@ final class BundledHelpersTest extends TestCase
 
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1000, height: 1000, seed: 'r'}) %}"
-            . "{% set out = src|resizer({"
+            . '{% set out = src|resizer({'
             . "  landscape: [['960', '720', '', 'crop']],"
             . "  square:    [['800', '800', '', 'crop']],"
-            . "}) %}"
-            . '{{ out[0].width }}x{{ out[0].height }}'
+            . '}) %}'
+            . '{{ out[0].width }}x{{ out[0].height }}',
         );
 
         self::assertSame('800x800', $tpl->render());
@@ -312,10 +311,10 @@ final class BundledHelpersTest extends TestCase
         // landscape (documented fallback semantics).
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1000, height: 1000, seed: 'r'}) %}"
-            . "{% set out = src|resizer({"
+            . '{% set out = src|resizer({'
             . "  landscape: [['640', '480', '', 'crop']],"
-            . "}) %}"
-            . '{{ out[0].width }}x{{ out[0].height }}'
+            . '}) %}'
+            . '{{ out[0].width }}x{{ out[0].height }}',
         );
 
         self::assertSame('640x480', $tpl->render());
@@ -332,11 +331,11 @@ final class BundledHelpersTest extends TestCase
         // `square => []` is a defined-but-empty value).
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1000, height: 1000, seed: 'r'}) %}"
-            . "{% set out = src|resizer({"
+            . '{% set out = src|resizer({'
             . "  landscape: [['640', '480', '', 'crop']],"
-            . "  square:    [],"
-            . "}) %}"
-            . '{{ out[0].width }}x{{ out[0].height }}'
+            . '  square:    [],'
+            . '}) %}'
+            . '{{ out[0].width }}x{{ out[0].height }}',
         );
 
         self::assertSame('640x480', $tpl->render());
@@ -355,8 +354,8 @@ final class BundledHelpersTest extends TestCase
         // accidental transform visible in the output.
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1200, height: 800, seed: 'r'}) %}"
-            . "{% set out = src|resizer({landscape: []}) %}"
-            . '{{ out[0].width }}x{{ out[0].height }}'
+            . '{% set out = src|resizer({landscape: []}) %}'
+            . '{{ out[0].width }}x{{ out[0].height }}',
         );
 
         self::assertSame('1200x800', $tpl->render());
@@ -371,8 +370,8 @@ final class BundledHelpersTest extends TestCase
         // passthrough (the helper refuses to invent a variant).
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1000, height: 1000, seed: 'r'}) %}"
-            . "{% set out = src|resizer({square: []}) %}"
-            . '{{ out[0].width }}x{{ out[0].height }}'
+            . '{% set out = src|resizer({square: []}) %}'
+            . '{{ out[0].width }}x{{ out[0].height }}',
         );
 
         self::assertSame('1000x1000', $tpl->render());
@@ -390,7 +389,7 @@ final class BundledHelpersTest extends TestCase
         $tpl = $twig->createTemplate(
             "{% set src = placeholder({width: 1200, height: 800, seed: 'r'}) %}"
             . "{% set out = src|resizer(['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']) %}"
-            . '{{ out|length }}|{{ out[0].width }}x{{ out[0].height }}|{{ out[1].width }}x{{ out[1].height }}'
+            . '{{ out|length }}|{{ out[0].width }}x{{ out[0].height }}|{{ out[1].width }}x{{ out[1].height }}',
         );
 
         self::assertSame('2|960x720|480x360', $tpl->render());

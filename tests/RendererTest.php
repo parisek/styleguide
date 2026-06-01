@@ -33,7 +33,7 @@ final class RendererTest extends TestCase
         // in the real boot path; not present on this bare test env).
         // Identity-pass it through here so the template parses and the
         // existing assertions can target the unprefixed URLs.
-        $twig->addFilter(new TwigFilter('cachebust', static fn (mixed $u): mixed => $u));
+        $twig->addFilter(new TwigFilter('cachebust', static fn(mixed $u): mixed => $u));
         $this->renderer = new Renderer($twig, ['content' => ['title' => 'Hello']]);
     }
 

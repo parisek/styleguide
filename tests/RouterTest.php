@@ -22,7 +22,7 @@ final class RouterTest extends TestCase
     {
         self::assertSame(
             ['type' => 'component', 'slug' => 'hero'],
-            Router::parse('/styleguide/component/hero')
+            Router::parse('/styleguide/component/hero'),
         );
     }
 
@@ -31,7 +31,7 @@ final class RouterTest extends TestCase
     {
         self::assertSame(
             ['type' => 'page', 'slug' => 'homepage'],
-            Router::parse('/styleguide/page/homepage')
+            Router::parse('/styleguide/page/homepage'),
         );
     }
 
@@ -52,11 +52,11 @@ final class RouterTest extends TestCase
     {
         self::assertSame(
             ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
-            Router::parse('/styleguide/render/component/hero')
+            Router::parse('/styleguide/render/component/hero'),
         );
         self::assertSame(
             ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage'],
-            Router::parse('/styleguide/render/page/homepage')
+            Router::parse('/styleguide/render/page/homepage'),
         );
     }
 
@@ -73,11 +73,11 @@ final class RouterTest extends TestCase
     {
         self::assertSame(
             ['type' => 'asset', 'path' => 'styleguide.abc.css'],
-            Router::parse('/styleguide/assets/styleguide.abc.css')
+            Router::parse('/styleguide/assets/styleguide.abc.css'),
         );
         self::assertSame(
             ['type' => 'asset', 'path' => 'locales/cs.json'],
-            Router::parse('/styleguide/assets/locales/cs.json')
+            Router::parse('/styleguide/assets/locales/cs.json'),
         );
     }
 
@@ -86,7 +86,7 @@ final class RouterTest extends TestCase
     {
         self::assertSame(
             ['type' => 'component', 'slug' => 'hero'],
-            Router::parse('/styleguide/component/hero?lang=cs')
+            Router::parse('/styleguide/component/hero?lang=cs'),
         );
     }
 
@@ -108,8 +108,8 @@ final class RouterTest extends TestCase
             ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'component', 'slug' => 'hero'],
-                'iframe'
-            )
+                'iframe',
+            ),
         );
     }
 
@@ -120,8 +120,8 @@ final class RouterTest extends TestCase
             ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'page', 'slug' => 'homepage'],
-                'iframe'
-            )
+                'iframe',
+            ),
         );
     }
 
@@ -135,8 +135,8 @@ final class RouterTest extends TestCase
             ['type' => 'render', 'kind' => 'foundations', 'slug' => 'index'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'foundations'],
-                'iframe'
-            )
+                'iframe',
+            ),
         );
     }
 
@@ -180,7 +180,7 @@ final class RouterTest extends TestCase
             self::assertSame(
                 $route,
                 Router::synthesizeEmbeddedRoute($route, 'iframe'),
-                'Route type ' . $route['type'] . ' must pass through'
+                'Route type ' . $route['type'] . ' must pass through',
             );
         }
     }

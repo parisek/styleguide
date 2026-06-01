@@ -37,7 +37,7 @@ final class Placeholder
         // only adds *missing* keys, so an explicit `mood: null` would otherwise
         // reach `palette(string $mood, …)` and trigger a TypeError. `null`
         // is treated as "unset"; defaults reapply.
-        $opts = array_filter($opts, static fn ($v) => $v !== null) + [
+        $opts = array_filter($opts, static fn($v) => $v !== null) + [
             'subject' => 'abstract',
             'mood' => 'pastel',
             'aspect' => '3/2',
@@ -165,28 +165,31 @@ final class Placeholder
         $grainSeed = self::seedHash($seed, 999) % 100;
 
         $defs = sprintf(
-            '<defs>' .
+            '<defs>'
                 // Background gradient — diagonal, subtle
-                '<linearGradient id="b" x1="0%%" y1="0%%" x2="100%%" y2="100%%">' .
-                    '<stop offset="0%%" stop-color="%s"/>' .
-                    '<stop offset="100%%" stop-color="%s"/>' .
-                '</linearGradient>' .
+                . '<linearGradient id="b" x1="0%%" y1="0%%" x2="100%%" y2="100%%">'
+                    . '<stop offset="0%%" stop-color="%s"/>'
+                    . '<stop offset="100%%" stop-color="%s"/>'
+                . '</linearGradient>'
                 // Vignette overlay — transparent centre, dark edges
-                '<radialGradient id="v" cx="50%%" cy="50%%" r="75%%">' .
-                    '<stop offset="40%%" stop-color="black" stop-opacity="0"/>' .
-                    '<stop offset="100%%" stop-color="black" stop-opacity="0.30"/>' .
-                '</radialGradient>' .
+                . '<radialGradient id="v" cx="50%%" cy="50%%" r="75%%">'
+                    . '<stop offset="40%%" stop-color="black" stop-opacity="0"/>'
+                    . '<stop offset="100%%" stop-color="black" stop-opacity="0.30"/>'
+                . '</radialGradient>'
                 // Soft blur for organic shapes
-                '<filter id="f" x="-15%%" y="-15%%" width="130%%" height="130%%">' .
-                    '<feGaussianBlur stdDeviation="%d"/>' .
-                '</filter>' .
+                . '<filter id="f" x="-15%%" y="-15%%" width="130%%" height="130%%">'
+                    . '<feGaussianBlur stdDeviation="%d"/>'
+                . '</filter>'
                 // Film grain overlay
-                '<filter id="g" x="0%%" y="0%%" width="100%%" height="100%%">' .
-                    '<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="%d"/>' .
-                    '<feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.18 0"/>' .
-                '</filter>' .
-            '</defs>',
-            $palette['bg1'], $palette['bg2'], $blurAmount, $grainSeed
+                . '<filter id="g" x="0%%" y="0%%" width="100%%" height="100%%">'
+                    . '<feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="%d"/>'
+                    . '<feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0 0.5  0 0 0 0.18 0"/>'
+                . '</filter>'
+            . '</defs>',
+            $palette['bg1'],
+            $palette['bg2'],
+            $blurAmount,
+            $grainSeed,
         );
 
         $bg = '<rect width="100%" height="100%" fill="url(#b)"/>';
@@ -212,17 +215,26 @@ final class Placeholder
             $text = ($opts['label'] === true || $opts['label'] === '') ? "{$w} × {$h}" : (string) $opts['label'];
             $fontSize = max(14, (int) round(min($w, $h) / 14));
             $labelEl = sprintf(
-                '<text x="50%%" y="50%%" text-anchor="middle" dominant-baseline="middle" ' .
-                'font-family="system-ui, sans-serif" font-size="%d" font-weight="500" letter-spacing="0.05em" ' .
-                'fill="white" opacity="0.85">%s</text>',
-                $fontSize, htmlspecialchars($text, ENT_QUOTES | ENT_XML1, 'UTF-8')
+                '<text x="50%%" y="50%%" text-anchor="middle" dominant-baseline="middle" '
+                . 'font-family="system-ui, sans-serif" font-size="%d" font-weight="500" letter-spacing="0.05em" '
+                . 'fill="white" opacity="0.85">%s</text>',
+                $fontSize,
+                htmlspecialchars($text, ENT_QUOTES | ENT_XML1, 'UTF-8'),
             );
         }
 
         return sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" preserveAspectRatio="xMidYMid slice">%s%s%s%s%s%s</svg>',
-            $w, $h, $w, $h,
-            $defs, $bg, $body, $vignette, $grain, $labelEl
+            $w,
+            $h,
+            $w,
+            $h,
+            $defs,
+            $bg,
+            $body,
+            $vignette,
+            $grain,
+            $labelEl,
         );
     }
 
@@ -246,7 +258,15 @@ final class Placeholder
             $opacity = 0.45 - $i * 0.05;
             $blobs .= sprintf(
                 '<ellipse cx="%F" cy="%F" rx="%F" ry="%F" transform="rotate(%F %F %F)" fill="%s" opacity="%F"/>',
-                $cx, $cy, $rx, $ry, $rot, $cx, $cy, $colors[$i], $opacity
+                $cx,
+                $cy,
+                $rx,
+                $ry,
+                $rot,
+                $cx,
+                $cy,
+                $colors[$i],
+                $opacity,
             );
         }
         return '<g filter="url(#f)">' . $blobs . '</g>';
@@ -267,36 +287,56 @@ final class Placeholder
         $ridge = sprintf(
             'M0,%F C%F,%F %F,%F %F,%F C%F,%F %F,%F %F,%F L%F,%F L0,%F Z',
             $horizon,
-            $w * 0.25, $horizon - $ridgeOffset,
-            $w * 0.35, $horizon + $ridgeOffset * 0.5,
-            $w * 0.55, $horizon - $ridgeOffset * 0.3,
-            $w * 0.75, $horizon - $ridgeOffset,
-            $w * 0.85, $horizon + $ridgeOffset * 0.7,
-            $w, $horizon,
-            $w, $h, $h
+            $w * 0.25,
+            $horizon - $ridgeOffset,
+            $w * 0.35,
+            $horizon + $ridgeOffset * 0.5,
+            $w * 0.55,
+            $horizon - $ridgeOffset * 0.3,
+            $w * 0.75,
+            $horizon - $ridgeOffset,
+            $w * 0.85,
+            $horizon + $ridgeOffset * 0.7,
+            $w,
+            $horizon,
+            $w,
+            $h,
+            $h,
         );
 
         $fgY = $h * 0.82;
         $fg = sprintf(
             'M0,%F C%F,%F %F,%F %F,%F L%F,%F L0,%F Z',
             $fgY,
-            $w * 0.40, $fgY - $h * 0.05,
-            $w * 0.60, $fgY + $h * 0.03,
-            $w, $fgY - $h * 0.02,
-            $w, $h, $h
+            $w * 0.40,
+            $fgY - $h * 0.05,
+            $w * 0.60,
+            $fgY + $h * 0.03,
+            $w,
+            $fgY - $h * 0.02,
+            $w,
+            $h,
+            $h,
         );
 
         return sprintf(
-            '<g filter="url(#f)">' .
-                '<circle cx="%F" cy="%F" r="%F" fill="%s" opacity="0.65"/>' .
-                '<rect x="0" y="%F" width="%F" height="%F" fill="white" opacity="0.18"/>' .
-                '<path d="%s" fill="%s" opacity="0.55"/>' .
-                '<path d="%s" fill="%s" opacity="0.80"/>' .
-            '</g>',
-            $sunX, $sunY, $sunR * 1.4, $palette['highlight'],
-            $horizon - $h * 0.10, $w, $h * 0.20,
-            $ridge, $palette['fg2'],
-            $fg, $palette['fg1']
+            '<g filter="url(#f)">'
+                . '<circle cx="%F" cy="%F" r="%F" fill="%s" opacity="0.65"/>'
+                . '<rect x="0" y="%F" width="%F" height="%F" fill="white" opacity="0.18"/>'
+                . '<path d="%s" fill="%s" opacity="0.55"/>'
+                . '<path d="%s" fill="%s" opacity="0.80"/>'
+            . '</g>',
+            $sunX,
+            $sunY,
+            $sunR * 1.4,
+            $palette['highlight'],
+            $horizon - $h * 0.10,
+            $w,
+            $h * 0.20,
+            $ridge,
+            $palette['fg2'],
+            $fg,
+            $palette['fg1'],
         );
     }
 
@@ -309,18 +349,22 @@ final class Placeholder
         $bottomBandY = $h * 0.72;
 
         return sprintf(
-            '<defs>' .
-                '<radialGradient id="p" cx="50%%" cy="35%%" r="55%%">' .
-                    '<stop offset="0%%" stop-color="%s" stop-opacity="0.65"/>' .
-                    '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>' .
-                '</radialGradient>' .
-            '</defs>' .
-            '<rect width="100%%" height="100%%" fill="url(#p)"/>' .
-            '<g filter="url(#f)">' .
-                '<rect x="0" y="%F" width="%F" height="%F" fill="%s" opacity="0.50"/>' .
-            '</g>',
-            $palette['highlight'], $palette['highlight'],
-            $bottomBandY, $w, $h - $bottomBandY, $palette['fg1']
+            '<defs>'
+                . '<radialGradient id="p" cx="50%%" cy="35%%" r="55%%">'
+                    . '<stop offset="0%%" stop-color="%s" stop-opacity="0.65"/>'
+                    . '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>'
+                . '</radialGradient>'
+            . '</defs>'
+            . '<rect width="100%%" height="100%%" fill="url(#p)"/>'
+            . '<g filter="url(#f)">'
+                . '<rect x="0" y="%F" width="%F" height="%F" fill="%s" opacity="0.50"/>'
+            . '</g>',
+            $palette['highlight'],
+            $palette['highlight'],
+            $bottomBandY,
+            $w,
+            $h - $bottomBandY,
+            $palette['fg1'],
         );
     }
 
@@ -331,19 +375,21 @@ final class Placeholder
     private static function subjectProduct(int $w, int $h, array $palette, string $seed): string
     {
         return sprintf(
-            '<defs>' .
-                '<radialGradient id="pr" cx="50%%" cy="45%%" r="40%%">' .
-                    '<stop offset="0%%" stop-color="%s" stop-opacity="0.70"/>' .
-                    '<stop offset="60%%" stop-color="%s" stop-opacity="0.20"/>' .
-                    '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>' .
-                '</radialGradient>' .
-            '</defs>' .
-            '<rect width="100%%" height="100%%" fill="url(#pr)"/>' .
-            '<g filter="url(#f)">' .
-                '<ellipse cx="50%%" cy="78%%" rx="35%%" ry="6%%" fill="%s" opacity="0.30"/>' .
-            '</g>',
-            $palette['highlight'], $palette['highlight'], $palette['highlight'],
-            $palette['fg1']
+            '<defs>'
+                . '<radialGradient id="pr" cx="50%%" cy="45%%" r="40%%">'
+                    . '<stop offset="0%%" stop-color="%s" stop-opacity="0.70"/>'
+                    . '<stop offset="60%%" stop-color="%s" stop-opacity="0.20"/>'
+                    . '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>'
+                . '</radialGradient>'
+            . '</defs>'
+            . '<rect width="100%%" height="100%%" fill="url(#pr)"/>'
+            . '<g filter="url(#f)">'
+                . '<ellipse cx="50%%" cy="78%%" rx="35%%" ry="6%%" fill="%s" opacity="0.30"/>'
+            . '</g>',
+            $palette['highlight'],
+            $palette['highlight'],
+            $palette['highlight'],
+            $palette['fg1'],
         );
     }
 
@@ -357,19 +403,25 @@ final class Placeholder
         $cy = self::seedRand($seed, 2, 40, 60);
 
         return sprintf(
-            '<defs>' .
-                '<radialGradient id="fd" cx="%F%%" cy="%F%%" r="50%%">' .
-                    '<stop offset="0%%" stop-color="%s" stop-opacity="0.75"/>' .
-                    '<stop offset="50%%" stop-color="%s" stop-opacity="0.30"/>' .
-                    '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>' .
-                '</radialGradient>' .
-            '</defs>' .
-            '<rect width="100%%" height="100%%" fill="url(#fd)"/>' .
-            '<g filter="url(#f)">' .
-                '<circle cx="%F%%" cy="%F%%" r="22%%" fill="%s" opacity="0.30"/>' .
-            '</g>',
-            $cx, $cy, $palette['highlight'], $palette['highlight'], $palette['highlight'],
-            $cx, $cy, $palette['fg2']
+            '<defs>'
+                . '<radialGradient id="fd" cx="%F%%" cy="%F%%" r="50%%">'
+                    . '<stop offset="0%%" stop-color="%s" stop-opacity="0.75"/>'
+                    . '<stop offset="50%%" stop-color="%s" stop-opacity="0.30"/>'
+                    . '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>'
+                . '</radialGradient>'
+            . '</defs>'
+            . '<rect width="100%%" height="100%%" fill="url(#fd)"/>'
+            . '<g filter="url(#f)">'
+                . '<circle cx="%F%%" cy="%F%%" r="22%%" fill="%s" opacity="0.30"/>'
+            . '</g>',
+            $cx,
+            $cy,
+            $palette['highlight'],
+            $palette['highlight'],
+            $palette['highlight'],
+            $cx,
+            $cy,
+            $palette['fg2'],
         );
     }
 
@@ -391,12 +443,19 @@ final class Placeholder
             $opacity = 0.45 + ($i % 3) * 0.10;
             $out .= sprintf(
                 '<rect x="%F" y="%F" width="%F" height="%F" fill="%s" opacity="%F"/>',
-                $bandX, $bandY, $bandW * 1.05, $bandH, $color, $opacity
+                $bandX,
+                $bandY,
+                $bandW * 1.05,
+                $bandH,
+                $color,
+                $opacity,
             );
         }
         $out .= sprintf(
             '<rect x="0" y="%F" width="%F" height="%F" fill="white" opacity="0.12"/>',
-            $h * 0.55, $w, $h * 0.10
+            $h * 0.55,
+            $w,
+            $h * 0.10,
         );
         $out .= '</g>';
         return $out;
@@ -408,19 +467,22 @@ final class Placeholder
     private static function subjectAvatar(int $w, int $h, array $palette, string $seed): string
     {
         return sprintf(
-            '<defs>' .
-                '<radialGradient id="av" cx="50%%" cy="40%%" r="48%%">' .
-                    '<stop offset="0%%" stop-color="%s" stop-opacity="0.75"/>' .
-                    '<stop offset="80%%" stop-color="%s" stop-opacity="0.05"/>' .
-                    '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>' .
-                '</radialGradient>' .
-            '</defs>' .
-            '<rect width="100%%" height="100%%" fill="url(#av)"/>' .
-            '<g filter="url(#f)">' .
-                '<rect x="0" y="80%%" width="%F" height="20%%" fill="%s" opacity="0.55"/>' .
-            '</g>',
-            $palette['highlight'], $palette['highlight'], $palette['highlight'],
-            $w, $palette['fg1']
+            '<defs>'
+                . '<radialGradient id="av" cx="50%%" cy="40%%" r="48%%">'
+                    . '<stop offset="0%%" stop-color="%s" stop-opacity="0.75"/>'
+                    . '<stop offset="80%%" stop-color="%s" stop-opacity="0.05"/>'
+                    . '<stop offset="100%%" stop-color="%s" stop-opacity="0"/>'
+                . '</radialGradient>'
+            . '</defs>'
+            . '<rect width="100%%" height="100%%" fill="url(#av)"/>'
+            . '<g filter="url(#f)">'
+                . '<rect x="0" y="80%%" width="%F" height="20%%" fill="%s" opacity="0.55"/>'
+            . '</g>',
+            $palette['highlight'],
+            $palette['highlight'],
+            $palette['highlight'],
+            $w,
+            $palette['fg1'],
         );
     }
 }

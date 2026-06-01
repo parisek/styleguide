@@ -18,9 +18,7 @@ use Parisek\Styleguide\ComponentParser;
  */
 final class FieldsEndpoint
 {
-    public function __construct(private ComponentParser $parser)
-    {
-    }
+    public function __construct(private ComponentParser $parser) {}
 
     public function handle(): void
     {
