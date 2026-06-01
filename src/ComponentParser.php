@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
-use Symfony\Component\Yaml\Yaml;
 use Symfony\Component\Yaml\Exception\ParseException;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * @internal The class itself is implementation detail. Two members ARE public

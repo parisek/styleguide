@@ -8,7 +8,6 @@ use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
-use Twig\Loader\LoaderInterface;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
@@ -297,7 +296,7 @@ final class Styleguide
             && !$twig->hasExtension(\Symfony\Bridge\Twig\Extension\DumpExtension::class)
         ) {
             $twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
-                new \Symfony\Component\VarDumper\Cloner\VarCloner()
+                new \Symfony\Component\VarDumper\Cloner\VarCloner(),
             ));
         }
 
@@ -383,15 +382,15 @@ final class Styleguide
         // context / domain / number arguments don't trip ArgumentCountError.
         self::tryAddFunction($twig, new TwigFunction(
             '__',
-            static fn (string $text, string $domain = 'default'): string => $text,
+            static fn(string $text, string $domain = 'default'): string => $text,
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '_x',
-            static fn (string $text, string $context = '', string $domain = 'default'): string => $text,
+            static fn(string $text, string $context = '', string $domain = 'default'): string => $text,
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '_n',
-            static fn (string $single, string $plural, int $number = 1, string $domain = 'default'): string
+            static fn(string $single, string $plural, int $number = 1, string $domain = 'default'): string
                 => $number === 1 ? $single : $plural,
         ));
         self::tryAddFunction($twig, new TwigFunction(
@@ -423,39 +422,39 @@ final class Styleguide
 
         self::tryAddFunction($twig, new TwigFunction(
             'merge_resizer',
-                static function (mixed ...$items): array {
-                    // Drop nulls / non-arrays before the loop. Twig templates
-                    // routinely call merge_resizer(image_xl, image_md, image)
-                    // where some sources are unset for a given record — those
-                    // resolve to `null` and used to TypeError on the typed-
-                    // variadic signature. array_values() re-indexes so the
-                    // "last list contributes its fallback" semantics below
-                    // refer to the last *real* list, not the last positional
-                    // arg.
-                    $items = array_values(array_filter($items, 'is_array'));
-                    // Cache the last index once — `array_key_last()` is
-                    // O(1) on an array but evaluating it inside the nested
-                    // loop is wasted work on every image.
-                    $lastKey = array_key_last($items);
-                    $images = [];
-                    foreach ($items as $key => $item) {
-                        foreach ($item as $image) {
-                            // All but the last list contribute only their
-                            // media-queried entries (variants with `media`).
-                            // The last list contributes everything — its
-                            // medialess fallback becomes the `<img>` baseline.
-                            if ($key !== $lastKey) {
-                                if (isset($image['media'])) {
-                                    $images[] = $image;
-                                }
-                            } else {
+            static function (mixed ...$items): array {
+                // Drop nulls / non-arrays before the loop. Twig templates
+                // routinely call merge_resizer(image_xl, image_md, image)
+                // where some sources are unset for a given record — those
+                // resolve to `null` and used to TypeError on the typed-
+                // variadic signature. array_values() re-indexes so the
+                // "last list contributes its fallback" semantics below
+                // refer to the last *real* list, not the last positional
+                // arg.
+                $items = array_values(array_filter($items, 'is_array'));
+                // Cache the last index once — `array_key_last()` is
+                // O(1) on an array but evaluating it inside the nested
+                // loop is wasted work on every image.
+                $lastKey = array_key_last($items);
+                $images = [];
+                foreach ($items as $key => $item) {
+                    foreach ($item as $image) {
+                        // All but the last list contribute only their
+                        // media-queried entries (variants with `media`).
+                        // The last list contributes everything — its
+                        // medialess fallback becomes the `<img>` baseline.
+                        if ($key !== $lastKey) {
+                            if (isset($image['media'])) {
                                 $images[] = $image;
                             }
+                        } else {
+                            $images[] = $image;
                         }
                     }
-                    return $images;
-                },
-            ));
+                }
+                return $images;
+            },
+        ));
 
         // `placeholder` + `|resizer` ride together — both delegate to the
         // bundled {@see Placeholder} class (lazy-loaded via the standard
@@ -466,7 +465,7 @@ final class Styleguide
         // the project's version stays.
         self::tryAddFunction($twig, new TwigFunction(
             'placeholder',
-            static fn (array $opts = []): array => Placeholder::generate($opts),
+            static fn(array $opts = []): array => Placeholder::generate($opts),
         ));
         self::tryAddFilter($twig, new TwigFilter(
             'resizer',
@@ -884,14 +883,14 @@ final class Styleguide
         $projectName = (string) ($project['name'] ?? 'Styleguide');
         $favicon = (string) ($project['favicon'] ?? '');
 
-        $esc = static fn (string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+        $esc = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
         // <html lang="..." data-default-locale="...">
         $html = (string) preg_replace(
             '/<html\s+lang="[^"]*"(?:\s+data-default-locale="[^"]*")?\s*>/',
             sprintf('<html lang="%s" data-default-locale="%s">', $esc($locale), $esc($locale)),
             $html,
-            1
+            1,
         );
 
         // Favicon — <link rel="icon"> for the browser tab + the sidebar header
@@ -903,13 +902,13 @@ final class Styleguide
                 '/<link\s+rel="icon"\s+id="sg-favicon-tag"\s+href="[^"]*">/',
                 '<link rel="icon" id="sg-favicon-tag" href="' . $esc($favicon) . '">',
                 $html,
-                1
+                1,
             );
             $html = (string) preg_replace(
                 '/<img\s+src="[^"]*"\s+alt="[^"]*"\s+class="([^"]*)"\s+id="sg-favicon">/',
                 '<img src="' . $esc($favicon) . '" alt="" class="$1" id="sg-favicon">',
                 $html,
-                1
+                1,
             );
         }
 
@@ -918,13 +917,13 @@ final class Styleguide
             '/data-project-name="[^"]*"/',
             'data-project-name="' . $esc($projectName) . '"',
             $html,
-            1
+            1,
         );
         $html = (string) preg_replace(
             '/data-project-favicon="[^"]*"/',
             'data-project-favicon="' . $esc($favicon) . '"',
             $html,
-            1
+            1,
         );
 
         // Sidebar header — <div id="sg-project-name">…</div> ships with "Styleguide"
@@ -936,9 +935,9 @@ final class Styleguide
         $escapedName = $esc($projectName);
         $html = (string) preg_replace_callback(
             '/(<[^>]+id="sg-project-name"[^>]*>)[^<]*(<\/[^>]+>)/',
-            static fn (array $m): string => $m[1] . $escapedName . $m[2],
+            static fn(array $m): string => $m[1] . $escapedName . $m[2],
             $html,
-            1
+            1,
         );
 
         // <title>
@@ -946,7 +945,7 @@ final class Styleguide
             '/<title>[^<]*<\/title>/',
             '<title>Styleguide — ' . $esc($projectName) . '</title>',
             $html,
-            1
+            1,
         );
 
         header('Content-Type: text/html; charset=utf-8');

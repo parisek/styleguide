@@ -25,8 +25,7 @@ final class Renderer
     public function __construct(
         private Environment $twig,
         private array $context = [],
-    ) {
-    }
+    ) {}
 
     /**
      * Render a component / page / foundations view into a full HTML

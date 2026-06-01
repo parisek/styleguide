@@ -15,9 +15,7 @@ use Parisek\Styleguide\ComponentParser;
  */
 final class PagesEndpoint
 {
-    public function __construct(private ComponentParser $parser)
-    {
-    }
+    public function __construct(private ComponentParser $parser) {}
 
     public function handle(): void
     {
@@ -25,7 +23,7 @@ final class PagesEndpoint
         header('Cache-Control: no-cache');
         echo json_encode(
             $this->parser->parseAll('page'),
-            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
         );
     }
 }
