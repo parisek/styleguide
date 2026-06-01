@@ -42,6 +42,32 @@ jobs:
 
       - run: vendor/bin/phpunit
 
+  e2e:
+    runs-on: ubuntu-latest
+    name: e2e (Layer A — HTTP smoke)
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, yaml
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache composer
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.lock') }}
+
+      - run: composer install --no-interaction --prefer-dist
+
+      # run.sh boots a `php -S` fixture server and runs the HTTP smoke. Layer B
+      # (browser, needs agent-browser + Chrome) is local-only and skipped here.
+      - run: bash tests/e2e/run.sh --no-browser
+
   phpstan:
     runs-on: ubuntu-latest
     name: PHPStan

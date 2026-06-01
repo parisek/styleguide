@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- HTTP + browser e2e smoke suite (`tests/e2e/`) running against the package's own fixture (`tests/fixtures/`): a `php -S` server with Layer A (curl HTTP smoke, in CI) and Layer B (agent-browser SPA smoke, local-only). Moves styleguide-behaviour coverage into the package — a behaviour change is now caught here instead of silently breaking every downstream consumer's e2e on a version bump (the back-bar visibility check, for one, read the wrong property and only passed by luck on older versions). Dev-only; no consumer impact.
+
 ## [0.3.13] - 2026-06-01
 
 ### Security
