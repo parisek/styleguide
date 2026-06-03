@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.14] - 2026-06-03
+
 ### Added
 
 - `iframe.css` now accepts **a single string or a list** of stylesheet URLs (previously string-only), unified with the existing `iframe.fonts` handling — which now also accepts a string or a list. Normalisation lives in `Renderer::render()` (`Renderer::normaliseStylesheets()`), so the template always receives a list and just loops; empty / non-string entries are dropped, order preserved. Lets consumers load several sheets into the iframe (e.g. a Tailwind bundle + a legacy stylesheet during a migration) without abusing `fonts[]`. Backward compatible: `css: <string>` and `fonts: [<list>]` keep working unchanged. Resolves #28.
@@ -869,7 +871,8 @@ No behavioural change; suite remains 98 tests / 305 assertions.
 - `.gitattributes` `export-ignore` strips dev files from the Composer tarball.
 - CI: GitHub Actions runs PHPUnit on PHP 8.3 against every push + PR.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v0.3.14...HEAD
+[0.3.14]: https://github.com/parisek/styleguide/compare/v0.3.13...v0.3.14
 [0.2.1]: https://github.com/parisek/styleguide/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/parisek/styleguide/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/parisek/styleguide/compare/v0.1.2...v0.1.3
