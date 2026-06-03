@@ -208,6 +208,27 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function iframe_fonts_accepts_an_array_of_stylesheets(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [
+                'fonts' => ['/fonts/a.css', '/fonts/b.css'],
+            ],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="/fonts/a.css">', $html);
+        self::assertStringContainsString('<link rel="stylesheet" href="/fonts/b.css">', $html);
+
+        // Links render in the order given in the array.
+        $posA = strpos($html, '/fonts/a.css');
+        $posB = strpos($html, '/fonts/b.css');
+        self::assertNotFalse($posA);
+        self::assertNotFalse($posB);
+        self::assertLessThan($posB, $posA, 'iframe.fonts links should render in array order');
+    }
+
+    #[Test]
     public function normalise_stylesheets_coerces_string_array_and_empty(): void
     {
         // single string → list of one
@@ -218,10 +239,13 @@ final class RendererTest extends TestCase
         self::assertSame([], Renderer::normaliseStylesheets(''));
         self::assertSame([], Renderer::normaliseStylesheets(null));
         self::assertSame([], Renderer::normaliseStylesheets([]));
-        // non-string and empty entries are dropped, order preserved, keys reindexed
+        // whitespace-only is treated as empty (would otherwise render <link href="   ">)
+        self::assertSame([], Renderer::normaliseStylesheets('   '));
+        // non-string (incl. nested arrays), empty, and whitespace-only entries are
+        // dropped; order preserved, keys reindexed
         self::assertSame(
             ['/a.css', '/b.css'],
-            Renderer::normaliseStylesheets(['/a.css', '', null, 5, '/b.css']),
+            Renderer::normaliseStylesheets(['/a.css', '', '   ', null, 5, ['/nested.css'], '/b.css']),
         );
     }
 }

@@ -65,6 +65,9 @@ final class Renderer
         // (render-cell.twig) can simply loop. Backward compatible with the
         // historical shapes (`css: <string>`, `fonts: [<list>]`).
         $iframe = $config['iframe'] ?? [];
+        if (!is_array($iframe)) {
+            $iframe = [];
+        }
         $iframe['css'] = self::normaliseStylesheets($iframe['css'] ?? []);
         $iframe['fonts'] = self::normaliseStylesheets($iframe['fonts'] ?? []);
 
@@ -99,14 +102,16 @@ final class Renderer
     public static function normaliseStylesheets(mixed $value): array
     {
         if (is_string($value)) {
-            $value = $value === '' ? [] : [$value];
+            $value = trim($value) === '' ? [] : [$value];
         } elseif (!is_array($value)) {
             $value = [];
         }
 
         $urls = [];
         foreach ($value as $url) {
-            if (is_string($url) && $url !== '') {
+            // Drop non-strings (e.g. nested arrays) and blank / whitespace-only
+            // entries so they never render an empty `<link href="">`.
+            if (is_string($url) && trim($url) !== '') {
                 $urls[] = $url;
             }
         }
