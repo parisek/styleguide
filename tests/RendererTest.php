@@ -162,4 +162,90 @@ final class RendererTest extends TestCase
         self::assertStringNotContainsString('--header-height', $html);
         self::assertStringNotContainsString('min-height: 200vh', $html);
     }
+
+    #[Test]
+    public function iframe_css_accepts_an_array_of_stylesheets(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [
+                'css' => ['/dist/bundle.css', '/legacy/style.css'],
+            ],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="/dist/bundle.css">', $html);
+        self::assertStringContainsString('<link rel="stylesheet" href="/legacy/style.css">', $html);
+
+        // Links render in the order given in the array.
+        $posBundle = strpos($html, '/dist/bundle.css');
+        $posLegacy = strpos($html, '/legacy/style.css');
+        self::assertNotFalse($posBundle);
+        self::assertNotFalse($posLegacy);
+        self::assertLessThan($posLegacy, $posBundle, 'iframe.css links should render in array order');
+    }
+
+    #[Test]
+    public function iframe_css_accepts_a_single_string(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/only.css'],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="/dist/only.css">', $html);
+        self::assertSame(1, substr_count($html, 'rel="stylesheet"'));
+    }
+
+    #[Test]
+    public function iframe_fonts_accepts_a_single_string(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['fonts' => '/fonts/single.css'],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="/fonts/single.css">', $html);
+    }
+
+    #[Test]
+    public function iframe_fonts_accepts_an_array_of_stylesheets(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [
+                'fonts' => ['/fonts/a.css', '/fonts/b.css'],
+            ],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="/fonts/a.css">', $html);
+        self::assertStringContainsString('<link rel="stylesheet" href="/fonts/b.css">', $html);
+
+        // Links render in the order given in the array.
+        $posA = strpos($html, '/fonts/a.css');
+        $posB = strpos($html, '/fonts/b.css');
+        self::assertNotFalse($posA);
+        self::assertNotFalse($posB);
+        self::assertLessThan($posB, $posA, 'iframe.fonts links should render in array order');
+    }
+
+    #[Test]
+    public function normalise_stylesheets_coerces_string_array_and_empty(): void
+    {
+        // single string → list of one
+        self::assertSame(['/a.css'], Renderer::normaliseStylesheets('/a.css'));
+        // list → list, order preserved
+        self::assertSame(['/a.css', '/b.css'], Renderer::normaliseStylesheets(['/a.css', '/b.css']));
+        // empty / missing → empty list
+        self::assertSame([], Renderer::normaliseStylesheets(''));
+        self::assertSame([], Renderer::normaliseStylesheets(null));
+        self::assertSame([], Renderer::normaliseStylesheets([]));
+        // whitespace-only is treated as empty (would otherwise render <link href="   ">)
+        self::assertSame([], Renderer::normaliseStylesheets('   '));
+        // non-string (incl. nested arrays), empty, and whitespace-only entries are
+        // dropped; order preserved, keys reindexed
+        self::assertSame(
+            ['/a.css', '/b.css'],
+            Renderer::normaliseStylesheets(['/a.css', '', '   ', null, 5, ['/nested.css'], '/b.css']),
+        );
+    }
 }
