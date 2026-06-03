@@ -33,13 +33,18 @@
 	<title>{{ component.name|default(component.id)|e }} — {{ project.name|default('Styleguide')|e }}</title>
 	{% if project.favicon %}<link rel="icon" href="{{ project.favicon|e }}">{% endif %}
 	{% if iframe.base_href %}<base href="{{ iframe.base_href|e }}">{% endif %}
-	{# Fonty — samostatné stylesheets s @font-face deklaracemi. `|cachebust`
-	   appends ?v=<mtime> so a rebuild instantly invalidates the browser
-	   cache without per-project Apache / nginx config. #}
+	{# Fonts / extra stylesheets — separate sheets (e.g. @font-face declarations,
+	   or a transitional/legacy stylesheet loaded before the main bundle).
+	   `iframe.fonts` and `iframe.css` are always lists here — normalised from
+	   string|array in Renderer::render — so both just loop. `|cachebust` appends
+	   ?v=<mtime> so a rebuild instantly invalidates the browser cache without
+	   per-project Apache / nginx config. #}
 	{% for url in iframe.fonts|default([]) %}<link rel="stylesheet" href="{{ url|cachebust|e }}">
 	{% endfor %}
-	{# Hlavní bundled CSS (Tailwind / Bootstrap / custom — vše v jednom souboru). #}
-	{% if iframe.css %}<link rel="stylesheet" href="{{ iframe.css|cachebust|e }}">{% endif %}
+	{# Main bundled CSS (Tailwind / Bootstrap / custom). One file, or several —
+	   e.g. a Tailwind bundle plus a legacy stylesheet during a migration. #}
+	{% for url in iframe.css|default([]) %}<link rel="stylesheet" href="{{ url|cachebust|e }}">
+	{% endfor %}
 	{# Package-shipped Tailwind bundle for the foundations route. The consumer's
 	   iframe.css scans its own templates/ but not vendor/, so utility classes
 	   used only by templates/foundations.twig (h-32, max-w-48, prose-*, …)

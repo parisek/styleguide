@@ -60,12 +60,20 @@ final class Renderer
             $body = $this->errorMarkup($e);
         }
 
+        // `iframe.css` / `iframe.fonts` accept a single URL string or a list of
+        // URLs in styleguide.yaml. Normalise both to a list here so the template
+        // (render-cell.twig) can simply loop. Backward compatible with the
+        // historical shapes (`css: <string>`, `fonts: [<list>]`).
+        $iframe = $config['iframe'] ?? [];
+        $iframe['css'] = self::normaliseStylesheets($iframe['css'] ?? []);
+        $iframe['fonts'] = self::normaliseStylesheets($iframe['fonts'] ?? []);
+
         return $this->twig->render('render-cell.twig', [
             'kind' => $kind,
             'slug' => $slug,
             'langcode' => $langcode,
             'project' => $config['project'] ?? [],
-            'iframe' => $config['iframe'] ?? [],
+            'iframe' => $iframe,
             'component' => [
                 'id' => $slug,
                 'name' => $config['component_name'] ?? $slug,
@@ -77,6 +85,33 @@ final class Renderer
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,
         ]);
+    }
+
+    /**
+     * Normalise an `iframe.css` / `iframe.fonts` value to a list of URL strings.
+     *
+     * Accepts a single URL string or a list of URLs (the two shapes allowed in
+     * `styleguide.yaml`). Empty input becomes an empty list; non-string entries
+     * and empty strings inside a list are dropped. Order is preserved.
+     *
+     * @return list<string>
+     */
+    public static function normaliseStylesheets(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = $value === '' ? [] : [$value];
+        } elseif (!is_array($value)) {
+            $value = [];
+        }
+
+        $urls = [];
+        foreach ($value as $url) {
+            if (is_string($url) && $url !== '') {
+                $urls[] = $url;
+            }
+        }
+
+        return $urls;
     }
 
     /**

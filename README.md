@@ -139,10 +139,12 @@ project:
 # Assets injected into each iframe's <head>. Same paths the production templates
 # use — guarantees the styleguide preview matches production.
 iframe:
-  css: "/dist/css/style.css"               # project's main bundled stylesheet
+  # `css` and `fonts` each accept a single string OR a list of stylesheet URLs.
+  # A list is handy mid-migration — e.g. a Tailwind bundle plus a legacy sheet.
+  css: "/dist/css/style.css"               # string, or e.g. [ "/dist/css/style.css", "/legacy/style.css" ]
   js:  "/dist/js/script.js"                # project's main bundled script (ES module if you build with Vite)
-  fonts:
-    - "/fonts/poppins/stylesheet.css"      # one entry per @font-face stylesheet
+  fonts:                                   # string or list — one entry per @font-face stylesheet
+    - "/fonts/poppins/stylesheet.css"
   html_class: ""                           # optional — <html> class for the preview frame
   body_class: ""                           # optional — <body> class
   base_href: "/"                           # optional — affects relative URLs inside the iframe
