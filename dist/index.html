@@ -33,8 +33,8 @@
             if (dark) document.documentElement.classList.add('dark');
         })();
     </script>
-  <script type="module" crossorigin src="/styleguide/assets/styleguide.F42ToC81.js"></script>
-  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.BH8lVIV0.css">
+  <script type="module" crossorigin src="/styleguide/assets/styleguide.BkyNqyO0.js"></script>
+  <link rel="stylesheet" crossorigin href="/styleguide/assets/styleguide.Cs4PQ1Bd.css">
 </head>
 <body
     class="bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 font-sans antialiased"
@@ -87,12 +87,16 @@
 
             <!-- Search -->
             <div x-data="search" class="p-3 border-b border-zinc-200 dark:border-zinc-800">
-                <input
-                    x-ref="input"
-                    x-model="$store.ui.searchQuery"
-                    type="text"
-                    class="w-full px-3 py-2 bg-white border border-zinc-300 dark:bg-zinc-800 dark:border-zinc-700 rounded text-sm placeholder-zinc-500"
-                    :placeholder="$store.i18n.t('search.placeholder')">
+                <div class="relative">
+                    <input
+                        x-ref="input"
+                        x-model="$store.ui.searchQuery"
+                        type="text"
+                        class="w-full px-3 py-2 pr-12 bg-white border border-zinc-300 dark:bg-zinc-800 dark:border-zinc-700 rounded text-sm placeholder-zinc-500"
+                        :placeholder="$store.i18n.t('search.placeholder')">
+                    <kbd class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 leading-none"
+                         x-text="$store.i18n.t('search.shortcut_hint')"></kbd>
+                </div>
             </div>
 
             <!-- Sections + items (scroll) -->
@@ -450,19 +454,41 @@
                                 <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
                             </svg>
                         </a>
+                        <!-- Reload: re-fetches the component catalogue + forces the
+                             preview iframe to reload via a query-param nonce bump. -->
+                        <button type="button" @click="reloadPreview"
+                                :title="$store.i18n.t('toolbar.reload')"
+                                :aria-label="$store.i18n.t('toolbar.reload')"
+                                class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                <path d="M3 3v5h5"/>
+                            </svg>
+                        </button>
                     </div>
                 </template>
                 <!-- Foundations route still gets the open-in-new-tab affordance,
                      just without the viewport controls. -->
                 <template x-if="iframeSrc && $store.ui.route.type === 'foundations'">
-                    <a :href="iframeSrc" target="_blank" rel="noopener"
-                       :title="$store.i18n.t('toolbar.open_in_new_tab')"
-                       :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
-                       class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors shrink-0">
-                        <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
-                        </svg>
-                    </a>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <a :href="iframeSrc" target="_blank" rel="noopener"
+                           :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                           :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
+                           class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
+                            </svg>
+                        </a>
+                        <button type="button" @click="reloadPreview"
+                                :title="$store.i18n.t('toolbar.reload')"
+                                :aria-label="$store.i18n.t('toolbar.reload')"
+                                class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                <path d="M3 3v5h5"/>
+                            </svg>
+                        </button>
+                    </div>
                 </template>
             </div>
 
