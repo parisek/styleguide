@@ -4,18 +4,21 @@ document.addEventListener('alpine:init', () => {
     Alpine.store('components', {
         items: [],
         pages: [],
+        docs: [],
         loading: true,
 
         async init() {
             try {
-                const [componentsRes, pagesRes] = await Promise.all([
+                const [componentsRes, pagesRes, docsRes] = await Promise.all([
                     fetch('/styleguide/api/components'),
                     fetch('/styleguide/api/pages'),
+                    fetch('/styleguide/api/docs'),
                 ]);
                 this.items = await componentsRes.json();
                 this.pages = await pagesRes.json();
+                this.docs = await docsRes.json();
             } catch (err) {
-                console.error('[styleguide] failed to load components', err);
+                console.error('[styleguide] failed to load catalogue', err);
             } finally {
                 this.loading = false;
             }
@@ -43,10 +46,17 @@ document.addEventListener('alpine:init', () => {
             return this.items.filter((c) => this.sectionOf(c) === section && c.hasStyleguide !== false);
         },
 
+        // Docs are served in API order (server sorts by weight + cs collation).
+        // Do NOT re-sort or filter by hasStyleguide — docs have a flat list with
+        // no section bucketing; the server's order is intentional.
+        get docEntries() {
+            return this.docs;
+        },
+
         find(type, slug) {
             // URL slugs (`/styleguide/component/<slug>`) match the component / page
             // `id` field server-side — the API doesn't ship a separate `slug` key.
-            const list = type === 'page' ? this.pages : this.items;
+            const list = type === 'page' ? this.pages : type === 'doc' ? this.docs : this.items;
             return list.find((c) => c.id === slug) ?? null;
         },
     });
