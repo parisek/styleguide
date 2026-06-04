@@ -197,6 +197,7 @@ final class Styleguide
             'component' => $templatesPath . '/component',
             'macro' => $templatesPath . '/macro',
             'page' => $templatesPath . '/page',
+            'doc' => $templatesPath . '/doc',
             'static' => $templatesPath,
         ];
         // `images/` and `images/icons/` live next to `templates/` on every
@@ -976,15 +977,15 @@ final class Styleguide
         ];
         $langcode = substr((string) $this->config['default_locale'], 0, 2) ?: 'en';
 
-        if (in_array($route['kind'], ['component', 'page'], true)) {
+        if (in_array($route['kind'], ['component', 'page', 'doc'], true)) {
             // Resolve human-readable component name from parsed metadata, if available.
             $meta = $this->parser->parse($route['kind'], $route['slug']);
             if ($meta !== null && !empty($meta['name'])) {
                 $config['component_name'] = $meta['name'];
             }
-            // Render mode lives on the component (not the page). Pages render
-            // their own layout and don't go through render-cell's inset wrapper,
-            // so the mode is forwarded only when kind == component.
+            // Render mode is forwarded only for components — pages and docs
+            // render their own full layout and don't go through render-cell's
+            // inset wrapper.
             if ($meta !== null && $route['kind'] === 'component') {
                 $config['render'] = $meta['render'] ?? 'inset';
             }
