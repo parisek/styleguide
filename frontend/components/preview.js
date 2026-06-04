@@ -295,6 +295,10 @@ document.addEventListener('alpine:init', () => {
         // Mobile 375×667 → 667×375). When no preset height is set (Full or
         // Custom), rotation is inert and only width is returned.
         get effectiveWidth() {
+            const route = Alpine.store('ui').route;
+            const item = Alpine.store('components').find(route.type, route.slug);
+            if (item?.responsive === false) return null;
+
             if (Alpine.store('ui').previewRotated && this.logicalPresetHeight !== null) {
                 return this.logicalPresetHeight;
             }

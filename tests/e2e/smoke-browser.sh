@@ -146,6 +146,17 @@ sleep 0.3
 width=$(ab_run "JSON.stringify({w: window.Alpine.store('ui').previewWidth})")
 assert_eq "Tablet preset sets width to 768px" "$(printf '%s' "$width" | jq -r .w)" "768px"
 
+# --- 3b. responsive:false pins the preview to full width (issue #34) ---
+# A `responsive: false` entry hides the viewport toolbar AND must pin the preview
+# to full width — otherwise a non-Full width persisted in sg-preview-width (Tablet
+# 768px, still active from section 3) strands the iframe at that device size with
+# no toolbar to reset it. Navigating to the responsive:false fixture doc must
+# collapse the preview component's effectiveWidth back to Full (null).
+agent-browser eval "window.sgNavigate('/styleguide/doc/sample-doc')" >/dev/null
+sleep 0.4
+ew=$(ab_run "JSON.stringify({ew: window.Alpine.\$data(document.querySelector('[x-data=\"preview\"]')).effectiveWidth})")
+assert_eq "responsive:false doc pins effectiveWidth to Full (null)" "$(printf '%s' "$ew" | jq -r .ew)" "null"
+
 # --- 4. Search (Cmd+K) ---
 agent-browser eval "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))" >/dev/null
 sleep 0.1
