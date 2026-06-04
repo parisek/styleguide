@@ -174,7 +174,7 @@ assert_eq "responsive:false doc pins effectiveWidth to Full (null)" "$(printf '%
 # Asserts the rendered DOM (the #36 lesson: never verify via method calls only).
 tree=$(ab_run "JSON.stringify({
   group: [...document.querySelectorAll('button')].some(b => b.textContent.trim().startsWith('Widget')),
-  childSuffix: [...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'one'),
+  childSuffix: [...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'One'),
   childFullAbsent: ![...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'Widget - one'),
   flatSingleton: [...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'Gizmo'),
 })")

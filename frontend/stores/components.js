@@ -70,7 +70,10 @@ document.addEventListener('alpine:init', () => {
                     const children = b.items
                         .map((it) => {
                             const name = it.name ?? it.id;
-                            return { ...it, leaf: name.slice(name.indexOf(' - ') + 3) };
+                            const suffix = name.slice(name.indexOf(' - ') + 3);
+                            // Capitalise the first letter only (not each word):
+                            // "image" -> "Image", "promo branch" -> "Promo branch".
+                            return { ...it, leaf: suffix.charAt(0).toUpperCase() + suffix.slice(1) };
                         })
                         .sort((a, c) => a.leaf.localeCompare(c.leaf, 'cs'));
                     nodes.push({ type: 'group', label: b.prefix, sortKey: b.prefix, children });

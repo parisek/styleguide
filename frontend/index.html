@@ -161,7 +161,7 @@
                                         <a href="#" @click.prevent="select('component', node.item.id)"
                                            class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
                                            :class="isActive('component', node.item.id) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
-                                            <span class="w-1.5 h-1.5 rounded-full" :class="isActive('component', node.item.id) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
+                                            <span class="w-3 flex justify-center shrink-0"><span class="w-1.5 h-1.5 rounded-full" :class="isActive('component', node.item.id) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span></span>
                                             <span x-text="node.item.name ?? node.item.id"></span>
                                         </a>
                                     </template>
