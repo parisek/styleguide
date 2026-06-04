@@ -89,6 +89,7 @@ These are public PHP visibility for autoload / framework reasons, but **not** pa
 | `ComponentParser` (other methods) | Wrapped by JSON API endpoints; consumer access is through the API, not direct PHP |
 | `Api\ComponentsEndpoint` | Same — consumed via HTTP |
 | `Api\PagesEndpoint` | Same |
+| `Api\DocsEndpoint` | Same |
 | `Api\FieldsEndpoint` | Same |
 
 Refactor of internal classes (rename, split, merge, change method signatures) is free in any minor release. Consumers depending on internal classes do so at their own risk.
@@ -113,7 +114,7 @@ Adding new optional top-level keys or new optional sub-keys is **non-breaking**.
 
 ### Component YAML metadata (front comment in `<id>.twig`)
 
-The first `{# … #}` comment in each component / page Twig template is parsed as YAML.
+The first `{# … #}` comment in each component / page / doc Twig template is parsed as YAML.
 
 | Key | Required | Type | Default | Purpose |
 |---|---|---|---|---|
@@ -126,6 +127,7 @@ The first `{# … #}` comment in each component / page Twig template is parsed a
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
 | `styleguide` | no | flag (presence-only) | absent | Forces a separate `styleguide.twig` demo file |
+| `responsive` | no | `bool` | `true` | When `false`, the SPA hides the responsive-width toolbar for this entry (use for docs or fixed-layout demos where resizing has no meaning) |
 
 Adding new optional keys: **non-breaking**. Changing the default of `render`, or the canonical list of `render` values: **breaking** (consumers may rely on the current set).
 
@@ -133,7 +135,13 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
 
 - `<id>.twig` at `<templates_path>/component/<id>/<id>.twig` — REQUIRED. The component itself.
 - `<id>/styleguide.twig` — OPTIONAL. If present, the styleguide preview renders THIS file (instead of `<id>.twig`). Used for "demo" variants with prepared context data.
-- The `@component`, `@page`, `@macro`, `@icons`, `@images`, `@static` Twig namespaces are auto-registered when the matching directory exists under `templates_path`.
+- The `@component`, `@page`, `@doc`, `@macro`, `@icons`, `@images`, `@static` Twig namespaces are auto-registered when the matching directory exists under `templates_path`.
+
+### Doc Twig file conventions — `@api`
+
+- `<id>.twig` at `<templates_path>/doc/<id>/<id>.twig` — REQUIRED. The doc page itself.
+- `<id>/styleguide.twig` — OPTIONAL. If present, the render endpoint serves THIS file instead of `<id>.twig` (same fallback pattern as components/pages).
+- `templates_path/doc/` missing → `/api/docs` returns `[]`; the DOKUMENTACE sidebar group still appears (foundations + overview items remain). No error.
 
 ## Twig functions & filters — `@api`
 
@@ -143,6 +151,7 @@ The package registers these on its pristine Twig env (or layers them on top of a
 |---|---|---|
 | `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/` |
 | `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig` |
+| `doc_<name>(content = {})` | function | Same but for `@doc/<name>/<name>.twig` |
 | `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
@@ -184,6 +193,10 @@ Field order is **not** part of the contract. Adding new fields is non-breaking. 
 
 Same shape as `/api/components` but reads from `templates_path/page/` and the `hasStyleguide` field is interpreted accordingly. Pages may carry a `usage:` value indicating which components they use.
 
+### `GET /styleguide/api/docs`
+
+Same shape as `/api/pages` but reads from `templates_path/doc/`. Renders as a doc kind in the iframe (prefer `styleguide.twig`, fallback `<id>.twig`). If `templates_path/doc/` does not exist the response is `[]` — no error.
+
 ### `GET /styleguide/api/fields`
 
 Flat list of every component / page that exposes a `fields:` map. Object shape:
@@ -204,10 +217,13 @@ Flat list of every component / page that exposes a `fields:` map. Object shape:
 | `/styleguide/` | SPA landing (= Overview) |
 | `/styleguide/component/<slug>` | SPA — component detail with iframe |
 | `/styleguide/page/<slug>` | SPA — page detail |
+| `/styleguide/doc/<slug>` | SPA — doc detail (DOKUMENTACE group) |
 | `/styleguide/foundations` | SPA — foundations (logo/colors/typography) |
 | `/styleguide/fields` | SPA — fields inspector |
 | `/styleguide/overview` | SPA — Components & Pages catalog |
-| `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page in isolation (no SPA chrome) |
+| `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations` |
+| `/styleguide/render/doc/<slug>` | Render endpoint — bare iframe HTML for a doc entry |
+| `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |
 
@@ -221,8 +237,8 @@ The `Sec-Fetch-Dest: iframe` request header on `/styleguide/{component,page,foun
 
 | Command | Purpose |
 |---|---|
-| `list [--type=component\|page] [--templates=<path>] [--pretty]` | List all components / pages as JSON. Shape matches `/api/components` / `/api/pages`. |
-| `show <id> [--type=component\|page] [--templates=<path>] [--pretty]` | Same but for a single id. |
+| `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
+| `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
 | `--help` / `-h` | Usage |
 
 Env: `STYLEGUIDE_TEMPLATES` overrides the default templates directory.
