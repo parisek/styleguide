@@ -66,6 +66,7 @@ final class RouterTest extends TestCase
         self::assertSame(['type' => 'api', 'endpoint' => 'components'], Router::parse('/styleguide/api/components'));
         self::assertSame(['type' => 'api', 'endpoint' => 'pages'], Router::parse('/styleguide/api/pages'));
         self::assertSame(['type' => 'api', 'endpoint' => 'fields'], Router::parse('/styleguide/api/fields'));
+        self::assertSame(['type' => 'api', 'endpoint' => 'docs'], Router::parse('/styleguide/api/docs'));
     }
 
     #[Test]

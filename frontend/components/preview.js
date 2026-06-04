@@ -178,7 +178,7 @@ document.addEventListener('alpine:init', () => {
             if (route.type === 'component' || route.type === 'page') {
                 this._fitIframeToContent(event.target);
             } else {
-                // Foundations / other routes use a fixed h-full layout and
+                // Foundations / doc / other routes use a fixed h-full layout and
                 // don't want auto-fit. Disconnect any previous observer and
                 // null out the explicit height so the CSS class wins.
                 this.iframeContentHeight = null;
@@ -448,6 +448,7 @@ document.addEventListener('alpine:init', () => {
             if (!route.slug) return null;
             const components = Alpine.store('components');
             if (route.type === 'page') return 'pages';
+            if (route.type === 'doc') return null;
             const item = components.find(route.type, route.slug);
             if (!item) return null;
             return components.sectionOf(item, route.type);
