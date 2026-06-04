@@ -46,6 +46,44 @@ document.addEventListener('alpine:init', () => {
             return this.items.filter((c) => this.sectionOf(c) === section && c.hasStyleguide !== false);
         },
 
+        // Group a section's components into a prefix tree (spec #38). A display
+        // name shaped "<Prefix> - <Suffix>" joins a bucket keyed by <Prefix>; a
+        // bucket with >= GROUP_MIN members becomes a collapsible `group` node
+        // (each child carries `leaf` = the suffix), otherwise its members spill
+        // back to flat `item` nodes carrying the full name. Names without " - "
+        // are always flat. Pure derivation from `name`, computed at render time
+        // (no metadata). Ordered by label/name; children ordered by suffix (cs).
+        treeOf(section) {
+            const GROUP_MIN = 3;
+            const buckets = new Map();
+            for (const it of this.bySection(section)) {
+                const name = it.name ?? it.id;
+                const sep = name.indexOf(' - ');
+                const prefix = sep > 0 ? name.slice(0, sep) : null;
+                const key = prefix ?? ` ${it.id}`;
+                if (!buckets.has(key)) buckets.set(key, { prefix, items: [] });
+                buckets.get(key).items.push(it);
+            }
+            const nodes = [];
+            for (const b of buckets.values()) {
+                if (b.prefix && b.items.length >= GROUP_MIN) {
+                    const children = b.items
+                        .map((it) => {
+                            const name = it.name ?? it.id;
+                            const suffix = name.slice(name.indexOf(' - ') + 3);
+                            // Capitalise the first letter only (not each word):
+                            // "image" -> "Image", "promo branch" -> "Promo branch".
+                            return { ...it, leaf: suffix.charAt(0).toUpperCase() + suffix.slice(1) };
+                        })
+                        .sort((a, c) => a.leaf.localeCompare(c.leaf, 'cs'));
+                    nodes.push({ type: 'group', label: b.prefix, sortKey: b.prefix, children });
+                } else {
+                    for (const it of b.items) nodes.push({ type: 'item', item: it, sortKey: it.name ?? it.id });
+                }
+            }
+            return nodes.sort((a, c) => a.sortKey.localeCompare(c.sortKey, 'cs'));
+        },
+
         // Docs are served in API order (server sorts by weight + cs collation).
         // Do NOT re-sort or filter by hasStyleguide — docs have a flat list with
         // no section bucketing; the server's order is intentional.

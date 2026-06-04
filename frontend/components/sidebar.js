@@ -14,6 +14,23 @@ document.addEventListener('alpine:init', () => {
             this.sections[key] = !this.sections[key];
         },
 
+        // Per-group collapse state, keyed "<section>/<prefix>", persisted like
+        // sg-sections. Default open (spec #38); the active item's group is
+        // always expanded so a deep link stays visible.
+        groups: Alpine.$persist({}).as('sg-groups'),
+
+        groupKey(section, prefix) {
+            return `${section}/${prefix}`;
+        },
+        isGroupOpen(section, prefix, children) {
+            if (children.some((c) => this.isActive('component', c.id))) return true;
+            return this.groups[this.groupKey(section, prefix)] ?? true;
+        },
+        toggleGroup(section, prefix) {
+            const key = this.groupKey(section, prefix);
+            this.groups[key] = !(this.groups[key] ?? true);
+        },
+
         isActive(type, slug) {
             const route = Alpine.store('ui').route;
             return route.type === type && route.slug === slug;
