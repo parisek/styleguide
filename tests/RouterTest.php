@@ -184,4 +184,25 @@ final class RouterTest extends TestCase
             );
         }
     }
+
+    #[Test]
+    public function parses_doc_deep_link(): void
+    {
+        self::assertSame(
+            ['type' => 'doc', 'slug' => 'changelog'],
+            Router::parse('/styleguide/doc/changelog'),
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_swaps_doc_route_for_render(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'doc', 'slug' => 'changelog'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'doc', 'slug' => 'changelog'],
+                'iframe',
+            ),
+        );
+    }
 }
