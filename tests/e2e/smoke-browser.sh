@@ -167,6 +167,28 @@ sleep 0.4
 ew=$(ab_run "JSON.stringify({ew: window.Alpine.\$data(document.querySelector('[x-data=\"preview\"]')).effectiveWidth})")
 assert_eq "responsive:false doc pins effectiveWidth to Full (null)" "$(printf '%s' "$ew" | jq -r .ew)" "null"
 
+# --- 3c. sidebar prefix tree (issue #38) ---
+# A >=3-prefix cluster (Widget - one/two/three fixtures) must render as a
+# collapsible group whose children show SUFFIX-ONLY labels; a no-dash singleton
+# (Gizmo) stays flat with its full name; a search query flattens to full names.
+# Asserts the rendered DOM (the #36 lesson: never verify via method calls only).
+tree=$(ab_run "JSON.stringify({
+  group: [...document.querySelectorAll('button')].some(b => b.textContent.trim().startsWith('Widget')),
+  childSuffix: [...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'one'),
+  childFullAbsent: ![...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'Widget - one'),
+  flatSingleton: [...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'Gizmo'),
+})")
+assert_eq "prefix group renders for >=3 cluster"     "$(printf '%s' "$tree" | jq -r .group)" "true"
+assert_eq "group child shows suffix-only label"      "$(printf '%s' "$tree" | jq -r .childSuffix)" "true"
+assert_eq "group child hides the full prefixed name" "$(printf '%s' "$tree" | jq -r .childFullAbsent)" "true"
+assert_eq "singleton stays flat with full name"      "$(printf '%s' "$tree" | jq -r .flatSingleton)" "true"
+
+agent-browser eval "window.Alpine.store('ui').searchQuery = 'widget'" >/dev/null
+sleep 0.3
+flat=$(ab_run "JSON.stringify({full: [...document.querySelectorAll('a span')].some(s => s.textContent.trim() === 'Widget - one')})")
+assert_eq "search flattens group to full names" "$(printf '%s' "$flat" | jq -r .full)" "true"
+agent-browser eval "window.Alpine.store('ui').searchQuery = ''" >/dev/null
+
 # --- 4. Search (Cmd+K) ---
 agent-browser eval "window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))" >/dev/null
 sleep 0.1
