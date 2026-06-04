@@ -140,6 +140,16 @@ ifr=$(ab_run "JSON.stringify({src: document.querySelector('iframe')?.src ?? null
 assert_eq "iframe src points at render endpoint" \
     "$(printf '%s' "$ifr" | jq -r .src)" "$BASE/styleguide/render/component/sample"
 
+# --- 3a. viewport toolbar RENDERS for responsive:true entries (issue #36) ---
+# Regression guard: the toolbar's <template x-if> must actually render its
+# controls in the DOM for a responsive:true component (sample, the current
+# route). The suite previously only called setPreset() as a method, so a
+# completely missing toolbar — regressed in 0.4.0 by a find() call inside the
+# x-if gate — passed unnoticed. The px readout's x-text is unique to the
+# viewport controls, so its presence proves the toolbar rendered.
+tb=$(ab_run "JSON.stringify({rendered: [...document.querySelectorAll('[x-text]')].some(e => /px/.test(e.getAttribute('x-text') || ''))})")
+assert_eq "viewport toolbar renders for responsive:true component" "$(printf '%s' "$tb" | jq -r .rendered)" "true"
+
 # --- 3. Width preset ---
 agent-browser eval "window.Alpine.\$data(document.querySelector('[x-data=\"preview\"]')).setPreset('tablet')" >/dev/null
 sleep 0.3
