@@ -20,7 +20,8 @@
         "canvas_mode_label": "Canvas",
         "rotate": "Rotate device (portrait ↔ landscape)",
         "orientation_portrait": "Portrait",
-        "orientation_landscape": "Landscape"
+        "orientation_landscape": "Landscape",
+        "reload": "Reload"
     },
     "preview": {
         "mobile": "Mobile (375 px)",
@@ -30,7 +31,7 @@
     },
     "search": {
         "placeholder": "Search…",
-        "shortcut_hint": "⌘K"
+        "shortcut_hint": "⌘ K"
     },
     "nav": {
         "styleguide": "Styleguide",

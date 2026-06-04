@@ -20,7 +20,8 @@
         "canvas_mode_label": "Canvas",
         "rotate": "Otočit zařízení (na šířku ↔ na výšku)",
         "orientation_portrait": "Na výšku",
-        "orientation_landscape": "Na šířku"
+        "orientation_landscape": "Na šířku",
+        "reload": "Znovu načíst"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

@@ -118,6 +118,11 @@ document.addEventListener('alpine:init', () => {
         // bar; tall pages extend the outer preview area (which is
         // overflow-auto) into a natural document flow.
         iframeContentHeight: null,
+        // Monotonically-increasing counter bumped by reloadPreview(). When
+        // non-zero it is appended as `_r=<n>` to iframeSrc so the browser
+        // treats the URL as a new document and reloads the iframe. Zero on
+        // initial load so normal URLs stay clean (no spurious `?_r=0`).
+        _reloadNonce: 0,
         // Cached output of flattenFieldsTree() for the current route. Filled
         // by an Alpine.effect in init() that re-runs only when route/components
         // change, so the DFS happens once per navigation rather than on every
@@ -472,12 +477,29 @@ document.addEventListener('alpine:init', () => {
             // env as components / pages, just against the shared yaml context
             // instead of one specific component). Fields used to do the same
             // but is now a per-component SPA drawer — no top-level page.
+            let src;
             if (route.type === 'foundations') {
-                return `/styleguide/render/${route.type}/index`;
+                src = `/styleguide/render/${route.type}/index`;
+            } else if (!route.slug || (route.type !== 'component' && route.type !== 'page' && route.type !== 'doc')) {
+                return null;
+            } else {
+                src = `/styleguide/render/${route.type}/${route.slug}`;
             }
-            if (!route.slug) return null;
-            if (route.type !== 'component' && route.type !== 'page' && route.type !== 'doc') return null;
-            return `/styleguide/render/${route.type}/${route.slug}`;
+            // Append reload nonce when non-zero so bumping it forces the
+            // browser to treat the URL as a new document. Zero on initial
+            // load to keep clean URLs without a spurious `?_r=0` suffix.
+            if (this._reloadNonce) {
+                src += (src.includes('?') ? '&' : '?') + `_r=${this._reloadNonce}`;
+            }
+            return src;
+        },
+
+        // Re-fetches the component/page catalogue from the API and forces the
+        // preview iframe to reload by bumping the nonce in iframeSrc. Called
+        // by the toolbar reload button.
+        reloadPreview() {
+            Alpine.store('components').init();
+            this._reloadNonce++;
         },
 
         get currentItemFieldsTree() {
