@@ -1033,8 +1033,9 @@ final class Styleguide
     {
         $endpoint = match ($route['endpoint']) {
             'components' => new Api\ComponentsEndpoint($this->parser),
-            'pages' => new Api\PagesEndpoint($this->parser),
+            'docs' => new Api\DocsEndpoint($this->parser),
             'fields' => new Api\FieldsEndpoint($this->parser),
+            'pages' => new Api\PagesEndpoint($this->parser),
             default => null,
         };
 
