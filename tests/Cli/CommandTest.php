@@ -121,6 +121,23 @@ final class CommandTest extends TestCase
     }
 
     #[Test]
+    public function list_with_type_doc_returns_docs(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'list',
+            '--type=doc',
+            '--templates=' . $this->fixtures,
+        ]);
+
+        self::assertSame(0, $exit, "stderr: $stderr");
+        $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($decoded);
+        self::assertCount(1, $decoded);
+        self::assertSame('sample-doc', $decoded[0]['id']);
+        self::assertSame('Sample Doc', $decoded[0]['name']);
+    }
+
+    #[Test]
     public function show_with_type_page_returns_single_page(): void
     {
         [$exit, $stdout, $stderr] = $this->runCli([

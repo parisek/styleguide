@@ -151,7 +151,6 @@ The package registers these on its pristine Twig env (or layers them on top of a
 |---|---|---|
 | `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/` |
 | `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig` |
-| `doc_<name>(content = {})` | function | Same but for `@doc/<name>/<name>.twig` |
 | `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
@@ -199,7 +198,7 @@ Same shape as `/api/pages` but reads from `templates_path/doc/`. Renders as a do
 
 ### `GET /styleguide/api/fields`
 
-Flat list of every component / page that exposes a `fields:` map. Object shape:
+Flat list of every component / page that exposes a `fields:` map. Only components are aggregated — pages and docs are not included in `/api/fields`. Object shape:
 
 ```ts
 {
@@ -222,7 +221,6 @@ Flat list of every component / page that exposes a `fields:` map. Object shape:
 | `/styleguide/fields` | SPA — fields inspector |
 | `/styleguide/overview` | SPA — Components & Pages catalog |
 | `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations` |
-| `/styleguide/render/doc/<slug>` | Render endpoint — bare iframe HTML for a doc entry |
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |

@@ -336,7 +336,7 @@ When the package builds its own Twig environment (or attaches loaders to a proje
 | `@project` | `templates_path` | Renderer template lookup. Always registered. |
 | `@component` | `templates_path/component` | Resolves `{% include '@component/<name>/<name>.twig' %}` and powers the `component_*()` helper. |
 | `@page` | `templates_path/page` | Sibling of `@component`; powers `page_*()`. |
-| `@doc` | `templates_path/doc` | Sibling of `@page`; powers `doc_*()`. Auto-registered only when `templates_path/doc/` exists. |
+| `@doc` | `templates_path/doc` | Sibling of `@page`. Resolves `{% include '@doc/<name>/<name>.twig' %}` in doc templates; auto-registered only when `templates_path/doc/` exists. |
 | `@macro` | `templates_path/macro` | Shared Twig macros. |
 | `@static` | `templates_path` | Fallback namespace for templates that live directly under the templates root. |
 | `@icons` | `static_path/images/icons` | Inline SVG icons referenced as `@icons/<file>.svg`. |
