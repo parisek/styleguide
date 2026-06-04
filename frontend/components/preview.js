@@ -475,7 +475,7 @@ document.addEventListener('alpine:init', () => {
                 return `/styleguide/render/${route.type}/index`;
             }
             if (!route.slug) return null;
-            if (route.type !== 'component' && route.type !== 'page') return null;
+            if (route.type !== 'component' && route.type !== 'page' && route.type !== 'doc') return null;
             return `/styleguide/render/${route.type}/${route.slug}`;
         },
 
