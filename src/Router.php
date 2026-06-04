@@ -64,9 +64,8 @@ final class Router
             return ['type' => 'api', 'endpoint' => $parts[1]];
         }
 
-        // /styleguide/component/<slug>
-        // /styleguide/page/<slug>
-        if (in_array($parts[0], ['component', 'page'], true) && isset($parts[1])) {
+        // /styleguide/component/<slug>, /styleguide/page/<slug>, /styleguide/doc/<slug>
+        if (in_array($parts[0], ['component', 'page', 'doc'], true) && isset($parts[1])) {
             return ['type' => $parts[0], 'slug' => $parts[1]];
         }
 
@@ -108,7 +107,7 @@ final class Router
         if ($secFetchDest !== 'iframe') {
             return $route;
         }
-        if (!in_array($route['type'] ?? null, ['component', 'page', 'foundations'], true)) {
+        if (!in_array($route['type'] ?? null, ['component', 'page', 'doc', 'foundations'], true)) {
             return $route;
         }
         return [

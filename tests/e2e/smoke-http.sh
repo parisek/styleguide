@@ -154,11 +154,18 @@ assert_status        "/styleguide/render/page/landing"     "200" "render page"
 
 assert_status        "/styleguide/render/component/does-not-exist" "404" "render unknown → 404"
 
-# API endpoints (fixture ships 2 components + 1 page)
+# API endpoints (fixture ships 2 components + 1 page + 1 doc)
 assert_header        "/styleguide/api/components"  "content-type" "application/json" "components api content-type"
 assert_json_array_min "/styleguide/api/components" 2 "components api count"
 assert_json_array_min "/styleguide/api/pages"      1 "pages api count"
+assert_json_array_min "/styleguide/api/docs"       1 "docs api count"
+assert_body_contains  "/styleguide/api/docs"       "sample-doc" "docs api lists sample-doc"
 assert_status        "/styleguide/api/fields"     "200" "fields api"
+
+# Doc render endpoint
+assert_status        "/styleguide/doc/sample-doc"  "200" "deep link to doc returns SPA"
+assert_status        "/styleguide/render/doc/sample-doc" "200" "render doc"
+assert_body_contains  "/styleguide/render/doc/sample-doc" "Fixture body." "render doc emits fixture body"
 
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).

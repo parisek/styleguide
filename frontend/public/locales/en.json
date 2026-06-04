@@ -34,6 +34,7 @@
     },
     "nav": {
         "styleguide": "Styleguide",
+        "docs": "Documentation",
         "overview": "Overview",
         "foundations": "Foundations",
         "fields": "Fields",

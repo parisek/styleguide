@@ -14,7 +14,7 @@ use Parisek\Styleguide\ComponentParser;
  */
 final class Command
 {
-    private const ALLOWED_TYPES = ['component', 'page'];
+    private const ALLOWED_TYPES = ['component', 'page', 'doc'];
 
     /**
      * @param array<int,string> $argv  Arguments excluding program name.
@@ -38,7 +38,7 @@ final class Command
 
         $rawType = $flags['type'] ?? 'component';
         if (!is_string($rawType) || !in_array($rawType, self::ALLOWED_TYPES, true)) {
-            fwrite($stderr, "Invalid --type. Allowed: component, page.\n");
+            fwrite($stderr, "Invalid --type. Allowed: component, page, doc.\n");
             return 1;
         }
         $type = $rawType;
@@ -83,11 +83,11 @@ final class Command
         Usage: styleguide <command> [options]
 
         Commands:
-          list                List all components (or pages with --type=page) as JSON.
-          show <id>           Show full metadata for a single component or page.
+          list                List all components (or pages/docs with --type=page|doc) as JSON.
+          show <id>           Show full metadata for a single component, page, or doc.
 
         Options:
-          --type=component|page  Select the catalogue type (default: component).
+          --type=component|page|doc  Select the catalogue type (default: component).
           --templates=<path>     Override the templates/ directory location.
                                  Default: \$STYLEGUIDE_TEMPLATES, then ./templates.
           --pretty               Indent JSON output (use for terminals).

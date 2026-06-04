@@ -229,6 +229,31 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function renders_doc_body(): void
+    {
+        $html = $this->renderer->render('doc', 'sample-doc', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+        ], 'en');
+
+        self::assertStringContainsString('Fixture body.', $html);
+    }
+
+    #[Test]
+    public function missing_doc_is_404(): void
+    {
+        $html = $this->renderer->render('doc', 'nonexistent', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertSame(404, http_response_code());
+        self::assertStringContainsString('404', $html);
+        self::assertStringContainsString('doc/nonexistent', $html);
+        http_response_code(200);
+    }
+
+    #[Test]
     public function normalise_stylesheets_coerces_string_array_and_empty(): void
     {
         // single string → list of one

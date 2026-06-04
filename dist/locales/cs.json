@@ -34,6 +34,7 @@
     },
     "nav": {
         "styleguide": "Styleguide",
+        "docs": "Dokumentace",
         "overview": "Přehled",
         "foundations": "Základy",
         "fields": "Pole",

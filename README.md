@@ -14,9 +14,10 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 |---|---|
 | **SPA chrome** | Alpine.js 3 + Tailwind v4 sidebar with collapsible sections, search (`⌘K` / `Ctrl+K`), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
+| **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
 | **Cross-references** | Chip panel above each preview: components list "Used in: …", pages list "Components used: …", click to navigate. Driven by per-template `usage:` YAML metadata. |
-| **REST endpoints** | `/styleguide/api/components`, `/api/pages`, `/api/fields` return JSON for consumers (the SPA itself, plus any external tooling). |
+| **REST endpoints** | `/styleguide/api/components`, `/api/pages`, `/api/docs`, `/api/fields` return JSON for consumers (the SPA itself, plus any external tooling). |
 | **Open in new tab** | Each render can be opened standalone — the iframe template auto-reveals a "← back to styleguide" navbar only when it detects it's NOT inside an iframe. |
 | **Asset serving** | `AssetServer` serves the bundled SPA + locale files from `vendor/parisek/styleguide/dist/` with path-traversal guard, ETag, and immutable cache headers for hashed filenames. |
 
@@ -194,12 +195,14 @@ labels:                                    # i18n labels shown on overview cards
 | `/styleguide/` | SPA HTML | Landing (auto-routes to overview) |
 | `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view |
 | `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide |
+| `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group) |
 | `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
 | `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
 | `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
-| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted) to stamp `class="dark"` on the iframe `<html>` for consumers that opt into Tailwind dark mode. |
+| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted) to stamp `class="dark"` on the iframe `<html>` for consumers that opt into Tailwind dark mode. |
 | `/styleguide/api/components` | JSON | List of components — see [API](#api) below |
 | `/styleguide/api/pages` | JSON | List of pages — same shape as components |
+| `/styleguide/api/docs` | JSON | List of doc entries — same shape as pages; `[]` when `templates/doc/` is absent |
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
 
@@ -207,9 +210,9 @@ labels:                                    # i18n labels shown on overview cards
 
 ## API
 
-Three read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
+Four read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
 
-The SPA consumes all three (`frontend/stores/components.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
+The SPA consumes all four (`frontend/stores/components.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
 
 ### `GET /styleguide/api/components`
 
@@ -251,6 +254,12 @@ Flat list of every component template under `templates/component/**/<id>.twig` w
 Same shape as `/api/components`, scanned from `templates/page/**/<id>.twig` instead. Use this when your project renders entire page templates through Twig (Drupal `page--*.html.twig`, WordPress Timber `page-*.twig`) and you want them to appear in the styleguide alongside components.
 
 If `templates/page/` doesn't exist, response is `[]`. No error.
+
+### `GET /styleguide/api/docs`
+
+Same shape as `/api/pages`, scanned from `templates/doc/**/<id>.twig`. Entries appear in the sidebar's DOKUMENTACE group and render inside the iframe like pages (prefer `styleguide.twig` sibling, fallback `<id>.twig`).
+
+If `templates/doc/` doesn't exist, response is `[]` — the DOKUMENTACE sidebar group still renders its foundations + overview entries. No error.
 
 ### `GET /styleguide/api/fields`
 
@@ -300,8 +309,10 @@ After install, `vendor/bin/styleguide` exposes the component catalogue without n
 vendor/bin/styleguide list                       # all components (compact JSON)
 vendor/bin/styleguide list --pretty              # indented for terminals
 vendor/bin/styleguide list --type=page           # pages instead of components
+vendor/bin/styleguide list --type=doc            # doc entries
 vendor/bin/styleguide show button                # one component, full detail
 vendor/bin/styleguide show landing --type=page   # one page
+vendor/bin/styleguide show intro --type=doc      # one doc entry
 ```
 
 The CLI wraps `ComponentParser` — it returns the same normalised records as `GET /styleguide/api/components`, but without a running webserver. Run it from the consumer's repo root, or set `STYLEGUIDE_TEMPLATES=<path>` / pass `--templates=<path>` to override the templates directory location.
@@ -325,6 +336,7 @@ When the package builds its own Twig environment (or attaches loaders to a proje
 | `@project` | `templates_path` | Renderer template lookup. Always registered. |
 | `@component` | `templates_path/component` | Resolves `{% include '@component/<name>/<name>.twig' %}` and powers the `component_*()` helper. |
 | `@page` | `templates_path/page` | Sibling of `@component`; powers `page_*()`. |
+| `@doc` | `templates_path/doc` | Sibling of `@page`. Resolves `{% include '@doc/<name>/<name>.twig' %}` in doc templates; auto-registered only when `templates_path/doc/` exists. |
 | `@macro` | `templates_path/macro` | Shared Twig macros. |
 | `@static` | `templates_path` | Fallback namespace for templates that live directly under the templates root. |
 | `@icons` | `static_path/images/icons` | Inline SVG icons referenced as `@icons/<file>.svg`. |
@@ -366,6 +378,7 @@ fields:
 | `web` | external link chip — generic external URL |
 | `render` | iframe-wrapper rendering mode for components — see *Component render modes* below |
 | `styleguide` | optional flag — when set (or when a sibling `styleguide.twig` exists), the component exposes a separate styleguide-only render variant |
+| `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 

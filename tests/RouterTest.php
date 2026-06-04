@@ -66,6 +66,7 @@ final class RouterTest extends TestCase
         self::assertSame(['type' => 'api', 'endpoint' => 'components'], Router::parse('/styleguide/api/components'));
         self::assertSame(['type' => 'api', 'endpoint' => 'pages'], Router::parse('/styleguide/api/pages'));
         self::assertSame(['type' => 'api', 'endpoint' => 'fields'], Router::parse('/styleguide/api/fields'));
+        self::assertSame(['type' => 'api', 'endpoint' => 'docs'], Router::parse('/styleguide/api/docs'));
     }
 
     #[Test]
@@ -183,5 +184,26 @@ final class RouterTest extends TestCase
                 'Route type ' . $route['type'] . ' must pass through',
             );
         }
+    }
+
+    #[Test]
+    public function parses_doc_deep_link(): void
+    {
+        self::assertSame(
+            ['type' => 'doc', 'slug' => 'changelog'],
+            Router::parse('/styleguide/doc/changelog'),
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_swaps_doc_route_for_render(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'doc', 'slug' => 'changelog'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'doc', 'slug' => 'changelog'],
+                'iframe',
+            ),
+        );
     }
 }

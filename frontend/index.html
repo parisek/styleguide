@@ -97,24 +97,35 @@
 
             <!-- Sections + items (scroll) -->
             <nav class="flex-1 overflow-y-auto p-3 space-y-2">
-                <!-- Pinned sectionless routes. Foundations sits ABOVE Overview
-                     because it's the styleguide's default landing — design
-                     tokens (colors, typography, logo) are the natural first
-                     view when someone opens the styleguide. The Overview
-                     index of every component / page is the secondary, more
-                     detailed view. -->
-                <a href="#" @click.prevent="select('foundations', null)"
-                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
-                   :class="isActive('foundations', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
-                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('foundations', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
-                    <span x-text="$store.i18n.t('nav.foundations')"></span>
-                </a>
-                <a href="#" @click.prevent="select('overview', null)"
-                   class="flex items-center gap-2 px-2 py-1.5 text-sm rounded"
-                   :class="isActive('overview', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
-                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
-                    <span x-text="$store.i18n.t('nav.overview')"></span>
-                </a>
+                <!-- DOKUMENTACE — package meta-views (foundations, overview) pinned
+                     first, then consumer doc entries (server-sorted by weight). -->
+                <div>
+                    <button @click="toggleSection('docs')" class="w-full flex items-center px-2 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                        <span x-text="$store.i18n.t('nav.docs')"></span>
+                    </button>
+                    <ul x-show="sections['docs'] || $store.ui.searchQuery" class="mt-1 space-y-0.5">
+                        <li>
+                            <a href="#" @click.prevent="select('foundations', null)" class="flex items-center gap-2 px-2 py-1.5 text-sm rounded" :class="isActive('foundations', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="isActive('foundations', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
+                                <span x-text="$store.i18n.t('nav.foundations')"></span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" @click.prevent="select('overview', null)" class="flex items-center gap-2 px-2 py-1.5 text-sm rounded" :class="isActive('overview', null) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-700 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="isActive('overview', null) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
+                                <span x-text="$store.i18n.t('nav.overview')"></span>
+                            </a>
+                        </li>
+                        <template x-for="item in filterItems($store.components.docEntries)" :key="item.id">
+                            <li>
+                                <a href="#" @click.prevent="select('doc', item.id)" class="flex items-center gap-2 px-2 py-1.5 text-sm rounded" :class="isActive('doc', item.id) ? 'bg-zinc-900/10 text-zinc-900 dark:bg-white/10 dark:text-white font-medium' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="isActive('doc', item.id) ? 'bg-zinc-900 dark:bg-white' : 'bg-zinc-400 dark:bg-zinc-600'"></span>
+                                    <span x-text="item.name"></span>
+                                </a>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
 
                 <template x-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
                     <!-- Hide entire section when search yields zero matches so the
@@ -226,7 +237,7 @@
                     <template x-if="$store.ui.route.slug">
                         <div class="flex items-center gap-2 min-w-0">
                             <span class="text-[10px] uppercase tracking-wider font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 px-2 py-0.5 rounded shrink-0"
-                                  x-text="$store.ui.route.type === 'page' ? $store.i18n.t('toolbar.type_page') : $store.i18n.t('toolbar.type_component')"></span>
+                                  x-text="$store.ui.route.type === 'page' ? $store.i18n.t('toolbar.type_page') : ($store.ui.route.type === 'doc' ? $store.i18n.t('nav.docs') : $store.i18n.t('toolbar.type_component'))"></span>
                             <!-- Breadcrumb: Section / Component name (slug). The section
                                  segment hides while the components API is still loading
                                  so the toolbar doesn't flash a translated label like
@@ -253,7 +264,7 @@
                      route where responsive testing doesn't make sense (foundations shows
                      palette / typography / project surface; locking it to 100% width
                      keeps the layout stable across reloads). -->
-                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview'">
+                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview' && $store.components.find($store.ui.route.type, $store.ui.route.slug)?.responsive !== false">
                     <div class="flex items-center gap-3 shrink-0">
                         <!-- Live readout — shows W × H px when a preset is active (so the
                              editor sees both dimensions at a glance), or just W px when

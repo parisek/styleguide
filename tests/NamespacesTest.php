@@ -149,6 +149,27 @@ final class NamespacesTest extends TestCase
     }
 
     #[Test]
+    public function registers_doc_namespace(): void
+    {
+        $twig = new Environment(new FilesystemLoader(), ['cache' => false]);
+
+        new Styleguide([
+            'templates_path' => $this->templatesPath,
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => $this->missingYaml,
+            'twig' => $twig,
+        ]);
+
+        /** @var FilesystemLoader $loader */
+        $loader = $twig->getLoader();
+        self::assertContains('doc', $loader->getNamespaces());
+        self::assertSame(
+            [$this->templatesPath . '/doc'],
+            $loader->getPaths('doc'),
+        );
+    }
+
+    #[Test]
     public function repeated_construction_does_not_duplicate_paths(): void
     {
         $twig = new Environment(new FilesystemLoader(), ['cache' => false]);

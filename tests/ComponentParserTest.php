@@ -131,4 +131,22 @@ final class ComponentParserTest extends TestCase
         self::assertNotNull($another);
         self::assertSame('inset', $another['render']);
     }
+
+    #[Test]
+    public function responsive_defaults_true(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $meta = $parser->parse('component', 'sample');
+        self::assertNotNull($meta);
+        self::assertTrue($meta['responsive']);
+    }
+
+    #[Test]
+    public function responsive_false_when_declared(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $meta = $parser->parse('doc', 'sample-doc');
+        self::assertNotNull($meta);
+        self::assertFalse($meta['responsive']);
+    }
 }
