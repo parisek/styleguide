@@ -186,6 +186,11 @@ final class ComponentParser
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
             'render' => self::normaliseRender($metadata['render'] ?? null),
+            // General SPA-chrome flag (component/page/doc). false → SPA hides
+            // the responsive width toolbar and pins the preview to full width.
+            // Default true; only an explicit YAML `false` opts out — strict
+            // !== false so strings, integers, or typos never disable it.
+            'responsive' => ($metadata['responsive'] ?? true) !== false,
             'hasStyleguide' => $hasStyleguide,
         ];
     }
