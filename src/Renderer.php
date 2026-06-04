@@ -47,7 +47,7 @@ final class Renderer
      */
     public function render(string $kind, string $slug, array $config, string $langcode = 'en'): string
     {
-        if (!in_array($kind, ['component', 'page', 'foundations'], true)) {
+        if (!in_array($kind, ['component', 'page', 'doc', 'foundations'], true)) {
             return $this->render404($kind, $slug, $config);
         }
 
@@ -128,7 +128,7 @@ final class Renderer
     private function renderBody(string $kind, string $slug, array $config): ?string
     {
         return match ($kind) {
-            'component', 'page' => $this->renderInner($kind, $slug),
+            'component', 'page', 'doc' => $this->renderInner($kind, $slug),
             'foundations' => $this->twig->render('foundations.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
             ] + $this->context),
