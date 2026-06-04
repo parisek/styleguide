@@ -498,6 +498,22 @@ document.addEventListener('alpine:init', () => {
             return src;
         },
 
+        // Whether the viewport-width toolbar should show for the current route.
+        // Kept as a getter rather than inlined in the `x-if`: calling the
+        // `$store.components.find(...)` store method WITH ARGUMENTS directly
+        // inside an Alpine template expression silently breaks the x-if render
+        // — the whole toolbar vanished for every responsive:true entry (#36),
+        // with no console error and a logically-true gate. A bare identifier in
+        // the template (`toolbarVisible`) evaluates trivially; the method call
+        // lives here in plain JS instead.
+        get toolbarVisible() {
+            const route = Alpine.store('ui').route;
+            return !!this.iframeSrc
+                && route.type !== 'foundations'
+                && route.type !== 'overview'
+                && Alpine.store('components').find(route.type, route.slug)?.responsive !== false;
+        },
+
         // Re-fetches the component/page catalogue from the API and forces the
         // preview iframe to reload by bumping the nonce in iframeSrc. Called
         // by the toolbar reload button.

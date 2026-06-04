@@ -268,7 +268,7 @@
                      route where responsive testing doesn't make sense (foundations shows
                      palette / typography / project surface; locking it to 100% width
                      keeps the layout stable across reloads). -->
-                <template x-if="iframeSrc && $store.ui.route.type !== 'foundations' && $store.ui.route.type !== 'overview' && $store.components.find($store.ui.route.type, $store.ui.route.slug)?.responsive !== false">
+                <template x-if="toolbarVisible">
                     <div class="flex items-center gap-3 shrink-0">
                         <!-- Live readout — shows W × H px when a preset is active (so the
                              editor sees both dimensions at a glance), or just W px when
