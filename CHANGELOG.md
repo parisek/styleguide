@@ -6,6 +6,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-04
+
 ### Added
 
 - **`doc` content kind** — a new first-class template kind alongside `component` and `page`. Doc templates live at `templates/doc/<name>/<name>.twig` (prefer `styleguide.twig` sibling, fallback `<name>.twig`). URL surface: `/styleguide/doc/<slug>` (SPA), `/styleguide/render/doc/<slug>` (bare iframe), `/styleguide/api/docs` (JSON list — same shape as `/api/pages`). The `@doc` Twig namespace is auto-registered when `templates/doc/` exists (doc templates reference `@doc` via `{% include %}` directly — there is no `doc_*()` helper). The kind is **optional**: absent `templates/doc/` → `/api/docs` returns `[]`, the DOKUMENTACE sidebar group still shows foundations + overview. New `Api\DocsEndpoint` class (`@internal`).
@@ -877,7 +879,8 @@ No behavioural change; suite remains 98 tests / 305 assertions.
 - `.gitattributes` `export-ignore` strips dev files from the Composer tarball.
 - CI: GitHub Actions runs PHPUnit on PHP 8.3 against every push + PR.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v0.3.14...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/parisek/styleguide/compare/v0.3.14...v0.4.0
 [0.3.14]: https://github.com/parisek/styleguide/compare/v0.3.13...v0.3.14
 [0.2.1]: https://github.com/parisek/styleguide/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/parisek/styleguide/compare/v0.1.3...v0.2.0
