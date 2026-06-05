@@ -155,6 +155,8 @@ The package registers these on its pristine Twig env (or layers them on top of a
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
 | `_x(text, context, domain)` | function | i18n shim — falls through to the project's `_x` if one is already registered |
+| `__(text, domain)` / `_n(single, plural, number, domain)` / `_nx(single, plural, number, context, domain)` | function | Same i18n shim family — fall through to the project's WP-compatible translators when present |
+| `_xt` / `__t` / `_nt` / `_nxt` | function | Typography-aware translation: same signatures as `_x` / `__` / `_n` / `_nx`, but the result is piped through `\|typography`. Opt-in is a one-character edit (`_x` → `_xt`) so long-form copy gets consistent typographic treatment without `\|typography` on every callsite. `is_safe: ['html']` |
 | `typography(text)` | filter | Czech-aware typographic post-processing (nbsp, dashes, etc.) — from `parisek/twig-typography` |
 | `create_attribute(map)` | function | HTML attribute builder — from `parisek/twig-attribute` |
 | `dump(...)` | function | `symfony/var-dumper` style debug output |
