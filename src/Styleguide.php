@@ -420,7 +420,7 @@ final class Styleguide
         };
         self::tryAddFunction($twig, new TwigFunction(
             '_xt',
-            static function (string $text, string $context = '', string $domain = 'default') use ($twig, $typography): string {
+            static function (string $text, string $context, string $domain = 'default') use ($twig, $typography): string {
                 return $typography(($twig->getFunction('_x')->getCallable())($text, $context, $domain));
             },
             ['is_safe' => ['html']],
@@ -434,14 +434,14 @@ final class Styleguide
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '_nt',
-            static function (string $single, string $plural, int $number = 1, string $domain = 'default') use ($twig, $typography): string {
+            static function (string $single, string $plural, int $number, string $domain = 'default') use ($twig, $typography): string {
                 return $typography(($twig->getFunction('_n')->getCallable())($single, $plural, $number, $domain));
             },
             ['is_safe' => ['html']],
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '_nxt',
-            static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default') use ($twig, $typography): string {
+            static function (string $single, string $plural, int $number, string $context, string $domain = 'default') use ($twig, $typography): string {
                 return $typography(($twig->getFunction('_nx')->getCallable())($single, $plural, $number, $context, $domain));
             },
             ['is_safe' => ['html']],
