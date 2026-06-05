@@ -9,6 +9,8 @@ use Parisek\Styleguide\Styleguide;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
+use Twig\Loader\ArrayLoader;
+use Twig\TwigFunction;
 
 final class BundledHelpersTest extends TestCase
 {
@@ -393,5 +395,72 @@ final class BundledHelpersTest extends TestCase
         );
 
         self::assertSame('2|960x720|480x360', $tpl->render());
+    }
+
+    #[Test]
+    public function registers_typography_translation_helpers(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        self::assertNotNull($twig->getFunction('_xt'));
+        self::assertNotNull($twig->getFunction('__t'));
+        self::assertNotNull($twig->getFunction('_nt'));
+        self::assertNotNull($twig->getFunction('_nxt'));
+    }
+
+    #[Test]
+    public function typography_translation_helpers_compose_translation_then_typography(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        // Use a string the typography filter demonstrably rewrites (curly
+        // apostrophe + em-dash). The guard below makes the order assertions
+        // non-tautological: if a `…t` alias forgot to apply |typography, its
+        // output would equal the raw translation and differ from the
+        // translate()|typography form — but only if typography is non-trivial
+        // for this input, which the guard asserts first.
+        $sample = "don't -- really";
+        self::assertNotSame(
+            $sample,
+            $twig->createTemplate('{{ s|typography }}')->render(['s' => $sample]),
+            'guard: |typography must transform the sample, else the order assertions are a no-op',
+        );
+
+        // Each `…t` alias must equal "run the matching translator, then pipe
+        // the result through |typography" — exactly, for every signature.
+        $tpl = $twig->createTemplate(
+            '{{ _xt(s, "ctx", "d") == (_x(s, "ctx", "d")|typography) ? "Y" : "N" }}'
+            . '{{ __t(s, "d") == (__(s, "d")|typography) ? "Y" : "N" }}'
+            . '{{ _nt(s, s, 2, "d") == (_n(s, s, 2, "d")|typography) ? "Y" : "N" }}'
+            . '{{ _nxt(s, s, 2, "ctx", "d") == (_nx(s, s, 2, "ctx", "d")|typography) ? "Y" : "N" }}',
+        );
+
+        self::assertSame('YYYY', $tpl->render(['s' => $sample]));
+    }
+
+    #[Test]
+    public function typography_translation_helpers_compose_over_the_project_translator(): void
+    {
+        // A consumer that pre-registers a real `_x` (e.g. WordPress) must win:
+        // `tryAddFunction` keeps the project's function, and `_xt` composes the
+        // bundled |typography filter on top of THAT translator's output.
+        $env = new Environment(new ArrayLoader());
+        $env->addFunction(new TwigFunction(
+            '_x',
+            static fn (string $text, string $context = '', string $domain = 'default'): string => 'REAL:' . $text,
+        ));
+
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+        $twig = self::twigOf($sg);
+
+        self::assertSame(
+            $twig->createTemplate('{{ "REAL:hi"|typography }}')->render(),
+            $twig->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render(),
+        );
     }
 }

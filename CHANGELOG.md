@@ -6,6 +6,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Typography-aware translation helpers `_xt` / `__t` / `_nt` / `_nxt`.** Same signatures as the `_x` / `__` / `_n` / `_nx` shims, but the translated result is piped through `|typography` — so long-form copy gets consistent typographic treatment without remembering `|typography` on every callsite (`_x` → `_xt` is a one-character opt-in). Each composes via `getFunction()/getFilter()->getCallable()` at call time, so the project's real translator (WP `_x()` etc.) and tuned typography settings win automatically; `is_safe: ['html']` mirrors the filter's contract. The WP-production (Timber) and Drupal sides are tracked in parisek/timber-kit#42 and `parisek/custom-components` respectively, keeping the four signatures identical across CMSes. (#21)
+
 ## [0.4.3] - 2026-06-04
 
 ### Added

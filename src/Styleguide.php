@@ -403,6 +403,50 @@ final class Styleguide
             },
         ));
 
+        // Typography-aware translation aliases (`…t` suffix = "translate +
+        // typography"). Each calls the matching translator and pipes the result
+        // through the bundled `|typography` filter, so long-form copy gets
+        // consistent typographic treatment without `|typography` on every
+        // callsite — opt-in is a one-character template edit (`_x` -> `_xt`).
+        // Resolved via `getFunction()/getFilter()->getCallable()` at call time
+        // so the project's real translator (WP `_x()` etc.) and project-tuned
+        // typography settings compose in automatically when present; the
+        // identity stubs above are the fallback otherwise. `is_safe: ['html']`
+        // mirrors the `|typography` filter's own contract (it emits markup),
+        // so the aliases don't double-escape. See parisek/styleguide#21.
+        $typography = static function (string $value) use ($twig): string {
+            $filter = $twig->getFilter('typography');
+            return $filter === null ? $value : (string) ($filter->getCallable())($value);
+        };
+        self::tryAddFunction($twig, new TwigFunction(
+            '_xt',
+            static function (string $text, string $context = '', string $domain = 'default') use ($twig, $typography): string {
+                return $typography(($twig->getFunction('_x')->getCallable())($text, $context, $domain));
+            },
+            ['is_safe' => ['html']],
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            '__t',
+            static function (string $text, string $domain = 'default') use ($twig, $typography): string {
+                return $typography(($twig->getFunction('__')->getCallable())($text, $domain));
+            },
+            ['is_safe' => ['html']],
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            '_nt',
+            static function (string $single, string $plural, int $number = 1, string $domain = 'default') use ($twig, $typography): string {
+                return $typography(($twig->getFunction('_n')->getCallable())($single, $plural, $number, $domain));
+            },
+            ['is_safe' => ['html']],
+        ));
+        self::tryAddFunction($twig, new TwigFunction(
+            '_nxt',
+            static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default') use ($twig, $typography): string {
+                return $typography(($twig->getFunction('_nx')->getCallable())($single, $plural, $number, $context, $domain));
+            },
+            ['is_safe' => ['html']],
+        ));
+
         // HTML id mint — letter prefix because HTML4 forbade ids starting
         // with a digit and CSS selectors like `#1foo` still need escaping,
         // so a letter front keeps the result drop-in for both. The closure

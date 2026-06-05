@@ -36,7 +36,7 @@ final class ComponentParserTest extends TestCase
         $parser = new ComponentParser($this->fixturesPath);
         $components = $parser->parseAll('component');
 
-        self::assertCount(2, $components);
+        self::assertCount(6, $components, 'sample + another + the four >=3-cluster / singleton fixtures');
         self::assertSame('Another', $components[0]['name'], 'weight 10 comes first');
         self::assertSame('Sample', $components[1]['name'], 'weight 20 comes second');
     }
