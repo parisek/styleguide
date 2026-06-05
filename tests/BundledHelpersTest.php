@@ -413,18 +413,29 @@ final class BundledHelpersTest extends TestCase
     {
         $twig = self::twigOf(self::newStyleguide());
 
-        // Each `…t` alias must equal "run the matching translator, then pipe
-        // the result through |typography" — exactly, for every signature.
-        // Comparing against the explicit `translate()|typography` form keeps
-        // the assertion independent of php-typography's concrete output.
-        $tpl = $twig->createTemplate(
-            '{{ _xt("a \"q\"", "ctx", "d") == (_x("a \"q\"", "ctx", "d")|typography) ? "Y" : "N" }}'
-            . '{{ __t("a \"q\"", "d") == (__("a \"q\"", "d")|typography) ? "Y" : "N" }}'
-            . '{{ _nt("one", "many", 2, "d") == (_n("one", "many", 2, "d")|typography) ? "Y" : "N" }}'
-            . '{{ _nxt("one", "many", 2, "ctx", "d") == (_nx("one", "many", 2, "ctx", "d")|typography) ? "Y" : "N" }}',
+        // Use a string the typography filter demonstrably rewrites (curly
+        // apostrophe + em-dash). The guard below makes the order assertions
+        // non-tautological: if a `…t` alias forgot to apply |typography, its
+        // output would equal the raw translation and differ from the
+        // translate()|typography form — but only if typography is non-trivial
+        // for this input, which the guard asserts first.
+        $sample = "don't -- really";
+        self::assertNotSame(
+            $sample,
+            $twig->createTemplate('{{ s|typography }}')->render(['s' => $sample]),
+            'guard: |typography must transform the sample, else the order assertions are a no-op',
         );
 
-        self::assertSame('YYYY', $tpl->render());
+        // Each `…t` alias must equal "run the matching translator, then pipe
+        // the result through |typography" — exactly, for every signature.
+        $tpl = $twig->createTemplate(
+            '{{ _xt(s, "ctx", "d") == (_x(s, "ctx", "d")|typography) ? "Y" : "N" }}'
+            . '{{ __t(s, "d") == (__(s, "d")|typography) ? "Y" : "N" }}'
+            . '{{ _nt(s, s, 2, "d") == (_n(s, s, 2, "d")|typography) ? "Y" : "N" }}'
+            . '{{ _nxt(s, s, 2, "ctx", "d") == (_nx(s, s, 2, "ctx", "d")|typography) ? "Y" : "N" }}',
+        );
+
+        self::assertSame('YYYY', $tpl->render(['s' => $sample]));
     }
 
     #[Test]
