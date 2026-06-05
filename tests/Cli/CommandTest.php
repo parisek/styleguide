@@ -52,7 +52,7 @@ final class CommandTest extends TestCase
 
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
-        self::assertCount(2, $decoded);
+        self::assertCount(6, $decoded);
         self::assertSame('Another', $decoded[0]['name'], 'weight 10 first');
         self::assertSame('Sample', $decoded[1]['name'], 'weight 20 second');
     }
@@ -197,7 +197,7 @@ final class CommandTest extends TestCase
             ]);
             self::assertSame(0, $exit, "stderr: $stderr");
             $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
-            self::assertCount(2, $decoded);
+            self::assertCount(6, $decoded);
         } finally {
             if ($originalEnv === false) {
                 putenv('STYLEGUIDE_TEMPLATES');

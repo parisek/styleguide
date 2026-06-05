@@ -63,7 +63,7 @@ final class BinSmokeTest extends TestCase
         self::assertSame(0, $exit, "stderr: $stderr");
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
-        self::assertCount(2, $decoded);
+        self::assertCount(6, $decoded);
     }
 
     #[Test]
