@@ -36,9 +36,22 @@ final class ComponentParserTest extends TestCase
         $parser = new ComponentParser($this->fixturesPath);
         $components = $parser->parseAll('component');
 
-        self::assertCount(6, $components, 'sample + another + the four >=3-cluster / singleton fixtures');
-        self::assertSame('Another', $components[0]['name'], 'weight 10 comes first');
-        self::assertSame('Sample', $components[1]['name'], 'weight 20 comes second');
+        // Assert the FULL set in weight order rather than just a count — this
+        // documents the canonical fixture roster and catches any sort
+        // regression precisely. Weights: Another 10, Sample 20, then the
+        // sidebar-tree cluster widget-one/two/three 51/52/53 and gizmo 54.
+        self::assertSame(
+            ['Another', 'Sample', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo'],
+            array_column($components, 'name'),
+            'parseAll returns the full fixture set sorted by weight',
+        );
+
+        // Sort invariant, independent of the concrete roster above: weights are
+        // non-decreasing across the whole result.
+        $weights = array_column($components, 'weight');
+        $sorted = $weights;
+        sort($sorted);
+        self::assertSame($sorted, $weights, 'components are returned in non-decreasing weight order');
     }
 
     #[Test]

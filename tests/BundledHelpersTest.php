@@ -441,14 +441,16 @@ final class BundledHelpersTest extends TestCase
     #[Test]
     public function typography_translation_helpers_compose_over_the_project_translator(): void
     {
-        // A consumer that pre-registers a real `_x` (e.g. WordPress) must win:
-        // `tryAddFunction` keeps the project's function, and `_xt` composes the
-        // bundled |typography filter on top of THAT translator's output.
+        // A consumer that pre-registers real translators (e.g. WordPress) must
+        // win: `tryAddFunction` keeps the project's functions, and each `…t`
+        // alias composes the bundled |typography filter on top of THAT
+        // translator's output. Distinct markers per family (X / U / N / NX)
+        // would surface any alias→translator mis-wiring.
         $env = new Environment(new ArrayLoader());
-        $env->addFunction(new TwigFunction(
-            '_x',
-            static fn (string $text, string $context = '', string $domain = 'default'): string => 'REAL:' . $text,
-        ));
+        $env->addFunction(new TwigFunction('_x', static fn (string $t, string $c = '', string $d = 'default'): string => 'X:' . $t));
+        $env->addFunction(new TwigFunction('__', static fn (string $t, string $d = 'default'): string => 'U:' . $t));
+        $env->addFunction(new TwigFunction('_n', static fn (string $s, string $p, int $n = 1, string $d = 'default'): string => 'N:' . ($n === 1 ? $s : $p)));
+        $env->addFunction(new TwigFunction('_nx', static fn (string $s, string $p, int $n, string $c = '', string $d = 'default'): string => 'NX:' . ($n === 1 ? $s : $p)));
 
         $sg = new Styleguide([
             'templates_path' => __DIR__ . '/fixtures/templates',
@@ -458,9 +460,12 @@ final class BundledHelpersTest extends TestCase
         ]);
         $twig = self::twigOf($sg);
 
-        self::assertSame(
-            $twig->createTemplate('{{ "REAL:hi"|typography }}')->render(),
-            $twig->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render(),
-        );
+        $render = static fn (string $expr): string => $twig->createTemplate('{{ ' . $expr . ' }}')->render();
+
+        // Each alias === the project translator's output, then |typography.
+        self::assertSame($render('"X:hi"|typography'), $render('_xt("hi", "ctx", "d")'), '_xt composes over project _x');
+        self::assertSame($render('"U:hi"|typography'), $render('__t("hi", "d")'), '__t composes over project __');
+        self::assertSame($render('"N:many"|typography'), $render('_nt("one", "many", 2, "d")'), '_nt composes over project _n');
+        self::assertSame($render('"NX:many"|typography'), $render('_nxt("one", "many", 2, "ctx", "d")'), '_nxt composes over project _nx');
     }
 }
