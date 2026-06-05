@@ -63,7 +63,9 @@ final class BinSmokeTest extends TestCase
         self::assertSame(0, $exit, "stderr: $stderr");
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
-        self::assertCount(6, $decoded);
+        // The bin emits the component roster as JSON — assert a known entry is
+        // present rather than the exact count, so fixture additions don't break it.
+        self::assertContains('Sample', array_column($decoded, 'name'));
     }
 
     #[Test]
