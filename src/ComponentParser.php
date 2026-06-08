@@ -186,6 +186,12 @@ final class ComponentParser
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
             'render' => self::normaliseRender($metadata['render'] ?? null),
+            // Optional per-entry class string applied to the render iframe's
+            // <body> (merged after the global `iframe.body_class`). Lets a page
+            // declare its body background/state — e.g. `body_class: "bg-secondary-500
+            // body-secondary"` — mirroring what the production layout puts on
+            // <body>, instead of wrapping content in a styleguide-only <div>.
+            'body_class' => $metadata['body_class'] ?? '',
             // General SPA-chrome flag (component/page/doc). false → SPA hides
             // the responsive width toolbar and pins the preview to full width.
             // Default true; only an explicit YAML `false` opts out — strict

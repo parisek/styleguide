@@ -128,6 +128,7 @@ The first `{# … #}` comment in each component / page / doc Twig template is pa
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
 | `styleguide` | no | flag (presence-only) | absent | Forces a separate `styleguide.twig` demo file |
 | `responsive` | no | `bool` | `true` | When `false`, the SPA hides the responsive-width toolbar for this entry (use for docs or fixed-layout demos where resizing has no meaning) |
+| `body_class` | no | `string` | `''` | Class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` (empty values dropped — no stray `class=""`). Lets a page mirror what its production layout puts on `<body>` (e.g. a dark brand background) without a styleguide-only wrapper `<div>` |
 
 Adding new optional keys: **non-breaking**. Changing the default of `render`, or the canonical list of `render` values: **breaking** (consumers may rely on the current set).
 
@@ -184,6 +185,8 @@ Returns array of all components, one object per. Object shape:
   usage: string;         // CSV
   fields: object;        // recursive map mirroring YAML
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
+  body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
+  responsive: boolean;   // from YAML, true unless explicitly `responsive: false`
   hasStyleguide: boolean; // true if <id>/styleguide.twig exists OR YAML has `styleguide:` key
 }
 ```

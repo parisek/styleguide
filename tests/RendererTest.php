@@ -34,6 +34,9 @@ final class RendererTest extends TestCase
         // Identity-pass it through here so the template parses and the
         // existing assertions can target the unprefixed URLs.
         $twig->addFilter(new TwigFilter('cachebust', static fn(mixed $u): mixed => $u));
+        // render-cell.twig builds the <body> class via create_attribute() (same
+        // helper foundations.twig uses) — register the extension so it parses.
+        $twig->addExtension(new \Parisek\Twig\AttributeExtension());
         $this->renderer = new Renderer($twig, ['content' => ['title' => 'Hello']]);
     }
 
@@ -63,6 +66,30 @@ final class RendererTest extends TestCase
         // Components render inside a padded wrapper so short bodies don't sit flush
         // against the iframe's top edge underneath the styleguide chrome.
         self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+    }
+
+    #[Test]
+    public function merges_per_page_body_class_after_global_iframe_body_class(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'iframe' => ['body_class' => 'antialiased'],
+            'body_class' => 'bg-secondary-500 body-secondary',
+        ], 'cs');
+
+        // Global iframe.body_class first, then the per-entry body_class.
+        self::assertStringContainsString('<body class="antialiased bg-secondary-500 body-secondary">', $html);
+    }
+
+    #[Test]
+    public function omits_body_class_when_neither_global_nor_per_page_set(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'iframe' => [],
+        ], 'cs');
+
+        // create_attribute filters empty entries — no stray class="" on <body>.
+        self::assertStringContainsString('<body>', $html);
+        self::assertStringNotContainsString('<body class', $html);
     }
 
     #[Test]

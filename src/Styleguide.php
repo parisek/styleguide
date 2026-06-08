@@ -1046,6 +1046,11 @@ final class Styleguide
             if ($meta !== null && !empty($meta['name'])) {
                 $config['component_name'] = $meta['name'];
             }
+            // Per-entry <body> class (component/page/doc) — forwarded to
+            // render-cell where it merges after the global `iframe.body_class`.
+            if ($meta !== null && !empty($meta['body_class'])) {
+                $config['body_class'] = $meta['body_class'];
+            }
             // Render mode is forwarded only for components — pages and docs
             // render their own full layout and don't go through render-cell's
             // inset wrapper.

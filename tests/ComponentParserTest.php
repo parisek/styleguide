@@ -28,6 +28,17 @@ final class ComponentParserTest extends TestCase
         self::assertSame('Sample', $sample['name']);
         self::assertSame('Block', $sample['category']);
         self::assertSame(20, $sample['weight']);
+        self::assertSame('bg-secondary-500 body-secondary', $sample['body_class']);
+    }
+
+    #[Test]
+    public function body_class_defaults_to_empty_when_absent(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $another = $parser->parse('component', 'another');
+
+        self::assertNotNull($another);
+        self::assertSame('', $another['body_class']);
     }
 
     #[Test]
