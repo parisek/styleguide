@@ -379,6 +379,7 @@ fields:
 | `render` | iframe-wrapper rendering mode for components — see *Component render modes* below |
 | `styleguide` | optional flag — when set (or when a sibling `styleguide.twig` exists), the component exposes a separate styleguide-only render variant |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
+| `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 
@@ -406,6 +407,19 @@ fields:
 ```
 
 Missing key, typo, or non-string value falls back to `inset` — legacy components without `render:` keep their pre-feature wrapper, so adopting the package is a no-op until you opt in.
+
+### Per-entry body class
+
+`iframe.body_class` in `styleguide.yaml` sets one `<body>` class for **every** render. Some pages need their own — a blog/category page whose production `<body>` carries a dark brand background, for example. Declare it per entry with `body_class`:
+
+```twig
+{#
+name: "Blog"
+body_class: "bg-secondary-500 body-secondary"
+#}
+```
+
+The render iframe builds `<body>` via `create_attribute({ class: [iframe.body_class, <entry>.body_class] })`, so the per-entry value is appended after the global one and empty values are dropped (no stray `class=""`). This mirrors what the production layout puts on `<body>` (e.g. from an ACF `body_background_color`), so the styleguide preview matches production without wrapping the page content in a styleguide-only `<div>`.
 
 ---
 

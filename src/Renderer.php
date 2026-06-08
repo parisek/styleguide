@@ -84,6 +84,9 @@ final class Renderer
                 // (notably tests) may pass an unvalidated string. ComponentParser
                 // owns the canonical list, so we route the coercion through it.
                 'render' => ComponentParser::normaliseRender($config['render'] ?? null),
+                // Optional per-entry <body> class — merged after the global
+                // `iframe.body_class` in render-cell.twig.
+                'body_class' => $config['body_class'] ?? '',
             ],
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,

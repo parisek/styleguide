@@ -54,7 +54,7 @@
 	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
 	{% if iframe.js %}<script type="module" src="{{ iframe.js|cachebust|e }}"></script>{% endif %}
 </head>
-<body{% if iframe.body_class %} class="{{ iframe.body_class|e }}"{% endif %}>
+<body{{ create_attribute({ class: [iframe.body_class|default(''), component.body_class|default('')] }) }}>
 	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),
 	   revealed by the inline script when the document is the top-level window so
 	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
