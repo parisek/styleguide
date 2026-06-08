@@ -447,10 +447,10 @@ final class BundledHelpersTest extends TestCase
         // translator's output. Distinct markers per family (X / U / N / NX)
         // would surface any alias→translator mis-wiring.
         $env = new Environment(new ArrayLoader());
-        $env->addFunction(new TwigFunction('_x', static fn (string $t, string $c = '', string $d = 'default'): string => 'X:' . $t));
-        $env->addFunction(new TwigFunction('__', static fn (string $t, string $d = 'default'): string => 'U:' . $t));
-        $env->addFunction(new TwigFunction('_n', static fn (string $s, string $p, int $n = 1, string $d = 'default'): string => 'N:' . ($n === 1 ? $s : $p)));
-        $env->addFunction(new TwigFunction('_nx', static fn (string $s, string $p, int $n, string $c = '', string $d = 'default'): string => 'NX:' . ($n === 1 ? $s : $p)));
+        $env->addFunction(new TwigFunction('_x', static fn(string $t, string $c = '', string $d = 'default'): string => 'X:' . $t));
+        $env->addFunction(new TwigFunction('__', static fn(string $t, string $d = 'default'): string => 'U:' . $t));
+        $env->addFunction(new TwigFunction('_n', static fn(string $s, string $p, int $n = 1, string $d = 'default'): string => 'N:' . ($n === 1 ? $s : $p)));
+        $env->addFunction(new TwigFunction('_nx', static fn(string $s, string $p, int $n, string $c = '', string $d = 'default'): string => 'NX:' . ($n === 1 ? $s : $p)));
 
         $sg = new Styleguide([
             'templates_path' => __DIR__ . '/fixtures/templates',
@@ -460,7 +460,7 @@ final class BundledHelpersTest extends TestCase
         ]);
         $twig = self::twigOf($sg);
 
-        $render = static fn (string $expr): string => $twig->createTemplate('{{ ' . $expr . ' }}')->render();
+        $render = static fn(string $expr): string => $twig->createTemplate('{{ ' . $expr . ' }}')->render();
 
         // Each alias === the project translator's output, then |typography.
         self::assertSame($render('"X:hi"|typography'), $render('_xt("hi", "ctx", "d")'), '_xt composes over project _x');
