@@ -415,34 +415,34 @@ final class Styleguide
         // mirrors the `|typography` filter's own contract (it emits markup),
         // so the aliases don't double-escape. See parisek/styleguide#21.
         $typography = static function (string $value) use ($twig): string {
-            $filter = $twig->getFilter('typography');
-            return $filter === null ? $value : (string) ($filter->getCallable())($value);
+            $callable = $twig->getFilter('typography')?->getCallable();
+            return is_callable($callable) ? (string) $callable($value) : $value;
         };
         self::tryAddFunction($twig, new TwigFunction(
             '_xt',
             static function (string $text, string $context, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(($twig->getFunction('_x')->getCallable())($text, $context, $domain));
+                return $typography(self::invokeTwigFunction($twig, '_x', [$text, $context, $domain], $text));
             },
             ['is_safe' => ['html']],
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '__t',
             static function (string $text, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(($twig->getFunction('__')->getCallable())($text, $domain));
+                return $typography(self::invokeTwigFunction($twig, '__', [$text, $domain], $text));
             },
             ['is_safe' => ['html']],
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '_nt',
             static function (string $single, string $plural, int $number, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(($twig->getFunction('_n')->getCallable())($single, $plural, $number, $domain));
+                return $typography(self::invokeTwigFunction($twig, '_n', [$single, $plural, $number, $domain], $number === 1 ? $single : $plural));
             },
             ['is_safe' => ['html']],
         ));
         self::tryAddFunction($twig, new TwigFunction(
             '_nxt',
             static function (string $single, string $plural, int $number, string $context, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(($twig->getFunction('_nx')->getCallable())($single, $plural, $number, $context, $domain));
+                return $typography(self::invokeTwigFunction($twig, '_nx', [$single, $plural, $number, $context, $domain], sprintf($number === 1 ? $single : $plural, $number)));
             },
             ['is_safe' => ['html']],
         ));
@@ -681,6 +681,25 @@ final class Styleguide
                 throw $e;
             }
         }
+    }
+
+    /**
+     * Invoke a registered Twig function by name, returning $fallback when the
+     * function is absent or its callable can't be resolved.
+     *
+     * The translation stubs (`__`/`_x`/`_n`/`_nx`) are registered just before
+     * the typography aliases call this, so the fallback is unreachable at
+     * runtime — it exists because Twig's `getFunction()` and `getCallable()`
+     * are both nullable in the type signature, and the project bans
+     * ignore-annotations / `assert()` for narrowing.
+     *
+     * @param list<mixed> $args
+     */
+    private static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
+    {
+        $callable = $twig->getFunction($name)?->getCallable();
+
+        return is_callable($callable) ? (string) $callable(...$args) : $fallback;
     }
 
     /**
