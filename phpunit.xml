@@ -10,4 +10,15 @@
             <directory>tests</directory>
         </testsuite>
     </testsuites>
+    <!-- Defining <source> lets PHPUnit classify deprecations as direct (our
+         src/) vs indirect (dependencies). `ignoreIndirectDeprecations` mutes
+         the latter: the typography helper test loads mundschenk-at/php-typography,
+         whose latest release (v6.7.0, the ceiling of our ^6.0 constraint) still
+         declares implicitly-nullable params that PHP 8.4 deprecates. Those are
+         upstream and unfixable here; our own src/ stays under scrutiny. -->
+    <source ignoreIndirectDeprecations="true">
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
 </phpunit>
