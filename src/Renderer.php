@@ -40,6 +40,7 @@ final class Renderer
      *   styleguide?:array<string,mixed>,
      *   component_name?:string,
      *   render?:string,
+     *   body_class?:string,
      *   foundations_css_url?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
