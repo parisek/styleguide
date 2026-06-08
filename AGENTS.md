@@ -144,6 +144,23 @@ The package surface has three independent layers; pick the smallest one that fit
 4. Verify the touched feature plus one adjacent feature (smoke).
 5. Commit both source files AND the rebuilt `dist/` artifacts — consumers receive `dist/` verbatim.
 
+### Documentation is part of the change — not a follow-up
+
+A PR that touches the public surface is **not complete until its docs land in the same PR**, exactly like the `CHANGELOG.md` entry. Treat this as a merge gate, not a nice-to-have: docs that lag the code are how `docs/API.md` silently drifts from the actual API record (a YAML key or `/api/*` field ships, but its row in the schema table or its entry in the `ts` shape never does — and nothing in CI catches it).
+
+When a change adds, renames, removes, or alters the default of any of the following, update the matching doc **in the same PR**:
+
+| You changed… | Update… |
+|---|---|
+| A YAML metadata key / `styleguide.yaml` key, or its default | `docs/API.md` (§ YAML schemas / Component YAML metadata) **and** `README.md` if it's user-facing |
+| A field in an `/api/*` response | `docs/API.md` — the matching `ts` shape |
+| A Twig function / filter | `docs/API.md` (§ Twig functions & filters) |
+| A `Styleguide` constructor config key | `docs/API.md` (§ PHP API) **and** `README.md` § Bootstrap |
+| Any consumer-visible behaviour | `CHANGELOG.md` `[Unreleased]` (+ `README.md` if it changes how consumers wire things) |
+| An `@api`-marked surface | re-confirm the breaking / non-breaking note in `docs/API.md` still holds |
+
+Internal-only work (refactors, test tooling, static-analysis fixes) needs no doc change beyond an optional `CHANGELOG.md` note. When unsure whether a surface is public, check the `@api` / `@internal` markers in `src/` and the SemVer tables in `docs/API.md`.
+
 ## Testing
 
 ```bash
