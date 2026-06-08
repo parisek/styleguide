@@ -124,8 +124,23 @@
 	   `bleed` / `chrome` / `overlay` render edge-to-edge so hero / slider /
 	   sticky / modal components can fill the iframe. #}
 	{% set use_inset = kind == 'component' and component.render == 'inset' %}
+	{# Page-kind renders get an optional structural shell — the project's
+	   `page-wrapper` (sticky-footer flex column, min-h-dvh) so the styleguide
+	   preview matches production's `<div class="page-wrapper …">` around
+	   header + main + footer. Driven by `iframe.page_wrapper_class` in
+	   styleguide.yaml: empty (the default) renders nothing, keeping the package
+	   framework-agnostic (Bootstrap / custom consumers opt out by leaving it
+	   blank). Page-only so the shell never leaks into small component previews;
+	   mutually exclusive with `use_inset` (component-only), so the two wrappers
+	   never nest. `create_attribute` is called inline (not via a `{% set %}`
+	   variable) so its `is_safe` markup flag survives — same as the `<body>`
+	   line above; storing it in a variable would lose the flag and autoescape
+	   the quotes. #}
+	{% set page_wrapper_class = kind == 'page' ? iframe.page_wrapper_class|default('') : '' %}
 	{% if use_inset %}<div style="padding:1.5rem">{% endif %}
+	{% if page_wrapper_class is not empty %}<div{{ create_attribute({ class: page_wrapper_class }) }}>{% endif %}
 	{{ body|raw }}
+	{% if page_wrapper_class is not empty %}</div>{% endif %}
 	{% if use_inset %}</div>{% endif %}
 </body>
 </html>
