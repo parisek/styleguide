@@ -148,6 +148,7 @@ iframe:
     - "/fonts/poppins/stylesheet.css"
   html_class: ""                           # optional — <html> class for the preview frame
   body_class: ""                           # optional — <body> class
+  page_wrapper_class: ""                   # optional — wrapper <div> class for page renders only (see below)
   base_href: "/"                           # optional — affects relative URLs inside the iframe
 
 # Optional data consumed by the overview screen. All keys optional; missing
@@ -420,6 +421,23 @@ body_class: "bg-secondary-500 body-secondary"
 ```
 
 The render iframe builds `<body>` via `create_attribute({ class: [iframe.body_class, <entry>.body_class] })`, so the per-entry value is appended after the global one and empty values are dropped (no stray `class=""`). This mirrors what the production layout puts on `<body>` (e.g. from an ACF `body_background_color`), so the styleguide preview matches production without wrapping the page content in a styleguide-only `<div>`.
+
+### Page wrapper
+
+`body_class` styles the iframe's `<body>`; `iframe.page_wrapper_class` adds the structural **shell** most projects wrap their page in — the `<div class="page-wrapper …">` that owns the sticky-footer flex column and `min-h-dvh` height in the production layout. Set it once in `styleguide.yaml` and **every page render** is wrapped:
+
+```yaml
+iframe:
+  page_wrapper_class: "page-wrapper flex flex-col relative min-h-dvh w-full h-full"
+```
+
+Rules:
+
+- **Page-only.** The wrapper is applied solely to `kind: page` renders — never to component or doc previews, so the full-height shell can't leak into a small component preview.
+- **Empty = no wrapper.** The default is `""`, which renders nothing. The package stays framework-agnostic: Bootstrap / custom-CSS consumers simply leave it blank, Tailwind projects set their shell utilities.
+- **Built through `create_attribute`** — same class-escaping contract as the `<body>` line, no stray `class=""`.
+
+This completes the production-parity pair: `body_class` reproduces the page's `<body>` styling, `page_wrapper_class` reproduces the wrapper `<div>` around `header + main + footer` — so a page preview matches production without each consumer hand-wrapping every `page/<name>/styleguide.twig`.
 
 ---
 

@@ -93,6 +93,46 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function wraps_page_render_in_page_wrapper_when_configured(): void
+    {
+        $html = $this->renderer->render('page', 'landing', [
+            'iframe' => ['page_wrapper_class' => 'page-wrapper flex flex-col min-h-dvh'],
+        ], 'cs');
+
+        // The configured shell wraps the page body so the preview matches the
+        // production layout's `<div class="page-wrapper …">`.
+        self::assertStringContainsString('<div class="page-wrapper flex flex-col min-h-dvh">', $html);
+        self::assertStringContainsString('<div class="landing">Landing page</div>', $html);
+    }
+
+    #[Test]
+    public function omits_page_wrapper_when_class_empty(): void
+    {
+        $html = $this->renderer->render('page', 'landing', [
+            'iframe' => [],
+        ], 'cs');
+
+        // Empty (the default) keeps the package framework-agnostic — page body
+        // renders with no styleguide-only wrapper div.
+        self::assertStringContainsString('<div class="landing">Landing page</div>', $html);
+        self::assertStringNotContainsString('page-wrapper', $html);
+    }
+
+    #[Test]
+    public function does_not_wrap_components_with_page_wrapper_class(): void
+    {
+        // page_wrapper_class is page-only: even when set, component previews
+        // must not get the shell (it would leak into small previews).
+        $html = $this->renderer->render('component', 'sample', [
+            'iframe' => ['page_wrapper_class' => 'page-wrapper flex flex-col min-h-dvh'],
+        ], 'cs');
+
+        self::assertStringNotContainsString('page-wrapper', $html);
+        // Component still gets its own inset wrapper.
+        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+    }
+
+    #[Test]
     public function renders_404_for_missing_component(): void
     {
         $html = $this->renderer->render('component', 'nonexistent', [
