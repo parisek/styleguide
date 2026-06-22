@@ -382,4 +382,87 @@ final class RendererTest extends TestCase
             Renderer::normaliseStylesheets(['/a.css', '', '   ', null, 5, ['/nested.css'], '/b.css']),
         );
     }
+
+    #[Test]
+    public function resolve_asset_url_is_noop_for_empty_base(): void
+    {
+        // Standalone layout: the static dir IS the docroot, so the bootstrap
+        // derives an empty templateUrl. Asset URLs must pass through unchanged
+        // — byte-for-byte the historical behaviour.
+        self::assertSame('/dist/css/style.css', Renderer::resolveAssetUrl('/dist/css/style.css', ''));
+        self::assertSame('dist/css/style.css', Renderer::resolveAssetUrl('dist/css/style.css', ''));
+        self::assertSame('https://cdn.example.com/x.css', Renderer::resolveAssetUrl('https://cdn.example.com/x.css', ''));
+    }
+
+    #[Test]
+    public function resolve_asset_url_rebases_relative_paths_onto_base(): void
+    {
+        // WordPress / Drupal layout: templateUrl is the theme's static web path.
+        // A short, docroot-agnostic `/dist/...` then resolves to the real file
+        // under the theme instead of 404-ing at the domain root.
+        $base = '/wp-content/themes/acme/static';
+        self::assertSame("$base/dist/css/style.css", Renderer::resolveAssetUrl('/dist/css/style.css', $base));
+        // Bare-relative (no leading slash) is rebased with a separating slash.
+        self::assertSame("$base/dist/js/script.js", Renderer::resolveAssetUrl('dist/js/script.js', $base));
+        // A trailing slash on the base is normalised away (no `//`).
+        self::assertSame("$base/dist/a.css", Renderer::resolveAssetUrl('/dist/a.css', "$base/"));
+    }
+
+    #[Test]
+    public function resolve_asset_url_leaves_absolute_and_already_based_urls_untouched(): void
+    {
+        $base = '/wp-content/themes/acme/static';
+        // External / protocol-relative / data: / anchor are never rebased.
+        self::assertSame('https://cdn.example.com/x.css', Renderer::resolveAssetUrl('https://cdn.example.com/x.css', $base));
+        self::assertSame('//cdn.example.com/x.css', Renderer::resolveAssetUrl('//cdn.example.com/x.css', $base));
+        self::assertSame('data:text/css,body{}', Renderer::resolveAssetUrl('data:text/css,body{}', $base));
+        self::assertSame('#frag', Renderer::resolveAssetUrl('#frag', $base));
+        // Already rooted under the base — a consumer that hardcoded the full
+        // theme path keeps working, no double prefix.
+        self::assertSame("$base/dist/style.css", Renderer::resolveAssetUrl("$base/dist/style.css", $base));
+        self::assertSame($base, Renderer::resolveAssetUrl($base, $base));
+    }
+
+    #[Test]
+    public function render_rebases_iframe_assets_against_template_url(): void
+    {
+        // Integration: a Renderer whose context carries templateUrl (the WP /
+        // Drupal case) prefixes the iframe css / js / fonts emitted into
+        // render-cell so the short styleguide.yaml paths resolve correctly.
+        $base = '/wp-content/themes/acme/static';
+        $loader = new FilesystemLoader();
+        $loader->addPath(__DIR__ . '/../templates');
+        $loader->addPath(__DIR__ . '/fixtures/templates', 'project');
+        $twig = new Environment($loader, ['cache' => false]);
+        $twig->addFilter(new TwigFilter('cachebust', static fn(mixed $u): mixed => $u));
+        $twig->addExtension(new \Parisek\Twig\AttributeExtension());
+        $renderer = new Renderer($twig, ['templateUrl' => $base, 'content' => ['title' => 'Hello']]);
+
+        $html = $renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [
+                'css' => '/dist/style.css',
+                'js' => '/dist/script.js',
+                'fonts' => ['/fonts/stylesheet.css'],
+            ],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="' . $base . '/dist/style.css">', $html);
+        self::assertStringContainsString('<link rel="stylesheet" href="' . $base . '/fonts/stylesheet.css">', $html);
+        self::assertStringContainsString('<script type="module" src="' . $base . '/dist/script.js"></script>', $html);
+    }
+
+    #[Test]
+    public function render_leaves_iframe_assets_untouched_without_template_url(): void
+    {
+        // Standalone: the shared $this->renderer has no templateUrl in context,
+        // so the same `/dist/...` URLs render unprefixed — backward compat proof.
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css', 'js' => '/dist/script.js'],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="stylesheet" href="/dist/style.css">', $html);
+        self::assertStringContainsString('<script type="module" src="/dist/script.js"></script>', $html);
+    }
 }
