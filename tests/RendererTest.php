@@ -529,4 +529,20 @@ final class RendererTest extends TestCase
 
         self::assertStringContainsString('src="' . $base . '/images/logo.svg"', $html);
     }
+
+    #[Test]
+    public function standalone_bar_favicon_has_broken_image_fallback(): void
+    {
+        // The standalone "← back to styleguide" bar's favicon <img> carries an
+        // onerror fallback so a 404 favicon shows a generic glyph instead of the
+        // browser's broken-image icon (mirrors the SPA sidebar fallback).
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject', 'favicon' => '/missing.svg'],
+            'iframe' => [],
+        ], 'cs');
+
+        self::assertStringContainsString('src="/missing.svg"', $html);
+        self::assertStringContainsString('onerror="this.onerror=null;this.src=', $html);
+        self::assertStringContainsString('data:image/svg+xml,', $html);
+    }
 }

@@ -68,7 +68,12 @@
 	   directly so the bar opens to its intended flex layout when this document is
 	   the top-level window. #}
 	<div id="sg-standalone-bar" style="display:none;position:sticky;top:0;z-index:9999;align-items:center;gap:12px;padding:8px 16px;background:#18181b;color:#e4e4e7;font:500 13px system-ui,-apple-system,Segoe UI,sans-serif;border-bottom:1px solid #27272a">
-		{% if project.favicon %}<img src="{{ project.favicon|e }}" alt="" style="width:20px;height:20px;border-radius:4px;background:#fafafa">{% endif %}
+		{# `onerror` swaps in a generic glyph if the configured favicon 404s, so the
+		   standalone bar never shows the browser's broken-image icon — mirrors the
+		   SPA sidebar fallback (styleguide.js GENERIC_FAVICON). SVG attrs use %22
+		   (encoded ") so the data URI carries no literal quote that would close the
+		   single-quoted JS string. `this.onerror=null` prevents a fallback loop. #}
+		{% if project.favicon %}<img src="{{ project.favicon|e }}" alt="" onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%2371717a%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/%3E%3Cpath d=%22M3 9h18M9 21V9%22/%3E%3C/svg%3E'" style="width:20px;height:20px;border-radius:4px;background:#fafafa">{% endif %}
 		{# Back link — just the arrow. The project name lived next to it
 		   historically but it's redundant with the favicon (same logical
 		   signal: "you're inside this project's styleguide"). #}
