@@ -21,7 +21,8 @@
         "rotate": "Rotate device (portrait ↔ landscape)",
         "orientation_portrait": "Portrait",
         "orientation_landscape": "Landscape",
-        "reload": "Reload"
+        "reload": "Reload",
+        "more_actions": "More actions"
     },
     "preview": {
         "mobile": "Mobile (375 px)",
