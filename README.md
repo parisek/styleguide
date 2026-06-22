@@ -138,7 +138,10 @@ project:
   favicon: "/images/touch/favicon.svg"     # browser tab + sidebar header
 
 # Assets injected into each iframe's <head>. Same paths the production templates
-# use — guarantees the styleguide preview matches production.
+# use — guarantees the styleguide preview matches production. Paths are resolved
+# against `twig_context.templateUrl` (see "iframe asset paths" below), so a short
+# /dist/... value works whether the static dir is the docroot (standalone) or the
+# styleguide is served from a theme (WordPress / Drupal).
 iframe:
   # `css` and `fonts` each accept a single string OR a list of stylesheet URLs.
   # A list is handy mid-migration — e.g. a Tailwind bundle plus a legacy sheet.
@@ -186,6 +189,25 @@ labels:                                    # i18n labels shown on overview cards
   click_to_copy: "Click to copy"
   copied: "Copied!"
 ```
+
+### iframe asset paths — resolved against `templateUrl`
+
+`iframe.css`, `iframe.js`, and `iframe.fonts[]` are resolved **relative to the `twig_context.templateUrl`** you pass to the bootstrap — the same base your component templates already use for images (`{{ templateUrl }}/images/...`). One short, docroot-agnostic value then works across layouts:
+
+| Layout | `templateUrl` | `css: /dist/css/style.css` resolves to |
+|---|---|---|
+| **Standalone** (static dir IS the docroot) | `''` | `/dist/css/style.css` (unchanged) |
+| **WordPress** (served via rewrite from a theme) | `/wp-content/themes/<theme>/static` | `/wp-content/themes/<theme>/static/dist/css/style.css` |
+| **Drupal** | `/themes/custom/<theme>/static` | `/themes/custom/<theme>/static/dist/css/style.css` |
+
+Rules (`Renderer::resolveAssetUrl()`):
+
+- **Relative / root-relative** paths (`dist/...`, `/dist/...`) are rebased onto `templateUrl`.
+- **Already-absolute-under-base** paths (you hardcoded the full theme path) are left untouched — no double prefix.
+- **External** URLs (`https://…`, `//cdn…`, `data:`) and **anchors** (`#…`) are never rebased.
+- An **empty** `templateUrl` (standalone) is a no-op — paths pass through unchanged, byte-for-byte.
+
+So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right `templateUrl` in your bootstrap, and the preview loads the real asset in every environment — no need to hardcode the theme path.
 
 ---
 
