@@ -52,6 +52,26 @@ final class Renderer
             return $this->render404($kind, $slug, $config);
         }
 
+        // Consumer asset base (`twig_context.templateUrl`) — '' standalone, the
+        // theme static web path under WordPress / Drupal. Every consumer-supplied
+        // asset path the package emits is rebased onto it via resolveAssetUrl()
+        // so styleguide.yaml can keep short, docroot-agnostic paths. Resolved up
+        // here (before renderBody) because the foundations body reads
+        // styleguide.logo; the iframe css/js/fonts are rebased further down after
+        // list-normalisation. The SPA shell favicon is rebased separately in
+        // Styleguide::dispatchSpa (that path doesn't go through this renderer).
+        $assetBase = (string) ($this->context['templateUrl'] ?? '');
+        if (isset($config['project']['favicon']) && is_string($config['project']['favicon'])) {
+            $config['project']['favicon'] = self::resolveAssetUrl($config['project']['favicon'], $assetBase);
+        }
+        if (isset($config['styleguide']['logo']) && is_array($config['styleguide']['logo'])) {
+            foreach ($config['styleguide']['logo'] as $key => $entry) {
+                if (is_array($entry) && isset($entry['src']) && is_string($entry['src'])) {
+                    $config['styleguide']['logo'][$key]['src'] = self::resolveAssetUrl($entry['src'], $assetBase);
+                }
+            }
+        }
+
         try {
             $body = $this->renderBody($kind, $slug, $config);
             if ($body === null) {
@@ -80,7 +100,7 @@ final class Renderer
         // (`/wp-content/themes/<theme>/static`) → the same `/dist/...` value
         // resolves to the real file instead of 404-ing at the domain root.
         // See self::resolveAssetUrl() for the (backward-compatible) rules.
-        $assetBase = (string) ($this->context['templateUrl'] ?? '');
+        // ($assetBase computed once at the top of render().)
         $iframe['css'] = array_map(static fn(string $u): string => self::resolveAssetUrl($u, $assetBase), $iframe['css']);
         $iframe['fonts'] = array_map(static fn(string $u): string => self::resolveAssetUrl($u, $assetBase), $iframe['fonts']);
         if (isset($iframe['js']) && is_string($iframe['js']) && trim($iframe['js']) !== '') {
