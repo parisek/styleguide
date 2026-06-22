@@ -117,6 +117,35 @@ document.addEventListener('alpine:init', () => {
             this.previewRotated = !!rotated;
         },
 
+        // Absolute portrait orientation, derived from the EFFECTIVE (post-
+        // rotation) display dimensions — NOT the raw `previewRotated` flag.
+        // `previewRotated` is relative to the preset's canonical shape, so for a
+        // landscape-canonical preset (Desktop 1536×960) `rotated=true` actually
+        // renders portrait. The toolbar toggle shows *absolute* orientation, so
+        // it must read this. Returns false (landscape) when there's no canonical
+        // height (Full / Custom) — the toggle is disabled there anyway.
+        get isPortrait() {
+            if (this.previewHeight === null) return false;
+            const wPx = parseInt(this.previewWidth, 10);
+            if (!Number.isInteger(wPx)) return false;
+            const dispW = this.previewRotated ? this.previewHeight : wPx;
+            const dispH = this.previewRotated ? wPx : this.previewHeight;
+            return dispH > dispW;
+        },
+
+        // Set ABSOLUTE orientation (portrait = true / landscape = false),
+        // computing the right `previewRotated` from the preset's canonical shape
+        // so it behaves correctly for both portrait-canonical (Mobile / Tablet)
+        // and landscape-canonical (Desktop) presets. No-op without a canonical
+        // height (Full / Custom).
+        setPortrait(portrait) {
+            if (this.previewHeight === null) return;
+            const wPx = parseInt(this.previewWidth, 10);
+            if (!Number.isInteger(wPx)) return;
+            const canonicalLandscape = wPx > this.previewHeight;
+            this.previewRotated = portrait ? canonicalLandscape : !canonicalLandscape;
+        },
+
         // Effective iframe dimensions after applying rotation. `displayWidth`
         // and `displayHeight` are what the template should push onto the
         // iframe element; they swap previewWidth ↔ previewHeight when
