@@ -72,6 +72,21 @@ final class Renderer
         $iframe['css'] = self::normaliseStylesheets($iframe['css'] ?? []);
         $iframe['fonts'] = self::normaliseStylesheets($iframe['fonts'] ?? []);
 
+        // Rebase relative iframe asset URLs onto the consumer's asset base
+        // (`twig_context.templateUrl`) so `styleguide.yaml` can keep a short,
+        // docroot-agnostic path like `/dist/css/style.css`. Standalone layouts
+        // pass an empty templateUrl → URLs are returned untouched (the historical
+        // behaviour); WordPress/Drupal pass the theme's static web path
+        // (`/wp-content/themes/<theme>/static`) → the same `/dist/...` value
+        // resolves to the real file instead of 404-ing at the domain root.
+        // See self::resolveAssetUrl() for the (backward-compatible) rules.
+        $assetBase = (string) ($this->context['templateUrl'] ?? '');
+        $iframe['css'] = array_map(static fn(string $u): string => self::resolveAssetUrl($u, $assetBase), $iframe['css']);
+        $iframe['fonts'] = array_map(static fn(string $u): string => self::resolveAssetUrl($u, $assetBase), $iframe['fonts']);
+        if (isset($iframe['js']) && is_string($iframe['js']) && trim($iframe['js']) !== '') {
+            $iframe['js'] = self::resolveAssetUrl($iframe['js'], $assetBase);
+        }
+
         return $this->twig->render('render-cell.twig', [
             'kind' => $kind,
             'slug' => $slug,
@@ -121,6 +136,47 @@ final class Renderer
         }
 
         return $urls;
+    }
+
+    /**
+     * Rebase a single iframe asset URL (css / js / font stylesheet) onto the
+     * consumer's asset base — the `twig_context.templateUrl` the styleguide
+     * bootstrap derives from where its front controller lives:
+     *   - standalone (static dir IS the docroot): templateUrl = ''  → no-op
+     *   - WordPress:  '/wp-content/themes/<theme>/static'
+     *   - Drupal:     '/themes/custom/<theme>/static'
+     *
+     * This lets `styleguide.yaml` keep a short, docroot-agnostic path
+     * (`/dist/css/style.css`) that resolves correctly in every layout instead
+     * of hardcoding the theme path per project.
+     *
+     * Backward compatible — left untouched when:
+     *   - base is empty (standalone) — historical behaviour, byte-for-byte
+     *   - the URL is external / protocol-relative / data: / an anchor
+     *   - the URL is already under the base (a consumer that hardcoded the full
+     *     theme path keeps working — no double prefix)
+     */
+    public static function resolveAssetUrl(string $url, string $base): string
+    {
+        $base = rtrim($base, '/');
+        if ($base === '' || $url === '') {
+            return $url;
+        }
+        // External (`https:`, `mailto:`…), protocol-relative (`//cdn…`),
+        // `data:` URIs, and in-page anchors are never rebased.
+        if (
+            str_starts_with($url, '#')
+            || str_starts_with($url, '//')
+            || preg_match('#^[a-z][a-z0-9+.-]*:#i', $url) === 1
+        ) {
+            return $url;
+        }
+        // Already rooted under the asset base — don't double-prefix.
+        if ($url === $base || str_starts_with($url, $base . '/')) {
+            return $url;
+        }
+        // Root-relative or bare-relative project asset — rebase onto the base.
+        return $base . '/' . ltrim($url, '/');
     }
 
     /**
