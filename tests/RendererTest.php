@@ -465,4 +465,68 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('<link rel="stylesheet" href="/dist/style.css">', $html);
         self::assertStringContainsString('<script type="module" src="/dist/script.js"></script>', $html);
     }
+
+    /**
+     * Build a Renderer whose context carries a templateUrl asset base (the
+     * WordPress / Drupal case), wired like setUp()'s standalone one.
+     */
+    private function rendererWithBase(string $base): Renderer
+    {
+        $loader = new FilesystemLoader();
+        $loader->addPath(__DIR__ . '/../templates');
+        $loader->addPath(__DIR__ . '/fixtures/templates', 'project');
+        $twig = new Environment($loader, ['cache' => false]);
+        $twig->addFilter(new TwigFilter('cachebust', static fn(mixed $u): mixed => $u));
+        // foundations.twig pipes copy through `|typography` (real extension in the
+        // boot path); identity-pass it so the bare test env can render it.
+        $twig->addFilter(new TwigFilter('typography', static fn(mixed $u): mixed => $u));
+        $twig->addExtension(new \Parisek\Twig\AttributeExtension());
+
+        return new Renderer($twig, ['templateUrl' => $base, 'content' => ['title' => 'Hello']]);
+    }
+
+    #[Test]
+    public function render_rebases_project_favicon_against_template_url(): void
+    {
+        // project.favicon feeds the <link rel="icon"> and the standalone-bar <img>;
+        // both must resolve under the theme on WordPress / Drupal, not the docroot.
+        $base = '/wp-content/themes/acme/static';
+        $html = $this->rendererWithBase($base)->render('component', 'sample', [
+            'project' => ['name' => 'TestProject', 'favicon' => '/images/touch/favicon.svg'],
+            'iframe' => [],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="icon" href="' . $base . '/images/touch/favicon.svg">', $html);
+        self::assertStringContainsString('src="' . $base . '/images/touch/favicon.svg"', $html);
+    }
+
+    #[Test]
+    public function render_leaves_project_favicon_untouched_without_template_url(): void
+    {
+        // Standalone (no templateUrl) — favicon path unchanged, byte-for-byte.
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject', 'favicon' => '/images/touch/favicon.svg'],
+            'iframe' => [],
+        ], 'cs');
+
+        self::assertStringContainsString('<link rel="icon" href="/images/touch/favicon.svg">', $html);
+    }
+
+    #[Test]
+    public function render_rebases_foundations_logo_against_template_url(): void
+    {
+        // The foundations screen renders styleguide.logo[*].src as <img> — rebase
+        // each onto templateUrl so the overview logos load under the theme.
+        $base = '/wp-content/themes/acme/static';
+        $html = $this->rendererWithBase($base)->render('foundations', '', [
+            'styleguide' => [
+                'labels' => ['logo' => 'Logo'],
+                'logo' => [
+                    'main' => ['src' => '/images/logo.svg', 'alt' => 'Logo', 'label' => 'Main'],
+                ],
+            ],
+        ], 'cs');
+
+        self::assertStringContainsString('src="' . $base . '/images/logo.svg"', $html);
+    }
 }

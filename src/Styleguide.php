@@ -954,6 +954,15 @@ final class Styleguide
         $project = (array) ($this->yamlConfig['project'] ?? []);
         $projectName = (string) ($project['name'] ?? 'Styleguide');
         $favicon = (string) ($project['favicon'] ?? '');
+        // Rebase the SPA-shell favicon onto the consumer asset base (templateUrl)
+        // — same resolution the iframe assets get in Renderer, so a short
+        // `/images/touch/favicon.svg` resolves under the theme on WordPress /
+        // Drupal instead of 404-ing at the domain root. No-op when standalone
+        // (empty base) or already absolute-under-base. See Renderer::resolveAssetUrl().
+        $assetBase = (string) (($this->config['twig_context']['templateUrl'] ?? '') ?: '');
+        if ($favicon !== '') {
+            $favicon = Renderer::resolveAssetUrl($favicon, $assetBase);
+        }
 
         $esc = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
 
