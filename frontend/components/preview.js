@@ -42,7 +42,7 @@ const TYPE_PILL_CLASSES = {
     array:    'bg-purple-500/20 text-purple-300',
     object:   'bg-pink-500/20 text-pink-300',
     text:     'bg-blue-500/20 text-blue-300',
-    textarea: 'bg-indigo-500/20 text-indigo-300',
+    textarea: 'bg-red-500/20 text-red-300',
     image:    'bg-emerald-500/20 text-emerald-300',
     link:     'bg-orange-500/20 text-orange-300',
 };
