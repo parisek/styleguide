@@ -62,6 +62,16 @@ document.addEventListener('alpine:init', () => {
         route: { type: 'landing', slug: null },
 
         init() {
+            // On small screens the sidebar is a slide-over overlay (see
+            // index.html) — force it closed at boot so it doesn't cover the
+            // preview on load. `sidebarOpen` is persisted, so a desktop user who
+            // collapsed it keeps that; mobile always starts closed regardless of
+            // the persisted value. The 1024px cutoff matches the `lg` breakpoint
+            // the overlay CSS keys off.
+            if (window.matchMedia('(max-width: 1023px)').matches) {
+                this.sidebarOpen = false;
+            }
+
             // URL param override applies once, only at boot. After that, the
             // user's preset / drag / custom-input interactions write through
             // $persist normally. (Future: write back to URL via History API

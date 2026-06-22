@@ -30,6 +30,25 @@ Alpine.start();
 // from the `data-project-name` attribute that Styleguide::dispatchSpa stamps
 // into <body> at request time.
 const projectName = document.body.dataset.projectName || 'Styleguide';
+
+// Favicon fallback — the src is stamped server-side into #sg-favicon by
+// Styleguide::dispatchSpa from the consumer's styleguide.yaml. We can't know at
+// build time whether that file exists; if it 404s (or isn't a valid image, or
+// no favicon is configured at all) recover at runtime with a generic glyph
+// instead of the browser's broken-image icon.
+const GENERIC_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='18' height='18' rx='2'/%3E%3Cpath d='M3 9h18M9 21V9'/%3E%3C/svg%3E";
+const favEl = document.getElementById('sg-favicon');
+if (favEl) {
+    const applyFallback = () => {
+        if (favEl.src === GENERIC_FAVICON) return;
+        favEl.src = GENERIC_FAVICON;
+        favEl.classList.add('p-1'); // inset the generic glyph within its rounded box
+    };
+    favEl.addEventListener('error', applyFallback);
+    // Cover images that already failed before this listener attached, plus the
+    // empty-src "no favicon configured" case.
+    if (!favEl.getAttribute('src') || (favEl.complete && favEl.naturalWidth === 0)) applyFallback();
+}
 Alpine.effect(() => {
     const route = Alpine.store('ui').route;
     const i18n = Alpine.store('i18n');

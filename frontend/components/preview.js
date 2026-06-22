@@ -385,6 +385,32 @@ document.addEventListener('alpine:init', () => {
             return match?.width ? String(match.width) : '?';
         },
 
+        // Device WORD label for the unified switcher trigger (e.g. "Desktop",
+        // "Mobile S", "Full", or the localised "Vlastní"/"Custom"). Distinct
+        // from `activeLabel` above, which returns the bare width number — the
+        // trigger pairs this word with `triggerDims` so the control always
+        // reads in plain language at every viewport width.
+        get activeWordLabel() {
+            const key = this.activePreset;
+            if (key === 'full') return 'Full';
+            if (key === 'custom') return Alpine.store('i18n').t('toolbar.custom_width_label');
+            const match = VIEWPORTS.find((v) => v.key === key);
+            return match?.label ?? '?';
+        },
+
+        // Dimension summary for the switcher trigger: "1280 × 800" for presets
+        // (with a ` · N %` suffix when scaled below 1:1), "100 %" for Full,
+        // "980 px" for Custom. Folds the old standalone readout into the
+        // trigger so the dimensions are always visible without a separate chip.
+        get triggerDims() {
+            if (this.activePreset === 'full') return '100 %';
+            if (this.activePreset === 'custom') {
+                const z = this.zoom;
+                return z < 1 ? `${this.currentWidth} px · ${Math.round(z * 100)} %` : `${this.currentWidth} px`;
+            }
+            return this.dimensionsLabel;
+        },
+
         // Human-readable "W × H" string for the active preset (after any
         // rotation), or null when the preset has no logical dimensions
         // (Full mode, or Custom widths whose height is content-driven).

@@ -30,6 +30,7 @@
         "full": "Full width"
     },
     "search": {
+        "label": "Search",
         "placeholder": "Search…",
         "shortcut_hint": "⌘ K"
     },

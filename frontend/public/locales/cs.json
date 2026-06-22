@@ -30,6 +30,7 @@
         "full": "Plná šířka"
     },
     "search": {
+        "label": "Hledat",
         "placeholder": "Hledat…",
         "shortcut_hint": "⌘ K"
     },
