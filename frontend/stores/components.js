@@ -54,9 +54,23 @@ document.addEventListener('alpine:init', () => {
         // are always flat. Pure derivation from `name`, computed at render time
         // (no metadata). Ordered by label/name; children ordered by suffix (cs).
         treeOf(section) {
+            return this.buildTree(this.bySection(section));
+        },
+
+        // Same prefix-tree grouping for the Pages section — pages live in their
+        // own list (`this.pages`, not `this.items`), so `treeOf`/`bySection`
+        // never reach them. Routed through the shared builder so "Hlavička -
+        // static / sticky / absolute / fixed" collapse under a "Hlavička" group
+        // exactly like the component sections.
+        get pagesTree() {
+            return this.buildTree(this.pages.filter((p) => p.hasStyleguide !== false));
+        },
+
+        // Shared prefix-tree builder (component sections + pages). See treeOf.
+        buildTree(list) {
             const GROUP_MIN = 3;
             const buckets = new Map();
-            for (const it of this.bySection(section)) {
+            for (const it of list) {
                 const name = it.name ?? it.id;
                 const sep = name.indexOf(' - ');
                 const prefix = sep > 0 ? name.slice(0, sep) : null;
