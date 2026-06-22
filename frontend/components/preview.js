@@ -312,25 +312,33 @@ document.addEventListener('alpine:init', () => {
         },
 
         // Scale factor that makes the iframe fit the container's available
-        // width. Width-only by design — users intuitively expect that
-        // hiding the sidebar (more horizontal room) visibly enlarges the
-        // preview. A previous fit-to-bounds version also constrained by
-        // height, which surprised users on wide monitors where a 2K
-        // preset would lock to ~81% because the chrome pane was
-        // vertically shorter than 1440 px. Width-only gives the
-        // expected mental model "more space → bigger"; vertical overflow
-        // falls back to the chrome pane's `overflow-auto` scrollbar.
+        // space. Two regimes, by whether the active mode has a *canonical
+        // height*:
         //
-        // Returns 1 only for Full mode (effectiveWidth === null, so the
-        // early `!w` guard fires). Every other fixed-px width (preset OR
-        // Custom) is subject to scaling when it exceeds the container —
-        // Custom widths share the preset code path so typing `3000` on a
-        // 1100px chrome pane scales down to fit, same as Desktop 2K would.
+        // 1. Device presets (Mobile / Tablet / Desktop … incl. rotated) —
+        //    `effectiveHeight` is a fixed px value, so we fit-to-bounds:
+        //    `min(availW/w, availH/h)`. This keeps the WHOLE emulated device
+        //    visible at once — critical for tall / rotated presets (e.g. a
+        //    rotated Desktop at 960×1536), which otherwise overflow the pane
+        //    vertically and tuck their top edge under the toolbar where it
+        //    can't be scrolled back into view.
+        // 2. Full / Custom — no canonical height (content-driven), so height
+        //    can't be fitted; stays width-only and the chrome pane's
+        //    `overflow-auto` scrollbar handles vertical overflow. Full mode
+        //    (effectiveWidth === null) returns 1 via the early `!w` guard.
+        //
+        // `Math.min(1, …)` caps at 1:1 — fitting only ever shrinks, never
+        // upscales a small preset into a blurry enlargement.
         get zoom() {
             const w = this.effectiveWidth;
             if (!w) return 1;
             if (!this.containerAvailableWidth) return 1;
-            return Math.min(1, this.containerAvailableWidth / w);
+            let z = this.containerAvailableWidth / w;
+            const h = this.effectiveHeight;
+            if (h && this.containerAvailableHeight) {
+                z = Math.min(z, this.containerAvailableHeight / h);
+            }
+            return Math.min(1, z);
         },
 
         // CSS for the iframe element. Logical preset dimensions in CSS px
