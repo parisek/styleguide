@@ -213,13 +213,46 @@
                         <span class="text-zinc-400 dark:text-zinc-600 font-semibold" x-text="filterItems($store.components.pages).length"></span>
                     </button>
                     <ul x-show="sections.pages || $store.ui.searchQuery" class="mt-1 space-y-0.5">
-                        <template x-for="page in filterItems($store.components.pages)" :key="page.id">
+                        <!-- While searching: flat full-name results (grouping bypassed). -->
+                        <template x-for="page in ($store.ui.searchQuery ? filterItems($store.components.pages) : [])" :key="'s:'+page.id">
                             <li>
                                 <a href="#" @click.prevent="select('page', page.id)"
                                    class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
                                    :class="isActive('page', page.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                                     <span x-text="page.name ?? page.id"></span>
                                 </a>
+                            </li>
+                        </template>
+                        <!-- Otherwise: prefix tree (groups >= 3 by name, suffix-only children) — same as component sections. -->
+                        <template x-for="node in ($store.ui.searchQuery ? [] : $store.components.pagesTree)" :key="node.type === 'group' ? 'g:'+node.label : 'i:'+node.item.id">
+                            <li>
+                                <template x-if="node.type === 'item'">
+                                    <a href="#" @click.prevent="select('page', node.item.id)"
+                                       class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
+                                       :class="isActive('page', node.item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                                        <span x-text="node.item.name ?? node.item.id"></span>
+                                    </a>
+                                </template>
+                                <template x-if="node.type === 'group'">
+                                    <div>
+                                        <button @click="toggleGroup('pages', node.label)" class="w-full flex items-center gap-2 px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
+                                            <svg class="w-3 h-3 shrink-0 transition-transform text-zinc-400 dark:text-zinc-600" :class="!isGroupOpen('pages', node.label, node.children) && '-rotate-90'" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+                                            <span class="font-medium" x-text="node.label"></span>
+                                            <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold" x-text="node.children.length"></span>
+                                        </button>
+                                        <ul x-show="isGroupOpen('pages', node.label, node.children)" class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
+                                            <template x-for="child in node.children" :key="child.id">
+                                                <li>
+                                                    <a href="#" @click.prevent="select('page', child.id)"
+                                                       class="block px-3 py-1.5 text-[13px] rounded-lg transition-colors"
+                                                       :class="isActive('page', child.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                                                        <span x-text="child.leaf"></span>
+                                                    </a>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                    </div>
+                                </template>
                             </li>
                         </template>
                     </ul>

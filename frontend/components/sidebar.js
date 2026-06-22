@@ -23,7 +23,10 @@ document.addEventListener('alpine:init', () => {
             return `${section}/${prefix}`;
         },
         isGroupOpen(section, prefix, children) {
-            if (children.some((c) => this.isActive('component', c.id))) return true;
+            // Group children are components in component sections and pages in the
+            // Pages section — check both so a deep-linked active child force-opens
+            // its group regardless of kind.
+            if (children.some((c) => this.isActive('component', c.id) || this.isActive('page', c.id))) return true;
             return this.groups[this.groupKey(section, prefix)] ?? true;
         },
         toggleGroup(section, prefix) {
