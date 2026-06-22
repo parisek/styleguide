@@ -42,6 +42,12 @@ document.addEventListener('alpine:init', () => {
             // and Renderer maps overview/fields to package-shipped templates.
             const path = slug ? `/styleguide/${type}/${slug}` : `/styleguide/${type}`;
             window.sgNavigate(path);
+            // On small screens the sidebar is a slide-over overlay covering the
+            // preview — close it after a pick so the chosen item is visible.
+            // No-op on desktop where the sidebar is a persistent column.
+            if (window.matchMedia('(max-width: 1023px)').matches) {
+                Alpine.store('ui').sidebarOpen = false;
+            }
         },
 
         // Substring match against name (locale-tuned label) AND id (raw slug)
