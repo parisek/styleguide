@@ -432,35 +432,84 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- Secondary preview actions: Canvas / open-in-new-tab / reload. -->
-                        <button type="button"
-                                @click="$store.ui.route.slug && (window.location.href = iframeSrc + (iframeSrc.includes('?') ? '&' : '?') + 'canvas=1')"
-                                :disabled="!$store.ui.route.slug"
-                                :title="$store.i18n.t('toolbar.canvas_mode')"
-                                :aria-label="$store.i18n.t('toolbar.canvas_mode_label')"
-                                class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/>
-                                <path d="M9 21h6"/>
-                            </svg>
-                        </button>
-                        <a :href="iframeSrc" target="_blank" rel="noopener"
-                           :title="$store.i18n.t('toolbar.open_in_new_tab')"
-                           :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
-                           class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
-                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
-                            </svg>
-                        </a>
-                        <button type="button" @click="reloadPreview"
-                                :title="$store.i18n.t('toolbar.reload')"
-                                :aria-label="$store.i18n.t('toolbar.reload')"
-                                class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
-                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                                <path d="M3 3v5h5"/>
-                            </svg>
-                        </button>
+                        <!-- Secondary preview actions: inline on lg+, collapsed into a ⋮
+                             overflow below lg so the toolbar doesn't crowd on tablet / phone. -->
+                        <div class="hidden lg:flex items-center gap-2">
+                            <button type="button"
+                                    @click="$store.ui.route.slug && (window.location.href = iframeSrc + (iframeSrc.includes('?') ? '&' : '?') + 'canvas=1')"
+                                    :disabled="!$store.ui.route.slug"
+                                    :title="$store.i18n.t('toolbar.canvas_mode')"
+                                    :aria-label="$store.i18n.t('toolbar.canvas_mode_label')"
+                                    class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/>
+                                    <path d="M9 21h6"/>
+                                </svg>
+                            </button>
+                            <a :href="iframeSrc" target="_blank" rel="noopener"
+                               :title="$store.i18n.t('toolbar.open_in_new_tab')"
+                               :aria-label="$store.i18n.t('toolbar.open_in_new_tab')"
+                               class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
+                                </svg>
+                            </a>
+                            <button type="button" @click="reloadPreview"
+                                    :title="$store.i18n.t('toolbar.reload')"
+                                    :aria-label="$store.i18n.t('toolbar.reload')"
+                                    class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                    <path d="M3 3v5h5"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <!-- Overflow (⋮) — same actions, below lg only. -->
+                        <div class="lg:hidden relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
+                            <button type="button"
+                                    @click="open = !open"
+                                    :aria-expanded="open"
+                                    :title="$store.i18n.t('toolbar.more_actions')"
+                                    :aria-label="$store.i18n.t('toolbar.more_actions')"
+                                    class="h-9 w-9 flex items-center justify-center rounded-lg transition-colors"
+                                    :class="open ? 'bg-zinc-200 text-zinc-900 dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700'">
+                                <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                                    <circle cx="12" cy="5" r="1.5"/>
+                                    <circle cx="12" cy="12" r="1.5"/>
+                                    <circle cx="12" cy="19" r="1.5"/>
+                                </svg>
+                            </button>
+                            <div x-show="open"
+                                 x-transition.opacity.duration.100ms
+                                 class="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5"
+                                 style="display: none">
+                                <button type="button"
+                                        @click="open = false; $store.ui.route.slug && (window.location.href = iframeSrc + (iframeSrc.includes('?') ? '&' : '?') + 'canvas=1')"
+                                        :disabled="!$store.ui.route.slug"
+                                        class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                                    <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/>
+                                        <path d="M9 21h6"/>
+                                    </svg>
+                                    <span x-text="$store.i18n.t('toolbar.canvas_mode_label')"></span>
+                                </button>
+                                <a :href="iframeSrc" target="_blank" rel="noopener" @click="open = false"
+                                   class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                    <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
+                                    </svg>
+                                    <span x-text="$store.i18n.t('toolbar.open_in_new_tab')"></span>
+                                </a>
+                                <button type="button" @click="open = false; reloadPreview()"
+                                        class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                                    <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                                        <path d="M3 3v5h5"/>
+                                    </svg>
+                                    <span x-text="$store.i18n.t('toolbar.reload')"></span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </template>
                 <!-- Foundations route still gets the open-in-new-tab affordance,

@@ -21,7 +21,8 @@
         "rotate": "Otočit zařízení (na šířku ↔ na výšku)",
         "orientation_portrait": "Na výšku",
         "orientation_landscape": "Na šířku",
-        "reload": "Znovu načíst"
+        "reload": "Znovu načíst",
+        "more_actions": "Další akce"
     },
     "preview": {
         "mobile": "Mobil (375 px)",
