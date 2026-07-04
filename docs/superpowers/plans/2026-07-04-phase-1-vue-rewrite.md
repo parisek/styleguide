@@ -25,7 +25,7 @@
 
 **Files:** none (git only).
 
-- [ ] **Step 1: Create the feature branch**
+- [x] **Step 1: Create the feature branch**
 
 ```bash
 cd /Users/pari/Sites/styleguide
@@ -37,7 +37,7 @@ git checkout -b feature/styleguide-2.0
 
 All four phases execute sequentially on this ONE branch (`feature/styleguide-2.0`) — later phases build on earlier phases' code, so per-phase branches would only add merge friction. Phase boundaries are marked by their CHANGELOG commits.
 
-- [ ] **Step 2: Confirm clean baseline**
+- [x] **Step 2: Confirm clean baseline**
 
 Run: `composer test && composer phpstan`
 Expected: both exit 0 (23 PHPUnit tests green, 0 PHPStan errors) before any frontend change — this is the regression baseline every later PHP-touching task diffs against.
@@ -55,7 +55,7 @@ Expected: both exit 0 (23 PHPUnit tests green, 0 PHPStan errors) before any fron
 - Produces: `npm run build` (unchanged output contract: `dist/index.html`, `dist/styleguide.[hash].js`, `dist/styleguide.[hash].css`, `dist/foundations.[hash].css`), `npm test` (new — `vitest run`).
 - Consumes: nothing yet (no Vue source exists until Task 4).
 
-- [ ] **Step 1: Add dependencies**
+- [x] **Step 1: Add dependencies**
 
 Edit `frontend/package.json` to:
 
@@ -89,12 +89,12 @@ Edit `frontend/package.json` to:
 
 Note: `alpinejs`, `@alpinejs/collapse`, `@alpinejs/persist` stay in `package.json` until Task 14 (Cleanup) — removing them now would break `npm run build` for every intermediate task since `frontend/styleguide.js` still imports them until the App shell lands in Task 4.
 
-- [ ] **Step 2: Install**
+- [x] **Step 2: Install**
 
 Run: `cd frontend && npm install`
 Expected: exit 0, `frontend/package-lock.json` updated with the 6 new packages + transitive deps.
 
-- [ ] **Step 3: Wire the Vue plugin into Vite**
+- [x] **Step 3: Wire the Vue plugin into Vite**
 
 Edit `frontend/vite.config.js` — add the import and register the plugin:
 
@@ -132,7 +132,7 @@ export default defineConfig({
 
 (Only the `import vue` line and `vue()` in the `plugins` array are new — `rollupOptions`/`base`/`publicDir` are unchanged from today, confirming the `dist/` output contract Task 4's PHP substitution and Task 13's reproducibility check both depend on.)
 
-- [ ] **Step 4: Add a standalone Vitest config**
+- [x] **Step 4: Add a standalone Vitest config**
 
 Create `frontend/vitest.config.js` (kept separate from `vite.config.js` so `vite build` never picks up test-only config, and so `environment: 'jsdom'` doesn't leak into the production build):
 
@@ -150,7 +150,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 5: Verify build still passes with zero Vue source**
+- [x] **Step 5: Verify build still passes with zero Vue source**
 
 Run: `cd frontend && npm run build`
 Expected: exit 0, identical `dist/` output shape (Vue plugin has nothing to compile yet — `index.html`/`foundations.html` still reference only `styleguide.js`/`styleguide.css`).
@@ -158,7 +158,7 @@ Expected: exit 0, identical `dist/` output shape (Vue plugin has nothing to comp
 Run: `cd frontend && npm test`
 Expected: `No test files found` message, exit code 1 (Vitest's default behavior on an empty suite) — this is EXPECTED at this point; do not treat it as a task failure. Task 2 makes it pass for real.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/package.json frontend/package-lock.json frontend/vite.config.js frontend/vitest.config.js
