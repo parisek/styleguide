@@ -189,7 +189,7 @@ Ports the non-trivial, currently zero-test-coverage logic (search matching, pref
 - `fieldsTree.js` — `flattenFieldsTree(map: object|null, depth?: number, parentPath?: string): Array<{path, key, depth, type, title, description, required}>`.
 - `externalLinks.js` — `externalLinksFor(item: {asana?, figma?, drupal?, web?}|null): Array<{key, url, label}>`.
 
-- [ ] **Step 1: Write failing tests for `searchMatch.js`**
+- [x] **Step 1: Write failing tests for `searchMatch.js`**
 
 Create `frontend/src/lib/searchMatch.spec.js`:
 
@@ -242,12 +242,12 @@ describe('filterItems', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm the expected failure**
+- [x] **Step 2: Run and confirm the expected failure**
 
 Run: `cd frontend && npx vitest run src/lib/searchMatch.spec.js`
 Expected: fails with `Cannot find module './searchMatch.js'` (module does not exist yet).
 
-- [ ] **Step 3: Implement `searchMatch.js`**
+- [x] **Step 3: Implement `searchMatch.js`**
 
 Create `frontend/src/lib/searchMatch.js`:
 
@@ -276,12 +276,12 @@ export function filterItems(items, query) {
 }
 ```
 
-- [ ] **Step 4: Run and confirm pass**
+- [x] **Step 4: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/lib/searchMatch.spec.js`
 Expected: `Test Files 1 passed`, `Tests 7 passed`.
 
-- [ ] **Step 5: Write failing tests for `prefixTree.js`**
+- [x] **Step 5: Write failing tests for `prefixTree.js`**
 
 Create `frontend/src/lib/prefixTree.spec.js`:
 
@@ -345,7 +345,7 @@ describe('buildTree', () => {
 });
 ```
 
-- [ ] **Step 6: Run and confirm failure, then implement**
+- [x] **Step 6: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/lib/prefixTree.spec.js` → fails (module missing).
 
@@ -395,7 +395,7 @@ export function buildTree(list) {
 Run: `cd frontend && npx vitest run src/lib/prefixTree.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 7: Write failing tests for `viewportMath.js`**
+- [x] **Step 7: Write failing tests for `viewportMath.js`**
 
 Create `frontend/src/lib/viewportMath.spec.js`:
 
@@ -541,7 +541,7 @@ describe('constants', () => {
 });
 ```
 
-- [ ] **Step 8: Run and confirm failure, then implement**
+- [x] **Step 8: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/lib/viewportMath.spec.js` → fails (module missing).
 
@@ -629,7 +629,7 @@ export function rotationForPortrait({ width, height, portrait }) {
 Run: `cd frontend && npx vitest run src/lib/viewportMath.spec.js`
 Expected: `Tests 21 passed`.
 
-- [ ] **Step 9: Write failing tests for `fieldsTree.js`**
+- [x] **Step 9: Write failing tests for `fieldsTree.js`**
 
 Create `frontend/src/lib/fieldsTree.spec.js`:
 
@@ -675,7 +675,7 @@ describe('flattenFieldsTree', () => {
 });
 ```
 
-- [ ] **Step 10: Run and confirm failure, then implement**
+- [x] **Step 10: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/lib/fieldsTree.spec.js` → fails (module missing).
 
@@ -713,7 +713,7 @@ export function flattenFieldsTree(map, depth = 0, parentPath = '') {
 Run: `cd frontend && npx vitest run src/lib/fieldsTree.spec.js`
 Expected: `Tests 4 passed`.
 
-- [ ] **Step 11: Write failing tests for `externalLinks.js`**
+- [x] **Step 11: Write failing tests for `externalLinks.js`**
 
 Create `frontend/src/lib/externalLinks.spec.js`:
 
@@ -742,7 +742,7 @@ describe('externalLinksFor', () => {
 });
 ```
 
-- [ ] **Step 12: Run and confirm failure, then implement**
+- [x] **Step 12: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/lib/externalLinks.spec.js` → fails (module missing).
 
@@ -769,7 +769,7 @@ export function externalLinksFor(item) {
 Run: `cd frontend && npx vitest run src/lib/externalLinks.spec.js`
 Expected: `Tests 3 passed`.
 
-- [ ] **Step 13: Full lib suite + commit**
+- [x] **Step 13: Full lib suite + commit**
 
 Run: `cd frontend && npm test`
 Expected: `Test Files 5 passed`, `Tests 40 passed` (7 + 5 + 21 + 4 + 3).
