@@ -23,3 +23,4 @@
 - 12:39 P2 Task 5 (asset MIME + glob guard): OK — e817425, 154 PHP
 - 12:50 P2 Task 6 (auth gate): OK — e0b06a7+f305eee, opus security review caught fail-open + stack-leak gaps, fixed
 - 13:07 P2 Task 7 (docs sync + archive + e2e cleanup): OK. PHASE 2 TASKS COMPLETE.
+- 13:22 PHASE 2 DONE — branch review READY, theme-reset-on-iframe-nav fixed via cookie. 166/176/17/36 green.
