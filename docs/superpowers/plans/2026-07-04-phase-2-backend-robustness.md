@@ -981,7 +981,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
 - Consumes: nothing new.
 - Produces: `AssetServer::mimeType()` returns `application/json; charset=utf-8` for `.map`. `Styleguide::resolveFoundationsCssUrl()` (private, unchanged signature) picks the newest-by-mtime file and logs a warning when `glob()` matches more than one `dist/foundations.*.css`.
 
-- [ ] `.map` MIME type — failing test first.
+- [x] `.map` MIME type — failing test first.
   - Create `tests/fixtures/asset-server/test-asset.js.map` with dummy sourcemap-shaped JSON: `{"version":3,"sources":[],"mappings":""}`.
   - Add to `tests/AssetServerTest.php`:
     ```php
@@ -1016,7 +1016,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter AssetServerTest` — all green.
 
-- [ ] `resolveFoundationsCssUrl()` newest-wins + warning — failing test first.
+- [x] `resolveFoundationsCssUrl()` newest-wins + warning — failing test first.
   - Create `tests/StyleguideTest.php`:
     ```php
     <?php
@@ -1118,7 +1118,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter StyleguideTest` — all green. Run `composer test` — full suite green. Run `composer phpstan` — clean.
 
-- [ ] Update `CHANGELOG.md` under `[Unreleased]`:
+- [x] Update `CHANGELOG.md` under `[Unreleased]`:
     ```markdown
     ### Fixed
 
@@ -1126,7 +1126,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     - **Foundations CSS glob picks the newest file when several match.** `resolveFoundationsCssUrl()` used to return whatever `glob()` happened to list first when a stale `dist/foundations.*.css` from a previous build wasn't cleaned up; it now picks the newest by mtime and logs a warning via `error_log()`.
     ```
 
-- [ ] Commit: `fix(assets): correct .map MIME type; foundations CSS glob picks newest match`.
+- [x] Commit: `fix(assets): correct .map MIME type; foundations CSS glob picks newest match`.
 
 ### Task 6: Optional `auth` config key
 

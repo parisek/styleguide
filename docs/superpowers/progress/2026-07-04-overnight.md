@@ -20,3 +20,4 @@
 - 12:11 P2 Task 2 (render 500): OK — e45cc0b, 144 PHP, smoke-http 33/33, pre-fix regression verified
 - 12:26 P2 Task 3 (parser resilience + /api/health): OK — 5ecb382, 149 PHP/171 JS/16 e2e
 - 12:32 P2 Task 4 (helper registration hardening): OK — 494cbc7, 151 PHP
+- 12:39 P2 Task 5 (asset MIME + glob guard): OK — e817425, 154 PHP
