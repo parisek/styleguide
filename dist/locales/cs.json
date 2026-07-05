@@ -36,7 +36,13 @@
     "search": {
         "label": "Hledat",
         "placeholder": "Hledat…",
-        "shortcut_hint": "⌘ K"
+        "shortcut_hint": "⌘ K",
+        "no_results": "Žádné výsledky",
+        "group_components": "Komponenty",
+        "group_pages": "Stránky",
+        "group_docs": "Dokumentace",
+        "hint_navigate": "↵ otevřít",
+        "hint_close": "Esc zavřít"
     },
     "nav": {
         "styleguide": "Styleguide",

@@ -36,7 +36,7 @@ function stubSgConfig(overrides = {}) {
     document.body.appendChild(el);
 }
 
-async function mountSidebar(initialPath = '/foundations') {
+async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
     setActivePinia(createPinia());
     const catalog = useCatalogStore();
     catalog.items = [
@@ -52,7 +52,7 @@ async function mountSidebar(initialPath = '/foundations') {
 
     const router = makeRouter();
     await router.push(initialPath);
-    const wrapper = mount(Sidebar, { global: { plugins: [router] } });
+    const wrapper = mount(Sidebar, { global: { plugins: [router] }, ...mountOptions });
     await router.isReady();
     return { wrapper, router };
 }
@@ -101,6 +101,30 @@ describe('Sidebar', () => {
         ui.searchQuery = 'widget';
         await wrapper.vm.$nextTick();
         expect(wrapper.text()).toContain('Widget - one');
+    });
+
+    // Review finding baked in (Task 5): the old global Escape-clears-the-
+    // filter behavior (useSearchShortcuts.js, now retired -- the command
+    // palette owns the global ⌘K/Ctrl+K shortcut) survives, but deliberately
+    // narrowed to only fire while this specific input has focus (see
+    // onFilterEscape's WHY comment in Sidebar.vue). attachTo: document.body
+    // is required here (existing convention, see useSearchShortcuts.spec.js
+    // in git history) because document.activeElement only reflects reality
+    // for elements actually attached to the document.
+    it('Escape on the focused filter input clears the query and blurs it', async () => {
+        const { wrapper } = await mountSidebar('/foundations', { attachTo: document.body });
+        const ui = useUiStore();
+        ui.searchQuery = 'widget';
+        await wrapper.vm.$nextTick();
+        const input = wrapper.find('input[type="text"]');
+        input.element.focus();
+        expect(document.activeElement).toBe(input.element);
+
+        await input.trigger('keydown', { key: 'Escape' });
+
+        expect(ui.searchQuery).toBe('');
+        expect(document.activeElement).not.toBe(input.element);
+        wrapper.unmount();
     });
 
     it('toggleSection persists to sg-sections', async () => {

@@ -11,6 +11,7 @@ import ViewportToolbar from './components/ViewportToolbar.vue';
 import FieldsDrawer from './components/FieldsDrawer.vue';
 import UsagePanel from './components/UsagePanel.vue';
 import LinkBar from './components/LinkBar.vue';
+import SearchPalette from './components/SearchPalette.vue';
 
 const ui = useUiStore();
 const catalog = useCatalogStore();
@@ -51,6 +52,12 @@ provide('viewport', viewport);
         ></div>
 
         <Sidebar />
+
+        <!-- Global command palette (⌘K/Ctrl+K). Mounted once at this level
+             (not inside Sidebar) since it's an app-wide overlay, not sidebar
+             chrome -- same reasoning as FieldsDrawer/UsagePanel/LinkBar
+             sitting here rather than nested inside a specific view. -->
+        <SearchPalette />
 
         <main class="flex-1 flex flex-col min-w-0 bg-white dark:bg-zinc-950" :class="viewport.isDragging.value && 'cursor-ew-resize select-none'">
             <ViewportToolbar />

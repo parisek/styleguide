@@ -82,15 +82,28 @@ test.describe('Styleguide SPA', () => {
         await expect(page.getByRole('link', { name: 'Widget - one', exact: true })).toBeVisible();
     });
 
-    test('Cmd+K focuses the search input; Escape clears it', async ({ page }) => {
-        // Replaces smoke-browser.sh section 4.
+    // Superseded (Task 5): ⌘K/Ctrl+K used to focus the sidebar's inline
+    // filter input directly (useSearchShortcuts.js, retired). It now opens
+    // the command palette instead -- the sidebar's own filter input keeps
+    // its Esc-to-clear behavior, now scoped to itself (see
+    // search-palette.spec.js's "sidebar filter independence" coverage for
+    // that half of the contract, and Sidebar.spec.js for the unit-level
+    // proof).
+    test('Cmd+K opens the command palette; a second Cmd+K, or Escape, closes it', async ({ page }) => {
         await page.goto('/styleguide/');
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toBeHidden();
+
         await page.keyboard.press('Meta+k');
-        const input = page.locator('input[type="text"]').first();
-        await expect(input).toBeFocused();
-        await input.fill('widget');
+        await expect(dialog).toBeVisible();
+
+        await page.keyboard.press('Meta+k');
+        await expect(dialog).toBeHidden();
+
+        await page.keyboard.press('Meta+k');
+        await expect(dialog).toBeVisible();
         await page.keyboard.press('Escape');
-        await expect(input).toHaveValue('');
+        await expect(dialog).toBeHidden();
     });
 
     test('switching locale to en updates strings and <html lang>', async ({ page }) => {

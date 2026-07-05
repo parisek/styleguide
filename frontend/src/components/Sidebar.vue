@@ -8,7 +8,6 @@ import { useThemeStore } from '../stores/theme.js';
 import { filterItems } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
-import { useSearchShortcuts } from '../composables/useSearchShortcuts.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
 // Read directly rather than `import { config } from '../main.js'`: main.js
 // -> App.vue -> Sidebar.vue is already an import chain, so pulling `config`
@@ -33,7 +32,21 @@ const groups = usePersistedRef('sg-groups', {});
 const config = readSpaConfig();
 
 const searchInputRef = ref(null);
-useSearchShortcuts(searchInputRef);
+
+// Scoped Escape-to-clear (Task 5 review finding). This behavior used to be
+// global (useSearchShortcuts.js, now retired): pressing Escape anywhere
+// cleared this filter, regardless of focus. That global reach directly
+// fought with the new command palette (SearchPalette.vue), which also wants
+// Escape to mean "close me" -- dismissing the palette would blank whatever
+// the user had separately typed in here. Binding @keydown.escape directly
+// on this <input> narrows the behavior deliberately: the native keydown
+// only reaches this handler while the event target is (or bubbles from)
+// this specific input, i.e. only when it already has focus, so the two
+// Escape behaviors can never collide.
+function onFilterEscape() {
+    ui.searchQuery = '';
+    searchInputRef.value?.blur();
+}
 
 function toggleSection(key) {
     sections.value[key] = !sections.value[key];
@@ -146,8 +159,10 @@ function supportedLocales() {
         </div>
 
         <!-- Search: "SEARCH" label over a pill input (birdclaw style). No bottom
-             divider — the airier spacing carries the separation. Keyboard
-             shortcuts (⌘K focus, Esc clear) are wired via useSearchShortcuts. -->
+             divider — the airier spacing carries the separation. ⌘K/Ctrl+K now
+             opens the global command palette (SearchPalette.vue) instead of
+             focusing this input; Esc-to-clear survives but is scoped to this
+             input via @keydown.escape (see onFilterEscape). -->
         <div class="px-4 pt-4 pb-1">
             <div class="px-1 pb-2 text-[10px] uppercase tracking-wider font-bold text-zinc-500">{{ i18n.t('search.label') }}</div>
             <div class="relative">
@@ -157,6 +172,7 @@ function supportedLocales() {
                     type="text"
                     class="w-full px-5 py-2.5 pr-14 bg-white border border-zinc-300 dark:bg-zinc-800 dark:border-zinc-700 rounded-full text-sm placeholder-zinc-500"
                     :placeholder="i18n.t('search.placeholder')"
+                    @keydown.escape="onFilterEscape"
                 >
                 <kbd class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-flex items-center text-[11px] font-medium text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700 rounded px-1.5 py-0.5 leading-none">{{ i18n.t('search.shortcut_hint') }}</kbd>
             </div>

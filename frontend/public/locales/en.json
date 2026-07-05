@@ -36,7 +36,13 @@
     "search": {
         "label": "Search",
         "placeholder": "Search…",
-        "shortcut_hint": "⌘ K"
+        "shortcut_hint": "⌘ K",
+        "no_results": "No results",
+        "group_components": "Components",
+        "group_pages": "Pages",
+        "group_docs": "Documentation",
+        "hint_navigate": "↵ open",
+        "hint_close": "Esc close"
     },
     "nav": {
         "styleguide": "Styleguide",

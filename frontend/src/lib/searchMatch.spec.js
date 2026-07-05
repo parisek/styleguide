@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeForSearch, matchesQuery, filterItems } from './searchMatch.js';
+import { normalizeForSearch, matchesQuery, filterItems, scoreEntry } from './searchMatch.js';
 
 describe('normalizeForSearch', () => {
     it('folds Czech diacritics and lowercases', () => {
@@ -42,5 +42,53 @@ describe('filterItems', () => {
             { id: 'header', name: 'Hlavička' },
         ];
         expect(filterItems(items, 'hlavicka').map((i) => i.id)).toEqual(['header']);
+    });
+});
+
+// scoreEntry() is additive (Task 5, command palette) — normalizeForSearch/
+// matchesQuery/filterItems above are untouched and covered by the describes
+// above unchanged.
+describe('scoreEntry', () => {
+    const entry = (overrides) => ({
+        id: 'hlavicka-sticky',
+        name: 'Hlavička - sticky',
+        category: 'Blocks',
+        description: '<p>Sticky <strong>header</strong> variant</p>',
+        ...overrides,
+    });
+
+    it('returns 0 when no field matches', () => {
+        expect(scoreEntry('zzz', entry())).toBe(0);
+    });
+
+    it('matches diacritic-folded query against name (accent-insensitive)', () => {
+        expect(scoreEntry('hlavicka', entry())).toBeGreaterThan(0);
+    });
+
+    it('weighs name matches higher than description matches', () => {
+        const nameHit = scoreEntry('hlavička', entry());
+        const descOnly = scoreEntry('header', entry({ name: 'Something else', id: 'x' }));
+        expect(nameHit).toBeGreaterThan(descOnly);
+    });
+
+    it('strips HTML before matching description', () => {
+        expect(scoreEntry('strong', entry({ name: 'X', id: 'x' }))).toBe(0); // the TAG text itself isn't content
+        expect(scoreEntry('header', entry({ name: 'X', id: 'x' }))).toBeGreaterThan(0);
+    });
+
+    it('ranks an exact field match above a prefix match above a substring match', () => {
+        const exact = scoreEntry('hlavička - sticky', entry());
+        const prefix = scoreEntry('hlavička', entry());
+        const substring = scoreEntry('sticky', entry());
+        expect(exact).toBeGreaterThan(prefix);
+        expect(prefix).toBeGreaterThan(substring);
+    });
+
+    it('matches against id as well as name', () => {
+        expect(scoreEntry('hlavicka-sticky', entry({ name: 'Different display name' }))).toBeGreaterThan(0);
+    });
+
+    it('empty query matches nothing meaningfully (score 0, caller decides display)', () => {
+        expect(scoreEntry('', entry())).toBe(0);
     });
 });
