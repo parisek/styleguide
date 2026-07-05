@@ -476,7 +476,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
 
 **Design note — why a new endpoint instead of an additive `_warnings` field:** `ComponentsEndpoint`/`PagesEndpoint`/`DocsEndpoint`/`FieldsEndpoint` (`src/Api/*.php`) each `echo json_encode($this->parser->parseAll(...))` directly — the HTTP response body **is** a bare JSON array, not an object with an `items` key. Adding a sibling `_warnings` field to that shape is impossible without breaking every existing consumer of those four endpoints (the SPA's `array.map(...)`, any external tooling treating the body as `Component[]`) — that would be the one non-additive change in this whole phase, which the design's compatibility contract explicitly forbids ("only additive fields like `_warnings`" assumed an object-shaped response that doesn't actually exist). The additive-safe equivalent is a **new** endpoint, mirroring the existing "three/four near-identical classes, no shared base" convention documented in `README.md` § Adding a new endpoint.
 
-- [ ] `ComponentParser::parseAll()` — failing test first, using a controlled mock rather than a "naturally" broken YAML fixture (deliberately corrupting YAML to trip a *different* Throwable subtype than `ParseException` is brittle across `symfony/yaml` versions and tests the library's edge cases, not our resilience contract; a mock exercises the exact mechanism deterministically).
+- [x] `ComponentParser::parseAll()` — failing test first, using a controlled mock rather than a "naturally" broken YAML fixture (deliberately corrupting YAML to trip a *different* Throwable subtype than `ParseException` is brittle across `symfony/yaml` versions and tests the library's edge cases, not our resilience contract; a mock exercises the exact mechanism deterministically).
   - Add to `tests/ComponentParserTest.php`:
     ```php
     #[Test]
@@ -537,7 +537,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter ComponentParserTest` — fails (`getWarnings()` undefined; the mock's thrown `\RuntimeException` currently propagates out of `parseAll()` uncaught, failing the test with an unhandled exception).
 
-- [ ] Implement in `src/ComponentParser.php`:
+- [x] Implement in `src/ComponentParser.php`:
     ```php
     /** @var list<array{file:string, error:string}> */
     private array $warnings = [];
@@ -640,7 +640,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter ComponentParserTest` — all green.
 
-- [ ] Same resilience for `parse()` — failing test first.
+- [x] Same resilience for `parse()` — failing test first.
   - Add to `tests/ComponentParserTest.php`:
     ```php
     #[Test]
@@ -666,7 +666,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Since the implementation above already wraps `parse()`, this should already pass — run `vendor/bin/phpunit --filter ComponentParserTest` to confirm; if it was written before the `parse()` try/catch landed, it fails first as expected, then passes once that edit is in place.
 
-- [ ] Create `src/Api/HealthEndpoint.php` — failing test first.
+- [x] Create `src/Api/HealthEndpoint.php` — failing test first.
   - Add `tests/Api/HealthEndpointTest.php`:
     ```php
     <?php
@@ -785,7 +785,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter HealthEndpointTest` — all green.
 
-- [ ] Wire the route in `src/Styleguide.php::dispatchApi()`:
+- [x] Wire the route in `src/Styleguide.php::dispatchApi()`:
     ```php
     $endpoint = match ($route['endpoint']) {
         'components' => new Api\ComponentsEndpoint($this->parser),
@@ -803,7 +803,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     (`Router::parse()`'s generic `api/<endpoint>` branch already matches this — the assertion documents the contract rather than fixing a gap.)
   - Run `composer test` (full suite) — green. Run `composer phpstan` — clean.
 
-- [ ] Update docs in the same task.
+- [x] Update docs in the same task.
   - `docs/API.md` § JSON API endpoints — add after the `/api/fields` section:
     ```markdown
     ### `GET /styleguide/api/health`
@@ -824,20 +824,20 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
   - `README.md` § API — bump "Four read-only JSON endpoints" to "Five read-only JSON endpoints", and add a short subsection after `### GET /styleguide/api/fields` mirroring the `docs/API.md` shape (see README's existing per-endpoint subsections for the format to match).
   - `README.md` § Adding a new endpoint — the intro line says "The three endpoint classes (`src/Api/*Endpoint.php`) share the same shape" (already understated even before this task — there were four). Reword to: "The endpoint classes (`src/Api/*Endpoint.php`) share the same shape: constructor takes the `ComponentParser`, `handle()` emits headers + `json_encode()`."
 
-- [ ] (SPA, Vue/Pinia) Surface a small warning indicator when `/api/health` returns warnings.
+- [x] (SPA, Vue/Pinia) Surface a small warning indicator when `/api/health` returns warnings.
   - Add a fetch of `/styleguide/api/health` to wherever the catalogue store already fetches `/api/components` etc. (today: `frontend/stores/components.js`; Phase 1 equivalent: `frontend/src/stores/catalog.js`), exposing `warnings` on the store.
   - Add a small component (e.g. `frontend/src/components/HealthWarningBadge.vue`) rendered near the sidebar header, visible only when `catalog.warnings.length > 0`; clicking it could simply `console.warn` the list or open a tooltip — kept intentionally minimal, this is an unobtrusive operator signal, not a new UI surface to design in depth.
   - Add a Vitest test asserting the badge is absent when `warnings` is empty and present with the correct count when non-empty.
   - Run `npm run test` — green. Run `npm run build` — commit `dist/`.
 
-- [ ] Update `CHANGELOG.md` under `[Unreleased]`:
+- [x] Update `CHANGELOG.md` under `[Unreleased]`:
     ```markdown
     ### Added
 
     - **New `GET /styleguide/api/health` endpoint.** Reports per-file parse warnings (`ComponentParser` now catches `\Throwable`, not just YAML `ParseException`, so one pathological template no longer 500s the whole `/api/components` catalogue — it's skipped and recorded instead) plus component/page/doc counts. A separate endpoint rather than a `_warnings` field on the existing four, which each emit a bare JSON array with no additive slot for a sibling field.
     ```
 
-- [ ] Commit: `feat(api): resilient ComponentParser parsing + /api/health endpoint`.
+- [x] Commit: `feat(api): resilient ComponentParser parsing + /api/health endpoint`.
 
 ### Task 4: Helper registration stops matching exception message text
 
