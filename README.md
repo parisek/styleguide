@@ -390,6 +390,11 @@ clean (or notice-only), `1` when any `warning`/`error` finding is present,
 `2` on a usage/internal error — run it in CI to catch metadata regressions
 before they ship.
 
+Replacing a bespoke, hand-rolled styleguide with this package? See
+[`docs/MIGRATION.md`](docs/MIGRATION.md) for a step-by-step guide, including
+worked per-project notes for the fleet's Tailwind/SCSS, Drupal-Twig, and
+Bootstrap 5 stacks.
+
 ---
 
 ## Conventional Twig namespaces
