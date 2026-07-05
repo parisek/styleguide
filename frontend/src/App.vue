@@ -6,6 +6,7 @@ import { routeInfo } from './lib/routeInfo.js';
 import { useViewportPreset } from './composables/useViewportPreset.js';
 import Sidebar from './components/Sidebar.vue';
 import ViewportToolbar from './components/ViewportToolbar.vue';
+import FieldsDrawer from './components/FieldsDrawer.vue';
 
 const ui = useUiStore();
 const route = useRoute();
@@ -47,8 +48,7 @@ provide('viewport', viewport);
             <!-- Task 10 replaces these two stubs with <UsagePanel /> and <LinkBar /> -->
             <div data-testid="usage-panel-stub"></div>
             <div data-testid="link-bar-stub"></div>
-            <!-- Task 9 replaces this stub with <FieldsDrawer :fields="viewport.currentItem.value?.fields" v-if="viewport.fieldsCount.value > 0 && routeSlug" /> -->
-            <div data-testid="fields-drawer-stub"></div>
+            <FieldsDrawer v-if="viewport.fieldsCount.value > 0 && routeSlug" :fields="viewport.currentItem.value?.fields" />
             <RouterView />
         </main>
     </div>
