@@ -161,6 +161,9 @@ The package registers these on its pristine Twig env (or layers them on top of a
 | `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
+| `cachebust(url)` | filter | Appends `?v=<filemtime>` (or `&v=…` if the URL already has a query string) to a root-relative URL that resolves to a real file, walking up from `static_path` to find it. Non-string, empty, non-root-relative, or unresolvable URLs pass through unchanged. Used internally on `iframe.css` / `iframe.js` / `iframe.fonts[]`, also callable from any component template |
+| `format_date(timestamp, type, format)` | filter | Locale-light date formatter. Default output is `j. n. Y` (Czech short date); pass `type: 'custom'` with a `format` for any PHP `date()` pattern. Accepts an int timestamp or a string `strtotime()` can parse; unparseable strings are returned unchanged |
+| `custom_price_format(value)` | filter | Formats a `{ number, currency_code }` map into the project's canonical price string (`CZK` → `1 234 Kč`, `EUR` → `€ 1 234,56`); any other currency code returns the raw `number` unchanged |
 | `_x(text, context, domain)` | function | i18n shim — falls through to the project's `_x` if one is already registered |
 | `__(text, domain)` / `_n(single, plural, number, domain)` / `_nx(single, plural, number, context, domain)` | function | Same i18n shim family — fall through to the project's WP-compatible translators when present |
 | `_xt` / `__t` / `_nt` / `_nxt` | function | Typography-aware translation: same signatures as `_x` / `__` / `_n` / `_nx`, but the result is piped through `\|typography`. Opt-in is a one-character edit (`_x` → `_xt`) so long-form copy gets consistent typographic treatment without `\|typography` on every callsite. `is_safe: ['html']` |
@@ -213,9 +216,8 @@ Flat list of every component / page that exposes a `fields:` map. Only component
 
 ```ts
 {
-  id: string;
-  type: 'component' | 'page';
-  name: string;
+  component_id: string;
+  component_name: string;
   fields: object;
 }
 ```
