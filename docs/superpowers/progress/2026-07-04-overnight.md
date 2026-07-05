@@ -28,3 +28,4 @@
 - 13:49 P3 Task 2 (MIGRATION.md): OK — 30bb5cd, per-target guides fact-checked against live sibling repos
 - 13:57 P3 Tasks 3+4 (fixture docs + follow-ups note): OK. PHASE 3 TASKS COMPLETE.
 - 14:03 PHASE 3 DONE — review READY, MIGRATION.md claims re-verified file-by-file against live repos.
+- 14:14 P4 Task 1 (variant discovery): OK — bac11da, 192 PHP, filesystem-canonical semantics verified adversarially

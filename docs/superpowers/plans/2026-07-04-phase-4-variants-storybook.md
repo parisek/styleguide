@@ -60,7 +60,7 @@ If any assumption above turns out false when this plan is executed, fix the assu
 - Variant id pattern: `/^styleguide\.([a-z0-9-]+)\.twig$/` matched against the basename — anything else glob-matched by `styleguide.*.twig` that doesn't fit this shape (e.g. a stray `styleguide.old.twig.bak`) is skipped, not errored.
 - Ordering: by variant id (== filename order, since id is the only variable segment of the filename) — deterministic regardless of the OS's `glob()` return order.
 
-- [ ] **Step 1: Add the fixture files**
+- [x] **Step 1: Add the fixture files**
 
 `tests/fixtures/templates/component/multi/multi.twig`:
 ```twig
@@ -91,7 +91,7 @@ variants:
 
 Note the YAML only labels `secondary` — `dark-bg` has a file but no label entry, exercising the id-fallback path. Alphabetically `dark-bg` < `secondary`, so the ordering assertion below also proves ordering is NOT YAML-declaration order (YAML only mentions `secondary`) and NOT glob-arbitrary order, but strictly filename order.
 
-- [ ] **Step 2: Write the failing tests** (`tests/ComponentParserTest.php`, appended)
+- [x] **Step 2: Write the failing tests** (`tests/ComponentParserTest.php`, appended)
 
 ```php
     #[Test]
@@ -157,7 +157,7 @@ Note the YAML only labels `secondary` — `dark-bg` has a file but no label entr
 
 Run: `vendor/bin/phpunit --filter ComponentParserTest` — expect 4 new failures (`Undefined array key "variants"`).
 
-- [ ] **Step 3: Implement `discoverVariants()` and wire it into both call sites**
+- [x] **Step 3: Implement `discoverVariants()` and wire it into both call sites**
 
 In `src/ComponentParser.php`, add a class constant and the private method:
 
@@ -260,7 +260,7 @@ and `parseAll()`'s loop body:
             $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
 ```
 
-- [ ] **Step 4: Run PHP tests + phpstan**
+- [x] **Step 4: Run PHP tests + phpstan**
 
 Run: `vendor/bin/phpunit --filter ComponentParserTest`
 Expected: all pass, including the 4 new ones.
@@ -268,7 +268,7 @@ Expected: all pass, including the 4 new ones.
 Run: `composer phpstan`
 Expected: no new errors (the new method has full param/return docblocks; `glob()` return is nullable-array-coerced via `?: []`).
 
-- [ ] **Step 5: `/api/components` passthrough test** (`tests/Api/ComponentsEndpointTest.php`, new file — none existed before this task)
+- [x] **Step 5: `/api/components` passthrough test** (`tests/Api/ComponentsEndpointTest.php`, new file — none existed before this task)
 
 ```php
 <?php
@@ -310,7 +310,7 @@ final class ComponentsEndpointTest extends TestCase
 
 Run: `vendor/bin/phpunit --filter ComponentsEndpointTest` — expect pass (no PHP change needed here; `ComponentsEndpoint::handle()` already serializes `parseAll()` verbatim — this test documents/locks the passthrough).
 
-- [ ] **Step 6: CLI passthrough — extend existing test, no CLI code change**
+- [x] **Step 6: CLI passthrough — extend existing test, no CLI code change**
 
 `ComponentParser::parse()`/`parseAll()` already back `vendor/bin/styleguide list`/`show` (per `docs/API.md` § CLI: "Shape matches `/api/components`"). Add one assertion to `tests/Cli/CommandTest.php`'s existing `show` test (the one asserting `$decoded['category']` etc. — see the method around line 71-79) confirming the new field survives the CLI's own JSON round-trip:
 
@@ -324,7 +324,7 @@ Run: `vendor/bin/phpunit --filter ComponentsEndpointTest` — expect pass (no PH
 
 Run: `vendor/bin/phpunit --filter CommandTest` — expect pass.
 
-- [ ] **Step 7: Update `docs/API.md`**
+- [x] **Step 7: Update `docs/API.md`**
 
 In § *Component YAML metadata*, add a row to the table (after `body_class`):
 
@@ -346,7 +346,7 @@ In § *JSON API endpoints* → `GET /styleguide/api/components` ts shape, add (a
 
 Note in the same section that `/api/pages` and `/api/docs` inherit the identical additive field (already true by construction — same `normaliseMetadata()`).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 `git add src/ComponentParser.php tests/ComponentParserTest.php tests/Api/ComponentsEndpointTest.php tests/Cli/CommandTest.php tests/fixtures/templates/component/multi docs/API.md`
 `git commit -m "feat(parser): discover styleguide.<variant>.twig sibling files"`
