@@ -1672,7 +1672,7 @@ Replaces the 7 silently-no-op regex substitutions in `Styleguide::dispatchSpa()`
 - `src/main.js` — boots Pinia + the router + mounts `App.vue` at `#app`; reads `readSpaConfig()` once and stamps `document.title`/favicon/project name reactively (replacing the `Alpine.effect` in the current `styleguide.js`).
 - PHP `Styleguide::dispatchSpa()` — same signature (`private function dispatchSpa(array $route): void`), same call site, but now throws `\RuntimeException` when the `#sg-config` injection point is missing from `dist/index.html` instead of silently shipping a stale shell.
 
-- [ ] **Step 1: Write the failing PHP test first**
+- [x] **Step 1: Write the failing PHP test first**
 
 Create `tests/SpaConfigTest.php`:
 
@@ -1758,12 +1758,12 @@ final class SpaConfigTest extends TestCase
 
 Note: this test assumes `Styleguide`'s constructor accepts a `dist_path` override (it currently hardcodes `__DIR__ . '/../dist'` per the research, constructor line ~136). Add that override in Step 3 below; without it this test cannot point at a temp `dist/index.html` and would corrupt the real `dist/` fixture during the test run.
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `composer test -- --filter SpaConfigTest`
 Expected: fails — either a constructor error (`dist_path` key not recognised) or (once that's stubbed) the old 7-regex `dispatchSpa()` doesn't touch `#sg-config` at all, so the first assertion's regex never matches.
 
-- [ ] **Step 3: Add the `dist_path` constructor override**
+- [x] **Step 3: Add the `dist_path` constructor override**
 
 In `src/Styleguide.php`, find the constructor line that sets `$this->distRoot = __DIR__ . '/../dist';` and change it to honor an optional config key, keeping the existing default:
 
@@ -1771,7 +1771,7 @@ In `src/Styleguide.php`, find the constructor line that sets `$this->distRoot = 
 $this->distRoot = (string) ($config['dist_path'] ?? (__DIR__ . '/../dist'));
 ```
 
-- [ ] **Step 4: Rewrite `dispatchSpa()`**
+- [x] **Step 4: Rewrite `dispatchSpa()`**
 
 Replace the entire body of `private function dispatchSpa(array $route): void` in `src/Styleguide.php` with:
 
@@ -1829,17 +1829,17 @@ Replace the entire body of `private function dispatchSpa(array $route): void` in
 
 This drops the `$esc`/`htmlspecialchars` helper and the `preg_replace_callback` entirely — `json_encode` already produces a safe embedding inside a `<script type="application/json">` element (no `</script>`-breakout risk for any of these string fields, and JSON's own escaping handles quotes/backslashes). `JSON_UNESCAPED_SLASHES` keeps favicon URLs readable (`/images/favicon.svg` instead of `\/images\/favicon.svg`) with no functional difference to the JS `JSON.parse()` on the other side.
 
-- [ ] **Step 5: Run and confirm the PHP test passes**
+- [x] **Step 5: Run and confirm the PHP test passes**
 
 Run: `composer test -- --filter SpaConfigTest`
 Expected: both tests pass. Then run the full suite: `composer test` exit 0 — no other test references the old regex targets (research confirmed zero existing coverage of `dispatchSpa`).
 
-- [ ] **Step 6: `composer phpstan`**
+- [x] **Step 6: `composer phpstan`**
 
 Run: `php -d memory_limit=512M vendor/bin/phpstan analyse`
 Expected: 0 errors.
 
-- [ ] **Step 6b: Update Tailwind's `@source` directives for the new `src/` tree**
+- [x] **Step 6b: Update Tailwind's `@source` directives for the new `src/` tree**
 
 `frontend/styleguide.css` currently declares `@source "./index.html"; @source "./components/**/*.js"; @source "./stores/**/*.js";` (Tailwind v4's content-detection allowlist). Every Vue SFC from this task onward lives under `frontend/src/**/*.vue`, and utility classes inside a `.vue` file's `<template>` block are invisible to Tailwind unless a matching `@source` glob covers `.vue` files. Left unfixed, every class added by Tasks 4-11 would silently fail to generate — the single highest-risk regression in this whole migration, and one with no error message, just missing CSS. Fix it now, before the first Vue template with real utility classes lands (`App.vue`, Step 11 below):
 
@@ -1861,7 +1861,7 @@ Expected: 0 errors.
 Run: `cd frontend && npm run build`
 Expected: exit 0 (this only re-confirms the glob syntax is valid; Step 14 below re-verifies with a class that exists ONLY inside a new `.vue` file, once `App.vue` exists to provide one).
 
-- [ ] **Step 7: Rewrite `frontend/index.html`**
+- [x] **Step 7: Rewrite `frontend/index.html`**
 
 Replace `<head>`'s favicon/title elements and `<body>`'s data attributes with the single config script; keep the FOUC-prevention inline script and the Tailwind/asset tags. New `<head>`:
 
@@ -1907,7 +1907,7 @@ New `<body>` (mount point only — Task 5 onward builds the real DOM inside `App
 
 Note: `data-project-name`/`data-project-favicon` on `<body>` and `data-default-locale` on `<html>` are removed — they existed only so vanilla JS (favicon-fallback listener, document-title effect, `i18n.js`'s `detectLocale()`) could read server-injected values off the DOM before Vue/Pinia existed to hold that state reactively. `readSpaConfig()` (Step 8) is the new single source for the same three values; `detectLocale()` (ported unchanged into `stores/i18n.js`, Task 3) still reads `html.dataset.defaultLocale` as a fallback layer, so `main.js` (Step 10) stamps that attribute back onto `<html>` itself, in JS, right after reading the config.
 
-- [ ] **Step 8: Write the failing test for `lib/config.js`, then implement**
+- [x] **Step 8: Write the failing test for `lib/config.js`, then implement**
 
 Create `frontend/src/lib/config.spec.js`:
 
@@ -1976,7 +1976,7 @@ export function readSpaConfig(elementId = 'sg-config') {
 Run: `cd frontend && npx vitest run src/lib/config.spec.js`
 Expected: `Tests 4 passed`.
 
-- [ ] **Step 9: `src/router.js`**
+- [x] **Step 9: `src/router.js`**
 
 Create `frontend/src/router.js`:
 
@@ -2036,7 +2036,7 @@ router.beforeEach((to) => {
 });
 ```
 
-- [ ] **Step 10: `src/main.js`**
+- [x] **Step 10: `src/main.js`**
 
 Create `frontend/src/main.js`:
 
@@ -2120,7 +2120,7 @@ syncTitle();
 export { config };
 ```
 
-- [ ] **Step 11: `src/App.vue` — permanent outer layout, stub inner regions**
+- [x] **Step 11: `src/App.vue` — permanent outer layout, stub inner regions**
 
 Create `frontend/src/App.vue` (the outer flex shell is final; Tasks 5-11 replace the two stub regions with real components):
 
@@ -2152,7 +2152,7 @@ const ui = useUiStore();
 </template>
 ```
 
-- [ ] **Step 12: Stub the three view components so the router resolves**
+- [x] **Step 12: Stub the three view components so the router resolves**
 
 Create minimal stubs — Tasks 7/8/11 fill these in for real:
 
@@ -2177,11 +2177,11 @@ Create minimal stubs — Tasks 7/8/11 fill these in for real:
 </template>
 ```
 
-- [ ] **Step 13: Leave the legacy Alpine sources in place for now**
+- [x] **Step 13: Leave the legacy Alpine sources in place for now**
 
 `frontend/index.html` already stopped referencing `./styleguide.js` in Step 7 (it now loads `./src/main.js`). Leave `frontend/styleguide.js`, `frontend/router.js`, `frontend/components/`, `frontend/stores/` on disk untouched — Task 14 deletes them once every feature they contain has a proven Vue equivalent (Tasks 5-11). Deleting early would make mid-migration `git diff` review harder — no way to visually compare old vs new implementations side by side.
 
-- [ ] **Step 14: Verify the build — including that Vue templates actually feed Tailwind**
+- [x] **Step 14: Verify the build — including that Vue templates actually feed Tailwind**
 
 Run: `cd frontend && npm run build`
 Expected: exit 0. Inspect `dist/index.html` — confirm it contains `<script id="sg-config" type="application/json">{}</script>` and `<div id="app">`.
@@ -2194,7 +2194,7 @@ grep -o 'bg-black' dist/styleguide.*.css
 
 Expected: at least one match. A miss here means the `@source "./src/**/*.{js,vue}"` glob (Step 6b) isn't actually being picked up — stop and fix it before continuing to Task 5, since every Vue template's utility classes would silently be missing from every build from here on.
 
-- [ ] **Step 15: Verify PHP injection end-to-end against the real fixture**
+- [x] **Step 15: Verify PHP injection end-to-end against the real fixture**
 
 Run:
 ```bash
@@ -2205,7 +2205,7 @@ kill %1
 ```
 Expected: prints `<script id="sg-config" type="application/json">{"locale":"cs","projectName":"Styleguide Fixture",...}</script>` — confirms the PHP substitution fires against the real built `dist/index.html`, not just the synthetic string in `SpaConfigTest`.
 
-- [ ] **Step 16: Full regression + commit**
+- [x] **Step 16: Full regression + commit**
 
 Run: `composer test && composer phpstan && cd frontend && npm test && npm run build`
 Expected: all green.
