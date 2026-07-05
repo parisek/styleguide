@@ -7,13 +7,14 @@ import '../styleguide.css';
 
 import App from './App.vue';
 import { router } from './router.js';
-import { readSpaConfig } from './lib/config.js';
+import { readSpaConfig, seedTitle } from './lib/config.js';
 import { useI18nStore } from './stores/i18n.js';
 import { useUiStore } from './stores/ui.js';
 import { useThemeStore } from './stores/theme.js';
 import { useCatalogStore } from './stores/catalog.js';
 
 const config = readSpaConfig();
+seedTitle(config);
 
 // detectLocale() in stores/i18n.js falls back to html.dataset.defaultLocale
 // when no URL param / localStorage value picks a locale — index.html no

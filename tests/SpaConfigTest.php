@@ -45,6 +45,11 @@ final class SpaConfigTest extends TestCase
         // fresh PHP process per call so Styleguide::run()'s exit() only ends
         // that subprocess. Reads the dist dir + request URI from argv so each
         // test can point it at its own synthetic dist/index.html.
+        // argv[3] (config_yaml) is optional and defaults to the shared fixture
+        // — the XSS regression test below points it at its own throwaway YAML
+        // instead, so it can carry a malicious `project.name` without
+        // touching the fixture every other test in this suite (and other
+        // suites) asserts against verbatim.
         $this->runnerScript = $this->distRoot . '/run-styleguide.php';
         file_put_contents($this->runnerScript, <<<PHP
             <?php
@@ -54,7 +59,7 @@ final class SpaConfigTest extends TestCase
             (new \\Parisek\\Styleguide\\Styleguide([
                 'templates_path' => '{$this->fixturesRoot}/templates',
                 'static_path' => '{$this->fixturesRoot}',
-                'config_yaml' => '{$this->fixturesRoot}/styleguide.yaml',
+                'config_yaml' => \$argv[3] ?? '{$this->fixturesRoot}/styleguide.yaml',
                 'default_locale' => 'cs',
                 'dist_path' => \$argv[1],
             ]))->run();
@@ -76,14 +81,15 @@ final class SpaConfigTest extends TestCase
     /**
      * @return array{0: int, 1: string, 2: string} exit code, stdout, stderr
      */
-    private function runStyleguide(string $requestUri = '/styleguide/'): array
+    private function runStyleguide(string $requestUri = '/styleguide/', ?string $configYaml = null): array
     {
         $cmd = sprintf(
-            '%s %s %s %s',
+            '%s %s %s %s%s',
             escapeshellarg(PHP_BINARY),
             escapeshellarg($this->runnerScript),
             escapeshellarg($this->distRoot),
             escapeshellarg($requestUri),
+            $configYaml === null ? '' : ' ' . escapeshellarg($configYaml),
         );
         $descriptors = [
             1 => ['pipe', 'w'],
@@ -127,9 +133,50 @@ final class SpaConfigTest extends TestCase
     {
         $this->writeIndexHtml('<html><head><title>Styleguide</title></head><body></body></html>');
 
+        // http_response_code(500) is set right before the throw (matches the
+        // sibling missing-dist branch's 500), but this suite drives
+        // Styleguide::run() as a bare `php run-styleguide.php` subprocess —
+        // no web server, so http_response_code()'s effect isn't observable
+        // on stdout/stderr the way a real HTTP response's status line would
+        // be. Asserting on the exit code + stderr message is the strongest
+        // check available under this harness; see tests/SpaConfigTest.php's
+        // class doc comment for why an in-process/HTTP-serving harness isn't
+        // used instead.
         [$exit, , $stderr] = $this->runStyleguide();
 
         self::assertNotSame(0, $exit);
         self::assertMatchesRegularExpression('/sg-config/', $stderr);
+    }
+
+    #[Test]
+    public function escapes_script_breakout_attempts_in_project_name(): void
+    {
+        // A project.name containing a literal `</script>` must not survive
+        // into the response body verbatim — without JSON_HEX_TAG in
+        // dispatchSpa()'s json_encode() call, this string would close the
+        // #sg-config <script> element early and let `<script>alert(1)</script>`
+        // execute as a real script tag (XSS via styleguide.yaml, which some
+        // consumers populate from user-editable project settings).
+        $maliciousYaml = $this->distRoot . '/malicious.yaml';
+        file_put_contents($maliciousYaml, <<<YAML
+            project:
+              name: 'Evil</script><script>alert(1)</script>'
+            YAML,
+        );
+        $this->writeIndexHtml('<html><head><script id="sg-config" type="application/json">{}</script></head><body></body></html>');
+
+        [$exit, $stdout, $stderr] = $this->runStyleguide(configYaml: $maliciousYaml);
+
+        self::assertSame(0, $exit, "stderr: $stderr");
+        self::assertStringNotContainsString('</script><script>alert(1)</script>', $stdout);
+        self::assertStringNotContainsString('<script>alert(1)</script>', $stdout);
+
+        // The escaped payload must still round-trip to the original string
+        // once the browser's JSON.parse() decodes it — hardening must not
+        // corrupt legitimate-but-adversarial-looking values.
+        preg_match('/<script id="sg-config" type="application\/json">(\{.*?\})<\/script>/s', $stdout, $m);
+        self::assertNotEmpty($m, "sg-config element not found in: $stdout");
+        $config = json_decode($m[1], true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('Evil</script><script>alert(1)</script>', $config['projectName']);
     }
 }

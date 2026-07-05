@@ -54,6 +54,8 @@ Optional keys (with their defaults):
 
 The config array shape is **`@api`**. Adding new optional keys is a minor bump. Renaming or removing keys is a major bump.
 
+`dist_path` also exists on the config array (points `dispatchSpa()` at an alternate `dist/` directory) but is **`@internal` for tests only** (see `SpaConfigTest`) — it is not covered by SemVer and consumers must never set it.
+
 #### `run(): void`
 
 Inspects `$_SERVER['REQUEST_URI']` via `Router::parse()`, dispatches to the right handler, and calls `exit` on routes the package handles. Returns silently for non-`/styleguide/*` URLs — the caller's own routing continues.

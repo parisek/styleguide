@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readSpaConfig } from './config.js';
+import { readSpaConfig, seedTitle } from './config.js';
 
 beforeEach(() => {
     document.body.innerHTML = '';
@@ -43,5 +43,25 @@ describe('readSpaConfig', () => {
         el.textContent = '{"locale":"en"}';
         document.body.appendChild(el);
         expect(readSpaConfig('custom-config')).toEqual({ locale: 'en' });
+    });
+});
+
+describe('seedTitle', () => {
+    it('sets document.title from config.title', () => {
+        document.title = 'placeholder';
+        seedTitle({ title: 'Styleguide — Acme' });
+        expect(document.title).toBe('Styleguide — Acme');
+    });
+
+    it('leaves document.title untouched when config has no title', () => {
+        document.title = 'placeholder';
+        seedTitle({});
+        expect(document.title).toBe('placeholder');
+    });
+
+    it('leaves document.title untouched for a non-string title', () => {
+        document.title = 'placeholder';
+        seedTitle({ title: null });
+        expect(document.title).toBe('placeholder');
     });
 });

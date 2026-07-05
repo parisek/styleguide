@@ -67,6 +67,11 @@ final class Styleguide
      *   dist_path?: string,
      * } $config
      *
+     * `dist_path` is @internal for tests only (points `dispatchSpa()` at a
+     * throwaway fixture dist/ instead of the package's real built one — see
+     * SpaConfigTest). Not part of the `@api`-covered config shape below;
+     * consumers must never set it.
+     *
      * If `twig` is provided, the package reuses the project's existing
      * environment — required when component templates depend on extensions /
      * functions / filters registered by the project (`component_*`, `_x()`,
@@ -975,15 +980,23 @@ final class Styleguide
             'title' => sprintf('Styleguide — %s', $projectName),
             'baseUrl' => '/styleguide',
         ];
-        $configJson = json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
+        $configJson = json_encode(
+            $config,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
+        );
 
         // Single injection point replaces the six preg_replace calls (html lang,
         // favicon link, favicon img, body data-attrs, sidebar project name, title)
-        // the SPA used to need server-side values for. json_encode already
-        // produces a safe embedding inside a <script type="application/json">
-        // element — no `</script>`-breakout risk for any of these fields, and
-        // JSON's own escaping handles quotes/backslashes, so no htmlspecialchars
-        // helper is needed here.
+        // the SPA used to need server-side values for. json_encode's default
+        // escaping handles quotes and backslashes but leaves the angle
+        // brackets alone, so a consumer-controlled field (e.g. `project.name`
+        // in styleguide.yaml) containing a literal script-close tag would
+        // otherwise terminate this <script> element early and let the rest of
+        // the value execute as markup/script — an XSS via a value the
+        // package doesn't control. JSON_HEX_TAG escapes angle brackets to
+        // their < / > forms, which JSON.parse() decodes back to the
+        // original characters, so every legitimate value round-trips
+        // unchanged while the breakout is closed.
         $html = (string) preg_replace(
             '/<script id="sg-config" type="application\/json">.*?<\/script>/s',
             '<script id="sg-config" type="application/json">' . $configJson . '</script>',
@@ -992,6 +1005,7 @@ final class Styleguide
             $count,
         );
         if ($count !== 1) {
+            http_response_code(500);
             throw new \RuntimeException(
                 'dist/index.html is missing the #sg-config injection point — rebuild the frontend '
                 . '(cd frontend && npm run build) or check dist/ for corruption.',
