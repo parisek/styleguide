@@ -2240,7 +2240,7 @@ Ports `frontend/index.html` lines 55-293 (the `<aside>` block: header/logo/theme
 - Produces: navigates via `router.push()` (replacing the legacy global `window.sgNavigate`); no emits.
 - Local persisted state (component-scoped, not store state — matches legacy exactly): `sections = usePersistedRef('sg-sections', { docs: true, basic: true, blocks: true, gutenberg: false, pages: false })`, `groups = usePersistedRef('sg-groups', {})`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/src/components/Sidebar.spec.js`:
 
@@ -2335,12 +2335,12 @@ describe('Sidebar', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `cd frontend && npx vitest run src/components/Sidebar.spec.js`
 Expected: fails — `Sidebar.vue` does not exist.
 
-- [ ] **Step 3: Implement `Sidebar.vue`**
+- [x] **Step 3: Implement `Sidebar.vue`**
 
 Create `frontend/src/components/Sidebar.vue`. Script block (full logic — port the template markup from `frontend/index.html:55-293` using the directive-translation table below):
 
@@ -2420,7 +2420,7 @@ function supportedLocales() {
 </script>
 ```
 
-- [ ] **Step 4: Port the template**
+- [x] **Step 4: Port the template**
 
 Append the `<template>` block, translating `frontend/index.html:55-293` per this table (mechanical, 1:1):
 
@@ -2447,12 +2447,12 @@ Append the `<template>` block, translating `frontend/index.html:55-293` per this
 
 The Porta wordmark SVG, heart icon, and the two theme-mode SVG `<template x-if>` blocks copy verbatim (no directives to translate beyond the table). The language-switcher footer (`frontend/components/languageSwitcher.js` + its markup at `index.html:282-291`) inlines directly using `i18n.locale`/`i18n.load(loc)`/`supportedLocales()` in place of the old `languageSwitcher` Alpine component — it was a 3-getter wrapper with no independent state worth extracting into its own file.
 
-- [ ] **Step 5: Run and confirm the test passes**
+- [x] **Step 5: Run and confirm the test passes**
 
 Run: `cd frontend && npx vitest run src/components/Sidebar.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 6: Wire into `App.vue`**
+- [x] **Step 6: Wire into `App.vue`**
 
 Edit `frontend/src/App.vue` — replace the stub `<aside>...</aside>` block:
 
@@ -2466,7 +2466,7 @@ Edit `frontend/src/App.vue` — replace the stub `<aside>...</aside>` block:
 
 Add the import: `import Sidebar from './components/Sidebar.vue';` at the top of the `<script setup>` block.
 
-- [ ] **Step 7: Full suite + build + commit**
+- [x] **Step 7: Full suite + build + commit**
 
 Run: `cd frontend && npm test && npm run build`
 Expected: all green, build succeeds.
