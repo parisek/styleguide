@@ -37,7 +37,7 @@
 
 Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@internal`") — its return-array shape is not itself SemVer-covered, so widening/changing it (and updating the handful of `assertSame(...)` tests that pin the exact shape) is in scope for this task, not a compatibility break.
 
-- [ ] Add the whitelist helper to `Router` with a failing test first.
+- [x] Add the whitelist helper to `Router` with a failing test first.
   - Add to `tests/RouterTest.php`:
     ```php
     #[Test]
@@ -68,7 +68,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter whitelist_theme` — passes.
 
-- [ ] Wire the whitelist into `parse()` for `render` routes only, with failing tests first.
+- [x] Wire the whitelist into `parse()` for `render` routes only, with failing tests first.
   - Add to `tests/RouterTest.php`:
     ```php
     #[Test]
@@ -148,7 +148,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter RouterTest` — all green.
 
-- [ ] Give `synthesizeEmbeddedRoute()`'s synthesized `render` output the same shape (no query-string signal is available there, so it always defaults), with a failing test first.
+- [x] Give `synthesizeEmbeddedRoute()`'s synthesized `render` output the same shape (no query-string signal is available there, so it always defaults), with a failing test first.
   - Update the three existing `synthesize_embedded_swaps_*` tests in `tests/RouterTest.php` to expect `'theme' => 'light'` in their expected arrays, e.g.:
     ```php
     #[Test]
@@ -180,7 +180,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter RouterTest` — all green. Also update the return-type PHPDoc on both `parse()` and `synthesizeEmbeddedRoute()` to add `theme?:string`.
 
-- [ ] Thread `theme` through `Renderer::render()` and `render-cell.twig`, with failing tests first.
+- [x] Thread `theme` through `Renderer::render()` and `render-cell.twig`, with failing tests first.
   - Add to `tests/RendererTest.php`:
     ```php
     #[Test]
@@ -258,7 +258,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     (Keep the existing comment above the `<style>` block, but append: "When `?theme=dark` is explicitly requested, both the color-scheme and this safety-net background flip to dark — the whole point of an opt-in dark preview is that the iframe should actually look dark before the consumer's own `dark:` utilities paint, not flash white first.")
   - Run `vendor/bin/phpunit --filter RendererTest` — all green.
 
-- [ ] Pass the whitelisted theme from `Router` through `Styleguide::dispatchRender()`.
+- [x] Pass the whitelisted theme from `Router` through `Styleguide::dispatchRender()`.
   - No new test needed here beyond the existing `RendererTest`/`RouterTest` coverage above — this is glue. Edit `src/Styleguide.php::dispatchRender()`:
     ```php
     header('Content-Type: text/html; charset=utf-8');
@@ -275,7 +275,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `composer test` — full suite green. Run `composer phpstan` — clean.
 
-- [ ] Verify and, if needed, correct the README wording (it already documents the contract per the design review's doc-drift finding — this is now real, so confirm rather than rewrite).
+- [x] Verify and, if needed, correct the README wording (it already documents the contract per the design review's doc-drift finding — this is now real, so confirm rather than rewrite).
   - `README.md` line 225 already reads: `Accepts `?theme=light\|dark`` (whitelisted) to stamp `class="dark"` on the iframe `<html>` for consumers that opt into Tailwind dark mode.` — add the `color-scheme` detail so the doc matches the implementation exactly:
     ```
     | `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted, invalid/missing → `light`) to stamp `class="dark"` and a matching `color-scheme` on the iframe `<html>` for consumers that opt into Tailwind dark mode; inert for projects with no dark-mode CSS. |
@@ -294,7 +294,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `composer test` once more to confirm the docs-adjacent edits didn't touch any executable code path unexpectedly (they didn't — pure Markdown).
 
-- [ ] (SPA, Vue/Pinia — Phase 1 assumed merged) Add an iframe-theme toggle independent of the chrome theme.
+- [x] (SPA, Vue/Pinia — Phase 1 assumed merged) Add an iframe-theme toggle independent of the chrome theme.
   - Locate the Phase 1 equivalents of today's `frontend/components/preview.js` (`iframeSrc` getter, line 512) and `frontend/stores/theme.js` (chrome-theme persistence via `Alpine.$persist('system').as('sg-theme')`) under `frontend/src/`. Reference implementation to adapt:
   - `frontend/src/stores/ui.js` (Pinia) — add a **separate** persisted ref, distinct from the chrome theme:
     ```js
@@ -347,7 +347,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
   - Run `npm run test` (Vitest) in `frontend/` — green. Run `npm run build` — `dist/` rebuilds; commit both source and rebuilt `dist/` per AGENTS.md § SPA chrome change workflow.
   - Verify on the consumer (`composer styleguide:local` in `tailwind-base`): open a component, toggle iframe theme, confirm the iframe URL gains `?theme=dark` and the iframe's `<html>` gets `class="dark"`.
 
-- [ ] Commit: `feat(render): implement documented ?theme=light|dark param`.
+- [x] Commit: `feat(render): implement documented ?theme=light|dark param`.
 
 ### Task 2: Render-time exception → HTTP 500
 
