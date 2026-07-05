@@ -3817,7 +3817,7 @@ Ports `frontend/components/overview.js` + `frontend/index.html:881-1070` (the co
 - `OverviewView.vue` — no props; consumes `useCatalogStore()` (`items`, `pages`, `sectionOf`, `reverseUsageFor`, `forwardUsageFor`), `useI18nStore()`, `useRouter()`, `externalLinksFor` from `lib/externalLinks.js`, `usePersistedRef('sg-overview-show-usage', true)` for the local `showUsage` toggle (persisted key enumerated in Task 3's table).
 - `FoundationsView.vue` — no props; injects `'viewport'` for `iframeSrc`; consumes `useUiStore()` for `isPreviewLoading`.
 
-- [ ] **Step 1: Write the failing test for `OverviewView.vue`**
+- [x] **Step 1: Write the failing test for `OverviewView.vue`**
 
 Create `frontend/src/views/OverviewView.spec.js`:
 
@@ -3887,7 +3887,7 @@ describe('OverviewView', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure, then implement**
+- [x] **Step 2: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/views/OverviewView.spec.js` → fails (module missing).
 
@@ -3946,12 +3946,12 @@ function reverseUsage(id) {
 
 Template — port `frontend/index.html:881-1070` per the Task 5 directive table. Notable translations: `x-model="showUsage"` → `v-model="showUsage"` (the ref auto-unwraps in the template); `$store.i18n.t(...)` → `i18n.t(...)`; `@click.prevent="select(...)"` unchanged; the section icon `<template x-if="block.section === '...'">` blocks copy verbatim (pure SVG, no store reads); `reverseUsage(item.id)`/`forwardUsage(page)` calls unchanged (now resolving to the catalog store's real map-backed implementations from Task 3 instead of the legacy component's private `_buildReverseMap`/`_buildForwardMap`).
 
-- [ ] **Step 3: Run and confirm pass**
+- [x] **Step 3: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/views/OverviewView.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 4: Write the failing test for `FoundationsView.vue`**
+- [x] **Step 4: Write the failing test for `FoundationsView.vue`**
 
 Create `frontend/src/views/FoundationsView.spec.js`:
 
@@ -3992,7 +3992,7 @@ describe('FoundationsView', () => {
 });
 ```
 
-- [ ] **Step 5: Run and confirm failure, then implement**
+- [x] **Step 5: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/views/FoundationsView.spec.js` → fails (module missing).
 
@@ -4021,12 +4021,12 @@ function onLoad() {
 
 This ports `frontend/index.html:692-713` — the full-bleed iframe used only by the `foundations` (and `landing`, which resolves to the same view per the router table) route. It is deliberately simpler than `PreviewPane.vue` (Task 8): no auto-fit height, no chassis, no drag handles, no zoom — matching the legacy block's own comment ("Foundations: full-bleed iframe, no frame / shadow / dark padding... theme-agnostic from our perspective").
 
-- [ ] **Step 6: Run and confirm pass**
+- [x] **Step 6: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/views/FoundationsView.spec.js`
 Expected: `Tests 2 passed`.
 
-- [ ] **Step 7: Router deep-link coverage**
+- [x] **Step 7: Router deep-link coverage**
 
 Create `frontend/src/router.spec.js`:
 
@@ -4069,7 +4069,7 @@ describe('router deep links', () => {
 Run: `cd frontend && npx vitest run src/router.spec.js`
 Expected: `Tests 10 passed` (8 from `it.each` + 2 more).
 
-- [ ] **Step 8: Full suite + build + commit**
+- [x] **Step 8: Full suite + build + commit**
 
 Run: `cd frontend && npm test && npm run build`
 Expected: all green.
