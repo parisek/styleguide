@@ -3240,7 +3240,7 @@ Ports the iframe-bearing half of `frontend/components/preview.js` plus `frontend
 - Consumes (via `inject('viewport')`): `type`, `slug` (new — see Step 1), `effective`, `zoom`, `isFullPreset`, `activePresetCategory`, `activePreset`, `dimensionsLabel`, `isPortrait`, `setPortrait`, `startDrag`, `isDragging`, `observeWrapper`, `iframeSrc`.
 - Consumes directly: `useUiStore()` (`isPreviewLoading`, `previewHeight` for the rotate-button visibility gate), `useI18nStore()` (`t`).
 
-- [ ] **Step 1: Expose `type`/`slug` from the composable**
+- [x] **Step 1: Expose `type`/`slug` from the composable**
 
 Edit `frontend/src/composables/useViewportPreset.js` — add `type, slug,` to the returned object (first two entries, before `currentItem`):
 
@@ -3253,7 +3253,7 @@ Edit `frontend/src/composables/useViewportPreset.js` — add `type, slug,` to th
 Run: `cd frontend && npx vitest run src/composables/useViewportPreset.spec.js`
 Expected: still `Tests 11 passed` (purely additive — no existing assertion inspects the return shape's key set).
 
-- [ ] **Step 2: Write the failing test for `PreviewPane.vue`**
+- [x] **Step 2: Write the failing test for `PreviewPane.vue`**
 
 Create `frontend/src/components/PreviewPane.spec.js`:
 
@@ -3341,12 +3341,12 @@ describe('PreviewPane', () => {
 });
 ```
 
-- [ ] **Step 3: Run and confirm failure**
+- [x] **Step 3: Run and confirm failure**
 
 Run: `cd frontend && npx vitest run src/components/PreviewPane.spec.js`
 Expected: fails — module missing.
 
-- [ ] **Step 4: Implement `PreviewPane.vue`**
+- [x] **Step 4: Implement `PreviewPane.vue`**
 
 Script block:
 
@@ -3422,7 +3422,7 @@ const iframeStyle = computed(() => {
 </script>
 ```
 
-- [ ] **Step 5: Port the template**
+- [x] **Step 5: Port the template**
 
 Port `frontend/index.html:715-876` into the `<template>` block using the Task 5 directive table, plus:
 
@@ -3435,12 +3435,12 @@ Port `frontend/index.html:715-876` into the `<template>` block using the Task 5 
 - The rotate button (`@click="$store.ui.toggleRotation()"`) → `@click="ui.toggleRotation()"`; its `x-show` gate (`activePresetCategory === 'mobile' || 'tablet') && previewHeight !== null`) → same expression, sourced from `viewport.activePresetCategory.value` and `ui.previewHeight`.
 - Empty-state / loading paragraphs (`x-if="!iframeSrc && !$store.components.loading"` / `x-if="$store.components.loading"`) → `v-if="!viewport.iframeSrc.value && !catalog.loading"` / `v-if="catalog.loading"`, text via `i18n.t('empty_state')` / `i18n.t('loading')`.
 
-- [ ] **Step 6: Run and confirm pass**
+- [x] **Step 6: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/components/PreviewPane.spec.js`
 Expected: `Tests 7 passed`.
 
-- [ ] **Step 7: Wire into `PreviewView.vue`**
+- [x] **Step 7: Wire into `PreviewView.vue`**
 
 Edit `frontend/src/views/PreviewView.vue`:
 
@@ -3452,7 +3452,7 @@ Edit `frontend/src/views/PreviewView.vue`:
 
 Add the import and register it alongside `ViewportToolbar` at the top of `<script setup>`.
 
-- [ ] **Step 8: Full suite + build + commit**
+- [x] **Step 8: Full suite + build + commit**
 
 Run: `cd frontend && npm test && npm run build`
 Expected: all green.
