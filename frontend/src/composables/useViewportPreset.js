@@ -1,0 +1,213 @@
+import { ref, computed, watch } from 'vue';
+import { useUiStore } from '../stores/ui.js';
+import { useCatalogStore } from '../stores/catalog.js';
+import {
+    VIEWPORTS, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX,
+    findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
+} from '../lib/viewportMath.js';
+import { flattenFieldsTree } from '../lib/fieldsTree.js';
+
+// Ported from frontend/components/preview.js. One instance is provided by
+// App.vue (Task 7 Step 9) and injected by ViewportToolbar.vue (this task)
+// and PreviewPane.vue/FieldsDrawer.vue/UsagePanel.vue/LinkBar.vue
+// (Tasks 8-10) — mirrors the legacy single `x-data="preview"` Alpine scope
+// that all of that markup shared.
+export function useViewportPreset({ type, slug }) {
+    const ui = useUiStore();
+    const catalog = useCatalogStore();
+
+    const currentItem = computed(() => (slug.value ? catalog.find(type.value, slug.value) : null));
+
+    const previewWidthPx = computed(() => {
+        if (ui.previewWidth === '100%') return null;
+        const px = parseInt(ui.previewWidth, 10);
+        return Number.isInteger(px) ? px : null;
+    });
+
+    const activePreset = computed(() => {
+        if (ui.previewWidth === '100%') return 'full';
+        const match = findPresetByWidth(previewWidthPx.value);
+        return match?.key ?? 'custom';
+    });
+
+    const activePresetCategory = computed(() => {
+        if (activePreset.value === 'full') return 'full';
+        if (activePreset.value === 'custom') return 'custom';
+        return VIEWPORTS.find((v) => v.key === activePreset.value)?.category ?? 'desktop';
+    });
+
+    const isFullPreset = computed(() => ui.previewWidth === '100%');
+
+    const effective = computed(() => {
+        if (currentItem.value?.responsive === false) return { width: null, height: null };
+        return effectiveDims({ width: previewWidthPx.value, height: ui.previewHeight, rotated: ui.previewRotated });
+    });
+
+    const containerAvailableWidth = ref(0);
+    const containerAvailableHeight = ref(0);
+    let containerRO = null;
+
+    // Measures the chrome pane (the `.overflow-auto` container hosting the
+    // iframe wrapper) so fit-to-bounds zoom tracks viewport resize. 48px =
+    // 2x the p-6 padding on that container in both axes.
+    function observeContainer(el) {
+        if (containerRO) containerRO.disconnect();
+        if (!el) return;
+        containerRO = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                containerAvailableWidth.value = Math.max(0, entry.contentRect.width - 48);
+                containerAvailableHeight.value = Math.max(0, entry.contentRect.height - 48);
+            }
+        });
+        if (typeof el.addEventListener === 'function' || el instanceof Element) {
+            containerRO.observe(el);
+        }
+        containerAvailableWidth.value = Math.max(0, (el.clientWidth ?? 0) - 48);
+        containerAvailableHeight.value = Math.max(0, (el.clientHeight ?? 0) - 48);
+    }
+
+    const zoom = computed(() => fitZoom({
+        width: effective.value.width,
+        height: effective.value.height,
+        availWidth: containerAvailableWidth.value,
+        availHeight: containerAvailableHeight.value,
+    }));
+
+    const dimensionsLabel = computed(() => {
+        const { width, height } = effective.value;
+        if (!width || !height) return null;
+        const dims = `${width} × ${height}`;
+        return zoom.value < 1 ? `${dims} (${Math.round(zoom.value * 100)} %)` : dims;
+    });
+
+    const isPortrait = computed(() => isPortraitOrientation({
+        width: previewWidthPx.value, height: ui.previewHeight, rotated: ui.previewRotated,
+    }));
+
+    function setPreset(key) {
+        const preset = VIEWPORTS.find((v) => v.key === key);
+        if (!preset) return;
+        ui.setWidth(preset.width === null ? '100%' : `${preset.width}px`, preset.height);
+    }
+
+    function setPortrait(portrait) {
+        ui.setPortrait(portrait);
+    }
+
+    const customWidthInput = ref('');
+    function syncCustomFromStore() {
+        if (ui.previewWidth === '100%') { customWidthInput.value = ''; return; }
+        const px = parseInt(ui.previewWidth, 10);
+        if (Number.isInteger(px)) customWidthInput.value = px;
+    }
+    watch(() => ui.previewWidth, syncCustomFromStore, { immediate: true });
+
+    function applyCustomWidth() {
+        const px = Number(customWidthInput.value);
+        if (!Number.isInteger(px) || px < CUSTOM_WIDTH_MIN || px > CUSTOM_WIDTH_MAX) {
+            syncCustomFromStore();
+            return;
+        }
+        ui.setWidth(`${px}px`);
+    }
+
+    const reloadNonce = ref(0);
+    function reloadPreview() {
+        catalog.init();
+        reloadNonce.value++;
+    }
+
+    const iframeSrc = computed(() => {
+        let src;
+        if (type.value === 'foundations') {
+            src = '/styleguide/render/foundations/index';
+        } else if (!slug.value || !['component', 'page', 'doc'].includes(type.value)) {
+            return null;
+        } else {
+            src = `/styleguide/render/${type.value}/${slug.value}`;
+        }
+        if (reloadNonce.value) src += (src.includes('?') ? '&' : '?') + `_r=${reloadNonce.value}`;
+        return src;
+    });
+
+    const toolbarVisible = computed(() => !!iframeSrc.value
+        && type.value !== 'foundations'
+        && type.value !== 'overview'
+        && currentItem.value?.responsive !== false);
+
+    const currentSectionKey = computed(() => {
+        if (!slug.value) return null;
+        if (type.value === 'page') return 'pages';
+        if (type.value === 'doc') return null;
+        if (!currentItem.value) return null;
+        return catalog.sectionOf(currentItem.value, type.value);
+    });
+
+    const currentItemName = computed(() => currentItem.value?.name ?? slug.value);
+    const currentItemDescription = computed(() => currentItem.value?.description ?? '');
+    const fieldsTree = computed(() => flattenFieldsTree(currentItem.value?.fields));
+    const fieldsCount = computed(() => fieldsTree.value.length);
+
+    const isDragging = ref(false);
+    let wrapperEl = null;
+    function observeWrapper(el) {
+        wrapperEl = el;
+    }
+
+    function startDrag(event) {
+        event.preventDefault();
+        const startX = event.clientX ?? event.touches?.[0]?.clientX;
+        if (startX == null || !wrapperEl) return;
+        const parentRect = wrapperEl.parentElement.getBoundingClientRect();
+        const centerX = parentRect.left + parentRect.width / 2;
+        const dragZoom = zoom.value || 1;
+        isDragging.value = true;
+        let raf = 0;
+        let pendingWidth = null;
+        const flush = () => {
+            raf = 0;
+            if (pendingWidth != null) {
+                ui.setWidth(`${pendingWidth}px`);
+                pendingWidth = null;
+            }
+        };
+        const move = (e) => {
+            const x = e.clientX ?? e.touches?.[0]?.clientX;
+            if (x == null) return;
+            const half = Math.max(160, (x - centerX) / dragZoom);
+            pendingWidth = Math.round(half * 2);
+            if (!raf) raf = requestAnimationFrame(flush);
+        };
+        const up = () => {
+            if (raf) { cancelAnimationFrame(raf); flush(); }
+            isDragging.value = false;
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+            document.removeEventListener('touchmove', move);
+            document.removeEventListener('touchend', up);
+        };
+        document.addEventListener('mousemove', move);
+        document.addEventListener('mouseup', up);
+        document.addEventListener('touchmove', move, { passive: true });
+        document.addEventListener('touchend', up);
+    }
+
+    return {
+        // `type`/`slug` are the same refs passed in — not listed among the
+        // composable's originally spec'd return keys, but every consumer
+        // that renders route-aware chrome (ViewportToolbar's breadcrumb/
+        // type-pill/select-prompt block) needs them and, per the
+        // provide/inject design, has no other way to reach them without
+        // duplicating routeInfo()/useRoute() in each injected component —
+        // which would also break injecting into components mounted outside
+        // a router context (see ViewportToolbar.spec.js). Passing the refs
+        // through keeps the single shared-scope illusion the legacy
+        // `x-data="preview"` Alpine component provided.
+        type, slug,
+        currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
+        dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
+        reloadPreview, iframeSrc, toolbarVisible, currentSectionKey, currentItemName,
+        currentItemDescription, fieldsTree, fieldsCount, isDragging, startDrag,
+        observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
+    };
+}

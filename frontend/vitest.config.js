@@ -22,7 +22,10 @@ export default defineConfig({
             forks: { execArgv: ['--no-experimental-webstorage'] },
         },
         include: ['src/**/*.spec.js'],
-        setupFiles: ['./src/test/setup.js'],
+        // './src/test/setup.js' pre-exists (matchMedia polyfill, Task 3);
+        // './src/testSetup.js' (Task 7) adds the ResizeObserver stub the
+        // viewport composable needs. Both load — additive, not a replacement.
+        setupFiles: ['./src/test/setup.js', './src/testSetup.js'],
         globals: false,
     },
 });
