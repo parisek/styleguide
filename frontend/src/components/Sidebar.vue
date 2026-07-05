@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
@@ -8,6 +8,7 @@ import { useThemeStore } from '../stores/theme.js';
 import { filterItems } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
+import { useSearchShortcuts } from '../composables/useSearchShortcuts.js';
 // Read directly rather than `import { config } from '../main.js'`: main.js
 // -> App.vue -> Sidebar.vue is already an import chain, so pulling `config`
 // back out of main.js here would close a circular-import loop. readSpaConfig
@@ -29,6 +30,9 @@ const sections = usePersistedRef('sg-sections', {
 });
 const groups = usePersistedRef('sg-groups', {});
 const config = readSpaConfig();
+
+const searchInputRef = ref(null);
+useSearchShortcuts(searchInputRef);
 
 function toggleSection(key) {
     sections.value[key] = !sections.value[key];
@@ -139,11 +143,12 @@ function supportedLocales() {
 
         <!-- Search: "SEARCH" label over a pill input (birdclaw style). No bottom
              divider — the airier spacing carries the separation. Keyboard
-             shortcuts (⌘K/Esc) are wired in Task 6; this is plain v-model. -->
+             shortcuts (⌘K focus, Esc clear) are wired via useSearchShortcuts. -->
         <div class="px-4 pt-4 pb-1">
             <div class="px-1 pb-2 text-[10px] uppercase tracking-wider font-bold text-zinc-500">{{ i18n.t('search.label') }}</div>
             <div class="relative">
                 <input
+                    ref="searchInputRef"
                     v-model="ui.searchQuery"
                     type="text"
                     class="w-full px-5 py-2.5 pr-14 bg-white border border-zinc-300 dark:bg-zinc-800 dark:border-zinc-700 rounded-full text-sm placeholder-zinc-500"
