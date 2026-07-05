@@ -1,0 +1,89 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { mount } from '@vue/test-utils';
+import { setActivePinia, createPinia } from 'pinia';
+import { ref, provide, defineComponent, h } from 'vue';
+import PreviewPane from './PreviewPane.vue';
+import { useViewportPreset } from '../composables/useViewportPreset.js';
+import { useUiStore } from '../stores/ui.js';
+import { useI18nStore } from '../stores/i18n.js';
+import { useCatalogStore } from '../stores/catalog.js';
+
+function mountPane(type = 'component', slug = 'hero') {
+    setActivePinia(createPinia());
+    useI18nStore().strings = { toolbar: { rotate: 'Rotate', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape' }, empty_state: 'Select a component', loading: 'Loading...' };
+    // The mount helper simulates a catalogue that has already finished its
+    // initial fetch (items populated) -- loading defaults to true in the
+    // store until init() resolves, which never runs in this isolated
+    // mount, so it's set explicitly here. Without this the empty-state
+    // spec below sees the (equally legacy-faithful) "loading" paragraph
+    // instead, since `catalog.loading` stays true.
+    const catalog = useCatalogStore();
+    catalog.items = [{ id: 'hero', name: 'Hero' }];
+    catalog.loading = false;
+
+    const Host = defineComponent({
+        setup() {
+            const typeRef = ref(type);
+            const slugRef = ref(slug);
+            provide('viewport', useViewportPreset({ type: typeRef, slug: slugRef }));
+            return () => h(PreviewPane);
+        },
+    });
+    return mount(Host, { attachTo: document.body });
+}
+
+describe('PreviewPane', () => {
+    it('renders an iframe pointed at the render endpoint for the current route', () => {
+        const wrapper = mountPane('component', 'hero');
+        expect(wrapper.find('iframe').attributes('src')).toBe('/styleguide/render/component/hero');
+    });
+
+    it('uses width:100%;height:100% for the default Full preset', () => {
+        const wrapper = mountPane('component', 'hero');
+        const style = wrapper.find('[data-testid="iframe-wrapper"]').attributes('style');
+        expect(style).toContain('width: 100%');
+        expect(style).toContain('height: 100%');
+    });
+
+    it('shows drag handles only when the Custom preset is active', async () => {
+        const wrapper = mountPane('component', 'hero');
+        expect(wrapper.find('[data-testid="drag-handle-right"]').exists()).toBe(false);
+        const ui = useUiStore();
+        ui.setWidth('500px');
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="drag-handle-right"]').exists()).toBe(true);
+    });
+
+    it('shows mobile chassis decorations only for a mobile-category preset', async () => {
+        const wrapper = mountPane('component', 'hero');
+        const ui = useUiStore();
+        ui.setWidth('375px', 667);
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="chassis-mobile"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="chassis-tablet"]').exists()).toBe(false);
+    });
+
+    it('reflects ui.isPreviewLoading in the loading overlay visibility', async () => {
+        const wrapper = mountPane('component', 'hero');
+        const ui = useUiStore();
+        ui.isPreviewLoading = true;
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="loading-overlay"]').isVisible()).toBe(true);
+        ui.isPreviewLoading = false;
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="loading-overlay"]').isVisible()).toBe(false);
+    });
+
+    it('flips ui.isPreviewLoading to false when the iframe fires load', async () => {
+        const wrapper = mountPane('component', 'hero');
+        const ui = useUiStore();
+        ui.isPreviewLoading = true;
+        await wrapper.find('iframe').trigger('load');
+        expect(ui.isPreviewLoading).toBe(false);
+    });
+
+    it('shows the empty-state message when there is no route slug and not loading', () => {
+        const wrapper = mountPane('overview', null);
+        expect(wrapper.text()).toContain('Select a component');
+    });
+});

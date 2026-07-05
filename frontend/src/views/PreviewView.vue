@@ -1,3 +1,7 @@
+<script setup>
+import PreviewPane from '../components/PreviewPane.vue';
+</script>
+
 <template>
-    <div>Preview stub</div>
+    <PreviewPane />
 </template>
