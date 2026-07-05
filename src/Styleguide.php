@@ -1110,6 +1110,21 @@ final class Styleguide
         if ($matches === false || count($matches) === 0) {
             return null;
         }
+        if (count($matches) > 1) {
+            // A stale hashed file from a previous build that `emptyOutDir`
+            // should have removed (interrupted build, manual file copy, a
+            // consumer vendoring dist/ oddly). Pick the newest by mtime so a
+            // rebuild's fresh CSS wins over debris instead of depending on
+            // glob()'s filesystem-order — and leave a breadcrumb, since
+            // silently serving a stale bundle is a confusing bug to chase
+            // without one.
+            usort($matches, static fn(string $a, string $b): int => (int) filemtime($b) <=> (int) filemtime($a));
+            error_log(sprintf(
+                '[parisek/styleguide] multiple dist/foundations.*.css found (%s) — using newest: %s',
+                implode(', ', array_map('basename', $matches)),
+                basename($matches[0]),
+            ));
+        }
         return '/styleguide/assets/' . basename($matches[0]);
     }
 
