@@ -52,6 +52,13 @@ function goCanvasMode() {
     if (href) window.location.href = href;
 }
 
+// Iframe content theme — independent of the SPA chrome's own theme toggle
+// (see stores/theme.js). Flips ui.iframeTheme, which useViewportPreset's
+// iframeSrc computed reads to append `?theme=dark` to the render URL.
+function toggleIframeTheme() {
+    ui.setIframeTheme(ui.iframeTheme === 'dark' ? 'light' : 'dark');
+}
+
 // Vue has no built-in @click.outside directive (unlike Alpine's). Both
 // popovers close on any click landing outside their own DOM subtree,
 // checked via a single document-level listener — only one popover is ever
@@ -201,6 +208,21 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      overflow below lg so the toolbar doesn't crowd on tablet / phone. -->
                 <div class="hidden lg:flex items-center gap-2">
                     <button type="button"
+                            data-testid="iframe-theme-toggle"
+                            @click="toggleIframeTheme()"
+                            :aria-pressed="ui.iframeTheme === 'dark' ? 'true' : 'false'"
+                            :title="i18n.t('toolbar.iframe_theme')"
+                            :aria-label="i18n.t('toolbar.iframe_theme')"
+                            class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                        <svg v-if="ui.iframeTheme === 'dark'" aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>
+                        </svg>
+                        <svg v-else aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="4"/>
+                            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                        </svg>
+                    </button>
+                    <button type="button"
                             @click="goCanvasMode()"
                             :disabled="!viewport.slug.value"
                             :title="i18n.t('toolbar.canvas_mode')"
@@ -247,6 +269,20 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                     <div v-show="overflowOpen"
                          class="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
                         <button type="button"
+                                data-testid="iframe-theme-toggle-overflow"
+                                @click="overflowOpen = false; toggleIframeTheme()"
+                                :aria-pressed="ui.iframeTheme === 'dark' ? 'true' : 'false'"
+                                class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                            <svg v-if="ui.iframeTheme === 'dark'" aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>
+                            </svg>
+                            <svg v-else aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="4"/>
+                                <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                            </svg>
+                            <span>{{ i18n.t('toolbar.iframe_theme') }}</span>
+                        </button>
+                        <button type="button"
                                 @click="overflowOpen = false; goCanvasMode()"
                                 :disabled="!viewport.slug.value"
                                 class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
@@ -279,6 +315,21 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              just without the viewport controls. -->
         <template v-if="viewport.iframeSrc.value && viewport.type.value === 'foundations'">
             <div class="flex items-center gap-1 shrink-0">
+                <button type="button"
+                        data-testid="iframe-theme-toggle"
+                        @click="toggleIframeTheme()"
+                        :aria-pressed="ui.iframeTheme === 'dark' ? 'true' : 'false'"
+                        :title="i18n.t('toolbar.iframe_theme')"
+                        :aria-label="i18n.t('toolbar.iframe_theme')"
+                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
+                    <svg v-if="ui.iframeTheme === 'dark'" aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>
+                    </svg>
+                    <svg v-else aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"/>
+                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                    </svg>
+                </button>
                 <a :href="openInNewTabHref()" target="_blank" rel="noopener"
                    :title="i18n.t('toolbar.open_in_new_tab')"
                    :aria-label="i18n.t('toolbar.open_in_new_tab')"

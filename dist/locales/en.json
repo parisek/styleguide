@@ -22,7 +22,8 @@
         "orientation_portrait": "Portrait",
         "orientation_landscape": "Landscape",
         "reload": "Reload",
-        "more_actions": "More actions"
+        "more_actions": "More actions",
+        "iframe_theme": "Toggle iframe dark mode"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

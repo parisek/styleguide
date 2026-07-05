@@ -1,6 +1,6 @@
 {# vendor/parisek/styleguide — iframe HTML wrapper for component/page preview #}
 <!DOCTYPE html>
-<html lang="{{ langcode|default('en')|e }}"{% if iframe.html_class %} class="{{ iframe.html_class|e }}"{% endif %}>
+<html lang="{{ langcode|default('en')|e }}"{{ create_attribute({ class: [iframe.html_class|default(''), theme == 'dark' ? 'dark' : ''] }) }}>
 <head>
 	<script>document.documentElement.classList.remove('no-js');</script>
 	{# Lock the iframe to a light backdrop regardless of OS `prefers-color-scheme`
@@ -16,10 +16,15 @@
 	      `!important` battle.
 	   Consumer projects that want iframe content to follow OS dark can
 	   override both with their own `:root { color-scheme: dark light }`
-	   and a body background-color declaration in their stylesheet. #}
+	   and a body background-color declaration in their stylesheet.
+	   When `?theme=dark` is explicitly requested, both the color-scheme and
+	   this safety-net background flip to dark — the whole point of an
+	   opt-in dark preview is that the iframe should actually look dark
+	   before the consumer's own `dark:` utilities paint, not flash white
+	   first. #}
 	<style>
-		:root { color-scheme: light; }
-		body { background-color: #fff; }{# Per-mode CSS injections for the iframe wrapper.
+		:root { color-scheme: {{ theme == 'dark' ? 'dark' : 'light' }}; }
+		body { background-color: {{ theme == 'dark' ? '#0a0a0a' : '#fff' }}; }{# Per-mode CSS injections for the iframe wrapper.
 		   `bleed` / `chrome` / `overlay` all reset `--header-height` to 0
 		   so consumer "tuck under sticky header" hacks collapse cleanly
 		   in styleguide isolation; `chrome` additionally forces body to

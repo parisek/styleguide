@@ -26,10 +26,14 @@ final class Router
      * Parse a request URI to a route descriptor, or null if the URI doesn't belong
      * to the styleguide.
      *
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string}|null
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}|null
      */
     public static function parse(string $uri): ?array
     {
+        // Captured before strtok() below discards it — only the `render`
+        // branch consumes it (theme only matters for iframe HTML output).
+        $queryString = (string) (strpos($uri, '?') !== false ? substr($uri, strpos($uri, '?') + 1) : '');
+
         // Strip query string and trailing slash
         $uri = (string) strtok($uri, '?');
         $uri = rtrim($uri, '/');
@@ -52,10 +56,12 @@ final class Router
 
         // /styleguide/render/<kind>/<slug>
         if ($parts[0] === 'render' && count($parts) >= 3) {
+            parse_str($queryString, $query);
             return [
                 'type' => 'render',
                 'kind' => $parts[1],
                 'slug' => $parts[2],
+                'theme' => self::whitelistTheme($query['theme'] ?? null),
             ];
         }
 
@@ -79,6 +85,18 @@ final class Router
     }
 
     /**
+     * Whitelist an arbitrary (query-string-sourced, therefore untrusted) theme
+     * value down to one of the two values `render-cell.twig` understands.
+     * Anything else — missing, wrong case, an array from a malformed query
+     * string — falls back to `'light'`, the historical (pre-feature) render
+     * output, so a bad/absent `?theme=` never surfaces as broken markup.
+     */
+    public static function whitelistTheme(mixed $raw): string
+    {
+        return $raw === 'dark' ? 'dark' : 'light';
+    }
+
+    /**
      * Swap an SPA route (`component`, `page`, `foundations`) for its `render`
      * equivalent when the request was issued from inside an iframe.
      *
@@ -99,8 +117,8 @@ final class Router
      * `fields`, `landing`) pass through unchanged — they have no iframe-nesting
      * problem to solve.
      *
-     * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string} $route
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string}
+     * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string} $route
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}
      */
     public static function synthesizeEmbeddedRoute(array $route, string $secFetchDest): array
     {
@@ -117,6 +135,11 @@ final class Router
             // for the foundations branch, but the shape contract still expects
             // a string. `'index'` mirrors the public render-endpoint convention.
             'slug' => $route['slug'] ?? 'index',
+            // No query-string signal survives past Router::parse() by this point
+            // (the SPA-shell route it's swapping from never carried a `theme` —
+            // only `render`-type routes read the query string). Default to
+            // 'light', matching Renderer's own default for an absent theme.
+            'theme' => 'light',
         ];
     }
 }

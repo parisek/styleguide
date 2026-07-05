@@ -6,6 +6,11 @@ import { useUiStore } from '../stores/ui.js';
 import { useCatalogStore } from '../stores/catalog.js';
 
 beforeEach(() => {
+    // iframeTheme (ui.js) round-trips through localStorage via usePersistedRef
+    // — clear it so a 'dark' write in one test doesn't leak into the next
+    // test's fresh Pinia instance (a new store instance still reads the same
+    // localStorage key at construction time).
+    localStorage.clear();
     setActivePinia(createPinia());
 });
 
@@ -29,6 +34,34 @@ describe('useViewportPreset', () => {
         const slug = ref(null);
         const vp = useViewportPreset({ type, slug });
         expect(vp.iframeSrc.value).toBe('/styleguide/render/foundations/index');
+    });
+
+    it('iframeSrc appends ?theme=dark when the iframe theme toggle is dark', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const ui = useUiStore();
+        ui.setIframeTheme('dark');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero?theme=dark');
+    });
+
+    it('iframeSrc omits the theme param for the light default (historical URL shape)', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero');
+    });
+
+    it('iframeSrc combines the reload nonce and dark theme with the correct separators', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const ui = useUiStore();
+        const catalog = useCatalogStore();
+        catalog.init = () => {};
+        ui.setIframeTheme('dark');
+        const vp = useViewportPreset({ type, slug });
+        vp.reloadPreview();
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero?_r=1&theme=dark');
     });
 
     it('reloadPreview appends an incrementing _r nonce to iframeSrc', () => {

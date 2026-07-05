@@ -6,6 +6,7 @@ import ViewportToolbar from './ViewportToolbar.vue';
 import { useViewportPreset } from '../composables/useViewportPreset.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
+import { useUiStore } from '../stores/ui.js';
 
 function mountWithViewport(type = 'component', slug = 'hero') {
     setActivePinia(createPinia());
@@ -53,5 +54,15 @@ describe('ViewportToolbar', () => {
     it('does not render the viewport dropdown for the foundations route', () => {
         const wrapper = mountWithViewport('foundations', null);
         expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
+    });
+
+    it('clicking the iframe-theme toggle flips ui.iframeTheme independently of the chrome theme', async () => {
+        const wrapper = mountWithViewport();
+        const ui = useUiStore();
+        expect(ui.iframeTheme).toBe('light');
+        await wrapper.find('[data-testid="iframe-theme-toggle"]').trigger('click');
+        expect(ui.iframeTheme).toBe('dark');
+        await wrapper.find('[data-testid="iframe-theme-toggle"]').trigger('click');
+        expect(ui.iframeTheme).toBe('light');
     });
 });

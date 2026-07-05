@@ -51,12 +51,40 @@ final class RouterTest extends TestCase
     public function parses_render_endpoint(): void
     {
         self::assertSame(
-            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
             Router::parse('/styleguide/render/component/hero'),
         );
         self::assertSame(
-            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage'],
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage', 'theme' => 'light'],
             Router::parse('/styleguide/render/page/homepage'),
+        );
+    }
+
+    #[Test]
+    public function whitelist_theme_accepts_dark_and_defaults_everything_else_to_light(): void
+    {
+        self::assertSame('dark', Router::whitelistTheme('dark'));
+        self::assertSame('light', Router::whitelistTheme('light'));
+        self::assertSame('light', Router::whitelistTheme(null));
+        self::assertSame('light', Router::whitelistTheme(''));
+        self::assertSame('light', Router::whitelistTheme('DARK')); // case-sensitive, no normalisation guesswork
+        self::assertSame('light', Router::whitelistTheme(['dark'])); // never trust raw — non-string is rejected
+    }
+
+    #[Test]
+    public function render_route_carries_whitelisted_theme_from_query_string(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'dark'],
+            Router::parse('/styleguide/render/component/hero?theme=dark'),
+        );
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
+            Router::parse('/styleguide/render/component/hero?theme=neon'), // invalid → default
+        );
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
+            Router::parse('/styleguide/render/component/hero'), // absent → default
         );
     }
 
@@ -106,7 +134,7 @@ final class RouterTest extends TestCase
         // Without the swap the SPA shell would load inside the parent iframe,
         // producing nested chrome.
         self::assertSame(
-            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero'],
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'component', 'slug' => 'hero'],
                 'iframe',
@@ -118,7 +146,7 @@ final class RouterTest extends TestCase
     public function synthesize_embedded_swaps_page_route_for_render(): void
     {
         self::assertSame(
-            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage'],
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage', 'theme' => 'light'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'page', 'slug' => 'homepage'],
                 'iframe',
@@ -133,7 +161,7 @@ final class RouterTest extends TestCase
         // ignores the slug for that branch, but the route shape contract still
         // expects one. 'index' mirrors the public render-endpoint convention.
         self::assertSame(
-            ['type' => 'render', 'kind' => 'foundations', 'slug' => 'index'],
+            ['type' => 'render', 'kind' => 'foundations', 'slug' => 'index', 'theme' => 'light'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'foundations'],
                 'iframe',
@@ -199,7 +227,7 @@ final class RouterTest extends TestCase
     public function synthesize_embedded_swaps_doc_route_for_render(): void
     {
         self::assertSame(
-            ['type' => 'render', 'kind' => 'doc', 'slug' => 'changelog'],
+            ['type' => 'render', 'kind' => 'doc', 'slug' => 'changelog', 'theme' => 'light'],
             Router::synthesizeEmbeddedRoute(
                 ['type' => 'doc', 'slug' => 'changelog'],
                 'iframe',

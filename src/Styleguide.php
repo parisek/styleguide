@@ -1069,6 +1069,10 @@ final class Styleguide
             slug: $route['slug'],
             config: $config,
             langcode: $langcode,
+            // Router::parse() / synthesizeEmbeddedRoute() always set this for
+            // `render`-type routes, but re-whitelist defensively — $route is a
+            // loosely-typed array<string,mixed>, not a value object.
+            theme: Router::whitelistTheme($route['theme'] ?? null),
         );
     }
 

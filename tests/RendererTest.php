@@ -175,6 +175,42 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function theme_dark_stamps_dark_class_and_color_scheme(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+        ], 'cs', 'dark');
+
+        self::assertStringContainsString('<html lang="cs" class="dark">', $html);
+        self::assertStringContainsString('color-scheme: dark', $html);
+    }
+
+    #[Test]
+    public function theme_light_is_the_default_and_omits_the_dark_class(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+        ], 'cs'); // theme omitted → default
+
+        self::assertStringContainsString('<html lang="cs">', $html);
+        self::assertStringNotContainsString('class="dark"', $html);
+        self::assertStringContainsString('color-scheme: light', $html);
+    }
+
+    #[Test]
+    public function theme_dark_combines_with_an_existing_iframe_html_class(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css', 'html_class' => 'notranslate'],
+        ], 'cs', 'dark');
+
+        self::assertStringContainsString('<html lang="cs" class="notranslate dark">', $html);
+    }
+
+    #[Test]
     public function renders_404_for_missing_component(): void
     {
         $html = $this->renderer->render('component', 'nonexistent', [

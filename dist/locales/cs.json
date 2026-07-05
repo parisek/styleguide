@@ -22,7 +22,8 @@
         "orientation_portrait": "Na výšku",
         "orientation_landscape": "Na šířku",
         "reload": "Znovu načíst",
-        "more_actions": "Další akce"
+        "more_actions": "Další akce",
+        "iframe_theme": "Přepnout tmavý režim v iframu"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

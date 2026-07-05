@@ -93,3 +93,34 @@ describe('useUiStore', () => {
         expect(JSON.parse(localStorage.getItem('sg-sidebar-open'))).toBe(false);
     });
 });
+
+// Iframe content theme — independent of the SPA chrome's own light/dark/
+// system toggle (stores/theme.js). Persisted under its own localStorage key
+// (sg-iframe-theme) so switching one doesn't affect the other.
+describe('iframeTheme', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        setActivePinia(createPinia());
+    });
+
+    it('defaults to light', () => {
+        const ui = useUiStore();
+        expect(ui.iframeTheme).toBe('light');
+    });
+
+    it('persists the chosen theme across store instances', async () => {
+        useUiStore().setIframeTheme('dark');
+        // usePersistedRef's localStorage write is flushed by a `watch()`
+        // callback, which runs on the next microtask — matches the existing
+        // "persists previewWidth/..." test's `await Promise.resolve()` above.
+        await Promise.resolve();
+        setActivePinia(createPinia());
+        expect(useUiStore().iframeTheme).toBe('dark');
+    });
+
+    it('rejects invalid values by falling back to light', () => {
+        const ui = useUiStore();
+        ui.setIframeTheme('neon');
+        expect(ui.iframeTheme).toBe('light');
+    });
+});

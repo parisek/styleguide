@@ -45,8 +45,13 @@ final class Renderer
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
      *   plus, for the foundations kind, the full yaml under `styleguide`).
+     * @param string $theme
+     *   `'light'` or `'dark'` — stamps `class="dark"` + a matching
+     *   `color-scheme` on the rendered `<html>`. Callers should route the
+     *   raw (query-string-sourced) value through {@see Router::whitelistTheme()}
+     *   first; this method re-coerces anyway as a defensive fallback.
      */
-    public function render(string $kind, string $slug, array $config, string $langcode = 'en'): string
+    public function render(string $kind, string $slug, array $config, string $langcode = 'en', string $theme = 'light'): string
     {
         if (!in_array($kind, ['component', 'page', 'doc', 'foundations'], true)) {
             return $this->render404($kind, $slug, $config);
@@ -111,6 +116,11 @@ final class Renderer
             'kind' => $kind,
             'slug' => $slug,
             'langcode' => $langcode,
+            // Callers other than Styleguide::dispatchRender() (notably tests,
+            // and any future direct Renderer use) may pass an unwhitelisted
+            // string — re-coerce defensively rather than trusting the caller,
+            // same rationale as ComponentParser::normaliseRender().
+            'theme' => $theme === 'dark' ? 'dark' : 'light',
             'project' => $config['project'] ?? [],
             'iframe' => $iframe,
             'component' => [

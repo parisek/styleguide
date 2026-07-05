@@ -222,7 +222,7 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 | `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
 | `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
 | `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
-| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted) to stamp `class="dark"` on the iframe `<html>` for consumers that opt into Tailwind dark mode. |
+| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted, invalid/missing → `light`) to stamp `class="dark"` and a matching `color-scheme` on the iframe `<html>` for consumers that opt into Tailwind dark mode; inert for projects with no dark-mode CSS. |
 | `/styleguide/api/components` | JSON | List of components — see [API](#api) below |
 | `/styleguide/api/pages` | JSON | List of pages — same shape as components |
 | `/styleguide/api/docs` | JSON | List of doc entries — same shape as pages; `[]` when `templates/doc/` is absent |

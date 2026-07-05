@@ -134,6 +134,10 @@ export function useViewportPreset({ type, slug }) {
             src = `/styleguide/render/${type.value}/${slug.value}`;
         }
         if (reloadNonce.value) src += (src.includes('?') ? '&' : '?') + `_r=${reloadNonce.value}`;
+        // Iframe content theme — independent of the SPA chrome's own theme
+        // toggle (stores/theme.js). Only appended when dark so the historical
+        // (pre-feature) URL shape is unchanged for the default 'light' case.
+        if (ui.iframeTheme === 'dark') src += (src.includes('?') ? '&' : '?') + 'theme=dark';
         return src;
     });
 

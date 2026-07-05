@@ -19,6 +19,10 @@ export const useUiStore = defineStore('ui', {
         searchQuery: '',
         routeType: 'landing',
         routeSlug: null,
+        // Iframe content theme — independent of the SPA chrome's own light/
+        // dark/system toggle (stores/theme.js). Persisted under its own
+        // localStorage key so switching one doesn't affect the other.
+        iframeTheme: usePersistedRef('sg-iframe-theme', 'light'),
     }),
     getters: {
         isPortrait: (state) => isPortraitOrientation({
@@ -78,6 +82,12 @@ export const useUiStore = defineStore('ui', {
             }
             this.routeType = type;
             this.routeSlug = slug;
+        },
+        // Mirrors the server-side whitelist in Router::whitelistTheme() — any
+        // value other than the literal string 'dark' resolves to 'light', so
+        // a corrupted localStorage value can never produce a broken query param.
+        setIframeTheme(value) {
+            this.iframeTheme = value === 'dark' ? 'dark' : 'light';
         },
     },
 });
