@@ -205,3 +205,20 @@ Nothing in this design forecloses adding these later.
   `@internal` and not covered by SemVer per `docs/API.md`.
 - Each phase lands with docs updated in the same PR per the AGENTS.md
   documentation gate, and a `CHANGELOG.md` entry.
+
+## Follow-ups (tracked, not executed by this plan)
+
+- **Metadata backfill (category/description) via `styleguide-render-tagger`.**
+  Phase 3 item 5 of this roadmap. The skill lives at the user level
+  (`~/.claude/skills/styleguide-render-tagger/`), outside this git
+  repository, so it cannot be extended by a plan scoped to
+  `parisek/styleguide`. Recorded here so the roadmap item isn't silently
+  dropped: someone with access to the user-level skills directory needs to
+  extend `styleguide-render-tagger` to also propose `category:`/
+  `description:` backfills (using the same "classify, present a table,
+  apply on approval" pattern it already uses for `render:` tagging),
+  likely fed by the gap list `vendor/bin/styleguide lint`'s
+  `empty-description` findings now produce (see Task 1 of the Phase 3
+  adoption plan, `docs/superpowers/plans/2026-07-04-phase-3-adoption.md`).
+  **Not executable inside this repo** — no code or doc change here can
+  close this item.

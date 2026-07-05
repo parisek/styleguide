@@ -26,3 +26,4 @@
 - 13:22 PHASE 2 DONE — branch review READY, theme-reset-on-iframe-nav fixed via cookie. 166/176/17/36 green.
 - 13:32 P3 Task 1 (styleguide lint CLI): OK — 5 rules, exit codes 0/1/2, 187 PHP
 - 13:49 P3 Task 2 (MIGRATION.md): OK — 30bb5cd, per-target guides fact-checked against live sibling repos
+- 13:57 P3 Tasks 3+4 (fixture docs + follow-ups note): OK. PHASE 3 TASKS COMPLETE.

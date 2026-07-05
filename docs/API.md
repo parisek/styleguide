@@ -158,7 +158,7 @@ The package registers these on its pristine Twig env (or layers them on top of a
 |---|---|---|
 | `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/` |
 | `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig` |
-| `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts, and README § Fixtures & sample data for the full option table and migration examples away from `picsum.photos`-style URLs. |
+| `placeholder(opts)` | function | Generate a placeholder image URL — see README § Fixtures & sample data for the main option table (`subject`, `mood`, `seed`, `width`, `height`, `aspect`, `label`) and migration examples away from `picsum.photos`-style URLs. Three finishing options exist beyond that table: `grain` (bool, default `true` — film-grain overlay), `vignette` (bool, default `true` — edge darkening), `alt` (string, default `"<subject> placeholder"`). |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
 | `cachebust(url)` | filter | Appends `?v=<filemtime>` (or `&v=…` if the URL already has a query string) to a root-relative URL that resolves to a real file, walking up from `static_path` to find it. Non-string, empty, non-root-relative, or unresolvable URLs pass through unchanged. Used internally on `iframe.css` / `iframe.js` / `iframe.fonts[]`, also callable from any component template |

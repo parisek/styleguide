@@ -1250,7 +1250,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
 
 **Interfaces:** None — documentation-only task. No YAML schema, JSON shape, or Twig function changes; this task only changes prose recommending an existing, already-preferred behavior.
 
-- [ ] **Step 1: `docs/API.md` — mark `styleguide` key as legacy**
+- [x] **Step 1: `docs/API.md` — mark `styleguide` key as legacy**
 
   Replace the `styleguide` row in the "Component YAML metadata" table:
   ```markdown
@@ -1270,7 +1270,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   | `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts, and README § Fixtures & sample data for the full option table and migration examples away from `picsum.photos`-style URLs. |
   ```
 
-- [ ] **Step 2: `README.md` — update the Per-template metadata table**
+- [x] **Step 2: `README.md` — update the Per-template metadata table**
 
   Replace:
   ```markdown
@@ -1281,7 +1281,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
   ```
 
-- [ ] **Step 3: `README.md` — add the "Fixtures & sample data" section**
+- [x] **Step 3: `README.md` — add the "Fixtures & sample data" section**
 
   Insert this new `##` section right after "### Page wrapper" and before "## File layout (after install)":
 
@@ -1353,20 +1353,20 @@ Five findings to implement — each gets its own fixture and its own assertion:
   `vignette`, `alt`).
   ````
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
   - `grep -n "picsum" README.md docs/API.md` → the only hits are inside the new prose explaining what `placeholder()` replaces (no actual `picsum.photos` URL is added to this package's own docs).
   - `grep -n "^## Fixtures" README.md` → one match.
   - Read the two edited tables end-to-end to confirm no dangling `|` breaks table rendering.
 
-- [ ] **Step 5: `CHANGELOG.md`**
+- [x] **Step 5: `CHANGELOG.md`**
 
   Under `## [Unreleased]`, append to the `### Added` block from Task 1 (or start one if Task 3 lands separately):
   ```markdown
   - **Sibling `styleguide.twig` is now documented as the official fixture convention** (`README.md` § Fixtures & sample data); the `styleguide:` YAML key stays functional as a presence-only flag for backward compatibility, but content under it is flagged by `lint` (`dead-styleguide-content`).
   ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
   `git add README.md docs/API.md CHANGELOG.md && git commit -m "docs: document sibling styleguide.twig as the official fixture convention; add placeholder() migration examples"`
 
@@ -1381,7 +1381,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
 
 Phase 3 item 5 of the roadmap ("Metadata backfill (category/description) is delivered as an extension of the existing `styleguide-render-tagger` Claude skill, not package code") names a deliverable that lives **outside this git repository** — the skill is a user-level Claude Code skill (`~/.claude/skills/styleguide-render-tagger/`), not a file under `parisek/styleguide`. No task in this plan can execute it: there's no repo-relative path to edit, and this plan's scope is `/Users/pari/Sites/styleguide`. Record it so it isn't silently dropped from the roadmap.
 
-- [ ] **Step 1: Append the Follow-ups section**
+- [x] **Step 1: Append the Follow-ups section**
 
   Append to the end of `docs/superpowers/specs/2026-07-04-storybook-lite-2.0-design.md` (after the existing "Compatibility contract" section, which currently ends the file):
 
@@ -1405,10 +1405,10 @@ Phase 3 item 5 of the roadmap ("Metadata backfill (category/description) is deli
     close this item.
   ```
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
   `tail -20 docs/superpowers/specs/2026-07-04-storybook-lite-2.0-design.md` shows the new section as the last thing in the file, and the file still starts with its original `# Styleguide 2.0 — "Storybook lite" optimization roadmap` header (i.e. this was an append, not a rewrite).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
   `git add docs/superpowers/specs/2026-07-04-storybook-lite-2.0-design.md && git commit -m "docs: record styleguide-render-tagger backfill extension as a tracked, non-repo follow-up"`
