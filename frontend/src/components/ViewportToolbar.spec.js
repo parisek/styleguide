@@ -133,4 +133,26 @@ describe('ViewportToolbar — variant switcher', () => {
         expect(buttons[0].classes()).not.toContain('bg-red-600');
         expect(buttons[1].classes()).toContain('bg-red-600');
     });
+
+    // Regression for Phase 4 Task 3 review finding 1: the switcher used to
+    // live inside the toolbarVisible block, which excludes responsive:false
+    // entries — silently making a responsive:false entry's variants
+    // unreachable from the SPA even though docs/API.md promises the
+    // switcher shows "when at least one exists", with no carve-out for
+    // responsive:false.
+    it('still renders the variant switcher for a responsive:false entry (width controls stay hidden)', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                responsive: false,
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+        });
+        const switcher = wrapper.find('[data-testid="variant-switcher"]');
+        expect(switcher.exists()).toBe(true);
+        expect(switcher.findAll('button').map((b) => b.text())).toEqual(['Default', 'Secondary style']);
+        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
+    });
 });

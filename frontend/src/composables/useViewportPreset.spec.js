@@ -98,6 +98,37 @@ describe('useViewportPreset', () => {
         expect(vp.effective.value).toEqual({ width: null, height: null });
     });
 
+    // Regression for Phase 4 Task 3 review finding 1: variantSwitcherVisible
+    // must stay true for a responsive:false entry that has variants — only
+    // toolbarVisible (the width controls) should react to `responsive`.
+    it('variantSwitcherVisible stays true for a responsive:false entry that has variants', () => {
+        const type = ref('doc');
+        const slug = ref('sample-doc');
+        const catalog = useCatalogStore();
+        catalog.docs = [{
+            id: 'sample-doc', name: 'Sample doc', responsive: false,
+            variants: [{ id: 'secondary', label: 'Secondary' }],
+        }];
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.toolbarVisible.value).toBe(false);
+        expect(vp.variantSwitcherVisible.value).toBe(true);
+    });
+
+    it('variantSwitcherVisible is false when the current item has no variants', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.variantSwitcherVisible.value).toBe(false);
+    });
+
+    it('variantSwitcherVisible is false for foundations even though iframeSrc is set', () => {
+        const type = ref('foundations');
+        const slug = ref(null);
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBeTruthy();
+        expect(vp.variantSwitcherVisible.value).toBe(false);
+    });
+
     it('dimensionsLabel reports the scaled percentage when zoom < 1', () => {
         const type = ref('component');
         const slug = ref('hero');

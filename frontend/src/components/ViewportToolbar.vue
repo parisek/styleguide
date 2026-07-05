@@ -117,21 +117,28 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
             </template>
         </div>
 
-        <!-- Viewport controls — Tailwind-aligned segmented control with explicit
-             pixel labels + Custom number input + Full. Hidden on the foundations
-             route where responsive testing doesn't make sense (foundations shows
-             palette / typography / project surface; locking it to 100% width
-             keeps the layout stable across reloads). -->
-        <template v-if="viewport.toolbarVisible.value">
+        <!-- Right-side controls cluster. Rendered whenever either the width
+             toolbar or the variant switcher has something to show, so a
+             responsive:false entry with variants still gets a right-side
+             group (just without the width controls) instead of losing the
+             cluster's flex slot entirely (this parent is justify-between —
+             a 3rd top-level child here would misplace the gap instead of
+             just widening this cluster). -->
+        <template v-if="viewport.toolbarVisible.value || viewport.variantSwitcherVisible.value">
             <div class="flex items-center gap-2 shrink-0">
                 <!-- Variant switcher (Phase 4 Task 3) -- one file-convention
                      styleguide.<variant>.twig sibling per button (Task 1:
                      ComponentParser.discoverVariants()), plus a leading
-                     "Default" entry for the implicit no-variant file. Only
-                     rendered when the current entry actually has discovered
-                     variants; deep-linkable via ?variant= (useVariant.js). -->
+                     "Default" entry for the implicit no-variant file. Gated
+                     on its own variantSwitcherVisible (has variants +
+                     renders an iframe), deliberately NOT on toolbarVisible/
+                     `responsive` — a responsive:false entry still has
+                     reachable variants, it just doesn't get resizable width
+                     controls (docs/API.md: "when at least one exists, the
+                     SPA toolbar shows a variant switcher", no carve-out for
+                     responsive:false). -->
                 <div
-                    v-if="viewport.currentItem.value?.variants?.length > 0"
+                    v-if="viewport.variantSwitcherVisible.value"
                     data-testid="variant-switcher"
                     role="group"
                     :aria-label="i18n.t('toolbar.variant_label')"
@@ -152,6 +159,14 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         @click="viewport.setVariant(v.id)"
                     >{{ v.label }}</button>
                 </div>
+                <!-- Width controls + secondary preview actions. Hidden on the
+                     foundations route where responsive testing doesn't make
+                     sense (foundations shows palette / typography / project
+                     surface; locking it to 100% width keeps the layout
+                     stable across reloads) and on responsive:false entries
+                     (the variant switcher above still renders independently
+                     of this template). -->
+                <template v-if="viewport.toolbarVisible.value">
                 <!-- Unified viewport switcher — one labelled dropdown at every width
                      (replaces the old xl segmented bar + separate mobile menu). The
                      trigger always shows the device word + dimensions, so the control
@@ -337,6 +352,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         </button>
                     </div>
                 </div>
+                </template>
             </div>
         </template>
         <!-- Foundations route still gets the open-in-new-tab affordance,

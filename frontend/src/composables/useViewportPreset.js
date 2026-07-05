@@ -159,6 +159,18 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         && type.value !== 'overview'
         && currentItem.value?.responsive !== false);
 
+    // Deliberately independent of toolbarVisible/`responsive` (docs/API.md:
+    // "when at least one exists, the SPA toolbar shows a variant switcher" —
+    // no carve-out for responsive:false). A fixed-layout doc/demo can still
+    // ship alternate markup files; hiding the switcher just because width
+    // controls don't apply would make those variants unreachable from the
+    // SPA. Restricted to routes that actually render an iframe (component/
+    // page/doc) so foundations/overview — which never carry `variants` —
+    // can't accidentally qualify.
+    const variantSwitcherVisible = computed(() => !!iframeSrc.value
+        && ['component', 'page', 'doc'].includes(type.value)
+        && (currentItem.value?.variants?.length ?? 0) > 0);
+
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
         if (type.value === 'page') return 'pages';
@@ -230,7 +242,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         type, slug, variant, setVariant,
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
-        reloadPreview, iframeSrc, toolbarVisible, currentSectionKey, currentItemName,
+        reloadPreview, iframeSrc, toolbarVisible, variantSwitcherVisible, currentSectionKey, currentItemName,
         currentItemDescription, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

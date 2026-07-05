@@ -287,6 +287,29 @@ test.describe('Styleguide SPA', () => {
         await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi');
     });
 
+    test('the variant query resets on client-side sidebar navigation too, not just page.goto', async ({ page }) => {
+        // Review finding 2 (Phase 4 Task 3): the deep-link reset above only
+        // exercised a full navigation via page.goto(), which forces the SPA
+        // through its initial-load path. Router-push navigation (a plain
+        // sidebar click, no reload) is a different code path -- assert the
+        // same reset holds there. Target "Gizmo" rather than "Sample":
+        // `hasStyleguide` is false for the `sample` fixture (it has no
+        // dedicated styleguide.twig; see ComponentParser), so it never
+        // appears as a sidebar link at all -- "Gizmo" does.
+        await page.goto('/styleguide/component/multi');
+        const iframe = page.locator('iframe').first();
+        const switcher = page.getByTestId('variant-switcher');
+
+        await switcher.getByRole('button', { name: 'Secondary style' }).click();
+        await expect(page).toHaveURL(/\?variant=secondary$/);
+        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi?variant=secondary');
+
+        await page.getByRole('link', { name: 'Gizmo', exact: true }).click();
+        await expect(page).toHaveURL(/\/styleguide\/component\/gizmo$/);
+        await expect(page).not.toHaveURL(/variant=/);
+        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/gizmo');
+    });
+
     test('standalone render shows the back-bar; the same render inside the SPA iframe hides it', async ({ page }) => {
         // Replaces smoke-browser.sh section 6 — render-cell.twig's back-bar is
         // plain PHP/Twig + vanilla JS, entirely untouched by this rewrite;
