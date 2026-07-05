@@ -86,4 +86,39 @@ describe('PreviewPane', () => {
         const wrapper = mountPane('overview', null);
         expect(wrapper.text()).toContain('Select a component');
     });
+
+    // Task 8 review fix: onMounted wires viewport.observeContainer(paneRef)
+    // to a real ResizeObserver; without an explicit teardown that instance
+    // stays attached to the (now detached) pane node after the route
+    // changes away from this component. Swap in a tracking stub so
+    // disconnect() calls are observable, then assert onBeforeUnmount
+    // actually tears it down instead of leaving it for the next
+    // observeContainer() call to clean up as a side effect.
+    it('disconnects the container ResizeObserver on unmount', () => {
+        const originalResizeObserver = global.ResizeObserver;
+        class TrackingResizeObserver {
+            constructor(callback) {
+                this.callback = callback;
+                this.disconnectCalls = 0;
+                TrackingResizeObserver.instances.push(this);
+            }
+            observe() {}
+            unobserve() {}
+            disconnect() { this.disconnectCalls += 1; }
+        }
+        TrackingResizeObserver.instances = [];
+        global.ResizeObserver = TrackingResizeObserver;
+
+        try {
+            const wrapper = mountPane('component', 'hero');
+            expect(TrackingResizeObserver.instances).toHaveLength(1);
+            const containerObserver = TrackingResizeObserver.instances[0];
+
+            wrapper.unmount();
+
+            expect(containerObserver.disconnectCalls).toBe(1);
+        } finally {
+            global.ResizeObserver = originalResizeObserver;
+        }
+    });
 });

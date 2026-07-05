@@ -49,9 +49,16 @@ export function useViewportPreset({ type, slug }) {
 
     // Measures the chrome pane (the `.overflow-auto` container hosting the
     // iframe wrapper) so fit-to-bounds zoom tracks viewport resize. 48px =
-    // 2x the p-6 padding on that container in both axes.
+    // 2x the p-6 padding on that container in both axes. Always disconnects
+    // whatever instance is live first, so re-calling with a new el (route
+    // change) never leaks the prior observer. Calling with `el` null (e.g.
+    // PreviewPane's onBeforeUnmount) tears the observer down explicitly
+    // instead of relying on the next route's observeContainer call to do it.
     function observeContainer(el) {
-        if (containerRO) containerRO.disconnect();
+        if (containerRO) {
+            containerRO.disconnect();
+            containerRO = null;
+        }
         if (!el) return;
         containerRO = new ResizeObserver((entries) => {
             for (const entry of entries) {

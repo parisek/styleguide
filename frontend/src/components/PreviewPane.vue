@@ -19,6 +19,12 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
     if (contentRO) contentRO.disconnect();
+    // Explicit teardown of the container ResizeObserver observeContainer()
+    // creates on mount -- without this it stays attached to a now-detached
+    // paneRef node until the next component/page route re-calls
+    // observeContainer() and disconnects it as a side effect (bounded, but
+    // a real observer sits idle in between).
+    viewport.observeContainer(null);
 });
 watch(wrapperRef, (el) => viewport.observeWrapper(el));
 
