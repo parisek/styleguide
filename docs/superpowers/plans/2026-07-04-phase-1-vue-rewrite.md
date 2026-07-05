@@ -2635,7 +2635,7 @@ git commit -m "feat(spa): port search keyboard shortcuts (Cmd+K focus, Escape cl
 - Provide/inject key: `'viewport'` — `App.vue` calls `provide('viewport', useViewportPreset({ type, slug }))` with `type`/`slug` derived from `useRoute()` (see Step 9 below — this lives in `App.vue`, one level above `<RouterView/>`, NOT in `PreviewView.vue`, so the toolbar/description/usage/links/fields chrome renders identically on every route including `/overview` and `/foundations`, matching the legacy single-scope `<main x-data="preview">`); `ViewportToolbar.vue` (this task) and `PreviewPane.vue`/`FieldsDrawer.vue`/`UsagePanel.vue`/`LinkBar.vue` (Tasks 8-10) call `inject('viewport')`.
 - `ViewportToolbar.vue` — no props (reads everything via inject); no emits.
 
-- [ ] **Step 1: Add the jsdom `ResizeObserver` stub**
+- [x] **Step 1: Add the jsdom `ResizeObserver` stub**
 
 Create `frontend/src/testSetup.js`:
 
@@ -2675,7 +2675,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 2: Write the failing test for `useViewportPreset`**
+- [x] **Step 2: Write the failing test for `useViewportPreset`**
 
 Create `frontend/src/composables/useViewportPreset.spec.js`:
 
@@ -2802,12 +2802,12 @@ describe('useViewportPreset', () => {
 });
 ```
 
-- [ ] **Step 3: Run and confirm failure**
+- [x] **Step 3: Run and confirm failure**
 
 Run: `cd frontend && npx vitest run src/composables/useViewportPreset.spec.js`
 Expected: fails — module missing.
 
-- [ ] **Step 4: Implement `useViewportPreset.js`**
+- [x] **Step 4: Implement `useViewportPreset.js`**
 
 Create `frontend/src/composables/useViewportPreset.js`:
 
@@ -3016,12 +3016,12 @@ export function useViewportPreset({ type, slug }) {
 }
 ```
 
-- [ ] **Step 5: Run and confirm pass**
+- [x] **Step 5: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/composables/useViewportPreset.spec.js`
 Expected: `Tests 11 passed`.
 
-- [ ] **Step 6: Write the failing test for `ViewportToolbar.vue`**
+- [x] **Step 6: Write the failing test for `ViewportToolbar.vue`**
 
 Create `frontend/src/components/ViewportToolbar.spec.js`:
 
@@ -3085,7 +3085,7 @@ describe('ViewportToolbar', () => {
 });
 ```
 
-- [ ] **Step 7: Run and confirm failure, then implement**
+- [x] **Step 7: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/components/ViewportToolbar.spec.js` → fails (module missing).
 
@@ -3148,12 +3148,12 @@ Template — port `frontend/index.html:357-557` (the `toolbarVisible` block, the
 - Add `data-testid="viewport-trigger"` to the unified switcher's trigger `<button>` and `data-testid="viewport-preset-<key>"` to each preset row `<button>` (new — the legacy DOM had no test hooks; these are additive attributes with zero visual/behavioral effect, needed because Vitest/Playwright can't reliably target the unlabelled buttons the legacy markup relied on visual position for).
 - `reloadPreview` / `$store.ui.route.slug && (...)` canvas-mode click handler / `iframeSrc` references all resolve through `viewport.X` from the injected composable instead of `$store.ui`/local getters.
 
-- [ ] **Step 8: Run and confirm pass**
+- [x] **Step 8: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/components/ViewportToolbar.spec.js`
 Expected: `Tests 4 passed`.
 
-- [ ] **Step 9: Wire the composable + `ViewportToolbar` + description bar into `App.vue`**
+- [x] **Step 9: Wire the composable + `ViewportToolbar` + description bar into `App.vue`**
 
 This — not `PreviewView.vue` — is where the shared chrome belongs. In the legacy DOM, the toolbar (`index.html:311`, `<div class="flex justify-between items-center...">`) is an unconditional sibling inside the SAME `<main x-data="preview">` scope as the framed iframe / foundations iframe / overview grid — it renders identically whether the active route is a component, a page, `overview`, or `foundations` (only the viewport-dropdown sub-block within it, and the foundations-only mini-toolbar sub-block, are conditionally shown). `App.vue`'s `<main>` is the direct Vue equivalent of that scope; `<RouterView/>` is where the per-route body (framed preview / overview grid / foundations iframe) plugs in beneath it. Routing the composable through `PreviewView.vue` instead (a route-specific component that only matches component/page/doc/fields) would make the toolbar vanish on `/overview` and `/foundations` — a parity break. `PreviewView.vue` itself is unaffected by this step: it stays the Task 4 `<div>Preview stub</div>` placeholder until Task 8 swaps it for `<PreviewPane/>`, which independently injects the same `'viewport'` instance via Vue's ancestor-chain lookup (works across any number of intermediate components, including through `<RouterView/>`).
 
@@ -3206,7 +3206,7 @@ provide('viewport', viewport);
 
 Note: `routeSlug` (a `computed` ref) is used directly in the template's `v-if` expressions above — Vue's template compiler auto-unwraps top-level refs referenced in `<script setup>`, so `routeSlug` (not `routeSlug.value`) is correct inside the template, exactly like `ui.sidebarOpen` was already being used unwrapped-via-store in the Task 4 stub.
 
-- [ ] **Step 10: Full suite + build + commit**
+- [x] **Step 10: Full suite + build + commit**
 
 Run: `cd frontend && npm test && npm run build`
 Expected: all green.
