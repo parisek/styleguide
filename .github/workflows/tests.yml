@@ -64,13 +64,13 @@ jobs:
 
       - run: composer install --no-interaction --prefer-dist
 
-      # run.sh boots a `php -S` fixture server and runs the HTTP smoke. Layer B
-      # (browser, needs agent-browser + Chrome) is local-only and skipped here.
-      - run: bash tests/e2e/run.sh --no-browser
+      # run.sh boots a `php -S` fixture server and runs the HTTP smoke (Layer A).
+      # Browser-level SPA behaviour is covered by the e2e-playwright job below.
+      - run: bash tests/e2e/run.sh
 
   e2e-playwright:
     runs-on: ubuntu-latest
-    name: e2e (Layer C — Playwright)
+    name: e2e (Playwright)
     steps:
       - uses: actions/checkout@v5
 

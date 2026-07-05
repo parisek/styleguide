@@ -1,14 +1,23 @@
 #!/usr/bin/env bash
 #
 # Orchestrates the styleguide e2e suite against the package's own fixture:
-#   Layer A — HTTP smoke (curl)          always
-#   Layer B — browser smoke (agent-browser)  only if the CLI is installed
-# Boots a `php -S` fixture server, runs the layers, tears the server down.
-# Layer C (PHPUnit) is the package's unit suite — run it via `composer test`.
+#   Layer A — HTTP smoke (curl)   always
+# Boots a `php -S` fixture server, runs the layer, tears the server down.
+# The package's unit suite (PHPUnit) is separate — run it via `composer test`.
+#
+# Browser-level SPA behaviour (hydration, navigation, viewport presets,
+# search, locale/theme switching, the standalone back-bar, …) used to be
+# covered here by a local-only "Layer B" (`smoke-browser.sh`, `agent-browser`
+# CLI) that read state out of `window.Alpine.store(...)`. The Vue rewrite
+# (Phase 1 of the Styleguide 2.0 effort) removed that global, so Layer B
+# silently rotted into dead code. It's been superseded by
+# `tests/e2e/playwright/styleguide.spec.js` — a stricter suite that asserts
+# through the rendered DOM only (no store reach-through) and runs in CI
+# (`.github/workflows/tests.yml`'s `e2e-playwright` job). Run it locally with:
+#   cd frontend && npm run test:e2e
 #
 # Usage:
-#   bash tests/e2e/run.sh                # Layer A (+ B if agent-browser present)
-#   bash tests/e2e/run.sh --no-browser   # Layer A only
+#   bash tests/e2e/run.sh                # Layer A
 #   PORT=9000 bash tests/e2e/run.sh      # pick a different port
 #
 set -uo pipefail
@@ -17,8 +26,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 HOST="127.0.0.1"
 PORT="${PORT:-8421}"
 BASE="http://$HOST:$PORT"
-NO_BROWSER=0
-[ "${1:-}" = "--no-browser" ] && NO_BROWSER=1
 
 if [ -t 1 ]; then BOLD='\033[1m'; NC='\033[0m'; else BOLD=''; NC=''; fi
 
@@ -65,14 +72,5 @@ rc=0
 
 printf '%b\n' "${BOLD}--- Layer A — HTTP smoke ---${NC}"
 bash "$ROOT/tests/e2e/smoke-http.sh" || rc=1
-
-if [ "$NO_BROWSER" -eq 1 ]; then
-    printf '%b\n' "\n${BOLD}--- Layer B — browser ---${NC}\n  skipped (--no-browser)"
-elif command -v agent-browser >/dev/null 2>&1; then
-    printf '%b\n' "\n${BOLD}--- Layer B — browser smoke ---${NC}"
-    bash "$ROOT/tests/e2e/smoke-browser.sh" || rc=1
-else
-    printf '%b\n' "\n${BOLD}--- Layer B — browser ---${NC}\n  skipped (agent-browser not installed: npm i -g agent-browser && agent-browser install)"
-fi
 
 exit $rc

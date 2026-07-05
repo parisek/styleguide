@@ -31,7 +31,7 @@ PHP commands run from the repo root, frontend commands from `frontend/`. Node is
 
 ```bash
 # Tests + static analysis (PHP)
-composer test                                # phpunit (23 tests, ~30 ms)
+composer test                                # phpunit (161 tests, ~0.3 s)
 composer phpstan                             # phpstan analyse (level configured in phpstan.neon)
 vendor/bin/phpunit --filter <pattern>        # single test method
 
