@@ -251,64 +251,10 @@ test.describe('Styleguide SPA', () => {
         await expect(html).not.toHaveClass(/dark/);
     });
 
-    test('the variant switcher deep-links ?variant=, forwards it to the iframe src, and resets on navigation', async ({ page }) => {
-        // Fixture: tests/fixtures/templates/component/multi ships two file-
-        // convention siblings (styleguide.dark-bg.twig, styleguide.secondary.twig)
-        // plus a YAML-only `ghost` entry with no matching file (Task 1 must
-        // never surface it) -- exercises the full Task 1-3 chain end to end.
-        await page.goto('/styleguide/component/multi');
-        const iframe = page.locator('iframe').first();
-        const switcher = page.getByTestId('variant-switcher');
-
-        await expect(switcher).toBeVisible();
-        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi');
-
-        await switcher.getByRole('button', { name: 'Secondary style' }).click();
-        await expect(page).toHaveURL(/\?variant=secondary$/);
-        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi?variant=secondary');
-
-        // Navigating to a different entry resets the variant silently (no
-        // ?variant= carried over) -- the switcher itself also disappears
-        // since `sample` has no discovered variants.
-        await page.goto('/styleguide/component/sample');
-        await expect(page.getByTestId('variant-switcher')).toHaveCount(0);
-        await expect(page).not.toHaveURL(/variant=/);
-
-        // A deep link with a valid ?variant= restores the selection on load.
-        await page.goto('/styleguide/component/multi?variant=dark-bg');
-        await expect(switcher.getByRole('button', { name: 'dark-bg' })).toHaveClass(/bg-red-600/);
-        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi?variant=dark-bg');
-
-        // An unknown/removed variant id (no matching sibling file) falls back
-        // to Default silently, mirroring Router::whitelistVariant()'s
-        // server-side behavior -- never surfaces as "selected".
-        await page.goto('/styleguide/component/multi?variant=retired');
-        await expect(switcher.getByRole('button', { name: /Default|Výchozí/ })).toHaveClass(/bg-red-600/);
-        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi');
-    });
-
-    test('the variant query resets on client-side sidebar navigation too, not just page.goto', async ({ page }) => {
-        // Review finding 2 (Phase 4 Task 3): the deep-link reset above only
-        // exercised a full navigation via page.goto(), which forces the SPA
-        // through its initial-load path. Router-push navigation (a plain
-        // sidebar click, no reload) is a different code path -- assert the
-        // same reset holds there. Target "Gizmo" rather than "Sample":
-        // `hasStyleguide` is false for the `sample` fixture (it has no
-        // dedicated styleguide.twig; see ComponentParser), so it never
-        // appears as a sidebar link at all -- "Gizmo" does.
-        await page.goto('/styleguide/component/multi');
-        const iframe = page.locator('iframe').first();
-        const switcher = page.getByTestId('variant-switcher');
-
-        await switcher.getByRole('button', { name: 'Secondary style' }).click();
-        await expect(page).toHaveURL(/\?variant=secondary$/);
-        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/multi?variant=secondary');
-
-        await page.getByRole('link', { name: 'Gizmo', exact: true }).click();
-        await expect(page).toHaveURL(/\/styleguide\/component\/gizmo$/);
-        await expect(page).not.toHaveURL(/variant=/);
-        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/gizmo');
-    });
+    // Variant-switcher e2e coverage (deep links, client-side nav reset,
+    // toggle -> iframe src/content, unknown-variant fallback) lives in
+    // variants.spec.js -- one home for that feature, no duplicated coverage
+    // here.
 
     test('standalone render shows the back-bar; the same render inside the SPA iframe hides it', async ({ page }) => {
         // Replaces smoke-browser.sh section 6 — render-cell.twig's back-bar is
