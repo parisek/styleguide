@@ -6,7 +6,8 @@
     "scripts": {
         "build": "vite build",
         "watch": "vite build --watch",
-        "test": "vitest run"
+        "test": "vitest run",
+        "test:e2e": "NODE_PATH=./node_modules playwright test"
     },
     "devDependencies": {
         "vite": "^5.4.0",
@@ -15,7 +16,8 @@
         "@vitejs/plugin-vue": "^5.2.0",
         "vitest": "^2.1.0",
         "@vue/test-utils": "^2.4.0",
-        "jsdom": "^25.0.0"
+        "jsdom": "^25.0.0",
+        "@playwright/test": "^1.49.0"
     },
     "dependencies": {
         "alpinejs": "^3.14.0",

@@ -1,0 +1,16 @@
+{#
+name: "With fields"
+category: "Block"
+fields:
+  title:
+    type: text
+    title: "Title"
+    required: true
+  items:
+    type: array
+    fields:
+      label:
+        type: text
+        title: "Label"
+#}
+<div class="with-fields">{{ content.title }}</div>

@@ -49,10 +49,11 @@ final class ComponentParserTest extends TestCase
 
         // Assert the FULL set in weight order rather than just a count — this
         // documents the canonical fixture roster and catches any sort
-        // regression precisely. Weights: Another 10, Sample 20, then the
-        // sidebar-tree cluster widget-one/two/three 51/52/53 and gizmo 54.
+        // regression precisely. Weights: Another 10, Sample 20, With fields
+        // 50 (no explicit weight -> parser default), then the sidebar-tree
+        // cluster widget-one/two/three 51/52/53 and gizmo 54.
         self::assertSame(
-            ['Another', 'Sample', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo'],
+            ['Another', 'Sample', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );
