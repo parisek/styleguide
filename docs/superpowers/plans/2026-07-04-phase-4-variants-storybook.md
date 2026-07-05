@@ -1662,7 +1662,7 @@ Run: `curl -sI http://127.0.0.1:8421/styleguide/assets/axe.min.js | grep -i cach
 - Modify: `docs/API.md` (if any residual gaps from Task 1/2 remain — final pass)
 - Modify: `frontend/package.json` (`version`, if the frontend package tracks it separately — confirm; the root package has no `version` field per `AGENTS.md` § Release workflow)
 
-- [ ] **Step 1: `CHANGELOG.md`** — under `## [Unreleased]`:
+- [x] **Step 1: `CHANGELOG.md`** — under `## [Unreleased]`:
 
 ```markdown
 ## [Unreleased]
@@ -1678,7 +1678,7 @@ Run: `curl -sI http://127.0.0.1:8421/styleguide/assets/axe.min.js | grep -i cach
 (carry forward any Phase 1/2/3 unreleased entries that predate this phase, if still present)
 ```
 
-- [ ] **Step 2: `README.md` § URL surface**
+- [x] **Step 2: `README.md` § URL surface**
 
 Amend the render-endpoint row (§ *URL surface*):
 
@@ -1688,7 +1688,7 @@ Amend the render-endpoint row (§ *URL surface*):
 
 Add a note to the `component`/`page`/`doc` SPA deep-link rows (or a shared footnote) that they also accept `?variant=<id>` for the same reason.
 
-- [ ] **Step 3: `README.md` § Per-template metadata**
+- [x] **Step 3: `README.md` § Per-template metadata**
 
 Add the table row (matches the row added to `docs/API.md` in Task 1, § *Per-template metadata* table):
 
@@ -1724,12 +1724,12 @@ variants:
 A label with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. Deep link with `?variant=<id>`; an unknown or since-deleted variant silently falls back to the default instead of 404ing.
 ````
 
-- [ ] **Step 4: Rebuild `dist/`**
+- [x] **Step 4: Rebuild `dist/`**
 
 Run: `cd frontend && npm run build`
 Expected: no diff beyond what Tasks 3/5/6 already produced (this step just confirms the final combined build is committed).
 
-- [ ] **Step 5: Full verification pass**
+- [x] **Step 5: Full verification pass**
 
 Run: `composer test && composer phpstan`
 Expected: green, no PHPStan errors.
@@ -1743,7 +1743,7 @@ Expected: all specs pass (Tasks 4/5/6), including the pre-existing Phase 1 parit
 Run: `bash tests/e2e/run.sh`
 Expected: Layer A (HTTP smoke) green — confirms the PHP-side render/API changes didn't break the package's own smoke coverage.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 `git add CHANGELOG.md README.md docs/API.md`
 `git commit -m "docs(release): v0.9.0 — variants, search palette, a11y check"`

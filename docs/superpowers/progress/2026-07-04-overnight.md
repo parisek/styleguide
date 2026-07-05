@@ -34,3 +34,24 @@
 - 14:58 P4 Task 4 (variants e2e spec): OK — d8a1ec8, 21/21 Playwright
 - 17:46 RECOVERY: repo restored from 15:03 APFS snapshot after bind-mount deletion incident; T5 rebuilt (febc4f0)
 - 18:05 RECOVERY: T6 rebuilt (a9a6a34), improved with stale-result generation guard
+
+## Recovery addendum — 2026-07-05 evening
+
+At ~16:00, during live-preview setup on tailwind-base, a host-side rm -rf of
+the consumer's vendor path propagated through tailwind-base's DDEV bind mount
+(docker-compose.styleguide.yaml maps this repo ONTO that vendor path) and
+deleted this repo's contents including .git. The branch had never been pushed.
+
+Recovered: full repo restored from the 15:03 APFS local snapshot (Time
+Machine UI). Lost window (15:03-15:58 — P4 tasks 5-7, final-review parser
+fix, summary) was rebuilt task-by-task with the original briefs plus all
+review findings baked in; the rebuild also improved on the original
+(a11yGeneration stale-result guard). Regression evidence re-verified for the
+parser fix. Branch now pushed to origin after every task.
+
+Final suite counts: 205 PHP / 227 Vitest / 27 Playwright / 39 HTTP smoke /
+PHPStan 0 / lint 0 / dist byte-reproducible.
+
+Prevention TODO (tailwind-base, NOT this repo): make the
+docker-compose.styleguide.yaml bind mounts read-only (`:ro`) so no container
+or sync process can ever write through them into this repo again.
