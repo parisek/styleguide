@@ -13,3 +13,4 @@
 - 10:09 Task 10 (P1 usage panel + link bar): OK — e3cd0e7+65999ef, 140/140 Vitest, dormant doc-route parity gap fixed
 - 10:23 Task 11 (P1 overview + foundations views): OK — 74df653, 157/157 Vitest, reactive usage maps improve on legacy cache
 - 11:09 Task 12 (P1 Playwright e2e + CI): OK — dc9cacb+9853607+3ae7cca, e2e suite found+fixed real sidebar bug, 15/15
+- 11:11 Task 13 (P1 dist-reproducible CI): OK — 9eab463

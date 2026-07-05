@@ -4381,7 +4381,7 @@ Adds the CI gate the spec calls for: `npm ci && npm run build && git diff --exit
 
 **Interfaces:** none (CI-only).
 
-- [ ] **Step 1: Add the job**
+- [x] **Step 1: Add the job**
 
 Edit `.github/workflows/tests.yml`:
 
@@ -4406,12 +4406,12 @@ Edit `.github/workflows/tests.yml`:
         run: git diff --exit-code -- dist/
 ```
 
-- [ ] **Step 2: Verify it currently passes**
+- [x] **Step 2: Verify it currently passes**
 
 Run: `cd frontend && npm run build && cd .. && git diff --exit-code -- dist/`
 Expected: exit 0 with no diff — Task 1-12 already rebuilt `dist/` and committed it at the end of every task touching `frontend/`, so this should already be true going into this task. If it fails, `dist/` drifted at some point in Tasks 1-12 and was committed stale — run `cd frontend && npm run build` and amend that into a fixup commit before proceeding.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add .github/workflows/tests.yml
