@@ -3,10 +3,10 @@ import { mount } from '@vue/test-utils';
 import { ref, provide, defineComponent, h } from 'vue';
 import LinkBar from './LinkBar.vue';
 
-function mountBar(item) {
+function mountBar(item, type = 'component') {
     const Host = defineComponent({
         setup() {
-            provide('viewport', { currentItem: ref(item) });
+            provide('viewport', { currentItem: ref(item), type: ref(type) });
             return () => h(LinkBar);
         },
     });
@@ -27,6 +27,11 @@ describe('LinkBar', () => {
 
     it('renders nothing when there is no current item', () => {
         const wrapper = mountBar(null);
+        expect(wrapper.find('a').exists()).toBe(false);
+    });
+
+    it('renders nothing on a doc route even when link fields are present', () => {
+        const wrapper = mountBar({ asana: 'https://a', figma: 'https://f', drupal: 'https://d', web: 'https://w' }, 'doc');
         expect(wrapper.find('a').exists()).toBe(false);
     });
 });

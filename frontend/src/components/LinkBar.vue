@@ -11,14 +11,22 @@ import { externalLinksFor } from '../lib/externalLinks.js';
 // glyph for "web").
 const viewport = inject('viewport');
 const links = computed(() => externalLinksFor(viewport.currentItem.value));
+// Ported from legacy linkBar.js: `visible = (route.type === 'component' ||
+// route.type === 'page') && route.slug`. Without this gate, a doc route
+// whose frontmatter happens to carry asana/figma/drupal/web keys would show
+// the badge row too — legacy scoped the bar to component/page routes only.
+const visible = computed(() => ['component', 'page'].includes(viewport.type.value) && !!viewport.currentItem.value);
 </script>
 
 <template>
     <!-- External-link bar — Asana / Figma / Drupal / Web icons fed from the
          current component's parsed metadata (`asana:`, `figma:`, `drupal:`,
-         `web:` keys in the .twig YAML comment). Hidden when no links are
-         declared. -->
-    <div v-show="links.length" class="px-4 py-2 bg-zinc-100/60 border-b border-zinc-200 dark:bg-zinc-900/40 dark:border-zinc-800 flex items-center gap-2 flex-wrap text-xs">
+         `web:` keys in the .twig YAML comment). Gated with v-if (not the
+         legacy x-show) so a doc route — which never had this bar per legacy
+         linkBar.js's `visible` check — renders zero DOM nodes even if its
+         frontmatter happens to carry link keys, matching UsagePanel.vue's
+         same v-if-over-x-show choice. -->
+    <div v-if="visible && links.length" class="px-4 py-2 bg-zinc-100/60 border-b border-zinc-200 dark:bg-zinc-900/40 dark:border-zinc-800 flex items-center gap-2 flex-wrap text-xs">
         <a v-for="link in links" :key="link.key"
            :href="link.url" target="_blank" rel="noopener"
            :title="`${link.label} — ${link.url}`"
