@@ -1091,7 +1091,7 @@ Expected: 4 passed. If the fixture server / config path differs from the Interfa
   | `search.hint_navigate` | `"↵ open"` | `"↵ otevřít"` |
   | `search.hint_close` | `"Esc close"` | `"Esc zavřít"` |
 
-- [ ] **Step 1: Scoring function (Vitest first)**
+- [x] **Step 1: Scoring function (Vitest first)**
 
 `frontend/src/lib/searchMatch.spec.js` (new — add alongside whatever Phase 1 already tests `foldDiacritics`/`isMatch` under):
 
@@ -1188,9 +1188,9 @@ export function scoreEntry(query, entry) {
 
 Run: `cd frontend && npm test -- searchMatch.spec.js` — expect pass.
 
-- [ ] **Step 2: i18n keys** — add the six keys from the Interfaces table to both locale files under the existing `"search"` object.
+- [x] **Step 2: i18n keys** — add the six keys from the Interfaces table to both locale files under the existing `"search"` object.
 
-- [ ] **Step 3: `SearchPalette.vue` — keyboard nav (Vitest)**
+- [x] **Step 3: `SearchPalette.vue` — keyboard nav (Vitest)**
 
 `frontend/src/components/SearchPalette.spec.js` (new):
 
@@ -1353,11 +1353,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown));
 
 Run: `cd frontend && npm test -- SearchPalette.spec.js` — expect pass.
 
-- [ ] **Step 4: Keep the sidebar filter input on the same scoring lib**
+- [x] **Step 4: Keep the sidebar filter input on the same scoring lib**
 
 In `Sidebar.vue`, wherever the existing filter predicate calls `isMatch(query, item.name)` (Phase 1's port of today's substring filter), leave that call alone — it's a different UX (inline filter, not ranked) and the task's own instruction is "keep the sidebar filter input working as today". No change required here beyond confirming (by reading the ported file) that it still imports from the same `lib/searchMatch.js` module Task 5 just extended — both consumers sharing one lib file is the whole point; if Phase 1 instead duplicated the folding logic inline in `Sidebar.vue`, replace that inline copy with an import of `foldDiacritics`/`isMatch` from `lib/searchMatch.js` as a small dedupe fix, in the same commit.
 
-- [ ] **Step 5: Playwright — palette keyboard flow**
+- [x] **Step 5: Playwright — palette keyboard flow**
 
 `tests/e2e/playwright/search-palette.spec.js` (new):
 
@@ -1380,7 +1380,7 @@ test('command palette: open, type, arrow, enter navigates', async ({ page }) => 
 
 Run: `npx playwright test search-palette.spec.js` — expect pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 `git add frontend/src/lib/searchMatch.js frontend/src/lib/searchMatch.spec.js frontend/src/components/SearchPalette.vue frontend/src/components/SearchPalette.spec.js frontend/src/components/Sidebar.vue frontend/public/locales tests/e2e/playwright/search-palette.spec.js`
 `git commit -m "feat(spa): command-palette search with weighted scoring"`

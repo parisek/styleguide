@@ -32,3 +32,4 @@
 - 14:26 P4 Task 2 (?variant= render): OK — f9e0c54, 205 PHP, 39 smoke
 - 14:52 P4 Task 3 (SPA variant switcher): OK — dc4715a+ce230a8, responsive:false gap fixed
 - 14:58 P4 Task 4 (variants e2e spec): OK — d8a1ec8, 21/21 Playwright
+- 17:46 RECOVERY: repo restored from 15:03 APFS snapshot after bind-mount deletion incident; T5 rebuilt (febc4f0)
