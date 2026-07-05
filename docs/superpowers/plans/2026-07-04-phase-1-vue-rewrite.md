@@ -4435,19 +4435,19 @@ Every legacy Alpine feature now has a proven Vue equivalent (Tasks 5-11 each shi
 
 **Interfaces:** none (deletion + doc sync).
 
-- [ ] **Step 1: Confirm nothing still imports the legacy files**
+- [x] **Step 1: Confirm nothing still imports the legacy files**
 
 Run: `cd frontend && grep -rn "from '\\.\\./stores\\|from '\\.\\./components\\|from './stores\\|from './components\\|from './router\\.js'\\|from './styleguide\\.js'" src/ 2>/dev/null; grep -rn "styleguide\\.js\\|router\\.js" index.html`
 Expected: no output at all — `index.html` was already switched to `./src/main.js` in Task 4 Step 7, and no `src/**` file imports the sibling legacy trees (every Task 5-11 component imports from `../stores/*.js`/`../lib/*.js` inside `src/`, never the top-level legacy `stores/`/`components/`).
 
-- [ ] **Step 2: Delete the legacy sources**
+- [x] **Step 2: Delete the legacy sources**
 
 ```bash
 git rm frontend/styleguide.js frontend/router.js
 git rm -r frontend/components frontend/stores
 ```
 
-- [ ] **Step 3: Drop the Alpine dependency**
+- [x] **Step 3: Drop the Alpine dependency**
 
 Edit `frontend/package.json` — remove the entire `dependencies` block's three Alpine packages (leave `vue`/`pinia`/`vue-router` from Task 1, which live in `dependencies` too):
 
@@ -4467,7 +4467,7 @@ Edit `frontend/package.json` — remove the entire `dependencies` block's three 
 Run: `cd frontend && npm install`
 Expected: `package-lock.json` updates, removing the Alpine packages and their transitive deps (`@vue/reactivity`-adjacent nothing changes — Alpine has no shared deps with the Vue stack).
 
-- [ ] **Step 4: Drop the dead `@source` globs**
+- [x] **Step 4: Drop the dead `@source` globs**
 
 Edit `frontend/styleguide.css` — remove the two lines Step 6b (Task 4) had kept alive for the legacy trees:
 
@@ -4480,7 +4480,7 @@ Edit `frontend/styleguide.css` — remove the two lines Step 6b (Task 4) had kep
 -@source "./stores/**/*.js";
 ```
 
-- [ ] **Step 5: Rebuild and verify**
+- [x] **Step 5: Rebuild and verify**
 
 Run: `cd frontend && npm run build`
 Expected: exit 0, smaller `dist/styleguide.[hash].js` than the last committed build (Alpine + the two plugins, ~25 KB min+gzip, are gone).
@@ -4488,7 +4488,7 @@ Expected: exit 0, smaller `dist/styleguide.[hash].js` than the last committed bu
 Run: `cd frontend && npm test && npx playwright install --with-deps chromium && npm run test:e2e`
 Expected: all green — the full Vitest + Playwright suites still pass with zero Alpine code left in the tree.
 
-- [ ] **Step 6: Update `AGENTS.md`**
+- [x] **Step 6: Update `AGENTS.md`**
 
 In the `## Repo layout` code block, replace the `frontend/` subtree:
 
@@ -4537,11 +4537,11 @@ Update the `### SPA chrome change (anything under \`frontend/\`)` workflow secti
 +6. Commit source files, specs, AND the rebuilt `dist/` artifacts — consumers receive `dist/` verbatim; CI's `dist-reproducible` job (Task 13) fails the build if you forget.
 ```
 
-- [ ] **Step 7: Update `CLAUDE.md`**
+- [x] **Step 7: Update `CLAUDE.md`**
 
 The `## Preferred Tools` → `### Browser Verification` section currently reads "The package's only browser surface is the SPA in `dist/` plus the iframe render endpoint" — this sentence is still accurate (no change needed). No other `CLAUDE.md` section references the Alpine-specific directory names, so no further edit is required here — confirm with `grep -n "components/\|stores/\|Alpine" CLAUDE.md` returning nothing before treating this step as done.
 
-- [ ] **Step 8: Update `README.md`**
+- [x] **Step 8: Update `README.md`**
 
 Edit the "Local development (for package contributors)" section (~line 496-512):
 
@@ -4566,7 +4566,7 @@ Edit the "Local development (for package contributors)" section (~line 496-512):
 
 Update the two `frontend/stores/components.js` references (the API-surface line ~238 about the SPA consuming all four endpoints, and the `category` schema line ~393) to `frontend/src/stores/catalog.js`.
 
-- [ ] **Step 9: `CHANGELOG.md`**
+- [x] **Step 9: `CHANGELOG.md`**
 
 `[Unreleased]` is currently empty (directly followed by `## [0.6.5] - 2026-06-22`). Add:
 
@@ -4580,7 +4580,7 @@ Update the two `frontend/stores/components.js` references (the API-surface line 
 - New CI job asserts committed `dist/` is byte-for-byte reproducible from `frontend/` source (`npm run build && git diff --exit-code dist/`).
 ```
 
-- [ ] **Step 10: Full regression + commit**
+- [x] **Step 10: Full regression + commit**
 
 Run: `composer test && composer phpstan && cd frontend && npm test && npm run build && npm run test:e2e`
 Expected: everything green.
@@ -4596,7 +4596,7 @@ packages, and syncs AGENTS.md/CLAUDE.md/README.md/CHANGELOG.md to the
 new frontend/src/ layout per the AGENTS.md documentation gate."
 ```
 
-- [ ] **Step 11: Verify against the `tailwind-base` symlink (manual)**
+- [x] **Step 11: Verify against the `tailwind-base` symlink (manual)**
 
 This step cannot be scripted from inside this repo alone — it requires the sibling `tailwind-base` checkout and is the final gate before this branch is considered mergeable:
 
@@ -4607,7 +4607,7 @@ composer styleguide:local
 
 Then in a browser, open `tailwind-base`'s styleguide URL and manually walk the Task 12 Playwright checklist once by hand (sidebar nav, search, ⌘K, locale switch, theme cycle, every viewport preset, drag-resize, rotation, canvas mode, fields drawer, usage/link panels, deep-linking directly to a few `/styleguide/component/<id>` URLs). This is the step that catches anything the fixture-only Playwright suite structurally can't — real consumer components (`tailwind-base` ships ~25 components + 10 pages per the Phase 1 design doc's fleet survey), the project's own Tailwind config interacting with `foundations.css`, and any last visual regression against the pre-rewrite Alpine chrome. Record the result in the PR description; do not merge on a red or skipped run of this step.
 
-- [ ] **Step 12: Open the PR**
+- [x] **Step 12: Open the PR**
 
 This branch (`feature/styleguide-2.0`) is now feature-complete for Phase 1. Do NOT push or open a PR during the autonomous overnight run — Phases 2-4 continue on this same branch; pushing and PR creation happen with the user in the morning. The actual `v0.7.0` version bump + git tag is a separate, later step per `AGENTS.md`'s `## Release workflow` section (`CHANGELOG.md`'s `[Unreleased]` heading only gets renamed to `## [0.7.0] - <date>` at that time, by whoever runs the release) — do not bump or tag from this branch.
 

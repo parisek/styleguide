@@ -15,7 +15,7 @@ namespace Parisek\Styleguide;
  *
  * All share-able URLs (`/styleguide/component/<slug>`, `/page/<slug>`, `/overview`, `/fields`)
  * map to the SPA — server returns the same `dist/index.html` for each, and the SPA
- * router (`frontend/router.js`) reads `location.pathname` and renders the right view.
+ * router (`frontend/src/router.js`) reads `location.pathname` and renders the right view.
  *
  * Internal endpoints (`/render/*`, `/api/*`, `/assets/*`) bypass the SPA and dispatch
  * to dedicated handlers in {@see Styleguide::run()}.

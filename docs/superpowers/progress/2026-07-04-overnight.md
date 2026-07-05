@@ -14,3 +14,4 @@
 - 10:23 Task 11 (P1 overview + foundations views): OK — 74df653, 157/157 Vitest, reactive usage maps improve on legacy cache
 - 11:09 Task 12 (P1 Playwright e2e + CI): OK — dc9cacb+9853607+3ae7cca, e2e suite found+fixed real sidebar bug, 15/15
 - 11:11 Task 13 (P1 dist-reproducible CI): OK — 9eab463
+- 11:24 Task 14 (P1 cleanup + docs): OK — fda0f03, Alpine fully removed, all 4 suites green. PHASE 1 TASKS COMPLETE.
