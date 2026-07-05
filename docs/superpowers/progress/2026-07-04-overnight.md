@@ -27,3 +27,4 @@
 - 13:32 P3 Task 1 (styleguide lint CLI): OK — 5 rules, exit codes 0/1/2, 187 PHP
 - 13:49 P3 Task 2 (MIGRATION.md): OK — 30bb5cd, per-target guides fact-checked against live sibling repos
 - 13:57 P3 Tasks 3+4 (fixture docs + follow-ups note): OK. PHASE 3 TASKS COMPLETE.
+- 14:03 PHASE 3 DONE — review READY, MIGRATION.md claims re-verified file-by-file against live repos.
