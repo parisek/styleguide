@@ -222,3 +222,21 @@ Nothing in this design forecloses adding these later.
   adoption plan, `docs/superpowers/plans/2026-07-04-phase-3-adoption.md`).
   **Not executable inside this repo** — no code or doc change here can
   close this item.
+- **`render-cell.twig` lacks `<main>`/`<h1>` landmark structure.** The
+  Phase 4 Task 6 on-demand accessibility check (axe-core) reports a
+  baseline Moderate "landmark" finding on every single component/page/doc
+  preview, because the iframe wrapper renders the project's template
+  directly into `<body>` with no surrounding `<main>` and no page-level
+  `<h1>` — a real gap, not a false positive, but one that's shared by
+  every render regardless of which component is open, so fixing it means
+  changing the wrapper markup itself (which risks colliding with a
+  consumer's own landmark elements inside `<body>`) rather than anything
+  test-suite-shaped. Tracked for a follow-up release rather than folded
+  into this plan.
+- **`SearchPalette` has no focus trap.** The command palette opens as a
+  `role="dialog"` overlay with arrow/Enter/Esc keyboard navigation, but
+  `Tab` is not intercepted — repeatedly tabbing from the search input can
+  move focus out of the dialog and onto the underlying sidebar/toolbar
+  while the palette is still visually open. A minor a11y gap (the palette
+  is still fully operable via arrows + Enter + Esc), but worth closing
+  with a proper focus trap in a follow-up release.

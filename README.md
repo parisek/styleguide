@@ -12,7 +12,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, search (`⌘K` / `Ctrl+K`), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a toolbar variant switcher for entries with discovered `styleguide.<variant>.twig` siblings (see *File-convention variants* below), an on-demand accessibility check (axe-core, results grouped by impact), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -217,9 +217,9 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 | URL | Served | Purpose |
 |---|---|---|
 | `/styleguide/` | SPA HTML | Landing (auto-routes to overview) |
-| `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view |
-| `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide |
-| `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group) |
+| `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view. Also accepts `?variant=<id>`* |
+| `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide. Also accepts `?variant=<id>`* |
+| `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group). Also accepts `?variant=<id>`* |
 | `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
 | `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
 | `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
@@ -230,6 +230,8 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
 | `/styleguide/api/health` | JSON | Parse-resilience diagnostics — see [API](#api) below |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
+
+\* Same whitelist/fallback rules as the render-endpoint row above (`^[a-z0-9-]+$`, unknown/removed values fall back to the default rather than 404ing); `Router::synthesizeEmbeddedRoute()` forwards the SPA-shell's `?variant=` across the iframe-embed swap so the preview and the deep link agree.
 
 ---
 
@@ -450,6 +452,7 @@ fields:
 | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
+| `variants` | display labels for auto-discovered `styleguide.<variant>.twig` sibling files — see *File-convention variants* below |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 
@@ -490,6 +493,30 @@ body_class: "bg-secondary-500 body-secondary"
 ```
 
 The render iframe builds `<body>` via `create_attribute({ class: [iframe.body_class, <entry>.body_class] })`, so the per-entry value is appended after the global one and empty values are dropped (no stray `class=""`). This mirrors what the production layout puts on `<body>` (e.g. from an ACF `body_background_color`), so the styleguide preview matches production without wrapping the page content in a styleguide-only `<div>`.
+
+### File-convention variants
+
+Drop a `styleguide.<variant>.twig` file next to `styleguide.twig` and it's automatically discovered — no YAML required:
+
+```
+component/hero/
+├── hero.twig
+├── styleguide.twig            ← default variant
+├── styleguide.secondary.twig  ← discovered variant "secondary"
+└── styleguide.dark-bg.twig    ← discovered variant "dark-bg"
+```
+
+The preview toolbar shows a switcher (Default + each discovered variant, ordered by filename) the moment at least one sibling exists. Optional YAML supplies display labels:
+
+```twig
+{#
+name: "Hero"
+variants:
+  secondary: "Secondary style"
+#}
+```
+
+A label with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. Deep link with `?variant=<id>`; an unknown or since-deleted variant silently falls back to the default instead of 404ing.
 
 ### Page wrapper
 
