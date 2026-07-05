@@ -65,6 +65,7 @@ final class Styleguide
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
      *   dist_path?: string,
+     *   auth?: callable(array<string,mixed>):bool,
      * } $config
      *
      * `dist_path` is @internal for tests only (points `dispatchSpa()` at a
@@ -132,6 +133,13 @@ final class Styleguide
             // `templates_path` (component/macro/page) are auto-discovered and
             // don't need to be listed here.
             'namespaces' => [],
+            // Optional programmatic gate — callable(array $route): bool. Checked once
+            // per request in dispatch(), before ANY handler (SPA/render/api/asset).
+            // Null (the default) means "allow everything", i.e. today's behaviour —
+            // fully backward compatible. See README § Bootstrap → Constructor config
+            // for the recommended alternative (web-server-level HTTP Basic Auth) on
+            // publicly reachable deployments.
+            'auth' => null,
         ];
 
         // Load styleguide.yaml content config (favicon, iframe.css/js/fonts, etc.)
@@ -957,15 +965,52 @@ final class Styleguide
         // and lets the synthesis logic be tested in isolation.
         $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
 
+        $this->dispatch($route);
+
+        // After dispatching a styleguide route, halt the project's downstream router.
+        exit;
+    }
+
+    /**
+     * Extracted from `run()`'s tail so it's reachable via reflection in tests
+     * without triggering the unconditional `exit` above — `run()` itself
+     * can't be called in-process by PHPUnit (see SpaConfigTest's class doc
+     * comment for why that suite drives a real subprocess instead).
+     *
+     * @param array<string, mixed> $route
+     */
+    private function dispatch(array $route): void
+    {
+        if (!$this->isAuthorized($route)) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo '403 Forbidden';
+            return;
+        }
+
         match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path'] ?? ''),
             'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
         };
+    }
 
-        // After dispatching a styleguide route, halt the project's downstream router.
-        exit;
+    /**
+     * Runs the `auth` config callable (if any) against the parsed route.
+     * Absent/non-callable `auth` (the default) means "allow everything" —
+     * fully backward compatible with pre-Task-6 behaviour.
+     *
+     * @param array<string, mixed> $route
+     */
+    private function isAuthorized(array $route): bool
+    {
+        $auth = $this->config['auth'] ?? null;
+        if (!is_callable($auth)) {
+            return true;
+        }
+        /** @var callable(array<string,mixed>):bool $auth */
+        return (bool) $auth($route);
     }
 
     /**

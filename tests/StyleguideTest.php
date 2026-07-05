@@ -69,4 +69,53 @@ final class StyleguideTest extends TestCase
 
         rmdir($dir);
     }
+
+    #[Test]
+    public function auth_callable_returning_false_yields_403_before_any_dispatch(): void
+    {
+        $sg = $this->newStyleguide([
+            'auth' => static fn(array $route): bool => false,
+        ]);
+
+        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
+        ob_start();
+        $dispatch->invoke($sg, ['type' => 'api', 'endpoint' => 'components']);
+        $output = ob_get_clean();
+
+        self::assertSame(403, http_response_code());
+        self::assertSame('403 Forbidden', $output);
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function auth_callable_returning_true_lets_dispatch_proceed(): void
+    {
+        $sg = $this->newStyleguide([
+            'auth' => static fn(array $route): bool => true,
+        ]);
+
+        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
+        ob_start();
+        $dispatch->invoke($sg, ['type' => 'api', 'endpoint' => 'components']);
+        $output = ob_get_clean();
+
+        self::assertNotSame(403, http_response_code());
+        self::assertIsArray(json_decode($output, true));
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function missing_auth_config_allows_every_route(): void
+    {
+        $sg = $this->newStyleguide(); // no 'auth' key at all
+
+        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
+        ob_start();
+        $dispatch->invoke($sg, ['type' => 'api', 'endpoint' => 'components']);
+        $output = ob_get_clean();
+
+        self::assertNotSame(403, http_response_code());
+        self::assertIsArray(json_decode($output, true));
+        http_response_code(200);
+    }
 }

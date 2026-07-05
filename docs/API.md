@@ -51,6 +51,9 @@ Optional keys (with their defaults):
 | `twig_options` | `[]` | Map merged on top of pristine env defaults (ignored if `twig` is provided) |
 | `typography_config` | `null` | Absolute path to a `typography.yml` for the bundled TypographyExtension |
 | `namespaces` | `[]` | Map of `<namespace> => <absolute path>` Twig namespaces beyond the conventional ones |
+| `auth` | `null` | Optional `callable(array<string,mixed> $route): bool` gate checked once per request in `dispatch()`, before any handler (SPA, render, JSON API, or asset). Returning `false` responds `403 Forbidden` (plain text) and skips dispatch entirely. Returning `true`, or omitting the key (`null`), preserves today's behaviour — no gating. |
+
+**Security note:** `auth` is a convenience hook for programmatic gating, not a substitute for transport-level protection. For any styleguide reachable from the public internet, put HTTP Basic Auth (or your reverse proxy's equivalent) in front of the `/styleguide/*` path first; use `auth` for logic that genuinely needs to run inside PHP.
 
 The config array shape is **`@api`**. Adding new optional keys is a minor bump. Renaming or removing keys is a major bump.
 
