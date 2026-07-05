@@ -295,21 +295,20 @@ final class ComponentParserTest extends TestCase
     #[Test]
     public function yaml_variants_label_with_no_matching_file_is_ignored(): void
     {
-        // Guards the "filesystem is canonical" rule: a YAML `variants:` entry
-        // naming a variant that has no styleguide.<id>.twig file must not create
-        // a phantom switcher entry. `multi`'s YAML only maps `secondary`+ignores
-        // an extra `ghost` mapping we inject via parseTwigComment() directly
-        // (cheaper than adding a whole new fixture just for this one assertion).
+        // Guards the "filesystem is canonical" rule: the `multi` fixture's real
+        // YAML maps a `ghost` variant that has no styleguide.ghost.twig sibling
+        // on disk — discovery must drop it rather than fabricate a phantom
+        // switcher entry from the label map. Similarly, the on-disk
+        // styleguide.foo_bar.twig sibling violates the ^[a-z0-9-]+$ id rule
+        // (underscore) and must be skipped silently.
         $parser = new ComponentParser($this->fixturesPath);
-        $metadata = $parser->parseTwigComment(
-            "{#\nname: \"X\"\nvariants:\n  ghost: \"Ghost\"\n  secondary: \"Secondary style\"\n#}",
-        );
-        self::assertNotFalse($metadata);
 
         $multi = $parser->parse('component', 'multi');
         self::assertNotNull($multi);
         $ids = array_column($multi['variants'], 'id');
         self::assertNotContains('ghost', $ids, 'a YAML label for a file that does not exist must not appear');
+        self::assertNotContains('foo_bar', $ids, 'a variant filename outside ^[a-z0-9-]+$ must be skipped');
+        self::assertSame(['dark-bg', 'secondary'], $ids, 'only real, valid-id variant files surface, ordered by id');
     }
 
     #[Test]
