@@ -1140,7 +1140,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
 - Consumes: new optional constructor config key `auth?: callable(array<string,mixed> $route): bool`.
 - Produces: `Styleguide::run()` behaviour — when `auth` is set and returns `false` for the parsed route, responds `403 Forbidden` (`text/plain`) before any dispatch (SPA, render, API, or asset) and returns without exiting the rest of the request early via the usual `exit` at the end of `run()`. New private `dispatch(array $route): void` (extracted from the tail of `run()` so it's testable via reflection without triggering `run()`'s unconditional `exit`).
 
-- [ ] Extract the dispatch `match` into a private, reflectively-testable method — no behaviour change yet, refactor-only step, run the full suite to prove it's a no-op before adding the auth gate.
+- [x] Extract the dispatch `match` into a private, reflectively-testable method — no behaviour change yet, refactor-only step, run the full suite to prove it's a no-op before adding the auth gate.
   - Edit `src/Styleguide.php::run()`:
     ```php
     public function run(): void
@@ -1175,7 +1175,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `composer test` — full suite green (pure extraction, `run()`'s observable behaviour is unchanged; no test calls `run()` directly today since it unconditionally `exit`s, so there's nothing to update).
 
-- [ ] Failing tests for the auth gate.
+- [x] Failing tests for the auth gate.
   - Add to `tests/StyleguideTest.php` (created in Task 5):
     ```php
     #[Test]
@@ -1229,7 +1229,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter StyleguideTest` — the first test fails (`dispatch()` doesn't check `auth` yet, so `output` is the real JSON body from `ComponentsEndpoint`, not `403 Forbidden`); the other two already pass (nothing to deny yet) — confirms they're non-tautological once the gate exists.
 
-- [ ] Implement.
+- [x] Implement.
   - Add `'auth' => null,` to the config defaults block in `src/Styleguide.php::__construct()` (alongside `'namespaces' => []`), with a comment:
     ```php
     // Optional programmatic gate — callable(array $route): bool. Checked once
@@ -1277,7 +1277,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter StyleguideTest` — all green. Run `composer test` — full suite green. Run `composer phpstan` — clean (note: `$auth(...)` on a `mixed` narrowed by `is_callable()` should type-check at level 8; if PHPStan complains about the callable's parameter/return shape, annotate `$auth` with an inline `@var callable(array<string,mixed>):bool $auth` comment right before the call).
 
-- [ ] Update docs in the same task.
+- [x] Update docs in the same task.
   - `README.md` § Constructor config table — add a row:
     ```
     | `auth` | no | `null` | Optional `callable(array $route): bool` gate checked once per request, before any dispatch (SPA, render, JSON API, or asset). Return `false` to reject with a plain-text `403 Forbidden`; return `true` (or omit the key entirely) to allow. Receives the parsed route array (`type`, plus `slug`/`kind`/`endpoint`/`path`/`theme` depending on route type). For publicly reachable deployments, HTTP Basic Auth at the web-server level is usually simpler and more robust than an in-PHP callable — reach for `auth` when the check needs request context only PHP has access to (e.g. a signed query token, a session check your framework already performs). |
@@ -1288,14 +1288,14 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `composer test` once more (docs-only, but confirms nothing regressed).
 
-- [ ] Update `CHANGELOG.md` under `[Unreleased]`:
+- [x] Update `CHANGELOG.md` under `[Unreleased]`:
     ```markdown
     ### Added
 
     - **Optional `auth` config key.** `callable(array $route): bool` checked once per request before any dispatch; return `false` to respond `403 Forbidden` (plain text) before SPA/render/API/asset handling runs. `null` (the default) preserves today's behaviour — no gating. Documented alongside a recommendation to prefer web-server-level HTTP Basic Auth for publicly reachable deployments.
     ```
 
-- [ ] Commit: `feat(styleguide): add optional programmatic auth gate`.
+- [x] Commit: `feat(styleguide): add optional programmatic auth gate`.
 
 ### Task 7: Docs sync pass + CHANGELOG archive
 

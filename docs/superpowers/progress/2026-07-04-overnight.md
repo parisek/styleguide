@@ -21,3 +21,4 @@
 - 12:26 P2 Task 3 (parser resilience + /api/health): OK — 5ecb382, 149 PHP/171 JS/16 e2e
 - 12:32 P2 Task 4 (helper registration hardening): OK — 494cbc7, 151 PHP
 - 12:39 P2 Task 5 (asset MIME + glob guard): OK — e817425, 154 PHP
+- 12:50 P2 Task 6 (auth gate): OK — e0b06a7+f305eee, opus security review caught fail-open + stack-leak gaps, fixed
