@@ -100,6 +100,11 @@ describe('useUiStore', () => {
 describe('iframeTheme', () => {
     beforeEach(() => {
         localStorage.clear();
+        // Explicit (not relying on the outer describe's replaceState leaking
+        // across tests within the file) — document.cookie in jsdom is scoped
+        // to the current path, and the cookie setIframeTheme() writes is
+        // Path=/styleguide.
+        window.history.replaceState(null, '', '/styleguide/');
         setActivePinia(createPinia());
     });
 
@@ -122,5 +127,22 @@ describe('iframeTheme', () => {
         const ui = useUiStore();
         ui.setIframeTheme('neon');
         expect(ui.iframeTheme).toBe('light');
+    });
+
+    // The cookie is the only channel Router::synthesizeEmbeddedRoute() (PHP)
+    // has to recover this preference on an in-iframe native navigation —
+    // localStorage never leaves the browser. See ui.js `setIframeTheme()`.
+    it('mirrors the choice into the sg-iframe-theme cookie', () => {
+        document.cookie = 'sg-iframe-theme=; path=/styleguide; max-age=0';
+        const ui = useUiStore();
+        ui.setIframeTheme('dark');
+        expect(document.cookie).toContain('sg-iframe-theme=dark');
+    });
+
+    it('writes the whitelisted (not raw) value to the cookie for invalid input', () => {
+        document.cookie = 'sg-iframe-theme=; path=/styleguide; max-age=0';
+        const ui = useUiStore();
+        ui.setIframeTheme('neon');
+        expect(document.cookie).toContain('sg-iframe-theme=light');
     });
 });

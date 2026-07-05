@@ -151,6 +151,25 @@ test.describe('Styleguide SPA', () => {
         await expect(page).toHaveURL(/canvas=1/);
     });
 
+    test('the iframe theme toggle appends ?theme=dark to the iframe src and toggles it back off', async ({ page }) => {
+        // Regression guard for the dark-iframe-theme-resets-on-navigation fix:
+        // useViewportPreset.js's iframeSrc computed only appends ?theme=dark
+        // when ui.iframeTheme === 'dark' (never emits ?theme=light for the
+        // default case), so the two toggle directions assert opposite things
+        // -- src contains the param vs. src has no such param at all.
+        await page.goto('/styleguide/component/sample');
+        const iframe = page.locator('iframe').first();
+        const toggle = page.getByTestId('iframe-theme-toggle');
+
+        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/sample');
+        await toggle.click();
+        await expect(iframe).toHaveAttribute('src', /\?theme=dark$/);
+        await expect(page.frameLocator('iframe').first().locator('html')).toHaveClass(/dark/);
+
+        await toggle.click();
+        await expect(iframe).toHaveAttribute('src', '/styleguide/render/component/sample');
+    });
+
     test('the Fields drawer lists a component\'s declared fields once expanded', async ({ page }) => {
         await page.goto('/styleguide/component/with-fields');
         const drawerToggle = page.getByRole('button', { name: /Fields|Pole/ });

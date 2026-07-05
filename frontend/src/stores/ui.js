@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { usePersistedRef } from '../lib/persistedRef.js';
+import { setCookie } from '../lib/cookie.js';
 import { parseWidthParam, isPortraitOrientation, rotationForPortrait } from '../lib/viewportMath.js';
 
 // Ported from frontend/stores/ui.js. `routeType`/`routeSlug` replace the
@@ -86,8 +87,18 @@ export const useUiStore = defineStore('ui', {
         // Mirrors the server-side whitelist in Router::whitelistTheme() — any
         // value other than the literal string 'dark' resolves to 'light', so
         // a corrupted localStorage value can never produce a broken query param.
+        //
+        // Also mirrors the choice into the `sg-iframe-theme` cookie (in
+        // addition to the `iframeTheme` ref's own localStorage persistence via
+        // usePersistedRef) — localStorage never leaves the browser, so it's
+        // invisible to Router::synthesizeEmbeddedRoute() on the server. A
+        // native link click inside dark-toggled iframe content is a top-level
+        // browser navigation of the iframe, not an SPA route change; the only
+        // way the server can recover the preference for that request is a
+        // cookie riding along with it. See Router::IFRAME_THEME_COOKIE.
         setIframeTheme(value) {
             this.iframeTheme = value === 'dark' ? 'dark' : 'light';
+            setCookie('sg-iframe-theme', this.iframeTheme);
         },
     },
 });

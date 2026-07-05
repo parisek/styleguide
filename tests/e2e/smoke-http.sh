@@ -162,6 +162,10 @@ assert_json_array_min "/styleguide/api/pages"      1 "pages api count"
 assert_json_array_min "/styleguide/api/docs"       1 "docs api count"
 assert_body_contains  "/styleguide/api/docs"       "sample-doc" "docs api lists sample-doc"
 assert_status        "/styleguide/api/fields"     "200" "fields api"
+assert_header        "/styleguide/api/health"    "content-type" "application/json" "health api content-type"
+assert_body_contains_all "/styleguide/api/health" \
+    '"warnings"' "health api emits warnings key" \
+    '"counts"'   "health api emits counts key"
 
 # Doc render endpoint
 assert_status        "/styleguide/doc/sample-doc"  "200" "deep link to doc returns SPA"

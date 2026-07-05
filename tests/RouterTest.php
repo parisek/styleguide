@@ -185,6 +185,86 @@ final class RouterTest extends TestCase
     }
 
     #[Test]
+    public function synthesize_embedded_falls_back_to_dark_iframe_theme_cookie(): void
+    {
+        // The scenario this whole cookie channel exists for: a native link
+        // click inside dark-toggled iframe content re-issues a `Sec-Fetch-
+        // Dest: iframe` request to an SPA-shell URL that carries no `?theme=`
+        // of its own. Without the cookie fallback this synthesizes to
+        // 'light', silently resetting the visitor's choice.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage', 'theme' => 'dark'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'page', 'slug' => 'homepage'],
+                'iframe',
+                ['sg-iframe-theme' => 'dark'],
+            ),
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_whitelists_garbage_cookie_value_to_light(): void
+    {
+        // Cookie is client-writable, therefore untrusted input — same trust
+        // boundary as the query string. A corrupted/forged value must never
+        // reach the renderer unwhitelisted.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage', 'theme' => 'light'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'page', 'slug' => 'homepage'],
+                'iframe',
+                ['sg-iframe-theme' => 'DROP TABLE'],
+            ),
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_prefers_explicit_query_theme_over_cookie(): void
+    {
+        // A hand-typed `?theme=` on the original SPA-shell URL is a more
+        // specific signal than the visitor's last toggle — it wins even when
+        // the cookie disagrees.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'page', 'slug' => 'homepage', 'theme' => 'light'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'page', 'slug' => 'homepage', 'theme' => 'light'],
+                'iframe',
+                ['sg-iframe-theme' => 'dark'],
+            ),
+        );
+    }
+
+    #[Test]
+    public function parse_carries_explicit_theme_query_on_spa_shell_routes_for_later_synthesis(): void
+    {
+        // parse() itself never dispatches on this key (dispatchSpa() ignores
+        // it) — it only exists to survive to synthesizeEmbeddedRoute()'s
+        // "query beats cookie" precedence check.
+        self::assertSame(
+            ['type' => 'page', 'slug' => 'homepage', 'theme' => 'dark'],
+            Router::parse('/styleguide/page/homepage?theme=dark'),
+        );
+        self::assertSame(
+            ['type' => 'foundations', 'theme' => 'light'],
+            Router::parse('/styleguide/foundations?theme=nope'), // invalid → whitelisted, not omitted
+        );
+    }
+
+    #[Test]
+    public function render_route_falls_back_to_dark_iframe_theme_cookie_when_query_absent(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'dark'],
+            Router::parse('/styleguide/render/component/hero', ['sg-iframe-theme' => 'dark']),
+        );
+        // Explicit query still wins over the cookie.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
+            Router::parse('/styleguide/render/component/hero?theme=light', ['sg-iframe-theme' => 'dark']),
+        );
+    }
+
+    #[Test]
     public function synthesize_embedded_leaves_render_route_unchanged(): void
     {
         // Direct /styleguide/render/... requests already hit the isolated

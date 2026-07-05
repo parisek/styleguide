@@ -967,7 +967,7 @@ final class Styleguide
     public function run(): void
     {
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-        $route = Router::parse($uri);
+        $route = Router::parse($uri, $_COOKIE);
 
         if ($route === null) {
             return;
@@ -976,8 +976,10 @@ final class Styleguide
         // Iframe-embedded request → render endpoint (no SPA shell). See
         // {@see Router::synthesizeEmbeddedRoute()} for the rationale + decision
         // table. Centralising the swap there keeps the dispatch here simple
-        // and lets the synthesis logic be tested in isolation.
-        $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
+        // and lets the synthesis logic be tested in isolation. $_COOKIE carries
+        // the `sg-iframe-theme` fallback for in-iframe navigations that lost
+        // the SPA's `?theme=` query param (the clicked link's href never had one).
+        $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''), $_COOKIE);
 
         $this->dispatch($route);
 

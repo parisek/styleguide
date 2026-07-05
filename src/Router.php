@@ -23,12 +23,28 @@ namespace Parisek\Styleguide;
 final class Router
 {
     /**
+     * Cookie name the SPA writes to when the visitor toggles the iframe's
+     * in-content theme (see `frontend/src/stores/ui.js` `setIframeTheme()`).
+     * Gives `synthesizeEmbeddedRoute()` a channel to recover the preference
+     * on in-iframe navigations, which never carry the SPA's own `?theme=`
+     * query param — the clicked link's href is authored by the rendered
+     * content, not the SPA.
+     */
+    public const IFRAME_THEME_COOKIE = 'sg-iframe-theme';
+
+    /**
      * Parse a request URI to a route descriptor, or null if the URI doesn't belong
      * to the styleguide.
      *
+     * @param array<string,mixed> $cookies Raw `$_COOKIE` (or a test double). Only
+     *        consulted for the `render` route's theme fallback; SPA-shell routes
+     *        (`component`/`page`/`doc`/`foundations`) only ever carry an explicit
+     *        `theme` key when the query string itself asked for one — see
+     *        {@see self::resolveTheme()} for why cookie fallback lives in
+     *        `synthesizeEmbeddedRoute()` instead.
      * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}|null
      */
-    public static function parse(string $uri): ?array
+    public static function parse(string $uri, array $cookies = []): ?array
     {
         // Captured before strtok() below discards it — only the `render`
         // branch consumes it (theme only matters for iframe HTML output).
@@ -61,7 +77,7 @@ final class Router
                 'type' => 'render',
                 'kind' => $parts[1],
                 'slug' => $parts[2],
-                'theme' => self::whitelistTheme($query['theme'] ?? null),
+                'theme' => self::resolveTheme($query['theme'] ?? null, $cookies),
             ];
         }
 
@@ -72,12 +88,12 @@ final class Router
 
         // /styleguide/component/<slug>, /styleguide/page/<slug>, /styleguide/doc/<slug>
         if (in_array($parts[0], ['component', 'page', 'doc'], true) && isset($parts[1])) {
-            return ['type' => $parts[0], 'slug' => $parts[1]];
+            return self::withExplicitThemeIfPresent(['type' => $parts[0], 'slug' => $parts[1]], $queryString);
         }
 
         // /styleguide/overview, /styleguide/foundations, /styleguide/fields
         if (in_array($parts[0], ['overview', 'foundations', 'fields'], true)) {
-            return ['type' => $parts[0]];
+            return self::withExplicitThemeIfPresent(['type' => $parts[0]], $queryString);
         }
 
         // Unknown path under /styleguide/ — default to landing (SPA handles it)
@@ -94,6 +110,49 @@ final class Router
     public static function whitelistTheme(mixed $raw): string
     {
         return $raw === 'dark' ? 'dark' : 'light';
+    }
+
+    /**
+     * Resolve the effective theme for a request, preferring an explicit
+     * query-string value over the cookie fallback over the hardcoded default.
+     * Both inputs are untrusted (query string / cookie jar) — either one is
+     * routed through {@see self::whitelistTheme()} rather than trusted raw,
+     * same as the historical query-only path.
+     *
+     * @param array<string,mixed> $cookies
+     */
+    private static function resolveTheme(mixed $queryTheme, array $cookies): string
+    {
+        if ($queryTheme !== null) {
+            return self::whitelistTheme($queryTheme);
+        }
+        if (isset($cookies[self::IFRAME_THEME_COOKIE])) {
+            return self::whitelistTheme($cookies[self::IFRAME_THEME_COOKIE]);
+        }
+        return 'light';
+    }
+
+    /**
+     * Attach a `theme` key to an SPA-shell route only when the request URL
+     * explicitly asked for one. Absent here on purpose: SPA-shell routes are
+     * served by `dispatchSpa()`, which ignores `theme` entirely — the SPA
+     * chrome owns its own theme client-side. The key only matters downstream,
+     * in `synthesizeEmbeddedRoute()`, as the "query param wins over cookie"
+     * signal for an in-iframe navigation that swaps this route for a `render`
+     * one. Omitting the key (rather than always setting it, e.g. to 'light')
+     * keeps `parse()`'s existing exact-array assertions in RouterTest valid
+     * for every URL that never mentioned `?theme=`.
+     *
+     * @param array{type:string,slug?:string} $route
+     * @return array{type:string,slug?:string,theme?:string}
+     */
+    private static function withExplicitThemeIfPresent(array $route, string $queryString): array
+    {
+        parse_str($queryString, $query);
+        if (isset($query['theme'])) {
+            $route['theme'] = self::whitelistTheme($query['theme']);
+        }
+        return $route;
     }
 
     /**
@@ -117,10 +176,21 @@ final class Router
      * `fields`, `landing`) pass through unchanged — they have no iframe-nesting
      * problem to solve.
      *
+     * Theme precedence for the synthesized route: an explicit `?theme=` on
+     * the original SPA-shell URL wins (rare — nothing the SPA generates adds
+     * one to these routes, but a hand-typed URL might); otherwise the
+     * `sg-iframe-theme` cookie the SPA writes on toggle (see
+     * `frontend/src/stores/ui.js` `setIframeTheme()`) supplies the visitor's
+     * last choice; otherwise `'light'`. Without the cookie fallback, a native
+     * link click inside dark-toggled iframe content — which carries no
+     * `?theme=` of its own — would silently reset the rendered page to light,
+     * because this synthesis path never touches the SPA's in-memory state.
+     *
      * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string} $route
+     * @param array<string,mixed> $cookies Raw `$_COOKIE` (or a test double).
      * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}
      */
-    public static function synthesizeEmbeddedRoute(array $route, string $secFetchDest): array
+    public static function synthesizeEmbeddedRoute(array $route, string $secFetchDest, array $cookies = []): array
     {
         if ($secFetchDest !== 'iframe') {
             return $route;
@@ -135,11 +205,7 @@ final class Router
             // for the foundations branch, but the shape contract still expects
             // a string. `'index'` mirrors the public render-endpoint convention.
             'slug' => $route['slug'] ?? 'index',
-            // No query-string signal survives past Router::parse() by this point
-            // (the SPA-shell route it's swapping from never carried a `theme` —
-            // only `render`-type routes read the query string). Default to
-            // 'light', matching Renderer's own default for an absent theme.
-            'theme' => 'light',
+            'theme' => $route['theme'] ?? self::resolveTheme(null, $cookies),
         ];
     }
 }
