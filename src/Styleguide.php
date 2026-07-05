@@ -362,13 +362,15 @@ final class Styleguide
         // pattern would defeat itself the moment the first check ran.
         //
         // Instead we attempt registration unconditionally via
-        // {@see self::tryAdd…()} which catches the *duplicate-name* case
-        // only — projects that pre-register any of these names on the
-        // shared env (real WP `__()` instead of identity stub, custom
-        // `placeholder`, …) keep their version because our `addFunction`
-        // throws "already registered" and we swallow that path. The
-        // "extensions initialized" case is a misuse signal (Styleguide
-        // constructed after the env was rendered with), so we re-throw.
+        // {@see self::tryAdd…()}, which swallows every `LogicException` Twig
+        // throws from `addFunction()`/`addFilter()` — both the expected
+        // *duplicate-name* case (projects that pre-register any of these
+        // names on the shared env — real WP `__()` instead of identity stub,
+        // custom `placeholder`, etc. — keep their version) and the
+        // "extensions already initialized" case (Styleguide constructed
+        // against an env that was already locked, e.g. by a prior
+        // `getFunctions()` call). See {@see tryAddFunction()} for why we no
+        // longer try to tell the two apart.
         self::tryAddFunction($twig, new TwigFunction(
             'component_*',
             static function (Environment $env, array $context, string $template_name, array $content = []): string {
@@ -661,20 +663,24 @@ final class Styleguide
     }
 
     /**
-     * Register a Twig function, swallowing the "already registered"
-     * LogicException so projects that pre-registered the same name keep
-     * their version. See {@see registerBundledHelpers()} for the full
-     * rationale (avoiding `getFunction()` which triggers extension
-     * initialization and locks further `addFunction()` calls).
+     * Register a Twig function, swallowing any `LogicException` from
+     * `addFunction()`. See {@see registerBundledHelpers()} for why we can't
+     * distinguish "duplicate name" from "extensions already initialized"
+     * cleanly (Twig exposes both as a bare `LogicException` with only the
+     * message text differing, and that text isn't a stable API — matching on
+     * it to decide whether to rethrow broke once already). Swallow-and-defer:
+     * never crash a consumer's boot because of a Twig internal-message
+     * change; log to error_log() only when the message doesn't look like the
+     * expected "already registered" collision, so the rare genuine-misuse
+     * case (constructing Styleguide against an env that's already been used
+     * to render) still leaves a breadcrumb for whoever's debugging it.
      */
     private static function tryAddFunction(Environment $twig, TwigFunction $function): void
     {
         try {
             $twig->addFunction($function);
         } catch (\LogicException $e) {
-            if (!str_contains($e->getMessage(), 'already registered')) {
-                throw $e;
-            }
+            self::logUnexpectedRegistrationFailure($function->getName(), $e);
         }
     }
 
@@ -686,9 +692,25 @@ final class Styleguide
         try {
             $twig->addFilter($filter);
         } catch (\LogicException $e) {
-            if (!str_contains($e->getMessage(), 'already registered')) {
-                throw $e;
-            }
+            self::logUnexpectedRegistrationFailure($filter->getName(), $e);
+        }
+    }
+
+    /**
+     * Log a breadcrumb for `LogicException`s from `addFunction()`/
+     * `addFilter()` that don't look like the expected "already registered"
+     * collision (e.g. Twig's "extensions already initialized" case). Never
+     * rethrows — see {@see tryAddFunction()} for why matching on the message
+     * to decide whether to crash the consumer's boot isn't safe.
+     */
+    private static function logUnexpectedRegistrationFailure(string $name, \LogicException $e): void
+    {
+        if (!str_contains($e->getMessage(), 'already registered')) {
+            error_log(sprintf(
+                '[parisek/styleguide] unexpected LogicException registering "%s": %s',
+                $name,
+                $e->getMessage(),
+            ));
         }
     }
 
