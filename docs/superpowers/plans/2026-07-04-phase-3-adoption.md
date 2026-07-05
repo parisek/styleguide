@@ -1015,7 +1015,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
 
 **Interfaces:** None — documentation-only task.
 
-- [ ] **Step 1: Write `docs/MIGRATION.md`**
+- [x] **Step 1: Write `docs/MIGRATION.md`**
 
   Create the file with exactly this content (grounded in the current state of the three target repos as of this plan — `centrumocnichvad` has two CSS bundles at `dist/css/style.css` + `dist/css/gutenberg.css`; `suys-static`'s `breadcrumb`/`content`/`pagination`/`cookieconsent`/`404` components carry dead `styleguide:` content with no sibling fixture file; `bootstrap-base`'s own README already recommends `picsum.photos`, and its bespoke router already prefers a sibling `styleguide.twig` over the YAML key — same precedence this package uses):
 
@@ -1228,14 +1228,14 @@ Five findings to implement — each gets its own fixture and its own assertion:
   design doc).
   ````
 
-- [ ] **Step 2: Verify**
+- [x] **Step 2: Verify**
 
   There is no build/lint tooling for Markdown in this repo. Verify manually:
   - `grep -c '^## ' docs/MIGRATION.md` → `5` (Common steps, centrumocnichvad, suys-static, bootstrap-base, Partial metadata is fine — the H1 title doesn't count as `##`).
   - Every fenced code block opens and closes (`grep -c '^```' docs/MIGRATION.md` is even).
   - Every `styleguide.yaml`, `.php`, `.twig`, `bash`, `apache`, `nginx` block is syntactically plausible on a read-through (no unclosed `{{ }}`, no missing YAML colons).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
   `git add docs/MIGRATION.md && git commit -m "docs: add MIGRATION.md — replacing a hand-rolled styleguide with parisek/styleguide"`
 

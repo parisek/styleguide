@@ -187,9 +187,9 @@ namespace registration for it.
   reference.)
 - Several existing `styleguide.twig` siblings already use `picsum.photos`
   URLs for fixture images (`article-featured`, `jumbotron-image`, …) — see
-  README § Per-template metadata / `docs/API.md` § Twig functions & filters
-  for the `placeholder()` replacement (deterministic, offline SVG
-  generator — no network dependency in the preview path).
+  `docs/API.md` § Twig functions & filters for the `placeholder()`
+  replacement (deterministic, offline SVG generator — no network
+  dependency in the preview path).
 - Delete `static/styleguide/` (the bespoke `styleguide-{404,page,sidebar,
   base,homepage,component,layout}.twig` set) once migrated.
 
