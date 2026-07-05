@@ -74,6 +74,10 @@ function fieldsTypePill(type) {
                                 <span v-else class="text-zinc-400 dark:text-zinc-600">&mdash;</span>
                             </td>
                             <td class="px-4 py-2 align-middle text-zinc-700 dark:text-zinc-300">{{ row.title || '—' }}</td>
+                            <!-- v-html is safe here for the same reason as the description bar in
+                                 App.vue: field descriptions are dev-authored YAML from the project's
+                                 own Twig templates (already executed as Twig by this request), never
+                                 end-user input. -->
                             <td class="px-4 py-2 align-middle text-zinc-500 leading-relaxed" v-html="row.description || '—'"></td>
                         </tr>
                     </tbody>
