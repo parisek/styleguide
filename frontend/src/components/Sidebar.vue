@@ -186,8 +186,24 @@ function supportedLocales() {
             </div>
 
             <!-- Hide entire section when search yields zero matches so the
-                 sidebar collapses to just what's relevant. -->
-            <div v-for="section in ['basic', 'blocks', 'gutenberg']" :key="section" v-show="items(section).length > 0">
+                 sidebar collapses to just what's relevant. `v-show` MUST NOT
+                 sit on the same element as `v-for`: Vue 3 only evaluates a
+                 v-show binding once, at that element's *creation* patch, and
+                 v-for-generated nodes are created exactly once for the
+                 lifetime of their key -- later reactive re-renders of that
+                 node update its other bindings (e.g. the count badge below)
+                 but skip re-checking v-show. Real app boot calls
+                 catalog.init() (async) without awaiting it before app.mount(),
+                 so the very first render always sees 0 items and v-show
+                 freezes every section at display:none forever, even once the
+                 fetch resolves. The `<template v-for>` + inner `v-show` split
+                 sidesteps this: the template block itself carries no DOM
+                 node to freeze, and the inner div's v-show is a normal
+                 (non-v-for) binding that re-evaluates on every update, same
+                 as the legacy Alpine markup's `x-show` on the section
+                 wrapper. -->
+            <template v-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
+            <div v-show="items(section).length > 0">
                 <button @click="toggleSection(section)" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t(`sections.${section}`) }}</span>
                     <span class="text-zinc-400 dark:text-zinc-600 font-semibold">{{ items(section).length }}</span>
@@ -242,6 +258,7 @@ function supportedLocales() {
                     </li>
                 </ul>
             </div>
+            </template>
 
             <!-- Pages -->
             <div v-show="pageItems.length > 0">

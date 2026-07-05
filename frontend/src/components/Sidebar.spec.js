@@ -139,4 +139,52 @@ describe('Sidebar', () => {
         expect(overviewLink.classes()).toContain('bg-red-600/10');
         expect(overviewLink.classes()).toContain('text-red-700');
     });
+
+    // Regression test for the real page-load timing: main.js calls
+    // `catalog.init()` (async fetch) WITHOUT awaiting it before `app.mount()`,
+    // so Sidebar.vue's very first render always sees an empty catalog and the
+    // items populate only later, on a subsequent reactive update -- never
+    // before mount. Every other test in this file (via mountSidebar())
+    // seeds catalog.items BEFORE mount(), which only ever exercises v-show's
+    // *first* evaluation and can't catch a directive that freezes after that
+    // first render. This test mounts empty first, matching the real
+    // sequence, then seeds items after mount to catch exactly that gap: a
+    // `v-show` living on the same element as `v-for` only evaluates once, at
+    // that node's creation, and never re-checks on later updates even though
+    // sibling bindings (e.g. the count badge) keep updating correctly.
+    it('reveals a section once catalog items arrive asynchronously after mount (real boot sequence)', async () => {
+        setActivePinia(createPinia());
+        const catalog = useCatalogStore();
+        catalog.items = [];
+        catalog.pages = [];
+        catalog.docs = [];
+        catalog.loading = true;
+        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+
+        const router = makeRouter();
+        await router.push('/foundations');
+        const wrapper = mount(Sidebar, { global: { plugins: [router] } });
+        await router.isReady();
+        await wrapper.vm.$nextTick();
+
+        // Before the async catalog resolves: matches the real first render —
+        // the Basic section must be hidden (zero items).
+        const basicSectionBefore = wrapper.findAll('button')
+            .find((b) => b.find('span').exists() && b.find('span').text() === 'Basic')
+            ?.element.closest('div');
+        expect(basicSectionBefore?.style.display).toBe('none');
+
+        // Simulate catalog.init()'s fetch resolving after app.mount() —
+        // the real page-load sequence, not the "seed before mount" shortcut
+        // every other test in this file uses.
+        catalog.items = [{ id: 'gizmo', name: 'Gizmo', category: '', hasStyleguide: true }];
+        catalog.loading = false;
+        await wrapper.vm.$nextTick();
+
+        const basicButton = wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Basic');
+        expect(basicButton).toBeTruthy();
+        const basicSectionAfter = basicButton.element.closest('div');
+        expect(basicSectionAfter.style.display).not.toBe('none');
+        expect(wrapper.text()).toContain('Gizmo');
+    });
 });

@@ -11,15 +11,9 @@ test.describe('Styleguide SPA', () => {
 
     test('sidebar navigation updates the URL and the iframe src', async ({ page }) => {
         // Replaces smoke-browser.sh section 2 (navigation). Uses the "Sample
-        // Doc" DOCS-section link rather than a component link: every
-        // component fixture lives in the basic/blocks/gutenberg sections,
-        // which are hit by the real Sidebar.vue bug documented below on the
-        // two test.fixme cases (their wrapping <div v-show="items(section)
-        // .length > 0"> never re-evaluates after the initial, pre-fetch
-        // render, so those sections stay permanently display:none once the
-        // catalog loads async). The Docs section isn't part of that v-for,
-        // so it's unaffected and still exercises real router-push + iframe
-        // src reactivity end to end.
+        // Doc" DOCS-section link rather than a component link simply because
+        // Docs isn't part of the basic/blocks/gutenberg v-for loop -- still
+        // exercises real router-push + iframe src reactivity end to end.
         await page.goto('/styleguide/');
         await page.getByRole('link', { name: 'Sample Doc', exact: true }).click();
         await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
@@ -55,25 +49,22 @@ test.describe('Styleguide SPA', () => {
         expect(style).toContain('width: 100%');
     });
 
-    // REAL BUG, not a test-authoring issue (see task-12-report.md for the
-    // isolated repro): Sidebar.vue's basic/blocks/gutenberg sections share
+    // FIXED (task-12 follow-up, "fix round 1" in task-12-report.md): Sidebar.vue's
+    // basic/blocks/gutenberg sections used to share
     //     <div v-for="section in [...]" v-show="items(section).length > 0">
     // Vue 3's v-show directive, applied to the SAME element as v-for, only
-    // evaluates once at first render and never re-applies on later updates
-    // -- even though the sibling {{ items(section).length }} interpolation
-    // one line down DOES keep updating correctly. Real app boot calls
-    // `catalog.init()` (async fetch) WITHOUT awaiting it before `app.mount()`
-    // (main.js), so the very first render always sees 0 items for every
-    // category section -- v-show freezes them at display:none forever, even
-    // after the fetch resolves and populates the catalog. Confirmed with a
-    // minimal 6-line repro component outside Sidebar.vue entirely (isolates
-    // it to the v-for+v-show combination, not any app-specific logic). Net
-    // effect: on a real page load, the Basic/Blocks/Gutenberg sidebar
-    // sections are always empty-looking, even though their header COUNTS
-    // show the correct nonzero number. Fixed with test.fixme rather than
-    // rewritten around, per this task's brief: report + fixme, don't
-    // paper over with a weaker assertion.
-    test.fixme('a >=3 prefix cluster renders as a collapsible group with suffix-only children; a singleton stays flat', async ({ page }) => {
+    // evaluated once at first render and never re-applied on later updates --
+    // even though the sibling {{ items(section).length }} interpolation one
+    // line down kept updating correctly. Real app boot calls `catalog.init()`
+    // (async fetch) WITHOUT awaiting it before `app.mount()` (main.js), so the
+    // very first render always saw 0 items for every category section --
+    // v-show froze them at display:none forever, even after the fetch
+    // resolved and populated the catalog. Fix: split into
+    // `<template v-for>` wrapping an inner `<div v-show>` -- the template
+    // itself carries no DOM node to freeze, so the inner div's v-show is a
+    // normal (non-v-for) binding that re-evaluates on every update, matching
+    // the legacy Alpine markup's `x-show` on the section wrapper.
+    test('a >=3 prefix cluster renders as a collapsible group with suffix-only children; a singleton stays flat', async ({ page }) => {
         // Replaces smoke-browser.sh section 3c (issue #38 regression guard).
         await page.goto('/styleguide/');
         await expect(page.getByRole('button', { name: /^Widget/ })).toBeVisible();
@@ -82,11 +73,10 @@ test.describe('Styleguide SPA', () => {
         await expect(page.getByRole('link', { name: 'Gizmo', exact: true })).toBeVisible();
     });
 
-    test.fixme('a search query flattens the Widget group to full names', async ({ page }) => {
-        // Same root cause as the fixme above: the "blocks" section's
-        // wrapping div is stuck display:none from the initial pre-fetch
-        // render, so nothing inside it -- including this search-driven flat
-        // list -- is ever visible, regardless of ui.searchQuery.
+    test('a search query flattens the Widget group to full names', async ({ page }) => {
+        // Same root cause as the fix above, now resolved: the "blocks"
+        // section's wrapping div is no longer stuck at display:none from the
+        // initial pre-fetch render.
         await page.goto('/styleguide/');
         await page.getByPlaceholder(/./).first().fill('widget');
         await expect(page.getByRole('link', { name: 'Widget - one', exact: true })).toBeVisible();
