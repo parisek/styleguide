@@ -369,7 +369,7 @@ Note in the same section that `/api/pages` and `/api/docs` inherit the identical
 - `Renderer::renderInner()` gains a third param `?string $variant`. Resolution order becomes: `styleguide.<variant>.twig` (only if `$variant` is non-null AND passes the same `^[a-z0-9-]+$` regex Router already checked — re-checked here defensively, since `Renderer` is unit-tested and called directly, bypassing `Router`, in this very test suite) → `styleguide.twig` → `<slug>.twig`. An unknown/invalid variant never reaches the candidate list — it behaves exactly as if `$variant` were `null`, which is the "fall back silently" contract from the Global Constraints.
 - **Assumption re: `?theme=` composition** (see *Interface Assumptions* #5): this task's last test step asserts a `theme` + `variant` combination renders correctly assuming Phase 2 landed `?theme=` exactly as `README.md` already documents (`class="dark"` on the render-cell `<html>`, driven by a `theme` key in `Renderer`'s `$config`). **Before writing that sub-step, confirm this against whatever Phase 2 actually shipped** — if the real mechanism differs, adapt the assertion's markup expectation only; do not change the variant-resolution logic to match a guess.
 
-- [ ] **Step 1: Write the failing `Router` tests** (`tests/RouterTest.php`, appended)
+- [x] **Step 1: Write the failing `Router` tests** (`tests/RouterTest.php`, appended)
 
 ```php
     #[Test]
@@ -465,7 +465,7 @@ Note in the same section that `/api/pages` and `/api/docs` inherit the identical
 
 Run: `vendor/bin/phpunit --filter RouterTest` — expect the new tests to fail (undefined `theme`/`variant` keys never appear today).
 
-- [ ] **Step 2: Implement the `Router` changes**
+- [x] **Step 2: Implement the `Router` changes**
 
 Rename today's `parse()` body (everything from `$uri = (string) strtok($uri, '?');` through the final `return ['type' => 'landing'];`) into a new private `parseRoute(string $uri): ?array`, taking an already-trimmed, query-stripped path. Add a new public `parse()` that extracts the query string first, delegates, then whitelists:
 
@@ -593,12 +593,12 @@ Update `synthesizeEmbeddedRoute()` to forward the two keys:
     }
 ```
 
-- [ ] **Step 3: Run `RouterTest`**
+- [x] **Step 3: Run `RouterTest`**
 
 Run: `vendor/bin/phpunit --filter RouterTest`
 Expected: all pass (new + every pre-existing assertion, unchanged).
 
-- [ ] **Step 4: Write the failing `Renderer` tests** (`tests/RendererTest.php`, appended — reuses the `multi` fixture from Task 1)
+- [x] **Step 4: Write the failing `Renderer` tests** (`tests/RendererTest.php`, appended — reuses the `multi` fixture from Task 1)
 
 ```php
     #[Test]
@@ -675,7 +675,7 @@ Expected: all pass (new + every pre-existing assertion, unchanged).
 
 Run: `vendor/bin/phpunit --filter RendererTest` — expect the first four to fail (`multi` fixture doesn't resolve any variant yet — `render()` doesn't read `$config['variant']`); the fifth (`variant_composes_with_theme`) fails today regardless, since `?theme=` doesn't exist in this checkout — leave it red until Phase 2's actual theme mechanism is confirmed per the Step 0 callout above, then adjust and turn it green as part of this task.
 
-- [ ] **Step 5: Implement the `Renderer` changes**
+- [x] **Step 5: Implement the `Renderer` changes**
 
 In `renderInner()`:
 
@@ -732,7 +732,7 @@ Update `renderBody()`'s dispatch to pass the variant through:
 
 No change needed to `render()` itself — `$config` already flows into `renderBody($kind, $slug, $config)` unmodified.
 
-- [ ] **Step 6: Run `RendererTest` + phpstan**
+- [x] **Step 6: Run `RendererTest` + phpstan**
 
 Run: `vendor/bin/phpunit --filter RendererTest`
 Expected: all pass (adjust the `variant_composes_with_theme` assertion first if Phase 2's real mechanism differs from the README-documented one — see Step 4 note).
@@ -740,7 +740,7 @@ Expected: all pass (adjust the `variant_composes_with_theme` assertion first if 
 Run: `composer phpstan`
 Expected: no new errors.
 
-- [ ] **Step 7: Wire `Styleguide::dispatchRender()`**
+- [x] **Step 7: Wire `Styleguide::dispatchRender()`**
 
 In `src/Styleguide.php`, inside the existing `if (in_array($route['kind'], ['component', 'page', 'doc'], true))` block of `dispatchRender()` (the block that already sets `component_name`, `body_class`, `render`), add:
 
@@ -754,7 +754,7 @@ In `src/Styleguide.php`, inside the existing `if (in_array($route['kind'], ['com
             }
 ```
 
-- [ ] **Step 8: Full-stack smoke via the fixture server**
+- [x] **Step 8: Full-stack smoke via the fixture server**
 
 Run:
 ```bash
@@ -767,7 +767,7 @@ kill %1
 ```
 Expected output: `multi--demo`, then `multi--secondary`, then `multi--demo` again (unknown variant falls back).
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 `git add src/Router.php src/Renderer.php src/Styleguide.php tests/RouterTest.php tests/RendererTest.php`
 `git commit -m "feat(render): resolve ?variant= against discovered styleguide.<variant>.twig files"`
