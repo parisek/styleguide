@@ -795,7 +795,7 @@ Expected output: `multi--demo`, then `multi--secondary`, then `multi--demo` agai
 - `ViewportToolbar.vue` reads `props.entry.variants` (the `Array<{id,label}>` from Task 1's API field, `[]` default) and `ui.route.variant`. The switcher renders only when `entry.variants.length > 0`.
 - Navigating to a different `entry` resets `ui.route.variant` to `null` UNLESS the incoming URL itself carries a valid `?variant=` for that entry (the deep-link case) — "reset silently" per the design doc, i.e. no confirmation, no flash of the old variant's content.
 
-- [ ] **Step 1: `ui.js` store — variant state + URL sync (Vitest first)**
+- [x] **Step 1: `ui.js` store — variant state + URL sync (Vitest first)**
 
 `frontend/src/stores/ui.spec.js` (new; if Phase 1 already ships a `route`-focused spec file, add these as new `describe` blocks in it instead of a new file):
 
@@ -881,7 +881,7 @@ syncUrl() {
 
 Run: `cd frontend && npm test -- ui.spec.js` — expect pass.
 
-- [ ] **Step 2: i18n keys**
+- [x] **Step 2: i18n keys**
 
 `frontend/public/locales/en.json` — add to the existing `"toolbar"` object (after `"more_actions"`):
 ```json
@@ -896,7 +896,7 @@ Run: `cd frontend && npm test -- ui.spec.js` — expect pass.
         "variant_default": "Výchozí"
 ```
 
-- [ ] **Step 3: `ViewportToolbar.vue` — segmented switcher (Vitest for the component)**
+- [x] **Step 3: `ViewportToolbar.vue` — segmented switcher (Vitest for the component)**
 
 `frontend/src/components/ViewportToolbar.spec.js` (new):
 
@@ -991,14 +991,14 @@ const iframeSrc = computed(() => {
 
 Run: `cd frontend && npm test -- ViewportToolbar.spec.js` — expect pass.
 
-- [ ] **Step 4: Build + manual smoke against the fixture**
+- [x] **Step 4: Build + manual smoke against the fixture**
 
 Run: `cd frontend && npm run build`
 Expected: build succeeds, `dist/` updates.
 
 Per `AGENTS.md` § *Browser Verification*: load the `multi` fixture's styleguide page (`/styleguide/component/multi`) against the fixture PHP server or the `tailwind-base` symlink workflow, confirm the switcher shows "Default / dark-bg / Secondary style", clicking each swaps the iframe body and updates the address bar's `?variant=`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 `git add frontend/src frontend/public/locales frontend/dist 2>/dev/null; git add dist`
 `git commit -m "feat(spa): variant switcher in the preview toolbar"`
