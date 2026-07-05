@@ -4098,7 +4098,7 @@ git commit -m "feat(spa): port the Overview grid and Foundations iframe view; ad
 
 **Interfaces:** none (black-box browser test — no internal API surface).
 
-- [ ] **Step 1: Add a `fields:`-bearing fixture**
+- [x] **Step 1: Add a `fields:`-bearing fixture**
 
 Create `tests/fixtures/templates/component/with-fields/with-fields.twig`:
 
@@ -4123,7 +4123,7 @@ fields:
 
 New fixture, isolated from `sample` — avoids touching any existing `ComponentParser`/`Renderer` PHPUnit assertion that may already pin `sample`'s exact metadata shape.
 
-- [ ] **Step 2: Add the Playwright dependency + config**
+- [x] **Step 2: Add the Playwright dependency + config**
 
 Edit `frontend/package.json` — add to `devDependencies`: `"@playwright/test": "^1.49.0"`, and to `scripts`: `"test:e2e": "playwright test"`.
 
@@ -4160,7 +4160,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 3: Write the Playwright spec**
+- [x] **Step 3: Write the Playwright spec**
 
 Create `tests/e2e/playwright/styleguide.spec.js` — every assertion below has a named legacy source (the `smoke-browser.sh` section it replaces) so a future reader can trace behavior back to its origin:
 
@@ -4301,12 +4301,12 @@ test.describe('Styleguide SPA', () => {
 });
 ```
 
-- [ ] **Step 4: Run locally**
+- [x] **Step 4: Run locally**
 
 Run: `cd frontend && npx playwright install --with-deps chromium && npm run test:e2e`
 Expected: all specs pass against the `php -S` server Playwright's `webServer` config boots automatically. If the drag-resize or rotate tests are flaky locally (real mouse-move timing), retry once before treating as a real regression — these two are the only tests exercising raw pointer sequences rather than click/fill.
 
-- [ ] **Step 5: Wire into CI**
+- [x] **Step 5: Wire into CI**
 
 Edit `.github/workflows/tests.yml` — add a new job after `e2e`:
 
@@ -4354,7 +4354,7 @@ Edit `.github/workflows/tests.yml` — add a new job after `e2e`:
 
 Note: this job needs `npm run build` first (unlike the Vitest job in Task 1, which never touches `dist/`) because Playwright drives the real PHP-served `dist/index.html`, not a jsdom-mounted component tree.
 
-- [ ] **Step 6: Full regression + commit**
+- [x] **Step 6: Full regression + commit**
 
 Run: `composer test && cd frontend && npm test && npm run build && npm run test:e2e`
 Expected: everything green.
