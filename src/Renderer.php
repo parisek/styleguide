@@ -83,6 +83,13 @@ final class Renderer
                 return $this->render404($kind, $slug, $config);
             }
         } catch (\Throwable $e) {
+            // A component/page that throws during render used to return HTTP 200
+            // with error markup — a health check or CI smoke test polling
+            // `/render/component/<id>` would see "success" for a broken
+            // component. The error markup itself stays visible (still useful for
+            // local dev — the whole point of NOT swallowing it into a generic
+            // "something went wrong" page).
+            http_response_code(500);
             $body = $this->errorMarkup($e);
         }
 

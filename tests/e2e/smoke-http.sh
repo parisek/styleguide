@@ -153,6 +153,7 @@ assert_body_contains_all "/styleguide/render/component/sample" \
 assert_status        "/styleguide/render/page/landing"     "200" "render page"
 
 assert_status        "/styleguide/render/component/does-not-exist" "404" "render unknown → 404"
+assert_status        "/styleguide/render/component/broken-sample" "500" "render error → 500"
 
 # API endpoints (fixture ships 2 components + 1 page + 1 doc)
 assert_header        "/styleguide/api/components"  "content-type" "application/json" "components api content-type"

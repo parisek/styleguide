@@ -238,6 +238,36 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function render_error_sets_http_500_and_keeps_error_markup_visible(): void
+    {
+        $html = $this->renderer->render('component', 'broken-sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertSame(500, http_response_code());
+        self::assertStringContainsString('Render error:', $html);
+        // The underlying Twig message stays visible (existing errorMarkup()
+        // behaviour) — this test only pins the new status-code contract, not
+        // a new markup shape.
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function render_404_status_is_unaffected_by_the_500_path(): void
+    {
+        // Guards against a sloppy refactor that moves the 500 call somewhere
+        // that also fires for the 404 branch.
+        $this->renderer->render('component', 'nonexistent', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertSame(404, http_response_code());
+        http_response_code(200);
+    }
+
+    #[Test]
     public function bleed_render_drops_inset_wrapper_and_resets_header_height(): void
     {
         $html = $this->renderer->render('component', 'sample', [

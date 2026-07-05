@@ -51,9 +51,12 @@ final class ComponentParserTest extends TestCase
         // documents the canonical fixture roster and catches any sort
         // regression precisely. Weights: Another 10, Sample 20, With fields
         // 50 (no explicit weight -> parser default), then the sidebar-tree
-        // cluster widget-one/two/three 51/52/53 and gizmo 54.
+        // cluster widget-one/two/three 51/52/53, gizmo 54, and Broken Sample
+        // 999 (deliberately last — its Twig body throws, exercised by
+        // RendererTest, but its YAML metadata is valid so ComponentParser,
+        // which never renders the body, picks it up like any other component).
         self::assertSame(
-            ['Another', 'Sample', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo'],
+            ['Another', 'Sample', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );
