@@ -1417,7 +1417,7 @@ Run: `npx playwright test search-palette.spec.js` — expect pass.
   | `a11y.impact_moderate` | `"Moderate"` | `"Střední"` |
   | `a11y.impact_minor` | `"Minor"` | `"Menší"` |
 
-- [ ] **Step 1: Add the dependency + Vite copy plugin**
+- [x] **Step 1: Add the dependency + Vite copy plugin**
 
 `frontend/package.json` — add to `dependencies`:
 ```json
@@ -1451,7 +1451,7 @@ function copyAxeCore() {
 
 Add `copyAxeCore()` to the `plugins: [tailwindcss(), ...]` array.
 
-- [ ] **Step 2: `formatAxeResults()` (Vitest first)**
+- [x] **Step 2: `formatAxeResults()` (Vitest first)**
 
 `frontend/src/lib/a11yFormat.spec.js` (new):
 
@@ -1523,7 +1523,7 @@ export function formatAxeResults(results) {
 
 Run: `cd frontend && npm test -- a11yFormat.spec.js` — expect pass.
 
-- [ ] **Step 3: Injection helper (not unit-tested — DOM/iframe-heavy, covered by Playwright)**
+- [x] **Step 3: Injection helper (not unit-tested — DOM/iframe-heavy, covered by Playwright)**
 
 `frontend/src/lib/axeInject.js` (new):
 
@@ -1556,7 +1556,7 @@ export function runAxeCheck(iframeEl) {
 
 (If Phase 1's SPA config carries a non-default `base_url`, per Interface Assumptions #1, build the script `src` from that instead of the hardcoded `/styleguide/` prefix — check whichever config-read helper the SPA already uses for its own asset base and reuse it here rather than hardcoding a second time.)
 
-- [ ] **Step 4: `A11yPanel.vue` + toolbar action**
+- [x] **Step 4: `A11yPanel.vue` + toolbar action**
 
 `frontend/src/components/A11yPanel.vue` (new):
 
@@ -1610,7 +1610,7 @@ async function runA11yCheck() {
 }
 ```
 
-- [ ] **Step 5: Fixture + Playwright**
+- [x] **Step 5: Fixture + Playwright**
 
 `tests/fixtures/templates/component/a11y-demo/a11y-demo.twig` (new):
 
@@ -1640,14 +1640,14 @@ test('accessibility check lists a known violation', async ({ page }) => {
 
 Run: `npx playwright test a11y-check.spec.js` — expect pass.
 
-- [ ] **Step 6: i18n keys** — add the eight keys from the Interfaces table to both locale files under a new top-level `"a11y"` object.
+- [x] **Step 6: i18n keys** — add the eight keys from the Interfaces table to both locale files under a new top-level `"a11y"` object.
 
-- [ ] **Step 7: Build + smoke**
+- [x] **Step 7: Build + smoke**
 
 Run: `cd frontend && npm run build` — expect `dist/axe.min.js` to appear alongside the hashed `styleguide.*.js`/`.css`.
 Run: `curl -sI http://127.0.0.1:8421/styleguide/assets/axe.min.js | grep -i cache-control` (against the fixture server) — expect `max-age=3600` (unhashed-file branch, not `immutable`).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 `git add frontend/package.json frontend/package-lock.json frontend/vite.config.js frontend/src/lib/a11yFormat.js frontend/src/lib/a11yFormat.spec.js frontend/src/lib/axeInject.js frontend/src/components/A11yPanel.vue frontend/src/components/ViewportToolbar.vue frontend/public/locales tests/fixtures/templates/component/a11y-demo tests/e2e/playwright/a11y-check.spec.js dist`
 `git commit -m "feat(spa): on-demand accessibility check via axe-core"`
