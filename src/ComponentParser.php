@@ -53,6 +53,22 @@ class ComponentParser
      */
     private const VARIANT_FILE_PATTERN = '/^styleguide\.([a-z0-9-]+)\.twig$/';
 
+    /**
+     * @api Public contract. Shared with `Cli\Linter` so the catalogue walk
+     *      and the linter's own file walk can never disagree about which
+     *      files are fixtures.
+     *
+     * Filename shape of the WHOLE `styleguide.*` sibling family — the bare
+     * default (`styleguide.twig`) and every file-convention variant
+     * (`styleguide.<variant>.twig`), including ones whose `<variant>`
+     * segment doesn't satisfy VARIANT_FILE_PATTERN's stricter
+     * `[a-z0-9-]+` id rule. Even an invalid-id sibling is still a fixture
+     * file — it must never surface as a phantom catalogue entry just
+     * because its filename didn't happen to match the narrower variant
+     * pattern.
+     */
+    public const STYLEGUIDE_SIBLING_PATTERN = '/^styleguide(\.[A-Za-z0-9_-]+)?\.twig$/';
+
     private string $templatesPath;
 
     /** @var list<array{file:string, error:string}> */
@@ -151,7 +167,13 @@ class ComponentParser
         $regex = new \RegexIterator($flattened, '/\.twig$/');
 
         foreach ($regex as $file) {
-            if ($file->getFilename() === 'styleguide.twig') {
+            // A variant sibling carrying a {# name: #} header must never
+            // surface as a phantom catalogue entry — exclude the whole
+            // styleguide.* family, not just the exact default filename, so
+            // even a sibling whose <variant> segment is invalid (and thus
+            // never discovered by discoverVariants()) still can't leak in
+            // here as its own "component".
+            if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
                 continue;
             }
 

@@ -32,11 +32,12 @@ final class Linter
     /**
      * `styleguide.twig` and its Phase-4 variant siblings
      * (`styleguide.<name>.twig`) are demo fixtures, not catalogue entries —
-     * ComponentParser::parseAll() excludes the bare filename for the same
-     * reason. This excludes the whole family so lint never flags a fixture
-     * file as "unindexed".
+     * ComponentParser::parseAll() excludes the whole family for the same
+     * reason. Shared constant (rather than a private duplicate) so the
+     * linter and the catalogue walk can never disagree about which files
+     * are fixtures.
      */
-    private const STYLEGUIDE_SIBLING_PATTERN = '/^styleguide(\.[A-Za-z0-9_-]+)?\.twig$/';
+    private const STYLEGUIDE_SIBLING_PATTERN = ComponentParser::STYLEGUIDE_SIBLING_PATTERN;
 
     private readonly string $templatesPath;
 
