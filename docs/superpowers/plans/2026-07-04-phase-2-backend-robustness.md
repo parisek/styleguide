@@ -1305,7 +1305,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
 
 **Interfaces:** none — documentation-only task, no code changes, no tests (nothing executable to verify beyond re-running `composer test` as a smoke check that nothing in this pass accidentally touched a `.php`/`.twig` file).
 
-- [ ] Audit `docs/API.md` against the current code and fix the concrete drifts found during research for this plan (beyond the ones Tasks 1–3 already fix as part of their own doc updates):
+- [x] Audit `docs/API.md` against the current code and fix the concrete drifts found during research for this plan (beyond the ones Tasks 1–3 already fix as part of their own doc updates):
   - **`/api/fields` response shape is stale and wrong.** `docs/API.md` § JSON API endpoints currently documents:
     ```ts
     {
@@ -1327,7 +1327,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
   - Re-check the `styleguide.yaml` top-level key table (§ YAML schemas) against `Styleguide::dispatchRender()`'s `$config['styleguide']` usage and `foundations.twig` — confirmed the documented keys (`project`, `iframe`, `logo`, `favicon`, `typography`, `labels`, `colors`) are still what's read; no fix needed, note it as verified.
   - Confirm the Task 1/2/3/6 doc edits already landed (theme param, health endpoint, auth key) are present and consistent in wording between `README.md` and `docs/API.md` — if any earlier task's doc edit used slightly different phrasing between the two files, reconcile to a single consistent description (copy the more precise wording into both, don't just leave two different explanations of the same contract).
 
-- [ ] Archive old CHANGELOG entries.
+- [x] Archive old CHANGELOG entries.
   - Current `CHANGELOG.md` spans `[0.1.0]` (2026-05-18) through `[0.6.5]` (2026-06-22) plus `[Unreleased]`. Per the design doc's Phase 2 item 6 ("archive CHANGELOG entries older than the last few minor series"), move everything **older than `[0.4.0]`** — i.e. `[0.3.14]` down through `[0.1.0]` (currently lines ~115 to the end of the file) — into a new `CHANGELOG-archive.md`, keeping `[Unreleased]` through `[0.4.0]` in `CHANGELOG.md`.
   - Create `CHANGELOG-archive.md`:
     ```markdown
@@ -1358,4 +1358,4 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
   - Diff-check: `wc -l CHANGELOG.md CHANGELOG-archive.md` combined line count (minus the new archive header + pointer line) should equal the original file's line count — a cheap sanity check that the move didn't drop or duplicate an entry.
   - Run `composer test` — confirms this documentation-only pass didn't touch anything executable (should be a no-op on the suite).
 
-- [ ] Commit: `docs: fix stale /api/fields shape in docs/API.md; archive changelog entries before 0.4.0`.
+- [x] Commit: `docs: fix stale /api/fields shape in docs/API.md; archive changelog entries before 0.4.0`.

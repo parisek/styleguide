@@ -1,9 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
 // testDir lives OUTSIDE frontend/ (one dir up, under the repo's shared
-// tests/e2e/) so all e2e layers -- curl (Layer A), the legacy agent-browser
-// smoke script (Layer B), and this Playwright suite (Layer C) -- sit
-// together regardless of which tool runs them. The tradeoff: Node's
+// tests/e2e/) so both e2e suites -- the curl HTTP smoke (Layer A) and this
+// Playwright browser suite -- sit together regardless of which tool runs
+// them. The tradeoff: Node's
 // require()/import resolution walks up from the FILE being loaded, and
 // tests/e2e/playwright has no node_modules in its own ancestry (it isn't
 // inside frontend/), so a bare `import '@playwright/test'` from the spec
