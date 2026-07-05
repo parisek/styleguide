@@ -3477,7 +3477,7 @@ Ports `frontend/index.html:618-690` (the collapsible per-component fields table)
 - Props: `{ fields: { type: Object, default: null } }` — the raw YAML `fields:` map (`viewport.currentItem.value?.fields`), NOT the flattened tree — `FieldsDrawer.vue` calls `flattenFieldsTree` itself so it stays a standalone, independently testable component with a natural data shape as its contract.
 - Emits: none. Local state: `open = ref(false)` (default collapsed, matching legacy `x-data="{ open: false }"`).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/src/components/FieldsDrawer.spec.js`:
 
@@ -3530,12 +3530,12 @@ describe('FieldsDrawer', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `cd frontend && npx vitest run src/components/FieldsDrawer.spec.js`
 Expected: fails — module missing.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Script block:
 
@@ -3572,12 +3572,12 @@ function fieldsTypePill(type) {
 
 Template — port `frontend/index.html:626-689` verbatim (per the Task 5 directive table): the toggle `<button>` with the chevron SVG and `{{ tree.length }}` count; the `<table>` (`v-show="open"`, `x-collapse` dropped — Vue's `v-show` toggling `display` is sufficient, the smooth-height animation `@alpinejs/collapse` provided is a pure visual nicety not covered by the parity contract's behavioral guarantees) with `v-for="row in tree" :key="row.path"` rows, `:style="\`padding-left: ${row.depth * 1.5}rem\`"`, the required-dot `<span role="img">` gated by `v-if="row.required"`, the type pill gated by `v-if="row.type"` / em-dash fallback via `v-else`, and the description `v-html="row.description || '—'"`.
 
-- [ ] **Step 4: Run and confirm pass**
+- [x] **Step 4: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/components/FieldsDrawer.spec.js`
 Expected: `Tests 4 passed`.
 
-- [ ] **Step 5: Wire into `App.vue`**
+- [x] **Step 5: Wire into `App.vue`**
 
 `FieldsDrawer` is chrome shared across every route (hidden naturally whenever `viewport.fieldsCount` is 0, e.g. on `/overview`/`/foundations`), so it belongs beside `ViewportToolbar` in `App.vue`, not inside the per-route `PreviewView.vue` — see Task 7 Step 9's note on why the shared chrome lives at the `App.vue` level.
 
@@ -3589,7 +3589,7 @@ Expected: `Tests 4 passed`.
 
 Add the import to `App.vue`'s `<script setup>`: `import FieldsDrawer from './components/FieldsDrawer.vue';`.
 
-- [ ] **Step 6: Full suite + build + commit**
+- [x] **Step 6: Full suite + build + commit**
 
 Run: `cd frontend && npm test && npm run build`
 

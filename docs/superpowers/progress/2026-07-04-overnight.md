@@ -9,3 +9,4 @@
 - 09:14 Task 6 (P1 search shortcuts): OK — 81a946e, 105/105 Vitest, review approved clean
 - 09:29 Task 7 (P1 viewport toolbar): OK — 2aa01aa, 120/120 Vitest, absolute orientation + fit-to-bounds parity verified
 - 09:46 Task 8 (P1 PreviewPane): OK — 2e5712c+bc79a07, 128/128 Vitest, observer leak fixed
+- 09:51 Task 9 (P1 FieldsDrawer): OK — ca7f661, 132/132 Vitest, fixed brief's spec (added attachTo: document.body — jsdom quirk with detached v-show elements)
