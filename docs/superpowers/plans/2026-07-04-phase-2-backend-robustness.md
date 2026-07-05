@@ -363,7 +363,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
 - Consumes: nothing new.
 - Produces: `Renderer::render()` now calls `http_response_code(500)` before returning error markup for any `\Throwable` raised while rendering a component/page/doc/foundations body. `render404()` is untouched (still `404`).
 
-- [ ] Add the throwing fixture (needed by the failing test below) and immediately reconcile the one existing test that enumerates the full fixture roster.
+- [x] Add the throwing fixture (needed by the failing test below) and immediately reconcile the one existing test that enumerates the full fixture roster.
   - Create `tests/fixtures/templates/component/broken-sample/broken-sample.twig`:
     ```twig
     {#
@@ -384,7 +384,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter ComponentParserTest` — green (this fixture's YAML is valid; only its Twig *body* is broken, so `ComponentParser` — which never renders the body — picks it up like any other component).
 
-- [ ] Write the failing `RendererTest` for the 500 path.
+- [x] Write the failing `RendererTest` for the 500 path.
   - Add to `tests/RendererTest.php`:
     ```php
     #[Test]
@@ -419,7 +419,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter render_error_sets_http_500` — fails: `http_response_code()` is still `200` (or whatever PHPUnit's ambient default is) because nothing sets it today.
 
-- [ ] Implement the fix in `src/Renderer.php::render()`:
+- [x] Implement the fix in `src/Renderer.php::render()`:
     ```php
     try {
         $body = $this->renderBody($kind, $slug, $config);
@@ -439,21 +439,21 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter RendererTest` — all green. Run `composer test` (full suite) — green. Run `composer phpstan` — clean.
 
-- [ ] (Optional, cheap belt-and-suspenders) Add an e2e HTTP assertion.
+- [x] (Optional, cheap belt-and-suspenders) Add an e2e HTTP assertion.
   - In `tests/e2e/smoke-http.sh`, near the existing `render component` assertions (~line 146):
     ```bash
     assert_status "/styleguide/render/component/broken-sample" "500" "render error → 500"
     ```
   - Run `bash tests/e2e/run.sh` (starts the built-in PHP server against `tests/fixtures/` and runs the smoke suite) — confirm the new line passes.
 
-- [ ] Update `CHANGELOG.md` under `[Unreleased]`:
+- [x] Update `CHANGELOG.md` under `[Unreleased]`:
     ```markdown
     ### Fixed
 
     - **Render-time exceptions now return HTTP 500.** A component/page/doc template that throws during render used to respond `200 OK` with the error markup embedded in the body — a health check or CI canary hitting `/render/<kind>/<slug>` couldn't distinguish a broken component from a working one. `Renderer` now calls `http_response_code(500)` before returning the (still-visible) error markup. `render404()` is unaffected.
     ```
 
-- [ ] Commit: `fix(renderer): return HTTP 500 for render-time exceptions`.
+- [x] Commit: `fix(renderer): return HTTP 500 for render-time exceptions`.
 
 ### Task 3: `ComponentParser` catches `\Throwable` per file; new `/api/health` endpoint
 
