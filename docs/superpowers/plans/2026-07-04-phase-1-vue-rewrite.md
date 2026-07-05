@@ -821,7 +821,7 @@ Ports the 4 Alpine stores (`components`, `ui`, `i18n`, `theme`) to Pinia. `catal
 - `stores/i18n.js` (Pinia `defineStore('i18n', ...)`) — state: `locale`, `strings`; actions: `init()`, `load(locale)`; getters: `t(path)` (implemented as an action-like function, not a computed, since it takes an argument — Pinia getters can be functions returning functions, see implementation).
 - `stores/theme.js` (Pinia `defineStore('theme', ...)`) — state: `mode`, `systemDark`; actions: `init()`, `cycle()`; getters: `resolved`.
 
-- [ ] **Step 1: Write failing tests for `persistedRef.js`**
+- [x] **Step 1: Write failing tests for `persistedRef.js`**
 
 Create `frontend/src/lib/persistedRef.spec.js`:
 
@@ -870,7 +870,7 @@ describe('usePersistedRef', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure, then implement**
+- [x] **Step 2: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/lib/persistedRef.spec.js` → fails (module missing).
 
@@ -912,7 +912,7 @@ export function usePersistedRef(key, defaultValue) {
 Run: `cd frontend && npx vitest run src/lib/persistedRef.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 3: Write failing tests for `routeInfo.js`**
+- [x] **Step 3: Write failing tests for `routeInfo.js`**
 
 Create `frontend/src/lib/routeInfo.spec.js`:
 
@@ -947,7 +947,7 @@ describe('routeInfo', () => {
 });
 ```
 
-- [ ] **Step 4: Run and confirm failure, then implement**
+- [x] **Step 4: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/lib/routeInfo.spec.js` → fails (module missing).
 
@@ -975,7 +975,7 @@ export function routeInfo(route) {
 Run: `cd frontend && npx vitest run src/lib/routeInfo.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 5: Write failing tests for `stores/theme.js`**
+- [x] **Step 5: Write failing tests for `stores/theme.js`**
 
 Create `frontend/src/stores/theme.spec.js`:
 
@@ -1032,7 +1032,7 @@ describe('useThemeStore', () => {
 });
 ```
 
-- [ ] **Step 6: Run and confirm failure, then implement**
+- [x] **Step 6: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/stores/theme.spec.js` → fails (module missing).
 
@@ -1088,7 +1088,7 @@ Note: `state.mode` is assigned a `Ref` returned by `usePersistedRef` — Pinia's
 Run: `cd frontend && npx vitest run src/stores/theme.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 7: Write failing tests for `stores/i18n.js`**
+- [x] **Step 7: Write failing tests for `stores/i18n.js`**
 
 Create `frontend/src/stores/i18n.spec.js`:
 
@@ -1149,7 +1149,7 @@ describe('useI18nStore', () => {
 });
 ```
 
-- [ ] **Step 8: Run and confirm failure, then implement**
+- [x] **Step 8: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/stores/i18n.spec.js` → fails (module missing).
 
@@ -1219,7 +1219,7 @@ export const useI18nStore = defineStore('i18n', {
 Run: `cd frontend && npx vitest run src/stores/i18n.spec.js`
 Expected: `Tests 5 passed`.
 
-- [ ] **Step 9: Write failing tests for `stores/ui.js`**
+- [x] **Step 9: Write failing tests for `stores/ui.js`**
 
 Create `frontend/src/stores/ui.spec.js`:
 
@@ -1321,7 +1321,7 @@ describe('useUiStore', () => {
 });
 ```
 
-- [ ] **Step 10: Run and confirm failure, then implement**
+- [x] **Step 10: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/stores/ui.spec.js` → fails (module missing).
 
@@ -1418,7 +1418,7 @@ Note: `effectiveDims` is imported for parity with the composable Task 7 builds o
 Run: `cd frontend && npx vitest run src/stores/ui.spec.js`
 Expected: `Tests 11 passed`.
 
-- [ ] **Step 11: Write failing tests for `stores/catalog.js`**
+- [x] **Step 11: Write failing tests for `stores/catalog.js`**
 
 Create `frontend/src/stores/catalog.spec.js`:
 
@@ -1525,7 +1525,7 @@ describe('useCatalogStore', () => {
 });
 ```
 
-- [ ] **Step 12: Run and confirm failure, then implement**
+- [x] **Step 12: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/stores/catalog.spec.js` → fails (module missing).
 
@@ -1633,7 +1633,7 @@ export { externalLinksFor };
 Run: `cd frontend && npx vitest run src/stores/catalog.spec.js`
 Expected: `Tests 7 passed`.
 
-- [ ] **Step 13: Full store suite + commit**
+- [x] **Step 13: Full store suite + commit**
 
 Run: `cd frontend && npm test`
 Expected: all Task 2 + Task 3 spec files pass — `Test Files 11 passed`, `Tests 73 passed` (40 from Task 2 + 5 persistedRef + 5 routeInfo + 5 theme + 5 i18n + 11 ui + 7 catalog... = 40+5+5+5+5+11+7 = 78; exact count will settle once written — treat "all files green, zero failures" as the pass bar rather than an exact number, since minor edge-case tests may be added while implementing).

@@ -3,3 +3,4 @@
 - 23:32 Task 0 (P1 branch setup): OK — feature/styleguide-2.0, baseline 134 tests green, phpstan clean
 - 23:38 Task 1 (P1 toolchain): OK — e098a2c, dist byte-identical, review approved (minor: esbuild dev-only audit flag)
 - 23:47 Task 2 (P1 lib extraction): OK — dd96866, 47/47 Vitest, parity verified incl. historical-regression math (0.6.1/0.6.3)
+- 08:04 Task 3 (P1 Pinia stores): OK — f041b28, 86/86 Vitest, all 9 localStorage keys preserved (overnight session-limit gap 00:20-07:59 noted)
