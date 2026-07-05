@@ -1013,7 +1013,7 @@ Per `AGENTS.md` § *Browser Verification*: load the `multi` fixture's styleguide
 
 **Interfaces:** per Interface Assumptions #6 — `playwright.config.js`'s `webServer` already boots `php -S 127.0.0.1:8421 -t tests/fixtures tests/fixtures/index.php`; specs use `page.goto('/styleguide/...')` against the configured `baseURL`.
 
-- [ ] **Step 1: Write the spec**
+- [x] **Step 1: Write the spec**
 
 ```js
 // tests/e2e/playwright/variants.spec.js
@@ -1054,12 +1054,12 @@ test.describe('file-convention variants', () => {
 });
 ```
 
-- [ ] **Step 2: Run**
+- [x] **Step 2: Run**
 
 Run (from `tests/e2e/playwright/`): `npx playwright test variants.spec.js`
 Expected: 4 passed. If the fixture server / config path differs from the Interface Assumption, fix the config first (do not hand-roll a second server-boot mechanism inside the spec).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 `git add tests/e2e/playwright/variants.spec.js`
 `git commit -m "test(e2e): variant switcher + deep links"`
