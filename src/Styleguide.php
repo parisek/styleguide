@@ -115,6 +115,20 @@ final class Styleguide
             }
         }
 
+        // `auth` gates every request (see `isAuthorized()`) — a typo'd or
+        // wrong-shape value here (a string, an array missing `__invoke`, …)
+        // must fail loudly at boot rather than silently falling back to
+        // "allow everything" inside `isAuthorized()`'s `is_callable()` check.
+        // Fail-open at request time on a misconfigured gate would be a
+        // security bug masquerading as backward compatibility; failing here
+        // instead surfaces it the moment the project boots, before it ever
+        // serves a request.
+        if (array_key_exists('auth', $config) && $config['auth'] !== null && !is_callable($config['auth'])) {
+            throw new \InvalidArgumentException(
+                "Styleguide: config key 'auth' must be null or callable(array<string,mixed>):bool",
+            );
+        }
+
         $this->config = $config + [
             'default_locale' => 'en',
             'base_url' => '/styleguide',
@@ -998,8 +1012,9 @@ final class Styleguide
 
     /**
      * Runs the `auth` config callable (if any) against the parsed route.
-     * Absent/non-callable `auth` (the default) means "allow everything" —
-     * fully backward compatible with pre-Task-6 behaviour.
+     * Absent `auth` (the default, `null`) means "allow everything" — fully
+     * backward compatible with pre-Task-6 behaviour. A non-null, non-callable
+     * value can no longer reach here — the constructor rejects it at boot.
      *
      * @param array<string, mixed> $route
      */
@@ -1010,7 +1025,26 @@ final class Styleguide
             return true;
         }
         /** @var callable(array<string,mixed>):bool $auth */
-        return (bool) $auth($route);
+        try {
+            return (bool) $auth($route);
+        } catch (\Throwable $e) {
+            // Fail closed: a throwing auth callable must never leak its stack
+            // trace to an unauthenticated caller. With `display_errors=On`
+            // (a common misconfiguration on shared hosting) an uncaught
+            // exception here would render as an HTML error page carrying
+            // file paths and, depending on the callable, secrets pulled from
+            // the environment it inspected before throwing — straight to
+            // whoever sent the request that triggered it. Denying the
+            // request and logging server-side keeps that detail off the
+            // wire while still leaving a breadcrumb for whoever wrote the
+            // callable to go fix it.
+            error_log(sprintf(
+                '[parisek/styleguide] auth callable threw %s: %s — denying request',
+                $e::class,
+                $e->getMessage(),
+            ));
+            return false;
+        }
     }
 
     /**

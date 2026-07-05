@@ -118,4 +118,69 @@ final class StyleguideTest extends TestCase
         self::assertIsArray(json_decode($output, true));
         http_response_code(200);
     }
+
+    #[Test]
+    public function explicit_null_auth_config_allows_every_route(): void
+    {
+        $sg = $this->newStyleguide(['auth' => null]);
+
+        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
+        ob_start();
+        $dispatch->invoke($sg, ['type' => 'api', 'endpoint' => 'components']);
+        $output = ob_get_clean();
+
+        self::assertNotSame(403, http_response_code());
+        self::assertIsArray(json_decode($output, true));
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function non_callable_non_null_auth_config_is_rejected_at_construction(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("config key 'auth' must be null or callable");
+
+        $this->newStyleguide(['auth' => 'not-a-callable']);
+    }
+
+    #[Test]
+    public function throwing_auth_callable_yields_403_without_leaking_the_exception(): void
+    {
+        $sg = $this->newStyleguide([
+            'auth' => static function (array $route): bool {
+                throw new \RuntimeException('boom — should never reach the response body');
+            },
+        ]);
+
+        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
+        ob_start();
+        // No exception should escape this invoke() — isAuthorized() must
+        // catch it and fail closed.
+        $dispatch->invoke($sg, ['type' => 'api', 'endpoint' => 'components']);
+        $output = ob_get_clean();
+
+        self::assertSame(403, http_response_code());
+        self::assertSame('403 Forbidden', $output);
+        self::assertStringNotContainsString('boom', $output);
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function auth_callable_returning_false_denies_a_non_api_asset_route(): void
+    {
+        // Demonstrates the gate runs before ANY dispatch branch, not just
+        // the API one — an asset route never reaches AssetServer::serve().
+        $sg = $this->newStyleguide([
+            'auth' => static fn(array $route): bool => false,
+        ]);
+
+        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
+        ob_start();
+        $dispatch->invoke($sg, ['type' => 'asset', 'path' => 'styleguide.js']);
+        $output = ob_get_clean();
+
+        self::assertSame(403, http_response_code());
+        self::assertSame('403 Forbidden', $output);
+        http_response_code(200);
+    }
 }
