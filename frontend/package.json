@@ -20,9 +20,6 @@
         "@playwright/test": "^1.49.0"
     },
     "dependencies": {
-        "alpinejs": "^3.14.0",
-        "@alpinejs/collapse": "^3.14.0",
-        "@alpinejs/persist": "^3.14.0",
         "vue": "^3.5.0",
         "pinia": "^2.3.0",
         "vue-router": "^4.5.0"

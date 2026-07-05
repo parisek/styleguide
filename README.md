@@ -12,7 +12,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Alpine.js 3 + Tailwind v4 sidebar with collapsible sections, search (`⌘K` / `Ctrl+K`), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, search (`⌘K` / `Ctrl+K`), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -235,7 +235,7 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 
 Four read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
 
-The SPA consumes all four (`frontend/stores/components.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
+The SPA consumes all four (`frontend/src/stores/catalog.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
 
 ### `GET /styleguide/api/components`
 
@@ -390,7 +390,7 @@ fields:
 | Key | Used by |
 |---|---|
 | `name` | sidebar label, iframe title |
-| `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/stores/components.js`. Unknown labels never get dropped, they fall into a default bucket. |
+| `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/src/stores/catalog.js`. Unknown labels never get dropped, they fall into a default bucket. |
 | `weight` | sort order within a bucket (lower = earlier; default `50`) |
 | `usage` | comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view) — drives the cross-reference chip panel |
 | `description` | sidebar tooltip + overview cards |
@@ -503,10 +503,12 @@ cd styleguide
 composer install
 vendor/bin/phpunit
 
-# SPA chrome (Vite + Tailwind v4 + Alpine)
+# SPA chrome (Vite + Vue 3 + Pinia + Tailwind v4)
 cd frontend
 npm install
 npm run watch          # rebuilds dist/ on every edit
+npm test               # Vitest unit suite (src/lib, src/stores, src/composables, src/components)
+npm run test:e2e       # Playwright, full-browser parity checklist
 ```
 
 Changes to PHP `src/` are picked up immediately (no build step). Changes to `frontend/*` require a Vite build — committed `dist/` artifacts are what consumers receive, so always commit the rebuilt bundle when the SPA changes.

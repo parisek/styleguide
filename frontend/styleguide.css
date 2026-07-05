@@ -4,15 +4,11 @@
    Explicitly source the Vite entry + JS modules so utility classes get picked up. */
 @source "./index.html";
 @source "./src/**/*.{js,vue}";
-/* Legacy Alpine sources stay scanned until Task 14 deletes them, so classes
-   used only by not-yet-ported markup keep generating during the migration. */
-@source "./components/**/*.js";
-@source "./stores/**/*.js";
 
 /* Class-based dark mode. The `:where(...)` keeps specificity at 0 so consumer
    styles inside the SPA chrome can still override without escalation. The
-   theme store in `stores/theme.js` toggles `.dark` on <html> and writes the
-   preference through `@alpinejs/persist` to `localStorage`. A synchronous
+   theme store in `src/stores/theme.js` toggles `.dark` on <html> and writes
+   the preference through `usePersistedRef` to `localStorage`. A synchronous
    inline script in <head> (see index.html) applies the class before this CSS
    loads so reloads in dark mode don't flash light. */
 @custom-variant dark (&:where(.dark, .dark *));
