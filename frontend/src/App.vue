@@ -7,6 +7,8 @@ import { useViewportPreset } from './composables/useViewportPreset.js';
 import Sidebar from './components/Sidebar.vue';
 import ViewportToolbar from './components/ViewportToolbar.vue';
 import FieldsDrawer from './components/FieldsDrawer.vue';
+import UsagePanel from './components/UsagePanel.vue';
+import LinkBar from './components/LinkBar.vue';
 
 const ui = useUiStore();
 const route = useRoute();
@@ -45,9 +47,8 @@ provide('viewport', viewport);
             <div v-if="viewport.currentItemDescription.value && routeSlug" class="sg-description-bar px-4 py-2 bg-zinc-100/60 border-b border-zinc-200 dark:bg-zinc-900/40 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                 <span v-html="viewport.currentItemDescription.value"></span>
             </div>
-            <!-- Task 10 replaces these two stubs with <UsagePanel /> and <LinkBar /> -->
-            <div data-testid="usage-panel-stub"></div>
-            <div data-testid="link-bar-stub"></div>
+            <UsagePanel />
+            <LinkBar />
             <FieldsDrawer v-if="viewport.fieldsCount.value > 0 && routeSlug" :fields="viewport.currentItem.value?.fields" />
             <RouterView />
         </main>
