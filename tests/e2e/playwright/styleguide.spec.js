@@ -160,6 +160,57 @@ test.describe('Styleguide SPA', () => {
         await expect(page.getByText('label', { exact: true })).toBeVisible();
     });
 
+    test('sidebar buckets cover all renderable components (and pages)', async ({ page, request }) => {
+        // Restores the legacy suite's named regression guard from
+        // smoke-browser.sh section 1 ("sidebar buckets cover all renderable
+        // components"), dropped when this spec replaced it. Protects against
+        // silent category-bucket drops: sectionOf() in catalog.js maps every
+        // component into exactly one of basic/blocks/gutenberg, so the sum of
+        // links rendered across those three sidebar sections must equal the
+        // count of renderable components (hasStyleguide !== false) returned
+        // by the API — an unrecognised/mistyped category label must never
+        // make a component vanish from the sidebar entirely.
+        const components = await (await request.get('/styleguide/api/components')).json();
+        const pages = await (await request.get('/styleguide/api/pages')).json();
+        const renderableComponents = components.filter((c) => c.hasStyleguide !== false).length;
+        const renderablePages = pages.filter((p) => p.hasStyleguide !== false).length;
+
+        // Seed the persisted section-collapse state *before* the SPA boots so
+        // every section (basic/blocks/gutenberg/pages) starts expanded --
+        // matches the localStorage shape usePersistedRef('sg-sections', ...)
+        // reads in Sidebar.vue. Cheaper and less brittle than clicking each
+        // section's collapse toggle (which would need to detect the button's
+        // current state to stay idempotent, since a second click re-collapses
+        // it); v-show keeps collapsed content in the DOM either way, but this
+        // also proves the UI can actually reveal every link once expanded.
+        await page.addInitScript(() => {
+            localStorage.setItem('sg-sections', JSON.stringify({
+                docs: true, basic: true, blocks: true, gutenberg: true, pages: true,
+            }));
+        });
+        await page.goto('/styleguide/');
+
+        // Sidebar.vue's <nav> renders five direct <div> children in a fixed
+        // order: docs, then basic/blocks/gutenberg (the `template v-for`
+        // section trio), then pages. Scoping by position (rather than text)
+        // sidesteps locale-dependent header labels entirely.
+        const sectionDivs = page.locator('aside nav > div');
+        const countLinks = (index) => sectionDivs.nth(index).locator('a').count();
+
+        // Counting raw <a> elements (not getByRole('link')) intentionally
+        // includes both flat top-level items AND grouped children's leaf
+        // links from the prefix-tree grouping (buildTree()/GROUP_MIN) --
+        // group *headers* are <button>s, never <a>s, so they're never
+        // double-counted alongside their children.
+        const basicLinks = await countLinks(1);
+        const blocksLinks = await countLinks(2);
+        const gutenbergLinks = await countLinks(3);
+        const pagesLinks = await countLinks(4);
+
+        expect(basicLinks + blocksLinks + gutenbergLinks).toBe(renderableComponents);
+        expect(pagesLinks).toBe(renderablePages);
+    });
+
     test('standalone render shows the back-bar; the same render inside the SPA iframe hides it', async ({ page }) => {
         // Replaces smoke-browser.sh section 6 — render-cell.twig's back-bar is
         // plain PHP/Twig + vanilla JS, entirely untouched by this rewrite;
