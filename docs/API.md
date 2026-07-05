@@ -93,6 +93,7 @@ These are public PHP visibility for autoload / framework reasons, but **not** pa
 | `Api\PagesEndpoint` | Same |
 | `Api\DocsEndpoint` | Same |
 | `Api\FieldsEndpoint` | Same |
+| `Api\HealthEndpoint` | Same — consumed via HTTP |
 
 Refactor of internal classes (rename, split, merge, change method signatures) is free in any minor release. Consumers depending on internal classes do so at their own risk.
 
@@ -216,6 +217,19 @@ Flat list of every component / page that exposes a `fields:` map. Only component
 }
 ```
 
+### `GET /styleguide/api/health`
+
+Diagnostics for `ComponentParser`'s per-file resilience (added alongside the `\Throwable`-catching change — see CHANGELOG). Not part of the four catalogue endpoints' bare-array shape; this one is deliberately an object.
+
+**Response shape:**
+
+```ts
+{
+  warnings: Array<{ file: string; error: string }>; // relative to templates_path; empty when nothing was skipped
+  counts: { components: number; pages: number; docs: number };
+}
+```
+
 ## URL surface — `@api`
 
 | Pattern | Purpose |
@@ -229,6 +243,7 @@ Flat list of every component / page that exposes a `fields:` map. Only component
 | `/styleguide/overview` | SPA — Components & Pages catalog |
 | `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations`. Accepts an additive `?theme=light\|dark` query param (whitelisted server-side, default `light`) — stamps `class="dark"` + `color-scheme: dark` on the rendered `<html>`. |
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
+| `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |
 

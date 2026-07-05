@@ -227,15 +227,16 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 | `/styleguide/api/pages` | JSON | List of pages — same shape as components |
 | `/styleguide/api/docs` | JSON | List of doc entries — same shape as pages; `[]` when `templates/doc/` is absent |
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
+| `/styleguide/api/health` | JSON | Parse-resilience diagnostics — see [API](#api) below |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
 
 ---
 
 ## API
 
-Four read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
+Five read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
 
-The SPA consumes all four (`frontend/src/stores/catalog.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
+The SPA consumes all five (`frontend/src/stores/catalog.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
 
 ### `GET /styleguide/api/components`
 
@@ -306,6 +307,24 @@ Aggregated view of every component's `fields:` metadata, **flattened across comp
 
 Data source for the SPA's `/styleguide/fields` inspector — useful for one-shot answers like *"where do we use a `richtext` field?"* without walking the whole component list.
 
+### `GET /styleguide/api/health`
+
+Diagnostics for `ComponentParser`'s resilience: `parse()`/`parseAll()` now catch `\Throwable` per file instead of only a YAML parse error, so one pathological template is skipped and recorded rather than 500ing the whole catalogue. This endpoint reports what got skipped, plus how much made it through.
+
+Unlike the four endpoints above, the response is an **object**, not a bare array — there's no additive slot to bolt a `_warnings` field onto a bare-array response without breaking every existing consumer of that shape.
+
+**Response shape**:
+
+```jsonc
+{
+  "warnings": [
+    { "file": "component/broken-widget/broken-widget.twig", "error": "…exception message…" }
+    // empty array when nothing was skipped
+  ],
+  "counts": { "components": 42, "pages": 7, "docs": 3 }
+}
+```
+
 ### Caching
 
 Every endpoint sets `Cache-Control: no-cache`. Responses are recomputed per request because the underlying source (YAML in `.twig` files) changes during dev and there's no invalidation signal. The work is a filesystem walk + one YAML parse per file — acceptable even for large component libraries.
@@ -314,13 +333,13 @@ If you need to serve these at scale, wrap them behind your project's own HTTP ca
 
 ### Adding a new endpoint
 
-The three endpoint classes (`src/Api/*Endpoint.php`) share the same shape: constructor takes the `ComponentParser`, `handle()` emits headers + `json_encode()`. New endpoints follow the same pattern:
+The endpoint classes (`src/Api/*Endpoint.php`) share the same shape: constructor takes the `ComponentParser`, `handle()` emits headers + `json_encode()`. New endpoints follow the same pattern:
 
 1. Create `src/Api/<Name>Endpoint.php` mirroring the existing trio.
 2. Wire it into `Styleguide::dispatchApi()` (the `match` block on `$route['endpoint']`).
 3. Add a test under `tests/Api/<Name>EndpointTest.php`.
 
-There's deliberately no shared base class — three near-identical classes are clearer than an abstraction that hides where the headers and encoding happen.
+There's deliberately no shared base class — near-identical classes are clearer than an abstraction that hides where the headers and encoding happen.
 
 ---
 

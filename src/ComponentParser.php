@@ -22,8 +22,15 @@ use Symfony\Component\Yaml\Yaml;
  * a normalised array of component/page metadata: name, category, description, fields, …
  *
  * Tabs in YAML are auto-converted to 4 spaces — Twig editors insert tabs, YAML rejects them.
+ *
+ * Deliberately not `final` (deviates from this package's PSR-12 convention):
+ * `tests/ComponentParserTest.php` doubles this class via `getMockBuilder()`
+ * to exercise the `\Throwable`-catching resilience path deterministically
+ * (see `getWarnings()`), and PHPUnit's mock generator unconditionally
+ * refuses to double a class reflection reports as final — there is no
+ * opt-out. No production subclassing is implied or supported.
  */
-final class ComponentParser
+class ComponentParser
 {
     /**
      * @api Public contract. Used by the `vendor/bin/styleguide` CLI and by
@@ -40,9 +47,26 @@ final class ComponentParser
 
     private string $templatesPath;
 
+    /** @var list<array{file:string, error:string}> */
+    private array $warnings = [];
+
     public function __construct(string $templatesPath)
     {
         $this->templatesPath = rtrim($templatesPath, '/');
+    }
+
+    /**
+     * @internal Exposed for `Api\HealthEndpoint`; not part of the SemVer
+     *           contract — see docs/API.md § Other PHP classes.
+     *
+     * Files `parse()`/`parseAll()` had to skip because parsing their front
+     * comment threw, accumulated across every call made on this instance.
+     *
+     * @return list<array{file:string, error:string}>
+     */
+    public function getWarnings(): array
+    {
+        return $this->warnings;
     }
 
     /**
@@ -77,17 +101,27 @@ final class ComponentParser
             return null;
         }
 
-        $content = (string) file_get_contents($file);
-        $metadata = $this->parseTwigComment($content);
+        try {
+            $content = (string) file_get_contents($file);
+            $metadata = $this->parseTwigComment($content);
 
-        if (!$metadata || !isset($metadata['name'])) {
+            if (!$metadata || !isset($metadata['name'])) {
+                return null;
+            }
+
+            $hasStyleguide = file_exists($dir . '/styleguide.twig')
+                || isset($metadata['styleguide']);
+
+            return $this->normaliseMetadata($id, $metadata, $hasStyleguide);
+        } catch (\Throwable $e) {
+            // Single-file lookup path (used by Styleguide::dispatchRender()
+            // for the render endpoint's <title>/body_class/render metadata)
+            // — same resilience contract as parseAll(): a broken template
+            // degrades this lookup to the pre-existing "no metadata" outcome
+            // (null) instead of 500ing the render endpoint itself.
+            $this->recordWarning($this->relativePath($file), $e);
             return null;
         }
-
-        $hasStyleguide = file_exists($dir . '/styleguide.twig')
-            || isset($metadata['styleguide']);
-
-        return $this->normaliseMetadata($id, $metadata, $hasStyleguide);
     }
 
     /**
@@ -113,17 +147,27 @@ final class ComponentParser
             }
 
             $content = (string) file_get_contents($file->getPathname());
-            $metadata = $this->parseTwigComment($content);
 
-            if (!$metadata || !isset($metadata['name'])) {
+            try {
+                $metadata = $this->parseTwigComment($content);
+
+                if (!$metadata || !isset($metadata['name'])) {
+                    continue;
+                }
+
+                $id = $file->getBasename('.twig');
+                $hasStyleguide = file_exists($file->getPath() . '/styleguide.twig')
+                    || isset($metadata['styleguide']);
+
+                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide);
+            } catch (\Throwable $e) {
+                // One pathological template must not 500 the whole catalogue for
+                // every sibling component. Record it and keep walking; surfaced
+                // via GET /styleguide/api/health, invisible to the normal
+                // component list the SPA renders.
+                $this->recordWarning($this->relativePath($file->getPathname()), $e);
                 continue;
             }
-
-            $id = $file->getBasename('.twig');
-            $hasStyleguide = file_exists($file->getPath() . '/styleguide.twig')
-                || isset($metadata['styleguide']);
-
-            $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide);
         }
 
         usort($items, function ($a, $b): int {
@@ -199,5 +243,23 @@ final class ComponentParser
             'responsive' => ($metadata['responsive'] ?? true) !== false,
             'hasStyleguide' => $hasStyleguide,
         ];
+    }
+
+    private function recordWarning(string $relativeFile, \Throwable $e): void
+    {
+        foreach ($this->warnings as $warning) {
+            if ($warning['file'] === $relativeFile) {
+                // Idempotent within one request/instance — a caller that
+                // queries the same type twice shouldn't accumulate
+                // duplicate entries for the same broken file.
+                return;
+            }
+        }
+        $this->warnings[] = ['file' => $relativeFile, 'error' => $e->getMessage()];
+    }
+
+    private function relativePath(string $absolutePath): string
+    {
+        return ltrim(substr($absolutePath, strlen($this->templatesPath)), '/');
     }
 }

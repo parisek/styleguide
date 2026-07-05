@@ -1101,6 +1101,7 @@ final class Styleguide
             'docs' => new Api\DocsEndpoint($this->parser),
             'fields' => new Api\FieldsEndpoint($this->parser),
             'pages' => new Api\PagesEndpoint($this->parser),
+            'health' => new Api\HealthEndpoint($this->parser),
             default => null,
         };
 

@@ -16,6 +16,7 @@ describe('useCatalogStore', () => {
             if (url.endsWith('/api/components')) return jsonResponse([{ id: 'hero', name: 'Hero', category: 'Block' }]);
             if (url.endsWith('/api/pages')) return jsonResponse([{ id: 'homepage', name: 'Homepage', usage: 'hero' }]);
             if (url.endsWith('/api/docs')) return jsonResponse([]);
+            if (url.endsWith('/api/health')) return jsonResponse({ warnings: [], counts: {} });
             throw new Error(`unexpected fetch ${url}`);
         });
         const catalog = useCatalogStore();
@@ -31,6 +32,34 @@ describe('useCatalogStore', () => {
         const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         const catalog = useCatalogStore();
         await catalog.init();
+        expect(catalog.loading).toBe(false);
+        errSpy.mockRestore();
+    });
+
+    it('init() populates warnings from /api/health without blocking the main catalogue', async () => {
+        global.fetch = vi.fn((url) => {
+            if (url.endsWith('/api/components')) return jsonResponse([]);
+            if (url.endsWith('/api/pages')) return jsonResponse([]);
+            if (url.endsWith('/api/docs')) return jsonResponse([]);
+            if (url.endsWith('/api/health')) {
+                return jsonResponse({ warnings: [{ file: 'component/broken/broken.twig', error: 'boom' }], counts: {} });
+            }
+            throw new Error(`unexpected fetch ${url}`);
+        });
+        const catalog = useCatalogStore();
+        await catalog.init();
+        expect(catalog.warnings).toEqual([{ file: 'component/broken/broken.twig', error: 'boom' }]);
+    });
+
+    it('init() leaves warnings empty (not throwing) when the health fetch fails', async () => {
+        global.fetch = vi.fn((url) => {
+            if (url.endsWith('/api/health')) return Promise.reject(new Error('health down'));
+            return jsonResponse([]);
+        });
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const catalog = useCatalogStore();
+        await catalog.init();
+        expect(catalog.warnings).toEqual([]);
         expect(catalog.loading).toBe(false);
         errSpy.mockRestore();
     });

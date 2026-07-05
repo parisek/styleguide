@@ -67,5 +67,8 @@
         "dark": "Tmavé téma",
         "system": "Podle systému",
         "toggle": "Přepnout vzhled"
+    },
+    "health": {
+        "warnings_title": "Některé šablony se nepodařilo zpracovat — kliknutím zobrazíte podrobnosti v konzoli"
     }
 }

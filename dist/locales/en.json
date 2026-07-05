@@ -67,5 +67,8 @@
         "dark": "Dark theme",
         "system": "Match system",
         "toggle": "Toggle theme"
+    },
+    "health": {
+        "warnings_title": "Some templates failed to parse — click to log details to the console"
     }
 }

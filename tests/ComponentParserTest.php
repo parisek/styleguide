@@ -5,9 +5,16 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Tests;
 
 use Parisek\Styleguide\ComponentParser;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+// Class-level: the \Throwable-resilience tests below use getMockBuilder()
+// purely as a stub (willReturnCallback) to force a controlled exception out
+// of parseTwigComment() — never asserting call counts/arguments via
+// expects(). PHPUnit 12 nudges towards test stubs for that use case; opting
+// out here documents the choice instead of silently swallowing the notice.
+#[AllowMockObjectsWithoutExpectations]
 final class ComponentParserTest extends TestCase
 {
     private string $fixturesPath;
@@ -176,5 +183,82 @@ final class ComponentParserTest extends TestCase
         $meta = $parser->parse('doc', 'sample-doc');
         self::assertNotNull($meta);
         self::assertFalse($meta['responsive']);
+    }
+
+    #[Test]
+    public function parse_all_skips_a_throwing_file_and_records_a_warning(): void
+    {
+        $real = new ComponentParser($this->fixturesPath);
+        $parser = $this->getMockBuilder(ComponentParser::class)
+            ->setConstructorArgs([$this->fixturesPath])
+            ->onlyMethods(['parseTwigComment'])
+            ->getMock();
+        // Force exactly the `sample` fixture's content to throw a generic
+        // \RuntimeException (not the ParseException the old code only
+        // caught); every other fixture delegates to the real parser so the
+        // rest of the catalogue proves unaffected.
+        $parser->method('parseTwigComment')->willReturnCallback(
+            static function (string $content) use ($real) {
+                if (str_contains($content, 'name: "Sample"')) {
+                    throw new \RuntimeException('simulated parser fault');
+                }
+                return $real->parseTwigComment($content);
+            },
+        );
+
+        $items = $parser->parseAll('component');
+
+        self::assertNotContains('Sample', array_column($items, 'name'));
+        self::assertContains('Another', array_column($items, 'name'));
+        self::assertContains('Gizmo', array_column($items, 'name'));
+
+        $warnings = $parser->getWarnings();
+        self::assertCount(1, $warnings);
+        self::assertSame('component/sample/sample.twig', $warnings[0]['file']);
+        self::assertSame('simulated parser fault', $warnings[0]['error']);
+    }
+
+    #[Test]
+    public function warnings_do_not_duplicate_across_repeated_calls_for_the_same_file(): void
+    {
+        $real = new ComponentParser($this->fixturesPath);
+        $parser = $this->getMockBuilder(ComponentParser::class)
+            ->setConstructorArgs([$this->fixturesPath])
+            ->onlyMethods(['parseTwigComment'])
+            ->getMock();
+        $parser->method('parseTwigComment')->willReturnCallback(
+            static function (string $content) use ($real) {
+                if (str_contains($content, 'name: "Sample"')) {
+                    throw new \RuntimeException('simulated parser fault');
+                }
+                return $real->parseTwigComment($content);
+            },
+        );
+
+        $parser->parseAll('component');
+        $parser->parseAll('component');
+
+        self::assertCount(1, $parser->getWarnings());
+    }
+
+    #[Test]
+    public function parse_returns_null_and_records_a_warning_for_a_throwing_file(): void
+    {
+        $real = new ComponentParser($this->fixturesPath);
+        $parser = $this->getMockBuilder(ComponentParser::class)
+            ->setConstructorArgs([$this->fixturesPath])
+            ->onlyMethods(['parseTwigComment'])
+            ->getMock();
+        $parser->method('parseTwigComment')->willReturnCallback(
+            static function (string $content) use ($real) {
+                if (str_contains($content, 'name: "Sample"')) {
+                    throw new \RuntimeException('simulated parser fault');
+                }
+                return $real->parseTwigComment($content);
+            },
+        );
+
+        self::assertNull($parser->parse('component', 'sample'));
+        self::assertSame('component/sample/sample.twig', $parser->getWarnings()[0]['file']);
     }
 }

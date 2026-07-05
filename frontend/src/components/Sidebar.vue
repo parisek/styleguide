@@ -9,6 +9,7 @@ import { filterItems } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
 import { useSearchShortcuts } from '../composables/useSearchShortcuts.js';
+import HealthWarningBadge from './HealthWarningBadge.vue';
 // Read directly rather than `import { config } from '../main.js'`: main.js
 // -> App.vue -> Sidebar.vue is already an import chain, so pulling `config`
 // back out of main.js here would close a circular-import loop. readSpaConfig
@@ -111,6 +112,9 @@ function supportedLocales() {
                     <div class="text-xs text-zinc-500 truncate">{{ i18n.t('nav.styleguide') }}</div>
                 </div>
             </a>
+            <!-- Parser-warnings badge — hidden by default, appears only when
+                 GET /styleguide/api/health reports skipped templates. -->
+            <HealthWarningBadge />
             <!-- Theme toggle: cycles light → dark → system → light. The
                  icon swap follows the *chosen* mode (not the resolved
                  theme) so the user sees which mode they're in, including

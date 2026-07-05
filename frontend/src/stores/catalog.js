@@ -12,6 +12,7 @@ export const useCatalogStore = defineStore('catalog', {
         items: [],
         pages: [],
         docs: [],
+        warnings: [],
         loading: true,
     }),
     getters: {
@@ -33,6 +34,18 @@ export const useCatalogStore = defineStore('catalog', {
                 console.error('[styleguide] failed to load catalogue', err);
             } finally {
                 this.loading = false;
+            }
+
+            // Health is operator diagnostics, not core catalogue data — fetched
+            // in its own try/catch so a network hiccup (or an older server
+            // build predating this endpoint) never blocks or fails loading of
+            // the actual component/page/doc list above.
+            try {
+                const healthRes = await fetch('/styleguide/api/health');
+                const health = await healthRes.json();
+                this.warnings = health.warnings ?? [];
+            } catch (err) {
+                console.error('[styleguide] failed to load health diagnostics', err);
             }
         },
 
