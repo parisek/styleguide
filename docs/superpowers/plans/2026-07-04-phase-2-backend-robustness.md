@@ -850,7 +850,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
 - Consumes: nothing new.
 - Produces: `tryAddFunction`/`tryAddFilter` (private, unchanged signatures) now swallow **every** `\LogicException` from `addFunction()`/`addFilter()`, logging to `error_log()` only when the message doesn't look like the expected "already registered" collision.
 
-- [ ] Failing test: a project-pre-registered helper must still win (this already passes today — write it anyway as the explicit contract pin the outline calls for, since no test currently asserts it against a *pristine* env path).
+- [x] Failing test: a project-pre-registered helper must still win (this already passes today — write it anyway as the explicit contract pin the outline calls for, since no test currently asserts it against a *pristine* env path).
   - Add to `tests/BundledHelpersTest.php`:
     ```php
     #[Test]
@@ -873,7 +873,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter project_preregistered_helper_wins` — passes already (this is the pre-existing "duplicate name" path, unaffected by this task) — confirms the safety net before changing anything.
 
-- [ ] Failing test: a *genuinely different* `LogicException` (Twig's "extensions already initialized" case) must be swallowed, not rethrown — this is the actual behavior change.
+- [x] Failing test: a *genuinely different* `LogicException` (Twig's "extensions already initialized" case) must be swallowed, not rethrown — this is the actual behavior change.
   - Add to `tests/BundledHelpersTest.php`:
     ```php
     #[Test]
@@ -909,7 +909,7 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter non_duplicate_logic_exception` — fails today: the constructor throws an uncaught `LogicException` (the old code's `if (!str_contains(...)) { throw $e; }` rethrows it).
 
-- [ ] Implement in `src/Styleguide.php`:
+- [x] Implement in `src/Styleguide.php`:
     ```php
     /**
      * Register a Twig function, swallowing any `LogicException` from
@@ -958,14 +958,14 @@ Router is `@internal` (see `docs/API.md` § "Other PHP classes & methods — `@i
     ```
   - Run `vendor/bin/phpunit --filter BundledHelpersTest` — all green. Run `composer test` — full suite green. Run `composer phpstan` — clean.
 
-- [ ] Update `CHANGELOG.md` under `[Unreleased]`:
+- [x] Update `CHANGELOG.md` under `[Unreleased]`:
     ```markdown
     ### Changed
 
     - **Helper registration no longer matches Twig exception text.** `tryAddFunction()`/`tryAddFilter()` used to rethrow unless the `LogicException` message contained the literal substring `"already registered"` — version-fragile and untested. They now always swallow (never crash a consumer's boot over a Twig-internal message change) and log to `error_log()` when the message doesn't match the expected collision, so the rare genuine-misuse case still leaves a trace.
     ```
 
-- [ ] Commit: `fix(styleguide): stop matching Twig LogicException text for helper registration`.
+- [x] Commit: `fix(styleguide): stop matching Twig LogicException text for helper registration`.
 
 ### Task 5: AssetServer `.map` MIME + foundations-CSS glob hardening
 
