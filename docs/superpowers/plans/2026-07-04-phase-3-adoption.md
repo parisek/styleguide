@@ -62,7 +62,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
 | `unknown-render` | Error | Raw metadata has a `render:` key whose value isn't one of `ComponentParser::RENDER_MODES` (`inset`\|`bleed`\|`chrome`\|`overlay`) |
 | `empty-description` | Notice | Normalised `description` is missing or an empty/whitespace-only string |
 
-- [ ] **Step 1: Create the lint fixture tree**
+- [x] **Step 1: Create the lint fixture tree**
 
   `tests/fixtures/lint/templates/component/clean/clean.twig` — zero-findings control fixture:
   ```twig
@@ -164,7 +164,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
 
   Commit: `git add tests/fixtures/lint tests/fixtures/lint-notice-only tests/fixtures/lint-clean && git commit -m "test(fixtures): add styleguide-lint fixture trees for the 5 finding types"`
 
-- [ ] **Step 2: Write the failing `LinterTest`**
+- [x] **Step 2: Write the failing `LinterTest`**
 
   Create `tests/Cli/LinterTest.php`:
   ```php
@@ -325,7 +325,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   Run: `vendor/bin/phpunit --filter LinterTest`
   Expected: fatal error — `Class "Parisek\Styleguide\Cli\Linter" not found`. This is the red state.
 
-- [ ] **Step 3: Implement `LintSeverity`**
+- [x] **Step 3: Implement `LintSeverity`**
 
   Create `src/Cli/LintSeverity.php`:
   ```php
@@ -355,7 +355,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   }
   ```
 
-- [ ] **Step 4: Implement `LintFinding`**
+- [x] **Step 4: Implement `LintFinding`**
 
   Create `src/Cli/LintFinding.php`:
   ```php
@@ -394,7 +394,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   }
   ```
 
-- [ ] **Step 5: Implement `Linter`**
+- [x] **Step 5: Implement `Linter`**
 
   Create `src/Cli/Linter.php`:
   ```php
@@ -599,7 +599,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
 
   Commit: `git add src/Cli/Linter.php src/Cli/LintFinding.php src/Cli/LintSeverity.php tests/Cli/LinterTest.php && git commit -m "feat(cli): add Linter — pure metadata-quality scan over templates/"`
 
-- [ ] **Step 6: Write the failing `LintCommandTest`**
+- [x] **Step 6: Write the failing `LintCommandTest`**
 
   Create `tests/Cli/LintCommandTest.php`:
   ```php
@@ -799,7 +799,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   Run: `vendor/bin/phpunit --filter LintCommandTest`
   Expected: failures — `lint` currently falls through to "Unknown command" (exit 1, not 2/1/0 as asserted). Red.
 
-- [ ] **Step 7: Wire `lint` into `Command`**
+- [x] **Step 7: Wire `lint` into `Command`**
 
   Modify `src/Cli/Command.php`. In `run()`, insert the new branch right after the `--help` check and before the existing `$rawType` default (list/show keep defaulting `--type` to `'component'`; `lint` needs `null` = "all three types", so it must branch away before that default is applied):
   ```php
@@ -909,7 +909,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
       }
   ```
 
-- [ ] **Step 8: Extend `CommandTest` and `BinSmokeTest`**
+- [x] **Step 8: Extend `CommandTest` and `BinSmokeTest`**
 
   In `tests/Cli/CommandTest.php`, extend the existing `help_flag_prints_usage_to_stdout` test with two more assertions (append, don't replace):
   ```php
@@ -933,7 +933,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
       }
   ```
 
-- [ ] **Step 9: Full suite green**
+- [x] **Step 9: Full suite green**
 
   Run: `composer test`
   Expected: all tests pass, including `LinterTest`, `LintCommandTest`, the extended `CommandTest`, and `BinSmokeTest`.
@@ -941,7 +941,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   Run: `composer phpstan`
   Expected: no errors at level 8. If PHPStan flags the `(string) $metadata['usage']` cast or the spread in `knownIds()`, add narrower type guards rather than suppressing — e.g. an explicit `is_string($metadata['usage']) ? $metadata['usage'] : (is_scalar($metadata['usage']) ? (string) $metadata['usage'] : '')` if the implicit mixed-to-string cast trips a rule.
 
-- [ ] **Step 10: Docs — README § Command-line catalogue**
+- [x] **Step 10: Docs — README § Command-line catalogue**
 
   In `README.md`, immediately after the existing `show <id> ... --type=doc` example block (and before the `jq` filtering example, or after it — keep it inside the same "Command-line catalogue (CLI)" section, right before the `---` separator that follows), add:
   ````markdown
@@ -968,7 +968,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   walkthrough.
   ````
 
-- [ ] **Step 11: Docs — `docs/API.md` § CLI**
+- [x] **Step 11: Docs — `docs/API.md` § CLI**
 
   In `docs/API.md`, replace the CLI table:
   ```markdown
@@ -993,7 +993,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   found). `list` and `show` keep their existing `0`/`1` contract.
   ```
 
-- [ ] **Step 12: `CHANGELOG.md`**
+- [x] **Step 12: `CHANGELOG.md`**
 
   Under `## [Unreleased]`, add:
   ```markdown
@@ -1002,7 +1002,7 @@ Five findings to implement — each gets its own fixture and its own assertion:
   - **`styleguide lint` CLI subcommand.** Reports metadata quality issues across `templates/`: unindexed templates (no parseable `name:`), dead `styleguide:` YAML content, broken `usage:` cross-references, unknown `render:` values, and empty `description` strings. `--type=component|page|doc` (default: all three), `--format=text|json` (default: text), reuses `--templates`/`--pretty`. Exit `0` clean, `1` warning/error findings present, `2` usage/internal error — a three-tier contract specific to `lint` (`list`/`show` keep their existing `0`/`1` codes). See `docs/API.md` § CLI and `README.md` § Command-line catalogue.
   ```
 
-- [ ] **Step 13: Commit**
+- [x] **Step 13: Commit**
 
   `git add src/Cli/Command.php tests/Cli/LintCommandTest.php tests/Cli/CommandTest.php tests/Cli/BinSmokeTest.php README.md docs/API.md CHANGELOG.md && git commit -m "feat(cli): wire 'styleguide lint' subcommand with text/json output and its own exit-code contract"`
 
