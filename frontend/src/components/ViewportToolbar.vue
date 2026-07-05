@@ -124,6 +124,34 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              keeps the layout stable across reloads). -->
         <template v-if="viewport.toolbarVisible.value">
             <div class="flex items-center gap-2 shrink-0">
+                <!-- Variant switcher (Phase 4 Task 3) -- one file-convention
+                     styleguide.<variant>.twig sibling per button (Task 1:
+                     ComponentParser.discoverVariants()), plus a leading
+                     "Default" entry for the implicit no-variant file. Only
+                     rendered when the current entry actually has discovered
+                     variants; deep-linkable via ?variant= (useVariant.js). -->
+                <div
+                    v-if="viewport.currentItem.value?.variants?.length > 0"
+                    data-testid="variant-switcher"
+                    role="group"
+                    :aria-label="i18n.t('toolbar.variant_label')"
+                    class="inline-flex items-center gap-0.5 rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800"
+                >
+                    <button
+                        type="button"
+                        class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                        :class="!viewport.variant.value ? 'bg-red-600 text-white dark:bg-red-500' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
+                        @click="viewport.setVariant(null)"
+                    >{{ i18n.t('toolbar.variant_default') }}</button>
+                    <button
+                        v-for="v in viewport.currentItem.value.variants"
+                        :key="v.id"
+                        type="button"
+                        class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
+                        :class="viewport.variant.value === v.id ? 'bg-red-600 text-white dark:bg-red-500' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
+                        @click="viewport.setVariant(v.id)"
+                    >{{ v.label }}</button>
+                </div>
                 <!-- Unified viewport switcher — one labelled dropdown at every width
                      (replaces the old xl segmented bar + separate mobile menu). The
                      trigger always shows the device word + dimensions, so the control

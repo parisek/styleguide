@@ -141,6 +141,42 @@ describe('useViewportPreset', () => {
         expect(vp.currentSectionKey.value).toBe('pages');
     });
 
+    it('iframeSrc appends ?variant= when a variant ref is supplied and set', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const variant = ref('secondary');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/multi?variant=secondary');
+    });
+
+    it('iframeSrc omits ?variant= when the ref is null (default, matches pre-Task-3 URL shape)', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/multi');
+    });
+
+    it('iframeSrc composes ?variant= with the dark iframe theme param', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const ui = useUiStore();
+        const variant = ref('secondary');
+        ui.setIframeTheme('dark');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/multi?theme=dark&variant=secondary');
+    });
+
+    it('passes the variant/setVariant refs through unchanged for injected components to consume', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const variant = ref('secondary');
+        const setVariant = (id) => { variant.value = id; };
+        const vp = useViewportPreset({ type, slug, variant, setVariant });
+        vp.setVariant('dark-bg');
+        expect(variant.value).toBe('dark-bg');
+        expect(vp.variant.value).toBe('dark-bg');
+    });
+
     it('fieldsTree/fieldsCount reflect the current item\'s YAML fields map', () => {
         const type = ref('component');
         const slug = ref('hero');

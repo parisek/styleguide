@@ -23,7 +23,9 @@
         "orientation_landscape": "Landscape",
         "reload": "Reload",
         "more_actions": "More actions",
-        "iframe_theme": "Toggle iframe dark mode"
+        "iframe_theme": "Toggle iframe dark mode",
+        "variant_label": "Variant",
+        "variant_default": "Default"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

@@ -12,7 +12,15 @@ import { flattenFieldsTree } from '../lib/fieldsTree.js';
 // and PreviewPane.vue/FieldsDrawer.vue/UsagePanel.vue/LinkBar.vue
 // (Tasks 8-10) — mirrors the legacy single `x-data="preview"` Alpine scope
 // that all of that markup shared.
-export function useViewportPreset({ type, slug }) {
+// `variant`/`setVariant` default to a no-op ref/fn so every pre-existing
+// call site (and useViewportPreset.spec.js, which constructs the composable
+// directly outside any router-aware component setup) keeps working
+// unchanged. Production wiring lives in App.vue: useVariant() needs
+// useRoute()/useRouter() (vue-router injection, only available inside a
+// mounted component's setup()), so it's computed one level up and threaded
+// through here as plain refs -- same "shared-scope illusion" pattern type/
+// slug already use.
+export function useViewportPreset({ type, slug, variant = ref(null), setVariant = () => {} }) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
 
@@ -138,6 +146,11 @@ export function useViewportPreset({ type, slug }) {
         // toggle (stores/theme.js). Only appended when dark so the historical
         // (pre-feature) URL shape is unchanged for the default 'light' case.
         if (ui.iframeTheme === 'dark') src += (src.includes('?') ? '&' : '?') + 'theme=dark';
+        // File-convention variant (Task 1: ComponentParser.discoverVariants(),
+        // Task 2: Router::whitelistVariant()/Renderer resolve it server-side).
+        // Only appended when set, same omit-the-default-case shape as theme
+        // above -- the historical no-variant render URL is unchanged.
+        if (variant.value) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variant.value)}`;
         return src;
     });
 
@@ -214,7 +227,7 @@ export function useViewportPreset({ type, slug }) {
         // a router context (see ViewportToolbar.spec.js). Passing the refs
         // through keeps the single shared-scope illusion the legacy
         // `x-data="preview"` Alpine component provided.
-        type, slug,
+        type, slug, variant, setVariant,
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
         reloadPreview, iframeSrc, toolbarVisible, currentSectionKey, currentItemName,

@@ -2,8 +2,10 @@
 import { computed, provide } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUiStore } from './stores/ui.js';
+import { useCatalogStore } from './stores/catalog.js';
 import { routeInfo } from './lib/routeInfo.js';
 import { useViewportPreset } from './composables/useViewportPreset.js';
+import { useVariant } from './composables/useVariant.js';
 import Sidebar from './components/Sidebar.vue';
 import ViewportToolbar from './components/ViewportToolbar.vue';
 import FieldsDrawer from './components/FieldsDrawer.vue';
@@ -11,10 +13,24 @@ import UsagePanel from './components/UsagePanel.vue';
 import LinkBar from './components/LinkBar.vue';
 
 const ui = useUiStore();
+const catalog = useCatalogStore();
 const route = useRoute();
 
 const routeType = computed(() => routeInfo(route).type);
 const routeSlug = computed(() => routeInfo(route).slug);
+// Computed independently from useViewportPreset()'s own internal
+// currentItem lookup (same catalog.find(type, slug) call, cheap and pure) —
+// useVariant() needs the entry's discovered `variants` list *before*
+// useViewportPreset() exists, purely to validate/whitelist an incoming
+// `?variant=` query id (Task 1: ComponentParser.discoverVariants()).
+const currentEntry = computed(() => (routeSlug.value ? catalog.find(routeType.value, routeSlug.value) : null));
+// useVariant() calls useRoute()/useRouter() internally, which only work
+// inside a mounted component's setup() — App.vue is that component, so the
+// resulting refs are threaded into useViewportPreset() as plain params
+// (mirrors how type/slug are already passed in rather than sourced
+// internally), keeping useViewportPreset.spec.js's router-free construction
+// working unchanged.
+const { variant, setVariant } = useVariant(currentEntry);
 // Provided one level above <RouterView/>, not inside PreviewView.vue — the
 // legacy DOM's toolbar/description/usage/link/fields chrome are siblings of
 // the route-specific body inside the SAME `x-data="preview"` scope, not
@@ -22,7 +38,7 @@ const routeSlug = computed(() => routeInfo(route).slug);
 // /overview and /foundations). See Task 7 brief Step 9 for the full
 // rationale. PreviewPane.vue/FieldsDrawer.vue/UsagePanel.vue/LinkBar.vue
 // (Tasks 8-10) inject this same instance through <RouterView/>.
-const viewport = useViewportPreset({ type: routeType, slug: routeSlug });
+const viewport = useViewportPreset({ type: routeType, slug: routeSlug, variant, setVariant });
 provide('viewport', viewport);
 </script>
 
