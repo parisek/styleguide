@@ -10,3 +10,4 @@
 - 09:29 Task 7 (P1 viewport toolbar): OK — 2aa01aa, 120/120 Vitest, absolute orientation + fit-to-bounds parity verified
 - 09:46 Task 8 (P1 PreviewPane): OK — 2e5712c+bc79a07, 128/128 Vitest, observer leak fixed
 - 09:51 Task 9 (P1 FieldsDrawer): OK — ca7f661, 132/132 Vitest, fixed brief's spec (added attachTo: document.body — jsdom quirk with detached v-show elements)
+- 10:09 Task 10 (P1 usage panel + link bar): OK — e3cd0e7+65999ef, 140/140 Vitest, dormant doc-route parity gap fixed

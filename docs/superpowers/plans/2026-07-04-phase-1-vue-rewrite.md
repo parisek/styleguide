@@ -3613,7 +3613,7 @@ Ports `frontend/components/usage.js` + `frontend/components/linkBar.js` — the 
 - `UsagePanel.vue` — no props (injects `'viewport'` for `currentItem`/`type`); consumes `useCatalogStore()` (`pages`, `items`) and `useI18nStore()` (`t`); emits none; internal `select(item)` navigates via `useRouter().push()`.
 - `LinkBar.vue` — no props (injects `'viewport'` for `currentItem`); consumes `externalLinksFor` from `lib/externalLinks.js`; emits none.
 
-- [ ] **Step 1: Write the failing test for `UsagePanel.vue`**
+- [x] **Step 1: Write the failing test for `UsagePanel.vue`**
 
 Create `frontend/src/components/UsagePanel.spec.js`:
 
@@ -3671,7 +3671,7 @@ describe('UsagePanel', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure, then implement**
+- [x] **Step 2: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/components/UsagePanel.spec.js` → fails (module missing).
 
@@ -3713,12 +3713,12 @@ function select(item) {
 
 Template — port `frontend/index.html:574-590` (`v-show="visible && items.length"`, `v-for="item in items" :key="\`${item.type}:${item.id}\`"`, `:disabled="!item.type"`, the type-conditional pill classes, `@click="select(item)"`).
 
-- [ ] **Step 3: Run and confirm pass**
+- [x] **Step 3: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/components/UsagePanel.spec.js`
 Expected: `Tests 4 passed`.
 
-- [ ] **Step 4: Write the failing test for `LinkBar.vue`**
+- [x] **Step 4: Write the failing test for `LinkBar.vue`**
 
 Create `frontend/src/components/LinkBar.spec.js`:
 
@@ -3757,7 +3757,7 @@ describe('LinkBar', () => {
 });
 ```
 
-- [ ] **Step 5: Run and confirm failure, then implement**
+- [x] **Step 5: Run and confirm failure, then implement**
 
 Run: `cd frontend && npx vitest run src/components/LinkBar.spec.js` → fails (module missing).
 
@@ -3773,12 +3773,12 @@ const links = computed(() => externalLinksFor(viewport.currentItem.value));
 
 Template — port `frontend/index.html:596-616` (`v-show="visible && links.length"`, `v-for="link in links" :key="link.key"`, the four `v-if="link.key === '...'"` SVG blocks copied verbatim, `:href="link.url"`).
 
-- [ ] **Step 6: Run and confirm pass**
+- [x] **Step 6: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/components/LinkBar.spec.js`
 Expected: `Tests 3 passed`.
 
-- [ ] **Step 7: Wire both into `App.vue`**
+- [x] **Step 7: Wire both into `App.vue`**
 
 Same reasoning as `FieldsDrawer` in Task 9 Step 5 — both panels are shared chrome (they naturally hide themselves via their own `visible`/`v-show` gates on every route where they don't apply), so they belong in `App.vue`, beside `ViewportToolbar`, not inside `PreviewView.vue`:
 
@@ -3791,7 +3791,7 @@ Same reasoning as `FieldsDrawer` in Task 9 Step 5 — both panels are shared chr
 
 Add both imports to `App.vue`'s `<script setup>`.
 
-- [ ] **Step 8: Full suite + build + commit**
+- [x] **Step 8: Full suite + build + commit**
 
 Run: `cd frontend && npm test && npm run build`
 
