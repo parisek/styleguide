@@ -3,6 +3,9 @@
 /* Tailwind v4 default content-detection skips files outside known patterns.
    Explicitly source the Vite entry + JS modules so utility classes get picked up. */
 @source "./index.html";
+@source "./src/**/*.{js,vue}";
+/* Legacy Alpine sources stay scanned until Task 14 deletes them, so classes
+   used only by not-yet-ported markup keep generating during the migration. */
 @source "./components/**/*.js";
 @source "./stores/**/*.js";
 

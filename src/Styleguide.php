@@ -64,6 +64,7 @@ final class Styleguide
      *   twig_options?: array<string,mixed>,
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
+     *   dist_path?: string,
      * } $config
      *
      * If `twig` is provided, the package reuses the project's existing
@@ -133,7 +134,10 @@ final class Styleguide
             ? (array) Yaml::parseFile($config['config_yaml'])
             : [];
 
-        $this->distRoot = __DIR__ . '/../dist';
+        // `dist_path` override exists for tests only (SpaConfigTest points it at a
+        // throwaway temp dir so writing a synthetic index.html fixture doesn't
+        // corrupt the package's real built dist/). Consumers never set this.
+        $this->distRoot = (string) ($config['dist_path'] ?? (__DIR__ . '/../dist'));
 
         $this->twig = $this->config['twig'] instanceof Environment
             ? $this->attachLoaders($this->config['twig'], $config['templates_path'])
@@ -964,70 +968,35 @@ final class Styleguide
             $favicon = Renderer::resolveAssetUrl($favicon, $assetBase);
         }
 
-        $esc = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+        $config = [
+            'locale' => $locale,
+            'projectName' => $projectName,
+            'favicon' => $favicon,
+            'title' => sprintf('Styleguide — %s', $projectName),
+            'baseUrl' => '/styleguide',
+        ];
+        $configJson = json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 
-        // <html lang="..." data-default-locale="...">
+        // Single injection point replaces the six preg_replace calls (html lang,
+        // favicon link, favicon img, body data-attrs, sidebar project name, title)
+        // the SPA used to need server-side values for. json_encode already
+        // produces a safe embedding inside a <script type="application/json">
+        // element — no `</script>`-breakout risk for any of these fields, and
+        // JSON's own escaping handles quotes/backslashes, so no htmlspecialchars
+        // helper is needed here.
         $html = (string) preg_replace(
-            '/<html\s+lang="[^"]*"(?:\s+data-default-locale="[^"]*")?\s*>/',
-            sprintf('<html lang="%s" data-default-locale="%s">', $esc($locale), $esc($locale)),
+            '/<script id="sg-config" type="application\/json">.*?<\/script>/s',
+            '<script id="sg-config" type="application/json">' . $configJson . '</script>',
             $html,
             1,
+            $count,
         );
-
-        // Favicon — <link rel="icon"> for the browser tab + the sidebar header
-        // <img id="sg-favicon"> rendered next to the project name. Both ship with
-        // empty `href`/`src` in the static `dist/index.html` so PHP can fill them
-        // in per-project at request time without re-running the SPA build.
-        if ($favicon !== '') {
-            $html = (string) preg_replace(
-                '/<link\s+rel="icon"\s+id="sg-favicon-tag"\s+href="[^"]*">/',
-                '<link rel="icon" id="sg-favicon-tag" href="' . $esc($favicon) . '">',
-                $html,
-                1,
-            );
-            $html = (string) preg_replace(
-                '/<img\s+src="[^"]*"\s+alt="[^"]*"\s+class="([^"]*)"\s+id="sg-favicon">/',
-                '<img src="' . $esc($favicon) . '" alt="" class="$1" id="sg-favicon">',
-                $html,
-                1,
+        if ($count !== 1) {
+            throw new \RuntimeException(
+                'dist/index.html is missing the #sg-config injection point — rebuild the frontend '
+                . '(cd frontend && npm run build) or check dist/ for corruption.',
             );
         }
-
-        // <body data-project-name="..." data-project-favicon="...">
-        $html = (string) preg_replace(
-            '/data-project-name="[^"]*"/',
-            'data-project-name="' . $esc($projectName) . '"',
-            $html,
-            1,
-        );
-        $html = (string) preg_replace(
-            '/data-project-favicon="[^"]*"/',
-            'data-project-favicon="' . $esc($favicon) . '"',
-            $html,
-            1,
-        );
-
-        // Sidebar header — <div id="sg-project-name">…</div> ships with "Styleguide"
-        // as the static placeholder. Same per-project request-time substitution
-        // pattern as the favicon nodes, so the bundled SPA doesn't have to know
-        // the project name at build time. Uses a callback so an escaped string
-        // containing `$1` style sequences can't accidentally interpolate as a
-        // back-reference.
-        $escapedName = $esc($projectName);
-        $html = (string) preg_replace_callback(
-            '/(<[^>]+id="sg-project-name"[^>]*>)[^<]*(<\/[^>]+>)/',
-            static fn(array $m): string => $m[1] . $escapedName . $m[2],
-            $html,
-            1,
-        );
-
-        // <title>
-        $html = (string) preg_replace(
-            '/<title>[^<]*<\/title>/',
-            '<title>Styleguide — ' . $esc($projectName) . '</title>',
-            $html,
-            1,
-        );
 
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-cache, must-revalidate');
