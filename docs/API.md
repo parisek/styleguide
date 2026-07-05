@@ -135,6 +135,7 @@ The first `{# … #}` comment in each component / page / doc Twig template is pa
 | `styleguide` | no | flag (presence-only) — **legacy** | absent | Forces a separate `styleguide.twig` demo file. **Convention going forward: use a sibling `styleguide.twig`** (auto-detected, no YAML key needed) — this key exists for templates written before that convention. Content placed under it (anything beyond a bare boolean) is never read by the renderer; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. See README § Fixtures & sample data. |
 | `responsive` | no | `bool` | `true` | When `false`, the SPA hides the responsive-width toolbar for this entry (use for docs or fixed-layout demos where resizing has no meaning) |
 | `body_class` | no | `string` | `''` | Class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` (empty values dropped — no stray `class=""`). Lets a page mirror what its production layout puts on `<body>` (e.g. a dark brand background) without a styleguide-only wrapper `<div>` |
+| `variants` | no | map `<variant-id>: <label>` | `[]` (absent) | Display labels for auto-discovered `styleguide.<variant>.twig` sibling files — see *Component Twig file conventions*. Filesystem is canonical: a label entry with no matching sibling file is ignored, never fabricates a variant. |
 
 Adding new optional keys: **non-breaking**. Changing the default of `render`, or the canonical list of `render` values: **breaking** (consumers may rely on the current set).
 
@@ -142,6 +143,7 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
 
 - `<id>.twig` at `<templates_path>/component/<id>/<id>.twig` — REQUIRED. The component itself.
 - `<id>/styleguide.twig` — OPTIONAL. If present, the styleguide preview renders THIS file (instead of `<id>.twig`). Used for "demo" variants with prepared context data.
+- `<id>/styleguide.<variant>.twig` — OPTIONAL, zero or more. `<variant>` matches `[a-z0-9-]+`. Auto-discovered (no YAML required); when at least one exists, the SPA toolbar shows a variant switcher and `?variant=<id>` becomes a valid query param on the SPA deep link and the render endpoint. Plain `styleguide.twig` remains the implicit default variant.
 - The `@component`, `@page`, `@doc`, `@macro`, `@icons`, `@images`, `@static` Twig namespaces are auto-registered when the matching directory exists under `templates_path`.
 
 ### Doc Twig file conventions — `@api`
@@ -197,10 +199,13 @@ Returns array of all components, one object per. Object shape:
   body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`
   hasStyleguide: boolean; // true if <id>/styleguide.twig exists OR YAML has `styleguide:` key
+  variants: Array<{ id: string; label: string }>; // [] when no sibling styleguide.<variant>.twig files exist
 }
 ```
 
 Field order is **not** part of the contract. Adding new fields is non-breaking. Removing or renaming fields is breaking.
+
+`/api/pages` and `/api/docs` inherit the identical additive `variants` field (already true by construction — same `normaliseMetadata()`).
 
 ### `GET /styleguide/api/pages`
 

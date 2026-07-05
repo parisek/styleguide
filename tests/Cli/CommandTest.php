@@ -77,6 +77,9 @@ final class CommandTest extends TestCase
         self::assertSame('Sample', $decoded['name']);
         self::assertSame('Block', $decoded['category']);
         self::assertSame(20, $decoded['weight']);
+        // Added for v0.9.0 file-convention variants — no CLI code changed;
+        // this locks the passthrough the same way the endpoint test does.
+        self::assertArrayHasKey('variants', $decoded);
     }
 
     #[Test]

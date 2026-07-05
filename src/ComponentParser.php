@@ -45,6 +45,14 @@ class ComponentParser
      */
     public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
 
+    /**
+     * Filename shape of a file-convention variant sibling: `styleguide.<id>.twig`.
+     * The captured group is the canonical variant id — same character class as
+     * the `?variant=` query-string whitelist in Router::parse(), so a value
+     * ComponentParser can ever produce is exactly the set a URL can ever name.
+     */
+    private const VARIANT_FILE_PATTERN = '/^styleguide\.([a-z0-9-]+)\.twig$/';
+
     private string $templatesPath;
 
     /** @var list<array{file:string, error:string}> */
@@ -111,8 +119,9 @@ class ComponentParser
 
             $hasStyleguide = file_exists($dir . '/styleguide.twig')
                 || isset($metadata['styleguide']);
+            $variants = $this->discoverVariants($dir, $metadata);
 
-            return $this->normaliseMetadata($id, $metadata, $hasStyleguide);
+            return $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
             // for the render endpoint's <title>/body_class/render metadata)
@@ -158,8 +167,9 @@ class ComponentParser
                 $id = $file->getBasename('.twig');
                 $hasStyleguide = file_exists($file->getPath() . '/styleguide.twig')
                     || isset($metadata['styleguide']);
+                $variants = $this->discoverVariants($file->getPath(), $metadata);
 
-                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide);
+                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
             } catch (\Throwable $e) {
                 // One pathological template must not 500 the whole catalogue for
                 // every sibling component. Record it and keep walking; surfaced
@@ -209,10 +219,45 @@ class ComponentParser
     }
 
     /**
+     * Discover `styleguide.<variant>.twig` siblings in a component/page/doc
+     * directory. Filesystem is canonical — the optional YAML `variants:`
+     * map supplies DISPLAY LABELS only, keyed by id; a label for an id with
+     * no matching file is silently dropped (never fabricates a phantom
+     * variant). Plain `styleguide.twig` (no captured group) is the implicit
+     * default and is never itself listed here — callers add the default
+     * separately (or, for the SPA, prepend it client-side; see docs/API.md).
+     *
      * @param array<string,mixed> $metadata
+     * @return list<array{id:string,label:string}>
+     */
+    private function discoverVariants(string $dir, array $metadata): array
+    {
+        $labels = is_array($metadata['variants'] ?? null) ? $metadata['variants'] : [];
+
+        $variants = [];
+        foreach (glob($dir . '/styleguide.*.twig') ?: [] as $file) {
+            if (!preg_match(self::VARIANT_FILE_PATTERN, basename($file), $m)) {
+                continue; // not a canonical variant filename (e.g. a stray .bak) — skip, don't error
+            }
+            $id = $m[1];
+            $label = is_string($labels[$id] ?? null) ? $labels[$id] : $id;
+            $variants[] = ['id' => $id, 'label' => $label];
+        }
+
+        // Sort by id — equivalent to filename order (id is the only variable
+        // segment) and deterministic across filesystems/OSes, unlike glob()'s
+        // platform-dependent return order.
+        usort($variants, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
+
+        return $variants;
+    }
+
+    /**
+     * @param array<string,mixed> $metadata
+     * @param list<array{id:string,label:string}> $variants
      * @return array<string,mixed>
      */
-    private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide): array
+    private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide, array $variants): array
     {
         return [
             'id' => $id,
@@ -242,6 +287,10 @@ class ComponentParser
             // !== false so strings, integers, or typos never disable it.
             'responsive' => ($metadata['responsive'] ?? true) !== false,
             'hasStyleguide' => $hasStyleguide,
+            // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
+            // siblings; [] when none exist — every pre-Phase-4 template keeps
+            // this BC default. Default variant is implicit, never listed here.
+            'variants' => $variants,
         ];
     }
 

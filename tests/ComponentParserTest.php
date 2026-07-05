@@ -56,14 +56,15 @@ final class ComponentParserTest extends TestCase
 
         // Assert the FULL set in weight order rather than just a count — this
         // documents the canonical fixture roster and catches any sort
-        // regression precisely. Weights: Another 10, Sample 20, With fields
-        // 50 (no explicit weight -> parser default), then the sidebar-tree
-        // cluster widget-one/two/three 51/52/53, gizmo 54, and Broken Sample
-        // 999 (deliberately last — its Twig body throws, exercised by
+        // regression precisely. Weights: Another 10, Sample 20, Multi 30
+        // (Phase-4 variant-discovery fixture), With fields 50 (no explicit
+        // weight -> parser default), then the sidebar-tree cluster
+        // widget-one/two/three 51/52/53, gizmo 54, and Broken Sample 999
+        // (deliberately last — its Twig body throws, exercised by
         // RendererTest, but its YAML metadata is valid so ComponentParser,
         // which never renders the body, picks it up like any other component).
         self::assertSame(
-            ['Another', 'Sample', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
+            ['Another', 'Sample', 'Multi', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );
@@ -260,5 +261,65 @@ final class ComponentParserTest extends TestCase
 
         self::assertNull($parser->parse('component', 'sample'));
         self::assertSame('component/sample/sample.twig', $parser->getWarnings()[0]['file']);
+    }
+
+    #[Test]
+    public function discovers_sibling_variant_files_ordered_by_filename(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $multi = $parser->parse('component', 'multi');
+
+        self::assertNotNull($multi);
+        self::assertSame(
+            [
+                ['id' => 'dark-bg', 'label' => 'dark-bg'],
+                ['id' => 'secondary', 'label' => 'Secondary style'],
+            ],
+            $multi['variants'],
+            'variants are ordered by id/filename (dark-bg before secondary), labels from YAML fall back to the id',
+        );
+    }
+
+    #[Test]
+    public function variants_is_empty_array_when_no_sibling_variant_files_exist(): void
+    {
+        // BC proof: the pre-existing `sample` fixture has no styleguide.<variant>.twig
+        // siblings and must not suddenly grow phantom variants.
+        $parser = new ComponentParser($this->fixturesPath);
+        $sample = $parser->parse('component', 'sample');
+
+        self::assertNotNull($sample);
+        self::assertSame([], $sample['variants']);
+    }
+
+    #[Test]
+    public function yaml_variants_label_with_no_matching_file_is_ignored(): void
+    {
+        // Guards the "filesystem is canonical" rule: a YAML `variants:` entry
+        // naming a variant that has no styleguide.<id>.twig file must not create
+        // a phantom switcher entry. `multi`'s YAML only maps `secondary`+ignores
+        // an extra `ghost` mapping we inject via parseTwigComment() directly
+        // (cheaper than adding a whole new fixture just for this one assertion).
+        $parser = new ComponentParser($this->fixturesPath);
+        $metadata = $parser->parseTwigComment(
+            "{#\nname: \"X\"\nvariants:\n  ghost: \"Ghost\"\n  secondary: \"Secondary style\"\n#}",
+        );
+        self::assertNotFalse($metadata);
+
+        $multi = $parser->parse('component', 'multi');
+        self::assertNotNull($multi);
+        $ids = array_column($multi['variants'], 'id');
+        self::assertNotContains('ghost', $ids, 'a YAML label for a file that does not exist must not appear');
+    }
+
+    #[Test]
+    public function parse_all_includes_variants_field(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $components = $parser->parseAll('component');
+        $multi = current(array_filter($components, static fn(array $c): bool => $c['id'] === 'multi'));
+
+        self::assertNotFalse($multi);
+        self::assertSame(['dark-bg', 'secondary'], array_column($multi['variants'], 'id'));
     }
 }
