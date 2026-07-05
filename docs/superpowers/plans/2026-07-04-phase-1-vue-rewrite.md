@@ -2489,7 +2489,7 @@ Ports `frontend/components/search.js` — a 15-line Alpine component whose only 
 **Interfaces:**
 - `useSearchShortcuts(inputRef: Ref<HTMLInputElement|null>)` — registers a `window` `keydown` listener on `onMounted`, removes it on `onUnmounted`; on `Cmd/Ctrl+K` calls `inputRef.value?.focus()` (and `preventDefault()`); on `Escape` sets `useUiStore().searchQuery = ''` and calls `inputRef.value?.blur()`. No return value — side-effect-only composable, matching the legacy component's shape exactly.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `frontend/src/composables/useSearchShortcuts.spec.js`:
 
@@ -2553,12 +2553,12 @@ describe('useSearchShortcuts', () => {
 });
 ```
 
-- [ ] **Step 2: Run and confirm failure**
+- [x] **Step 2: Run and confirm failure**
 
 Run: `cd frontend && npx vitest run src/composables/useSearchShortcuts.spec.js`
 Expected: fails — module missing.
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Create `frontend/src/composables/useSearchShortcuts.js`:
 
@@ -2588,12 +2588,12 @@ export function useSearchShortcuts(inputRef) {
 }
 ```
 
-- [ ] **Step 4: Run and confirm pass**
+- [x] **Step 4: Run and confirm pass**
 
 Run: `cd frontend && npx vitest run src/composables/useSearchShortcuts.spec.js`
 Expected: `Tests 4 passed`.
 
-- [ ] **Step 5: Wire into `Sidebar.vue`**
+- [x] **Step 5: Wire into `Sidebar.vue`**
 
 Edit `frontend/src/components/Sidebar.vue` — add to the `<script setup>` block:
 
@@ -2607,7 +2607,7 @@ useSearchShortcuts(searchInputRef);
 
 In the template, bind the search `<input>` (ported from `index.html:109-114`) with `ref="searchInputRef"` in place of the legacy `x-ref="input"`, and the `<kbd>` shortcut hint keeps its `{{ i18n.t('search.shortcut_hint') }}` text unchanged.
 
-- [ ] **Step 6: Regression test + commit**
+- [x] **Step 6: Regression test + commit**
 
 Run: `cd frontend && npm test`
 Expected: `Sidebar.spec.js` still passes (search input still renders and filters); `useSearchShortcuts.spec.js` passes.
