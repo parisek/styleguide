@@ -264,7 +264,13 @@ The `Sec-Fetch-Dest: iframe` request header on `/styleguide/{component,page,foun
 |---|---|
 | `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
 | `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
+| `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions). See README § Command-line catalogue. |
 | `--help` / `-h` | Usage |
+
+`lint` has its own exit-code contract, distinct from `list`/`show`: `0`
+clean (or notice-only findings), `1` when a `warning`/`error` finding is
+present, `2` on a usage/internal error (bad flag, templates dir not
+found). `list` and `show` keep their existing `0`/`1` contract.
 
 Env: `STYLEGUIDE_TEMPLATES` overrides the default templates directory.
 

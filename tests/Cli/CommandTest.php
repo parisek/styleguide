@@ -248,6 +248,8 @@ final class CommandTest extends TestCase
         self::assertStringContainsString('--type', $stdout);
         self::assertStringContainsString('--templates', $stdout);
         self::assertStringContainsString('--pretty', $stdout);
+        self::assertStringContainsString('lint', $stdout);
+        self::assertStringContainsString('--format', $stdout);
     }
 
     #[Test]

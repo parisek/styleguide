@@ -368,6 +368,28 @@ vendor/bin/styleguide list | jq '.[] | select(.category == "Block")'
 
 `show <id>` exits `1` with an empty stdout when the component is not found, so a missing entry surfaces as a non-zero exit code rather than a parsing error downstream.
 
+### `lint` — metadata quality report
+
+```bash
+vendor/bin/styleguide lint                       # scan component + page + doc, text output
+vendor/bin/styleguide lint --type=component       # scan just one type
+vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
+```
+
+Reports five issue types: templates with no parseable `name:` (dropped from
+the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
+the renderer never reads (`dead-styleguide-content` — see *Per-template
+metadata* above), `usage:` references to ids that don't exist
+(`broken-usage-ref`), `render:` values outside the four canonical modes
+(`unknown-render`), and empty `description` strings (`empty-description`,
+informational only).
+
+Text output is one line per finding: `SEVERITY  file  message`. JSON output
+is an array of `{ severity, file, rule, message }` objects. Exit code: `0`
+clean (or notice-only), `1` when any `warning`/`error` finding is present,
+`2` on a usage/internal error — run it in CI to catch metadata regressions
+before they ship.
+
 ---
 
 ## Conventional Twig namespaces
