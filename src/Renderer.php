@@ -42,9 +42,14 @@ final class Renderer
      *   render?:string,
      *   body_class?:string,
      *   foundations_css_url?:string,
+     *   variant?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
      *   plus, for the foundations kind, the full yaml under `styleguide`).
+     *   `variant`, when present and syntactically valid, is threaded into
+     *   {@see self::renderInner()} to prefer a `styleguide.<variant>.twig`
+     *   sibling over the default `styleguide.twig` — see that method for the
+     *   full resolution order and fallback contract.
      * @param string $theme
      *   `'light'` or `'dark'` — stamps `class="dark"` + a matching
      *   `color-scheme` on the rendered `<html>`. Callers should route the
@@ -225,7 +230,11 @@ final class Renderer
     private function renderBody(string $kind, string $slug, array $config): ?string
     {
         return match ($kind) {
-            'component', 'page', 'doc' => $this->renderInner($kind, $slug),
+            'component', 'page', 'doc' => $this->renderInner(
+                $kind,
+                $slug,
+                is_string($config['variant'] ?? null) ? $config['variant'] : null,
+            ),
             'foundations' => $this->twig->render('foundations.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
             ] + $this->context),
@@ -234,20 +243,34 @@ final class Renderer
     }
 
     /**
-     * Look up the actual component/page Twig template and render it with the styleguide context.
+     * Look up the actual component/page Twig template and render it with the
+     * styleguide context.
      *
-     * Prefers `styleguide.twig` (the visual demo file) over the main component template
-     * — same convention as the legacy TwigStyleguide renderer.
+     * Resolution order: the requested variant sibling (only when `$variant`
+     * is non-null AND syntactically valid) → the default `styleguide.twig`
+     * demo file → the component's own `<slug>.twig`. Same convention as the
+     * legacy TwigStyleguide renderer, extended with the variant preference
+     * on top.
+     *
+     * The regex re-check is defensive, not redundant: `Renderer` is
+     * unit-tested and can be called directly (bypassing `Router::
+     * whitelistVariant()` entirely), so an invalid/malformed `$variant`
+     * must never reach the candidate list — it degrades to exactly the
+     * no-variant case, same as an unknown-but-well-formed id that has no
+     * matching file. Either way a deleted/renamed/mistyped variant never
+     * 404s a bookmarked deep link.
      */
-    private function renderInner(string $kind, string $slug): ?string
+    private function renderInner(string $kind, string $slug, ?string $variant = null): ?string
     {
         $loader = $this->twig->getLoader();
         $namespace = '@project/' . $kind . '/' . $slug;
 
-        $candidates = [
-            $namespace . '/styleguide.twig',
-            $namespace . '/' . $slug . '.twig',
-        ];
+        $candidates = [];
+        if ($variant !== null && preg_match('/^[a-z0-9-]+$/', $variant) === 1) {
+            $candidates[] = $namespace . '/styleguide.' . $variant . '.twig';
+        }
+        $candidates[] = $namespace . '/styleguide.twig';
+        $candidates[] = $namespace . '/' . $slug . '.twig';
 
         foreach ($candidates as $path) {
             if ($loader->exists($path)) {

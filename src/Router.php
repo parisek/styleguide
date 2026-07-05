@@ -42,12 +42,14 @@ final class Router
      *        `theme` key when the query string itself asked for one — see
      *        {@see self::resolveTheme()} for why cookie fallback lives in
      *        `synthesizeEmbeddedRoute()` instead.
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}|null
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string}|null
      */
     public static function parse(string $uri, array $cookies = []): ?array
     {
         // Captured before strtok() below discards it — only the `render`
-        // branch consumes it (theme only matters for iframe HTML output).
+        // and SPA-shell (component/page/doc) branches consume it (theme for
+        // iframe HTML output, variant for which styleguide.<variant>.twig
+        // sibling to resolve).
         $queryString = (string) (strpos($uri, '?') !== false ? substr($uri, strpos($uri, '?') + 1) : '');
 
         // Strip query string and trailing slash
@@ -73,12 +75,17 @@ final class Router
         // /styleguide/render/<kind>/<slug>
         if ($parts[0] === 'render' && count($parts) >= 3) {
             parse_str($queryString, $query);
-            return [
+            $route = [
                 'type' => 'render',
                 'kind' => $parts[1],
                 'slug' => $parts[2],
                 'theme' => self::resolveTheme($query['theme'] ?? null, $cookies),
             ];
+            $variant = self::whitelistVariant($query['variant'] ?? null);
+            if ($variant !== null) {
+                $route['variant'] = $variant;
+            }
+            return $route;
         }
 
         // /styleguide/api/<endpoint>
@@ -88,7 +95,8 @@ final class Router
 
         // /styleguide/component/<slug>, /styleguide/page/<slug>, /styleguide/doc/<slug>
         if (in_array($parts[0], ['component', 'page', 'doc'], true) && isset($parts[1])) {
-            return self::withExplicitThemeIfPresent(['type' => $parts[0], 'slug' => $parts[1]], $queryString);
+            $route = self::withExplicitThemeIfPresent(['type' => $parts[0], 'slug' => $parts[1]], $queryString);
+            return self::withExplicitVariantIfPresent($route, $queryString);
         }
 
         // /styleguide/overview, /styleguide/foundations, /styleguide/fields
@@ -110,6 +118,23 @@ final class Router
     public static function whitelistTheme(mixed $raw): string
     {
         return $raw === 'dark' ? 'dark' : 'light';
+    }
+
+    /**
+     * Whitelist an arbitrary (query-string-sourced, therefore untrusted)
+     * variant id syntactically. Unlike {@see self::whitelistTheme()}, there
+     * is no fixed enum of valid values and no default to fall back to —
+     * `null` means "no variant" (the caller omits the `variant` key
+     * entirely), which is indistinguishable from an absent `?variant=` on
+     * purpose: a deep link with a deleted/renamed variant file must degrade
+     * to the same default-chain rendering as one with none, not 404.
+     * Existence of a matching `styleguide.<variant>.twig` file is resolved
+     * downstream by `Renderer`/`ComponentParser`, never here — this is a
+     * syntax check only.
+     */
+    public static function whitelistVariant(mixed $raw): ?string
+    {
+        return is_string($raw) && preg_match('/^[a-z0-9-]+$/', $raw) === 1 ? $raw : null;
     }
 
     /**
@@ -156,6 +181,28 @@ final class Router
     }
 
     /**
+     * Attach a `variant` key to an SPA-shell route (`component`/`page`/
+     * `doc`) only when the request URL carried a syntactically valid
+     * `?variant=`. No cookie fallback and no default value — unlike theme,
+     * a variant is a per-entry choice tied to one deep link, not a global
+     * visitor preference — there's nothing meaningful to persist across
+     * requests. Existence of the actual `styleguide.<variant>.twig`
+     * sibling is checked downstream by `Renderer`, never here.
+     *
+     * @param array{type:string,slug?:string,theme?:string} $route
+     * @return array{type:string,slug?:string,theme?:string,variant?:string}
+     */
+    private static function withExplicitVariantIfPresent(array $route, string $queryString): array
+    {
+        parse_str($queryString, $query);
+        $variant = self::whitelistVariant($query['variant'] ?? null);
+        if ($variant !== null) {
+            $route['variant'] = $variant;
+        }
+        return $route;
+    }
+
+    /**
      * Swap an SPA route (`component`, `page`, `foundations`) for its `render`
      * equivalent when the request was issued from inside an iframe.
      *
@@ -186,9 +233,18 @@ final class Router
      * `?theme=` of its own — would silently reset the rendered page to light,
      * because this synthesis path never touches the SPA's in-memory state.
      *
-     * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string} $route
+     * Variant precedence: query-param only, no cookie channel (see
+     * {@see self::withExplicitVariantIfPresent()} for why) — the original
+     * SPA-shell route only ever carries a `variant` key when the request's
+     * own `?variant=` set one, so forwarding it here is a straight copy, not
+     * a resolve. A native in-iframe navigation whose target link carries no
+     * `?variant=` of its own therefore loses it on the swap — an accepted,
+     * documented gap (unlike theme, a variant is scoped to one deep link, not
+     * a visitor preference worth persisting via cookie).
+     *
+     * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string} $route
      * @param array<string,mixed> $cookies Raw `$_COOKIE` (or a test double).
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string}
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string}
      */
     public static function synthesizeEmbeddedRoute(array $route, string $secFetchDest, array $cookies = []): array
     {
@@ -198,7 +254,7 @@ final class Router
         if (!in_array($route['type'] ?? null, ['component', 'page', 'doc', 'foundations'], true)) {
             return $route;
         }
-        return [
+        $synthesized = [
             'type' => 'render',
             'kind' => $route['type'],
             // Foundations carries no slug; `dispatchRender()` ignores the slug
@@ -207,5 +263,9 @@ final class Router
             'slug' => $route['slug'] ?? 'index',
             'theme' => $route['theme'] ?? self::resolveTheme(null, $cookies),
         ];
+        if (isset($route['variant'])) {
+            $synthesized['variant'] = $route['variant'];
+        }
+        return $synthesized;
     }
 }

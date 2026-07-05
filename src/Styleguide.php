@@ -1152,6 +1152,13 @@ final class Styleguide
             if ($meta !== null && $route['kind'] === 'component') {
                 $config['render'] = $meta['render'] ?? 'inset';
             }
+            // File-convention variant (v0.9.0) — Router::parse() has already
+            // syntactically whitelisted this; Renderer re-validates existence
+            // against the actual styleguide.<variant>.twig files and falls
+            // back to the default variant for anything that doesn't resolve.
+            if (isset($route['variant']) && is_string($route['variant'])) {
+                $config['variant'] = $route['variant'];
+            }
         } elseif ($route['kind'] === 'foundations') {
             $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
             // foundations.twig uses Tailwind utility classes the consumer's

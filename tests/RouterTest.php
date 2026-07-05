@@ -315,4 +315,119 @@ final class RouterTest extends TestCase
             ),
         );
     }
+
+    #[Test]
+    public function whitelists_variant_query_param_on_render_route(): void
+    {
+        // Reconciled against P2's shipped theme default: a render route
+        // always carries a `theme` key (defaults to 'light' absent a query
+        // param or cookie) — variant has no such default, so it's the only
+        // additive key here.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'multi', 'theme' => 'light', 'variant' => 'secondary'],
+            Router::parse('/styleguide/render/component/multi?variant=secondary'),
+        );
+    }
+
+    #[Test]
+    public function whitelists_variant_query_param_on_spa_shell_routes(): void
+    {
+        // component/page/doc SPA routes also carry it — needed so
+        // synthesizeEmbeddedRoute() can forward it when a consumer embeds
+        // one of these URLs directly in an iframe. Unlike the render route,
+        // these never default a `theme` key absent an explicit `?theme=`
+        // (see withExplicitThemeIfPresent()), so `variant` is the only key
+        // added here.
+        self::assertSame(
+            ['type' => 'component', 'slug' => 'multi', 'variant' => 'secondary'],
+            Router::parse('/styleguide/component/multi?variant=secondary'),
+        );
+        self::assertSame(
+            ['type' => 'page', 'slug' => 'homepage', 'variant' => 'secondary'],
+            Router::parse('/styleguide/page/homepage?variant=secondary'),
+        );
+        self::assertSame(
+            ['type' => 'doc', 'slug' => 'changelog', 'variant' => 'secondary'],
+            Router::parse('/styleguide/doc/changelog?variant=secondary'),
+        );
+    }
+
+    #[Test]
+    public function drops_invalid_variant_query_param(): void
+    {
+        // Uppercase, whitespace, dot-segments, slashes — none of these can ever
+        // be a real filename ComponentParser discovers, so they're dropped at
+        // parse time rather than reaching Renderer at all.
+        foreach (['UPPER', 'has space', '../../etc', 'a/b', ''] as $bad) {
+            self::assertSame(
+                ['type' => 'component', 'slug' => 'multi'],
+                Router::parse('/styleguide/component/multi?variant=' . rawurlencode($bad)),
+                "variant='$bad' must be dropped",
+            );
+        }
+    }
+
+    #[Test]
+    public function variant_and_theme_query_params_coexist(): void
+    {
+        // Both whitelists are independent regexes over the same query string.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'multi', 'theme' => 'dark', 'variant' => 'secondary'],
+            Router::parse('/styleguide/render/component/multi?theme=dark&variant=secondary'),
+        );
+    }
+
+    #[Test]
+    public function unrelated_query_params_are_still_ignored(): void
+    {
+        // Existing BC proof (mirrors strips_query_string above) extended to
+        // confirm an unrelated param never leaks a stray key onto the route.
+        self::assertSame(
+            ['type' => 'component', 'slug' => 'hero'],
+            Router::parse('/styleguide/component/hero?lang=cs'),
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_carries_variant_and_theme_through(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'multi', 'theme' => 'dark', 'variant' => 'secondary'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'component', 'slug' => 'multi', 'theme' => 'dark', 'variant' => 'secondary'],
+                'iframe',
+            ),
+        );
+    }
+
+    #[Test]
+    public function synthesize_embedded_omits_variant_when_absent(): void
+    {
+        // Reconciled against P2's shipped behaviour: synthesizeEmbeddedRoute()
+        // always resolves a `theme` key (query > cookie > 'light' default —
+        // see resolveTheme()), so it stays present even with none requested.
+        // `variant` has no such fallback and is a straight copy-if-present,
+        // so it's simply absent here — this is the "variant is lost across
+        // an in-iframe navigation whose link carries no ?variant=" case
+        // documented on synthesizeEmbeddedRoute().
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
+            Router::synthesizeEmbeddedRoute(['type' => 'component', 'slug' => 'hero'], 'iframe'),
+        );
+    }
+
+    #[Test]
+    public function whitelist_variant_accepts_lowercase_alnum_and_dashes_and_rejects_everything_else(): void
+    {
+        self::assertSame('secondary', Router::whitelistVariant('secondary'));
+        self::assertSame('dark-bg', Router::whitelistVariant('dark-bg'));
+        self::assertSame('v2', Router::whitelistVariant('v2'));
+        self::assertNull(Router::whitelistVariant(null));
+        self::assertNull(Router::whitelistVariant(''));
+        self::assertNull(Router::whitelistVariant('UPPER'));
+        self::assertNull(Router::whitelistVariant('has space'));
+        self::assertNull(Router::whitelistVariant('../../etc'));
+        self::assertNull(Router::whitelistVariant('a/b'));
+        self::assertNull(Router::whitelistVariant(['secondary'])); // never trust raw — non-string is rejected
+    }
 }

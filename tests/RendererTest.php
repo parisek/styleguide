@@ -611,4 +611,76 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('onerror="this.onerror=null;this.src=', $html);
         self::assertStringContainsString('data:image/svg+xml,', $html);
     }
+
+    #[Test]
+    public function renders_named_variant_when_it_exists(): void
+    {
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => 'secondary',
+        ], 'en');
+
+        self::assertStringContainsString('multi--secondary', $html);
+        self::assertStringNotContainsString('multi--demo', $html);
+    }
+
+    #[Test]
+    public function falls_back_to_default_variant_for_unknown_variant(): void
+    {
+        // A deleted/renamed variant file must not 404 a bookmarked deep link —
+        // it falls through to the same default chain as no variant at all.
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => 'retired',
+        ], 'en');
+
+        self::assertSame(200, http_response_code());
+        self::assertStringContainsString('multi--demo', $html);
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function falls_back_to_default_variant_when_variant_key_is_malformed(): void
+    {
+        // Renderer re-validates the same regex Router already checked —
+        // defensive because Renderer is called directly here, bypassing
+        // Router entirely, matching the existing normaliseRender() precedent.
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => '../../etc/passwd',
+        ], 'en');
+
+        self::assertStringContainsString('multi--demo', $html);
+    }
+
+    #[Test]
+    public function renders_default_variant_when_no_variant_requested(): void
+    {
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertStringContainsString('multi--demo', $html);
+    }
+
+    #[Test]
+    public function variant_composes_with_theme(): void
+    {
+        // Confirmed against the shipped Phase 2 theme mechanism: `theme` is a
+        // dedicated positional param on render(), not a $config key — passed
+        // alongside `variant` (a $config key) to prove the two features don't
+        // interfere with each other.
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => 'secondary',
+        ], 'en', 'dark');
+
+        self::assertStringContainsString('multi--secondary', $html, 'variant still resolves with theme set');
+        self::assertStringContainsString('class="dark"', $html, 'theme still stamps the <html> class with variant set');
+    }
 }

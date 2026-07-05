@@ -155,6 +155,14 @@ assert_status        "/styleguide/render/page/landing"     "200" "render page"
 assert_status        "/styleguide/render/component/does-not-exist" "404" "render unknown → 404"
 assert_status        "/styleguide/render/component/broken-sample" "500" "render error → 500"
 
+# ?variant= resolution against the `multi` fixture (styleguide.secondary.twig
+# exists; styleguide.retired.twig does not — an unknown variant must fall back
+# to the default styleguide.twig, never 404, so a bookmarked deep link to a
+# since-deleted variant keeps working).
+assert_body_contains "/styleguide/render/component/multi"                   "multi--demo"      "no variant → default demo body"
+assert_body_contains "/styleguide/render/component/multi?variant=secondary" "multi--secondary" "?variant=secondary → named variant body"
+assert_body_contains "/styleguide/render/component/multi?variant=retired"   "multi--demo"       "unknown variant falls back to default demo body"
+
 # API endpoints (fixture ships 2 components + 1 page + 1 doc)
 assert_header        "/styleguide/api/components"  "content-type" "application/json" "components api content-type"
 assert_json_array_min "/styleguide/api/components" 2 "components api count"
