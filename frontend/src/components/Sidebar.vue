@@ -7,6 +7,15 @@ import { useI18nStore } from '../stores/i18n.js';
 import { useThemeStore } from '../stores/theme.js';
 import { filterItems } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
+import { routeInfo } from '../lib/routeInfo.js';
+// Read directly rather than `import { config } from '../main.js'`: main.js
+// -> App.vue -> Sidebar.vue is already an import chain, so pulling `config`
+// back out of main.js here would close a circular-import loop. readSpaConfig
+// is cheap and idempotent (re-parses the static #sg-config JSON payload), so
+// a second independent read costs nothing and keeps this component decoupled
+// from main.js's boot-sequencing side effects (app.mount, favicon fallback
+// wiring, title sync).
+import { readSpaConfig } from '../lib/config.js';
 
 const catalog = useCatalogStore();
 const ui = useUiStore();
@@ -19,6 +28,7 @@ const sections = usePersistedRef('sg-sections', {
     docs: true, basic: true, blocks: true, gutenberg: false, pages: false,
 });
 const groups = usePersistedRef('sg-groups', {});
+const config = readSpaConfig();
 
 function toggleSection(key) {
     sections.value[key] = !sections.value[key];
@@ -42,19 +52,12 @@ function toggleGroup(section, prefix) {
 }
 
 function isActive(type, slug) {
-    return route.name === type && route.params.slug === slug;
-}
-
-function isActiveMeta(type) {
-    // 'foundations'/'landing' both count as the Foundations nav item being
-    // active — mirrors the legacy isActive('foundations', null) check,
-    // which only ever compared against ui.route.type (never distinguished
-    // landing from foundations, since router.js already folds landing into
-    // foundations before ui.route is set). Also used for 'overview' (no
-    // :slug param on that route, so the generic isActive('overview', null)
-    // would compare undefined === null and never match).
-    if (type === 'foundations') return route.name === 'foundations' || route.name === 'landing' || route.name === 'not-found-fallback';
-    return route.name === type;
+    // Delegate to routeInfo() instead of comparing route.name/params.slug
+    // directly — it already folds 'landing'/'not-found-fallback' into
+    // 'foundations' (mirrors legacy router.js's `apply()`), so callers no
+    // longer need a separate isActiveMeta() to special-case those routes.
+    const info = routeInfo(route);
+    return info.type === type && info.slug === slug;
 }
 
 function select(type, slug) {
@@ -98,9 +101,9 @@ function supportedLocales() {
                 :title="i18n.t('nav.homepage_link') || 'Otevřít projekt'"
                 class="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity"
             >
-                <img src="" alt="" class="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-50 shrink-0 ring-1 ring-red-500/20" id="sg-favicon">
+                <img :src="config.favicon" :alt="config.projectName" class="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-50 shrink-0 ring-1 ring-red-500/20" id="sg-favicon">
                 <div class="min-w-0 flex-1">
-                    <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate" id="sg-project-name">Styleguide</div>
+                    <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate" id="sg-project-name">{{ config.projectName }}</div>
                     <div class="text-xs text-zinc-500 truncate">{{ i18n.t('nav.styleguide') }}</div>
                 </div>
             </a>
@@ -160,12 +163,12 @@ function supportedLocales() {
                 </button>
                 <ul v-show="sections.docs || ui.searchQuery" class="mt-1 space-y-0.5">
                     <li>
-                        <a href="#" @click.prevent="select('foundations', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActiveMeta('foundations') ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                        <a href="#" @click.prevent="select('foundations', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('foundations', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.foundations') }}</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" @click.prevent="select('overview', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActiveMeta('overview') ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                        <a href="#" @click.prevent="select('overview', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('overview', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.overview') }}</span>
                         </a>
                     </li>
@@ -182,6 +185,7 @@ function supportedLocales() {
             <div v-for="section in ['basic', 'blocks', 'gutenberg']" :key="section" v-show="items(section).length > 0">
                 <button @click="toggleSection(section)" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t(`sections.${section}`) }}</span>
+                    <span class="text-zinc-400 dark:text-zinc-600 font-semibold">{{ items(section).length }}</span>
                 </button>
                 <!-- Force-open the section when a search is active so the
                      match is visible without an extra click; otherwise
@@ -238,6 +242,7 @@ function supportedLocales() {
             <div v-show="pageItems.length > 0">
                 <button @click="toggleSection('pages')" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t('sections.pages') }}</span>
+                    <span class="text-zinc-400 dark:text-zinc-600 font-semibold">{{ pageItems.length }}</span>
                 </button>
                 <ul v-show="sections.pages || ui.searchQuery" class="mt-1 space-y-0.5">
                     <!-- While searching: flat full-name results (grouping bypassed). -->

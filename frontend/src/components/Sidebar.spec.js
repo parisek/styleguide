@@ -19,7 +19,24 @@ function makeRouter() {
     });
 }
 
-async function mountSidebar() {
+// Sidebar.vue reads the SPA config via readSpaConfig(), which throws if the
+// #sg-config script element isn't present in the document — mirror the real
+// PHP-injected payload here so every mount() below has something to read.
+// Tests that care about specific favicon/projectName values call this again
+// with overrides before mounting (removes-then-reappends, so it's safe to
+// call more than once per test).
+function stubSgConfig(overrides = {}) {
+    document.getElementById('sg-config')?.remove();
+    const el = document.createElement('script');
+    el.id = 'sg-config';
+    el.type = 'application/json';
+    el.textContent = JSON.stringify({
+        locale: 'cs', projectName: 'Styleguide', favicon: '', title: 'Styleguide', baseUrl: '/styleguide', ...overrides,
+    });
+    document.body.appendChild(el);
+}
+
+async function mountSidebar(initialPath = '/foundations') {
     setActivePinia(createPinia());
     const catalog = useCatalogStore();
     catalog.items = [
@@ -34,7 +51,7 @@ async function mountSidebar() {
     useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
     const router = makeRouter();
-    await router.push('/foundations');
+    await router.push(initialPath);
     const wrapper = mount(Sidebar, { global: { plugins: [router] } });
     await router.isReady();
     return { wrapper, router };
@@ -43,6 +60,7 @@ async function mountSidebar() {
 beforeEach(() => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), addListener: vi.fn() }));
     localStorage.clear();
+    stubSgConfig();
 });
 
 describe('Sidebar', () => {
@@ -87,9 +105,38 @@ describe('Sidebar', () => {
 
     it('toggleSection persists to sg-sections', async () => {
         const { wrapper } = await mountSidebar();
-        const toggle = wrapper.findAll('button').find((b) => b.text() === 'Basic');
+        // Target the label span, not the whole button: the button now also
+        // renders a sibling count-badge span (e.g. "Basic" + "1"), so
+        // button.text() would concatenate both and never equal 'Basic'.
+        const toggle = wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Basic');
         await toggle.trigger('click');
         await wrapper.vm.$nextTick();
         expect(JSON.parse(localStorage.getItem('sg-sections')).basic).toBe(false);
+    });
+
+    it('renders the section header count badge with the filtered item count', async () => {
+        const { wrapper } = await mountSidebar();
+        // Fixture: 3 items categorised 'Block' -> Blocks section, 1 ('gizmo',
+        // uncategorised) -> Basic section.
+        const blocksButton = wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Blocks');
+        const basicButton = wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Basic');
+        expect(blocksButton.findAll('span')[1].text()).toBe('3');
+        expect(basicButton.findAll('span')[1].text()).toBe('1');
+    });
+
+    it("wires the header favicon/name from config's favicon/projectName", async () => {
+        stubSgConfig({ projectName: 'Acme', favicon: '/f.svg' });
+        const { wrapper } = await mountSidebar();
+        const favicon = wrapper.find('#sg-favicon');
+        expect(favicon.attributes('src')).toBe('/f.svg');
+        expect(favicon.attributes('alt')).toBe('Acme');
+        expect(wrapper.find('#sg-project-name').text()).toBe('Acme');
+    });
+
+    it('marks the Overview nav item active when on /overview', async () => {
+        const { wrapper } = await mountSidebar('/overview');
+        const overviewLink = wrapper.findAll('a').find((a) => a.text() === 'Overview');
+        expect(overviewLink.classes()).toContain('bg-red-600/10');
+        expect(overviewLink.classes()).toContain('text-red-700');
     });
 });
