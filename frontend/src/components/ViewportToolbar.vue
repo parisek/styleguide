@@ -2,6 +2,8 @@
 import { inject, ref, onMounted, onUnmounted } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
+import { runAxeCheck } from '../lib/axeInject.js';
+import { formatAxeResults } from '../lib/a11yFormat.js';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
@@ -57,6 +59,38 @@ function goCanvasMode() {
 // iframeSrc computed reads to append `?theme=dark` to the render URL.
 function toggleIframeTheme() {
     ui.setIframeTheme(ui.iframeTheme === 'dark' ? 'light' : 'dark');
+}
+
+// On-demand accessibility check (axe-core), Task 6. Review finding baked
+// in: re-entrancy guard -- the button exists on three surfaces (inline lg+,
+// the ⋮ overflow, and the foundations-only cluster) that all call this same
+// handler, so without the guard a second click while a check is already in
+// flight would fire a duplicate axe.run() against the same iframe document.
+async function runA11yCheck() {
+    if (ui.a11yRunning) return;
+    const iframeEl = viewport.iframeEl?.value;
+    if (!iframeEl) return;
+    // Snapshotted before the check starts so a late-resolving axe.run()
+    // that outlives a navigation away from this entry can tell it's now
+    // stale (setRoute() bumps a11yGeneration on every navigation) and skip
+    // overwriting a11yResults/a11yRunning with results describing the old,
+    // no-longer-displayed document. See the a11yGeneration comment in
+    // stores/ui.js.
+    const generation = ui.a11yGeneration;
+    ui.a11yRunning = true;
+    try {
+        const raw = await runAxeCheck(iframeEl);
+        if (ui.a11yGeneration !== generation) return;
+        ui.a11yResults = formatAxeResults(raw);
+    } catch (err) {
+        // eslint-disable-next-line no-console -- surfaced nowhere else; a
+        // failed injection (blocked script, detached iframe) should be
+        // visible to whoever's debugging, not silently swallowed.
+        console.error('[styleguide] accessibility check failed', err);
+        if (ui.a11yGeneration === generation) ui.a11yResults = null;
+    } finally {
+        if (ui.a11yGeneration === generation) ui.a11yRunning = false;
+    }
 }
 
 // Vue has no built-in @click.outside directive (unlike Alpine's). Both
@@ -251,6 +285,19 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      overflow below lg so the toolbar doesn't crowd on tablet / phone. -->
                 <div class="hidden lg:flex items-center gap-2">
                     <button type="button"
+                            data-testid="a11y-check-button"
+                            @click="runA11yCheck()"
+                            :disabled="ui.a11yRunning"
+                            :title="i18n.t('a11y.check_action')"
+                            :aria-label="i18n.t('a11y.check_action')"
+                            class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                        <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="2"/>
+                            <path d="M12 2a10 10 0 0 1 10 10M12 22a10 10 0 0 1-10-10M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41"/>
+                            <path d="M2 12h4M18 12h4M12 2v4M12 18v4"/>
+                        </svg>
+                    </button>
+                    <button type="button"
                             data-testid="iframe-theme-toggle"
                             @click="toggleIframeTheme()"
                             :aria-pressed="ui.iframeTheme === 'dark' ? 'true' : 'false'"
@@ -312,6 +359,18 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                     <div v-show="overflowOpen"
                          class="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
                         <button type="button"
+                                data-testid="a11y-check-button-overflow"
+                                @click="overflowOpen = false; runA11yCheck()"
+                                :disabled="ui.a11yRunning"
+                                class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="2"/>
+                                <path d="M12 2a10 10 0 0 1 10 10M12 22a10 10 0 0 1-10-10M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41"/>
+                                <path d="M2 12h4M18 12h4M12 2v4M12 18v4"/>
+                            </svg>
+                            <span>{{ i18n.t('a11y.check_action') }}</span>
+                        </button>
+                        <button type="button"
                                 data-testid="iframe-theme-toggle-overflow"
                                 @click="overflowOpen = false; toggleIframeTheme()"
                                 :aria-pressed="ui.iframeTheme === 'dark' ? 'true' : 'false'"
@@ -359,6 +418,19 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              just without the viewport controls. -->
         <template v-if="viewport.iframeSrc.value && viewport.type.value === 'foundations'">
             <div class="flex items-center gap-1 shrink-0">
+                <button type="button"
+                        data-testid="a11y-check-button-foundations"
+                        @click="runA11yCheck()"
+                        :disabled="ui.a11yRunning"
+                        :title="i18n.t('a11y.check_action')"
+                        :aria-label="i18n.t('a11y.check_action')"
+                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="2"/>
+                        <path d="M12 2a10 10 0 0 1 10 10M12 22a10 10 0 0 1-10-10M4.93 4.93l1.41 1.41M19.07 19.07l-1.41-1.41"/>
+                        <path d="M2 12h4M18 12h4M12 2v4M12 18v4"/>
+                    </svg>
+                </button>
                 <button type="button"
                         data-testid="iframe-theme-toggle"
                         @click="toggleIframeTheme()"

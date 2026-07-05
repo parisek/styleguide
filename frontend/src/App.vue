@@ -12,6 +12,7 @@ import FieldsDrawer from './components/FieldsDrawer.vue';
 import UsagePanel from './components/UsagePanel.vue';
 import LinkBar from './components/LinkBar.vue';
 import SearchPalette from './components/SearchPalette.vue';
+import A11yPanel from './components/A11yPanel.vue';
 
 const ui = useUiStore();
 const catalog = useCatalogStore();
@@ -74,6 +75,16 @@ provide('viewport', viewport);
             <LinkBar />
             <FieldsDrawer v-if="viewport.fieldsCount.value > 0 && routeSlug" :fields="viewport.currentItem.value?.fields" />
             <RouterView />
+            <!-- On-demand accessibility check results (Task 6). Absent
+                 until the first check ever runs -- gated here (not inside
+                 A11yPanel.vue itself) mirroring FieldsDrawer/UsagePanel's
+                 caller-gated pattern above. Sits below RouterView (not
+                 above, like the other panels) since it reports on the
+                 iframe content those chrome elements sit around, not on
+                 the route metadata itself. setRoute() (stores/ui.js) resets
+                 both a11yResults/a11yRunning on every navigation, so this
+                 also disappears automatically when the user moves on. -->
+            <A11yPanel v-if="ui.a11yResults || ui.a11yRunning" />
         </main>
     </div>
 </template>

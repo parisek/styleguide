@@ -8,7 +8,7 @@ import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 
-function mountPane(type = 'component', slug = 'hero') {
+function mountPane(type = 'component', slug = 'hero', { onViewport } = {}) {
     setActivePinia(createPinia());
     useI18nStore().strings = { toolbar: { rotate: 'Rotate', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape' }, empty_state: 'Select a component', loading: 'Loading...' };
     // The mount helper simulates a catalogue that has already finished its
@@ -25,7 +25,13 @@ function mountPane(type = 'component', slug = 'hero') {
         setup() {
             const typeRef = ref(type);
             const slugRef = ref(slug);
-            provide('viewport', useViewportPreset({ type: typeRef, slug: slugRef }));
+            const viewport = useViewportPreset({ type: typeRef, slug: slugRef });
+            // Hands the composable instance back to the caller (Task 6's
+            // registerIframe test below needs to read viewport.iframeEl
+            // directly) without changing the return shape for every
+            // pre-existing call site, which never passes this option.
+            onViewport?.(viewport);
+            provide('viewport', viewport);
             return () => h(PreviewPane);
         },
     });
@@ -120,5 +126,25 @@ describe('PreviewPane', () => {
         } finally {
             global.ResizeObserver = originalResizeObserver;
         }
+    });
+
+    // Task 6 (on-demand accessibility check): ViewportToolbar's a11y check
+    // reads the <iframe> DOM handle through viewport.iframeEl rather than
+    // owning a ref of its own (PreviewPane is the only component that
+    // renders the element) -- mirrors the wrapperRef/observeWrapper wiring
+    // tested implicitly by the chassis/drag-handle specs above.
+    it('registers the iframe element with viewport.registerIframe on mount and clears it on unmount', async () => {
+        let viewport;
+        const wrapper = mountPane('component', 'hero', { onViewport: (vp) => { viewport = vp; } });
+        // The watch(iframeRef, ...) callback that calls registerIframe()
+        // runs on the next tick (Vue's default 'pre' flush queues it as a
+        // microtask), not synchronously within mount() itself -- same
+        // reason other specs in this file await $nextTick() after a store
+        // mutation before asserting on its DOM effect.
+        await wrapper.vm.$nextTick();
+        expect(viewport.iframeEl.value).toBe(wrapper.find('iframe').element);
+
+        wrapper.unmount();
+        expect(viewport.iframeEl.value).toBeNull();
     });
 });

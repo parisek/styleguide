@@ -11,6 +11,7 @@ const viewport = inject('viewport');
 
 const paneRef = ref(null);
 const wrapperRef = ref(null);
+const iframeRef = ref(null);
 const iframeContentHeight = ref(null);
 let contentRO = null;
 
@@ -25,8 +26,15 @@ onBeforeUnmount(() => {
     // observeContainer() and disconnects it as a side effect (bounded, but
     // a real observer sits idle in between).
     viewport.observeContainer(null);
+    // Same reasoning for the shared iframe handle (Task 6: on-demand
+    // accessibility check) -- without this, ViewportToolbar's a11y check
+    // could still read a stale registration pointing at a detached iframe
+    // for the brief window between this component unmounting and the next
+    // route's PreviewPane re-registering its own.
+    viewport.registerIframe(null);
 });
 watch(wrapperRef, (el) => viewport.observeWrapper(el));
+watch(iframeRef, (el) => viewport.registerIframe(el));
 
 const isLoading = computed(() => ui.isPreviewLoading);
 
@@ -196,7 +204,7 @@ const iframeStyle = computed(() => {
                          fixed-height shell. The 400px fallback shows
                          before the first onload fires so the preview area
                          has something visible during the initial paint. -->
-                    <iframe :src="viewport.iframeSrc.value" @load="onIframeLoad"
+                    <iframe ref="iframeRef" :src="viewport.iframeSrc.value" @load="onIframeLoad"
                             class="border-0 block"
                             :style="iframeStyle"
                             :class="{ 'pointer-events-none': viewport.isDragging.value }"></iframe>

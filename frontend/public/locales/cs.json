@@ -78,5 +78,15 @@
     },
     "health": {
         "warnings_title": "Některé šablony se nepodařilo zpracovat — kliknutím zobrazíte podrobnosti v konzoli"
+    },
+    "a11y": {
+        "check_action": "Kontrola přístupnosti",
+        "panel_title": "Výsledky kontroly přístupnosti",
+        "running": "Probíhá kontrola…",
+        "no_violations": "Žádné problémy nenalezeny",
+        "impact_critical": "Kritická",
+        "impact_serious": "Závažná",
+        "impact_moderate": "Střední",
+        "impact_minor": "Menší"
     }
 }

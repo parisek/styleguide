@@ -78,5 +78,15 @@
     },
     "health": {
         "warnings_title": "Some templates failed to parse — click to log details to the console"
+    },
+    "a11y": {
+        "check_action": "Accessibility check",
+        "panel_title": "Accessibility results",
+        "running": "Running check…",
+        "no_violations": "No issues found",
+        "impact_critical": "Critical",
+        "impact_serious": "Serious",
+        "impact_moderate": "Moderate",
+        "impact_minor": "Minor"
     }
 }
