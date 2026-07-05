@@ -211,6 +211,27 @@ test.describe('Styleguide SPA', () => {
         expect(pagesLinks).toBe(renderablePages);
     });
 
+    test('clicking the theme toggle flips <html class="dark"> live, without a reload', async ({ page }) => {
+        // Regression guard for the dead theme toggle: theme.js's apply()
+        // used to only run once implicitly via the FOUC-prevention inline
+        // script at boot — clicking the toggle updated the store's `mode`
+        // and the icon, but never touched <html>'s classList until a hard
+        // reload. init() now wires a watch() so this must update live.
+        await page.goto('/styleguide/');
+        const html = page.locator('html');
+        const toggle = page.getByRole('button', { name: /Toggle theme|Přepnout vzhled/ });
+
+        // cycle: system -> light -> dark -> system, deterministically driving
+        // to a known 'dark' state regardless of the OS/browser's own
+        // prefers-color-scheme (Playwright's default is light).
+        await toggle.click(); // -> light
+        await expect(html).not.toHaveClass(/dark/);
+        await toggle.click(); // -> dark
+        await expect(html).toHaveClass(/dark/);
+        await toggle.click(); // -> system (light, since the test runner has no dark OS pref)
+        await expect(html).not.toHaveClass(/dark/);
+    });
+
     test('standalone render shows the back-bar; the same render inside the SPA iframe hides it', async ({ page }) => {
         // Replaces smoke-browser.sh section 6 — render-cell.twig's back-bar is
         // plain PHP/Twig + vanilla JS, entirely untouched by this rewrite;

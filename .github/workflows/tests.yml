@@ -99,6 +99,9 @@ jobs:
       - name: Install frontend dependencies
         run: cd frontend && npm ci
 
+      - name: Run Vitest suite
+        run: cd frontend && npm test
+
       - name: Build the SPA
         run: cd frontend && npm run build
 
