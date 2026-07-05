@@ -378,8 +378,8 @@ vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
 
 Reports five issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
-the renderer never reads (`dead-styleguide-content` — see *Per-template
-metadata* above), `usage:` references to ids that don't exist
+the renderer never reads (`dead-styleguide-content` — see *Fixtures &
+sample data* below), `usage:` references to ids that don't exist
 (`broken-usage-ref`), `render:` values outside the four canonical modes
 (`unknown-render`), and empty `description` strings (`empty-description`,
 informational only).
@@ -447,7 +447,7 @@ fields:
 | `drupal` | external link chip — Drupal docs / module URL |
 | `web` | external link chip — generic external URL |
 | `render` | iframe-wrapper rendering mode for components — see *Component render modes* below |
-| `styleguide` | optional flag — when set (or when a sibling `styleguide.twig` exists), the component exposes a separate styleguide-only render variant |
+| `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
 
@@ -507,6 +507,74 @@ Rules:
 - **Built through `create_attribute`** — same class-escaping contract as the `<body>` line, no stray `class=""`.
 
 This completes the production-parity pair: `body_class` reproduces the page's `<body>` styling, `page_wrapper_class` reproduces the wrapper `<div>` around `header + main + footer` — so a page preview matches production without each consumer hand-wrapping every `page/<name>/styleguide.twig`.
+
+---
+
+## Fixtures & sample data
+
+The **only supported convention** for demo content is a sibling
+`styleguide.twig` next to the component or page it demos:
+
+```
+templates/component/breadcrumb/
+├── breadcrumb.twig       # the component itself — receives content.* from the CMS in production
+└── styleguide.twig       # sample data, rendered ONLY in the styleguide preview
+```
+
+```twig
+{# templates/component/breadcrumb/styleguide.twig #}
+{{ component_breadcrumb({
+    container: 'container',
+    items: [
+        { title: 'Úvod', url: '#' },
+        { title: 'Služby', url: '#' },
+        { title: 'Detail služby', url: '#' },
+    ],
+}) }}
+```
+
+`Renderer` auto-detects the sibling file and prefers it — no YAML key
+required. The `styleguide:` front-comment key (nested sample data under the
+YAML metadata) still works for backward compatibility, but content placed
+under it is **never read** — only its presence is checked. Run
+`vendor/bin/styleguide lint` to find leftover instances (reported as
+`dead-styleguide-content`) and move the data into a `styleguide.twig`
+sibling; see `docs/MIGRATION.md` for a worked before/after.
+
+### Placeholder images — no external network calls
+
+Use the bundled `placeholder()` Twig function in `styleguide.twig` files
+instead of a service like `picsum.photos`. It's deterministic (the same
+`seed` always renders the same image), fully offline (an inline SVG data
+URL — no network round-trip, no rate limit, no dead links when a
+third-party service changes its API), and returns an image-array shape
+most `component_picture`-style helpers already expect:
+
+```twig
+{# bare call — abstract subject, pastel mood, 3/2 aspect #}
+{{ component_picture({ image: placeholder() }) }}
+
+{# tuned for a hero — landscape subject, warm mood, explicit size #}
+{{ component_picture({
+    image: placeholder({ subject: 'landscape', mood: 'warm', width: 1920, height: 1080, seed: 'hero-1' }),
+}) }}
+
+{# repeatable across a gallery loop — same subject, distinct seed per index avoids visually identical repeats #}
+{% for i in 1..4 %}
+    {{ component_picture({ image: placeholder({ subject: 'product', seed: 'gallery-' ~ i }) }) }}
+{% endfor %}
+```
+
+| Option | Values | Default |
+|---|---|---|
+| `subject` | `abstract` \| `landscape` \| `portrait` \| `product` \| `food` \| `architecture` \| `avatar` | `abstract` |
+| `mood` | `pastel` \| `vibrant` \| `monochrome` \| `warm` \| `cold` \| `natural` \| `vintage` | `pastel` |
+| `seed` | any string — same seed ⇒ same image | auto-incrementing counter |
+| `width` / `height` / `aspect` | pixels, or a `"w/h"` ratio string | `aspect: '3/2'`, 1200px wide |
+| `label` | `true` \| a string \| `false` | `false` |
+
+See `docs/API.md` § Twig functions for the full option list (`grain`,
+`vignette`, `alt`).
 
 ---
 

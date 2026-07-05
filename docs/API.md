@@ -132,7 +132,7 @@ The first `{# … #}` comment in each component / page / doc Twig template is pa
 | `fields` | no | recursive map | `[]` | Fields inspector view + `/api/fields` |
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
-| `styleguide` | no | flag (presence-only) | absent | Forces a separate `styleguide.twig` demo file |
+| `styleguide` | no | flag (presence-only) — **legacy** | absent | Forces a separate `styleguide.twig` demo file. **Convention going forward: use a sibling `styleguide.twig`** (auto-detected, no YAML key needed) — this key exists for templates written before that convention. Content placed under it (anything beyond a bare boolean) is never read by the renderer; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. See README § Fixtures & sample data. |
 | `responsive` | no | `bool` | `true` | When `false`, the SPA hides the responsive-width toolbar for this entry (use for docs or fixed-layout demos where resizing has no meaning) |
 | `body_class` | no | `string` | `''` | Class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` (empty values dropped — no stray `class=""`). Lets a page mirror what its production layout puts on `<body>` (e.g. a dark brand background) without a styleguide-only wrapper `<div>` |
 
@@ -158,7 +158,7 @@ The package registers these on its pristine Twig env (or layers them on top of a
 |---|---|---|
 | `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/` |
 | `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig` |
-| `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts |
+| `placeholder(opts)` | function | Generate a placeholder image URL — see `Placeholder::generate()` for opts, and README § Fixtures & sample data for the full option table and migration examples away from `picsum.photos`-style URLs. |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
 | `cachebust(url)` | filter | Appends `?v=<filemtime>` (or `&v=…` if the URL already has a query string) to a root-relative URL that resolves to a real file, walking up from `static_path` to find it. Non-string, empty, non-root-relative, or unresolvable URLs pass through unchanged. Used internally on `iframe.css` / `iframe.js` / `iframe.fonts[]`, also callable from any component template |
