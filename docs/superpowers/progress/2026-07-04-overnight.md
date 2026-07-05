@@ -15,3 +15,4 @@
 - 11:09 Task 12 (P1 Playwright e2e + CI): OK — dc9cacb+9853607+3ae7cca, e2e suite found+fixed real sidebar bug, 15/15
 - 11:11 Task 13 (P1 dist-reproducible CI): OK — 9eab463
 - 11:24 Task 14 (P1 cleanup + docs): OK — fda0f03, Alpine fully removed, all 4 suites green. PHASE 1 TASKS COMPLETE.
+- 11:36 PHASE 1 DONE — branch review (fable) found+fixed dead theme toggle (critical) + Vitest missing from CI. 137/160/16 green.
