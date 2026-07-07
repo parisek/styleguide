@@ -22,8 +22,15 @@ use Symfony\Component\Yaml\Yaml;
  * a normalised array of component/page metadata: name, category, description, fields, …
  *
  * Tabs in YAML are auto-converted to 4 spaces — Twig editors insert tabs, YAML rejects them.
+ *
+ * Deliberately not `final` (deviates from this package's PSR-12 convention):
+ * `tests/ComponentParserTest.php` doubles this class via `getMockBuilder()`
+ * to exercise the `\Throwable`-catching resilience path deterministically
+ * (see `getWarnings()`), and PHPUnit's mock generator unconditionally
+ * refuses to double a class reflection reports as final — there is no
+ * opt-out. No production subclassing is implied or supported.
  */
-final class ComponentParser
+class ComponentParser
 {
     /**
      * @api Public contract. Used by the `vendor/bin/styleguide` CLI and by
@@ -38,11 +45,52 @@ final class ComponentParser
      */
     public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
 
+    /**
+     * Filename shape of a file-convention variant sibling: `styleguide.<id>.twig`.
+     * The captured group is the canonical variant id — same character class as
+     * the `?variant=` query-string whitelist in Router::parse(), so a value
+     * ComponentParser can ever produce is exactly the set a URL can ever name.
+     */
+    private const VARIANT_FILE_PATTERN = '/^styleguide\.([a-z0-9-]+)\.twig$/';
+
+    /**
+     * @api Public contract. Shared with `Cli\Linter` so the catalogue walk
+     *      and the linter's own file walk can never disagree about which
+     *      files are fixtures.
+     *
+     * Filename shape of the WHOLE `styleguide.*` sibling family — the bare
+     * default (`styleguide.twig`) and every file-convention variant
+     * (`styleguide.<variant>.twig`), including ones whose `<variant>`
+     * segment doesn't satisfy VARIANT_FILE_PATTERN's stricter
+     * `[a-z0-9-]+` id rule. Even an invalid-id sibling is still a fixture
+     * file — it must never surface as a phantom catalogue entry just
+     * because its filename didn't happen to match the narrower variant
+     * pattern.
+     */
+    public const STYLEGUIDE_SIBLING_PATTERN = '/^styleguide(\.[A-Za-z0-9_-]+)?\.twig$/';
+
     private string $templatesPath;
+
+    /** @var list<array{file:string, error:string}> */
+    private array $warnings = [];
 
     public function __construct(string $templatesPath)
     {
         $this->templatesPath = rtrim($templatesPath, '/');
+    }
+
+    /**
+     * @internal Exposed for `Api\HealthEndpoint`; not part of the SemVer
+     *           contract — see docs/API.md § Other PHP classes.
+     *
+     * Files `parse()`/`parseAll()` had to skip because parsing their front
+     * comment threw, accumulated across every call made on this instance.
+     *
+     * @return list<array{file:string, error:string}>
+     */
+    public function getWarnings(): array
+    {
+        return $this->warnings;
     }
 
     /**
@@ -64,6 +112,38 @@ final class ComponentParser
     }
 
     /**
+     * @api Public contract. Shared with `Cli\Linter`'s `broken-usage-ref`
+     *      rule so the catalogue's own usage-array parsing and the linter's
+     *      raw-YAML re-read can never disagree about how a `usage:` value
+     *      splits into ids. Any downstream tooling that needs the same
+     *      coercion should call this rather than re-implementing it.
+     *
+     * Coerce a `usage:` YAML value into a list of trimmed, non-empty ids.
+     * Authoring convention stays a comma-separated string
+     * (`usage: 404, article-list`) — this is where that string gets parsed
+     * into the array the wire contract (`/api/components` et al.) actually
+     * emits. An already-array YAML value (e.g. a block list) is accepted
+     * too, so authors aren't punished for reaching for YAML's native list
+     * syntax: each entry is stringified, trimmed, and empty entries
+     * dropped, same as the comma-split path. Anything else (null, bool,
+     * int, …) yields `[]`.
+     *
+     * @return list<string>
+     */
+    public static function normaliseUsage(mixed $value): array
+    {
+        if (is_array($value)) {
+            $ids = array_map(static fn(mixed $id): string => trim((string) $id), $value);
+        } elseif (is_scalar($value)) {
+            $ids = array_map('trim', explode(',', (string) $value));
+        } else {
+            return [];
+        }
+
+        return array_values(array_filter($ids, static fn(string $id): bool => $id !== ''));
+    }
+
+    /**
      * Parse metadata from a single component/page .twig file.
      *
      * @return array<string,mixed>|null  Null when file missing or metadata invalid.
@@ -77,17 +157,28 @@ final class ComponentParser
             return null;
         }
 
-        $content = (string) file_get_contents($file);
-        $metadata = $this->parseTwigComment($content);
+        try {
+            $content = (string) file_get_contents($file);
+            $metadata = $this->parseTwigComment($content);
 
-        if (!$metadata || !isset($metadata['name'])) {
+            if (!$metadata || !isset($metadata['name'])) {
+                return null;
+            }
+
+            $hasStyleguide = file_exists($dir . '/styleguide.twig')
+                || isset($metadata['styleguide']);
+            $variants = $this->discoverVariants($dir, $metadata);
+
+            return $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
+        } catch (\Throwable $e) {
+            // Single-file lookup path (used by Styleguide::dispatchRender()
+            // for the render endpoint's <title>/body_class/render metadata)
+            // — same resilience contract as parseAll(): a broken template
+            // degrades this lookup to the pre-existing "no metadata" outcome
+            // (null) instead of 500ing the render endpoint itself.
+            $this->recordWarning($this->relativePath($file), $e);
             return null;
         }
-
-        $hasStyleguide = file_exists($dir . '/styleguide.twig')
-            || isset($metadata['styleguide']);
-
-        return $this->normaliseMetadata($id, $metadata, $hasStyleguide);
     }
 
     /**
@@ -108,22 +199,39 @@ final class ComponentParser
         $regex = new \RegexIterator($flattened, '/\.twig$/');
 
         foreach ($regex as $file) {
-            if ($file->getFilename() === 'styleguide.twig') {
+            // A variant sibling carrying a {# name: #} header must never
+            // surface as a phantom catalogue entry — exclude the whole
+            // styleguide.* family, not just the exact default filename, so
+            // even a sibling whose <variant> segment is invalid (and thus
+            // never discovered by discoverVariants()) still can't leak in
+            // here as its own "component".
+            if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
                 continue;
             }
 
             $content = (string) file_get_contents($file->getPathname());
-            $metadata = $this->parseTwigComment($content);
 
-            if (!$metadata || !isset($metadata['name'])) {
+            try {
+                $metadata = $this->parseTwigComment($content);
+
+                if (!$metadata || !isset($metadata['name'])) {
+                    continue;
+                }
+
+                $id = $file->getBasename('.twig');
+                $hasStyleguide = file_exists($file->getPath() . '/styleguide.twig')
+                    || isset($metadata['styleguide']);
+                $variants = $this->discoverVariants($file->getPath(), $metadata);
+
+                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
+            } catch (\Throwable $e) {
+                // One pathological template must not 500 the whole catalogue for
+                // every sibling component. Record it and keep walking; surfaced
+                // via GET /styleguide/api/health, invisible to the normal
+                // component list the SPA renders.
+                $this->recordWarning($this->relativePath($file->getPathname()), $e);
                 continue;
             }
-
-            $id = $file->getBasename('.twig');
-            $hasStyleguide = file_exists($file->getPath() . '/styleguide.twig')
-                || isset($metadata['styleguide']);
-
-            $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide);
         }
 
         usort($items, function ($a, $b): int {
@@ -165,10 +273,102 @@ final class ComponentParser
     }
 
     /**
+     * Discover `styleguide.<variant>.twig` siblings in a component/page/doc
+     * directory. Filesystem is canonical — display metadata (title,
+     * description) is layered on top with the following precedence:
+     *
+     *   1. The sibling file's OWN first `{# ... #}` comment (same authoring
+     *      convention as every component/page front-comment) — `title:` /
+     *      `description:`. THIS is the primary convention going forward:
+     *      metadata lives next to the markup it describes, not in a
+     *      centralised map the author has to keep in sync by id.
+     *   2. The component's `variants:` map entry for this id — legacy
+     *      fallback, kept for templates written before per-sibling
+     *      annotations existed. Accepts a plain string (the title, original
+     *      BC shape) or a map `{title?: string, label?: string, description?: string}`
+     *      (`label` is a legacy alias for `title`; `title` wins when both
+     *      are present).
+     *   3. The id itself, for title; `''` for description.
+     *
+     * An id with no matching file is silently dropped (never fabricates a
+     * phantom variant) — that check happens before any of the above, on the
+     * glob result, not on the YAML map.
+     *
+     * A missing or malformed sibling annotation is NOT an error: parseTwigComment()
+     * already degrades absence/malformed YAML to `false` without throwing,
+     * so this method falls straight through to the map (or the id) exactly
+     * as if the sibling carried no comment at all — one broken variant
+     * annotation must never kill the whole catalogue walk (same resilience
+     * contract as parse()/parseAll(), just without a getWarnings() entry:
+     * this is a per-FIELD fallback within an otherwise-successful variant,
+     * not a skipped file).
+     *
+     * Plain `styleguide.twig` (no captured group) is the implicit default
+     * and is never itself listed here — callers add the default separately
+     * (or, for the SPA, prepend it client-side; see docs/API.md).
+     *
      * @param array<string,mixed> $metadata
+     * @return list<array{id:string,title:string,description:string}>
+     */
+    private function discoverVariants(string $dir, array $metadata): array
+    {
+        $entries = is_array($metadata['variants'] ?? null) ? $metadata['variants'] : [];
+
+        $variants = [];
+        foreach (glob($dir . '/styleguide.*.twig') ?: [] as $file) {
+            if (!preg_match(self::VARIANT_FILE_PATTERN, basename($file), $m)) {
+                continue; // not a canonical variant filename (e.g. a stray .bak) — skip, don't error
+            }
+            $id = $m[1];
+            [$mapTitle, $mapDescription] = self::normaliseVariantEntry($id, $entries[$id] ?? null);
+            $annotation = $this->parseTwigComment((string) file_get_contents($file));
+            $title = is_array($annotation) && is_string($annotation['title'] ?? null)
+                ? $annotation['title']
+                : $mapTitle;
+            $description = is_array($annotation) && is_string($annotation['description'] ?? null)
+                ? $annotation['description']
+                : $mapDescription;
+            $variants[] = ['id' => $id, 'title' => $title, 'description' => $description];
+        }
+
+        // Sort by id — equivalent to filename order (id is the only variable
+        // segment) and deterministic across filesystems/OSes, unlike glob()'s
+        // platform-dependent return order.
+        usort($variants, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
+
+        return $variants;
+    }
+
+    /**
+     * Coerce a single `variants.<id>` YAML value (the legacy map fallback)
+     * into a [title, description] pair. See {@see self::discoverVariants()}
+     * for the full precedence chain and the accepted shapes.
+     *
+     * @return array{0:string,1:string}
+     */
+    private static function normaliseVariantEntry(string $id, mixed $entry): array
+    {
+        if (is_string($entry)) {
+            return [$entry, ''];
+        }
+        if (is_array($entry)) {
+            $title = is_string($entry['title'] ?? null)
+                ? $entry['title']
+                : (is_string($entry['label'] ?? null) ? $entry['label'] : $id); // `label` = legacy alias
+            $description = is_string($entry['description'] ?? null) ? $entry['description'] : '';
+            return [$title, $description];
+        }
+        // Absent entry, or garbage (int/bool/null/list…) — same fallback as
+        // "no title supplied": id as title, no description. Never throws.
+        return [$id, ''];
+    }
+
+    /**
+     * @param array<string,mixed> $metadata
+     * @param list<array{id:string,title:string,description:string}> $variants
      * @return array<string,mixed>
      */
-    private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide): array
+    private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide, array $variants): array
     {
         return [
             'id' => $id,
@@ -180,7 +380,7 @@ final class ComponentParser
             'drupal' => $metadata['drupal'] ?? '',
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
-            'usage' => $metadata['usage'] ?? '',
+            'usage' => self::normaliseUsage($metadata['usage'] ?? null),
             'fields' => $metadata['fields'] ?? [],
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
@@ -197,7 +397,33 @@ final class ComponentParser
             // Default true; only an explicit YAML `false` opts out — strict
             // !== false so strings, integers, or typos never disable it.
             'responsive' => ($metadata['responsive'] ?? true) !== false,
-            'hasStyleguide' => $hasStyleguide,
+            'has_styleguide' => $hasStyleguide,
+            // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
+            // siblings; [] when none exist — every pre-Phase-4 template keeps
+            // this BC default. Default variant is implicit, never listed here.
+            // Each record's `title`/`description` come from the sibling's own
+            // front-comment annotation first, falling back to the component's
+            // legacy `variants:` map, then to the id (title only) — see
+            // discoverVariants().
+            'variants' => $variants,
         ];
+    }
+
+    private function recordWarning(string $relativeFile, \Throwable $e): void
+    {
+        foreach ($this->warnings as $warning) {
+            if ($warning['file'] === $relativeFile) {
+                // Idempotent within one request/instance — a caller that
+                // queries the same type twice shouldn't accumulate
+                // duplicate entries for the same broken file.
+                return;
+            }
+        }
+        $this->warnings[] = ['file' => $relativeFile, 'error' => $e->getMessage()];
+    }
+
+    private function relativePath(string $absolutePath): string
+    {
+        return ltrim(substr($absolutePath, strlen($this->templatesPath)), '/');
     }
 }

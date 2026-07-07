@@ -64,7 +64,14 @@ final class Styleguide
      *   twig_options?: array<string,mixed>,
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
+     *   dist_path?: string,
+     *   auth?: callable(array<string,mixed>):bool,
      * } $config
+     *
+     * `dist_path` is @internal for tests only (points `dispatchSpa()` at a
+     * throwaway fixture dist/ instead of the package's real built one — see
+     * SpaConfigTest). Not part of the `@api`-covered config shape below;
+     * consumers must never set it.
      *
      * If `twig` is provided, the package reuses the project's existing
      * environment — required when component templates depend on extensions /
@@ -108,6 +115,20 @@ final class Styleguide
             }
         }
 
+        // `auth` gates every request (see `isAuthorized()`) — a typo'd or
+        // wrong-shape value here (a string, an array missing `__invoke`, …)
+        // must fail loudly at boot rather than silently falling back to
+        // "allow everything" inside `isAuthorized()`'s `is_callable()` check.
+        // Fail-open at request time on a misconfigured gate would be a
+        // security bug masquerading as backward compatibility; failing here
+        // instead surfaces it the moment the project boots, before it ever
+        // serves a request.
+        if (array_key_exists('auth', $config) && $config['auth'] !== null && !is_callable($config['auth'])) {
+            throw new \InvalidArgumentException(
+                "Styleguide: config key 'auth' must be null or callable(array<string,mixed>):bool",
+            );
+        }
+
         $this->config = $config + [
             'default_locale' => 'en',
             'base_url' => '/styleguide',
@@ -126,6 +147,13 @@ final class Styleguide
             // `templates_path` (component/macro/page) are auto-discovered and
             // don't need to be listed here.
             'namespaces' => [],
+            // Optional programmatic gate — callable(array $route): bool. Checked once
+            // per request in dispatch(), before ANY handler (SPA/render/api/asset).
+            // Null (the default) means "allow everything", i.e. today's behaviour —
+            // fully backward compatible. See README § Bootstrap → Constructor config
+            // for the recommended alternative (web-server-level HTTP Basic Auth) on
+            // publicly reachable deployments.
+            'auth' => null,
         ];
 
         // Load styleguide.yaml content config (favicon, iframe.css/js/fonts, etc.)
@@ -133,7 +161,10 @@ final class Styleguide
             ? (array) Yaml::parseFile($config['config_yaml'])
             : [];
 
-        $this->distRoot = __DIR__ . '/../dist';
+        // `dist_path` override exists for tests only (SpaConfigTest points it at a
+        // throwaway temp dir so writing a synthetic index.html fixture doesn't
+        // corrupt the package's real built dist/). Consumers never set this.
+        $this->distRoot = (string) ($config['dist_path'] ?? (__DIR__ . '/../dist'));
 
         $this->twig = $this->config['twig'] instanceof Environment
             ? $this->attachLoaders($this->config['twig'], $config['templates_path'])
@@ -353,13 +384,15 @@ final class Styleguide
         // pattern would defeat itself the moment the first check ran.
         //
         // Instead we attempt registration unconditionally via
-        // {@see self::tryAdd…()} which catches the *duplicate-name* case
-        // only — projects that pre-register any of these names on the
-        // shared env (real WP `__()` instead of identity stub, custom
-        // `placeholder`, …) keep their version because our `addFunction`
-        // throws "already registered" and we swallow that path. The
-        // "extensions initialized" case is a misuse signal (Styleguide
-        // constructed after the env was rendered with), so we re-throw.
+        // {@see self::tryAdd…()}, which swallows every `LogicException` Twig
+        // throws from `addFunction()`/`addFilter()` — both the expected
+        // *duplicate-name* case (projects that pre-register any of these
+        // names on the shared env — real WP `__()` instead of identity stub,
+        // custom `placeholder`, etc. — keep their version) and the
+        // "extensions already initialized" case (Styleguide constructed
+        // against an env that was already locked, e.g. by a prior
+        // `getFunctions()` call). See {@see tryAddFunction()} for why we no
+        // longer try to tell the two apart.
         self::tryAddFunction($twig, new TwigFunction(
             'component_*',
             static function (Environment $env, array $context, string $template_name, array $content = []): string {
@@ -652,20 +685,24 @@ final class Styleguide
     }
 
     /**
-     * Register a Twig function, swallowing the "already registered"
-     * LogicException so projects that pre-registered the same name keep
-     * their version. See {@see registerBundledHelpers()} for the full
-     * rationale (avoiding `getFunction()` which triggers extension
-     * initialization and locks further `addFunction()` calls).
+     * Register a Twig function, swallowing any `LogicException` from
+     * `addFunction()`. See {@see registerBundledHelpers()} for why we can't
+     * distinguish "duplicate name" from "extensions already initialized"
+     * cleanly (Twig exposes both as a bare `LogicException` with only the
+     * message text differing, and that text isn't a stable API — matching on
+     * it to decide whether to rethrow broke once already). Swallow-and-defer:
+     * never crash a consumer's boot because of a Twig internal-message
+     * change; log to error_log() only when the message doesn't look like the
+     * expected "already registered" collision, so the rare genuine-misuse
+     * case (constructing Styleguide against an env that's already been used
+     * to render) still leaves a breadcrumb for whoever's debugging it.
      */
     private static function tryAddFunction(Environment $twig, TwigFunction $function): void
     {
         try {
             $twig->addFunction($function);
         } catch (\LogicException $e) {
-            if (!str_contains($e->getMessage(), 'already registered')) {
-                throw $e;
-            }
+            self::logUnexpectedRegistrationFailure($function->getName(), $e);
         }
     }
 
@@ -677,9 +714,25 @@ final class Styleguide
         try {
             $twig->addFilter($filter);
         } catch (\LogicException $e) {
-            if (!str_contains($e->getMessage(), 'already registered')) {
-                throw $e;
-            }
+            self::logUnexpectedRegistrationFailure($filter->getName(), $e);
+        }
+    }
+
+    /**
+     * Log a breadcrumb for `LogicException`s from `addFunction()`/
+     * `addFilter()` that don't look like the expected "already registered"
+     * collision (e.g. Twig's "extensions already initialized" case). Never
+     * rethrows — see {@see tryAddFunction()} for why matching on the message
+     * to decide whether to crash the consumer's boot isn't safe.
+     */
+    private static function logUnexpectedRegistrationFailure(string $name, \LogicException $e): void
+    {
+        if (!str_contains($e->getMessage(), 'already registered')) {
+            error_log(sprintf(
+                '[parisek/styleguide] unexpected LogicException registering "%s": %s',
+                $name,
+                $e->getMessage(),
+            ));
         }
     }
 
@@ -914,7 +967,7 @@ final class Styleguide
     public function run(): void
     {
         $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-        $route = Router::parse($uri);
+        $route = Router::parse($uri, $_COOKIE);
 
         if ($route === null) {
             return;
@@ -923,8 +976,33 @@ final class Styleguide
         // Iframe-embedded request → render endpoint (no SPA shell). See
         // {@see Router::synthesizeEmbeddedRoute()} for the rationale + decision
         // table. Centralising the swap there keeps the dispatch here simple
-        // and lets the synthesis logic be tested in isolation.
-        $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''));
+        // and lets the synthesis logic be tested in isolation. $_COOKIE carries
+        // the `sg-iframe-theme` fallback for in-iframe navigations that lost
+        // the SPA's `?theme=` query param (the clicked link's href never had one).
+        $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''), $_COOKIE);
+
+        $this->dispatch($route);
+
+        // After dispatching a styleguide route, halt the project's downstream router.
+        exit;
+    }
+
+    /**
+     * Extracted from `run()`'s tail so it's reachable via reflection in tests
+     * without triggering the unconditional `exit` above — `run()` itself
+     * can't be called in-process by PHPUnit (see SpaConfigTest's class doc
+     * comment for why that suite drives a real subprocess instead).
+     *
+     * @param array<string, mixed> $route
+     */
+    private function dispatch(array $route): void
+    {
+        if (!$this->isAuthorized($route)) {
+            http_response_code(403);
+            header('Content-Type: text/plain; charset=utf-8');
+            echo '403 Forbidden';
+            return;
+        }
 
         match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path'] ?? ''),
@@ -932,9 +1010,43 @@ final class Styleguide
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
         };
+    }
 
-        // After dispatching a styleguide route, halt the project's downstream router.
-        exit;
+    /**
+     * Runs the `auth` config callable (if any) against the parsed route.
+     * Absent `auth` (the default, `null`) means "allow everything" — fully
+     * backward compatible with pre-Task-6 behaviour. A non-null, non-callable
+     * value can no longer reach here — the constructor rejects it at boot.
+     *
+     * @param array<string, mixed> $route
+     */
+    private function isAuthorized(array $route): bool
+    {
+        $auth = $this->config['auth'] ?? null;
+        if (!is_callable($auth)) {
+            return true;
+        }
+        /** @var callable(array<string,mixed>):bool $auth */
+        try {
+            return (bool) $auth($route);
+        } catch (\Throwable $e) {
+            // Fail closed: a throwing auth callable must never leak its stack
+            // trace to an unauthenticated caller. With `display_errors=On`
+            // (a common misconfiguration on shared hosting) an uncaught
+            // exception here would render as an HTML error page carrying
+            // file paths and, depending on the callable, secrets pulled from
+            // the environment it inspected before throwing — straight to
+            // whoever sent the request that triggered it. Denying the
+            // request and logging server-side keeps that detail off the
+            // wire while still leaving a breadcrumb for whoever wrote the
+            // callable to go fix it.
+            error_log(sprintf(
+                '[parisek/styleguide] auth callable threw %s: %s — denying request',
+                $e::class,
+                $e->getMessage(),
+            ));
+            return false;
+        }
     }
 
     /**
@@ -964,70 +1076,44 @@ final class Styleguide
             $favicon = Renderer::resolveAssetUrl($favicon, $assetBase);
         }
 
-        $esc = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
-
-        // <html lang="..." data-default-locale="...">
-        $html = (string) preg_replace(
-            '/<html\s+lang="[^"]*"(?:\s+data-default-locale="[^"]*")?\s*>/',
-            sprintf('<html lang="%s" data-default-locale="%s">', $esc($locale), $esc($locale)),
-            $html,
-            1,
+        $config = [
+            'locale' => $locale,
+            'projectName' => $projectName,
+            'favicon' => $favicon,
+            'title' => sprintf('Styleguide — %s', $projectName),
+            'baseUrl' => '/styleguide',
+        ];
+        $configJson = json_encode(
+            $config,
+            JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
         );
 
-        // Favicon — <link rel="icon"> for the browser tab + the sidebar header
-        // <img id="sg-favicon"> rendered next to the project name. Both ship with
-        // empty `href`/`src` in the static `dist/index.html` so PHP can fill them
-        // in per-project at request time without re-running the SPA build.
-        if ($favicon !== '') {
-            $html = (string) preg_replace(
-                '/<link\s+rel="icon"\s+id="sg-favicon-tag"\s+href="[^"]*">/',
-                '<link rel="icon" id="sg-favicon-tag" href="' . $esc($favicon) . '">',
-                $html,
-                1,
-            );
-            $html = (string) preg_replace(
-                '/<img\s+src="[^"]*"\s+alt="[^"]*"\s+class="([^"]*)"\s+id="sg-favicon">/',
-                '<img src="' . $esc($favicon) . '" alt="" class="$1" id="sg-favicon">',
-                $html,
-                1,
+        // Single injection point replaces the six preg_replace calls (html lang,
+        // favicon link, favicon img, body data-attrs, sidebar project name, title)
+        // the SPA used to need server-side values for. json_encode's default
+        // escaping handles quotes and backslashes but leaves the angle
+        // brackets alone, so a consumer-controlled field (e.g. `project.name`
+        // in styleguide.yaml) containing a literal script-close tag would
+        // otherwise terminate this <script> element early and let the rest of
+        // the value execute as markup/script — an XSS via a value the
+        // package doesn't control. JSON_HEX_TAG escapes angle brackets to
+        // their < / > forms, which JSON.parse() decodes back to the
+        // original characters, so every legitimate value round-trips
+        // unchanged while the breakout is closed.
+        $html = (string) preg_replace(
+            '/<script id="sg-config" type="application\/json">.*?<\/script>/s',
+            '<script id="sg-config" type="application/json">' . $configJson . '</script>',
+            $html,
+            1,
+            $count,
+        );
+        if ($count !== 1) {
+            http_response_code(500);
+            throw new \RuntimeException(
+                'dist/index.html is missing the #sg-config injection point — rebuild the frontend '
+                . '(cd frontend && npm run build) or check dist/ for corruption.',
             );
         }
-
-        // <body data-project-name="..." data-project-favicon="...">
-        $html = (string) preg_replace(
-            '/data-project-name="[^"]*"/',
-            'data-project-name="' . $esc($projectName) . '"',
-            $html,
-            1,
-        );
-        $html = (string) preg_replace(
-            '/data-project-favicon="[^"]*"/',
-            'data-project-favicon="' . $esc($favicon) . '"',
-            $html,
-            1,
-        );
-
-        // Sidebar header — <div id="sg-project-name">…</div> ships with "Styleguide"
-        // as the static placeholder. Same per-project request-time substitution
-        // pattern as the favicon nodes, so the bundled SPA doesn't have to know
-        // the project name at build time. Uses a callback so an escaped string
-        // containing `$1` style sequences can't accidentally interpolate as a
-        // back-reference.
-        $escapedName = $esc($projectName);
-        $html = (string) preg_replace_callback(
-            '/(<[^>]+id="sg-project-name"[^>]*>)[^<]*(<\/[^>]+>)/',
-            static fn(array $m): string => $m[1] . $escapedName . $m[2],
-            $html,
-            1,
-        );
-
-        // <title>
-        $html = (string) preg_replace(
-            '/<title>[^<]*<\/title>/',
-            '<title>Styleguide — ' . $esc($projectName) . '</title>',
-            $html,
-            1,
-        );
 
         header('Content-Type: text/html; charset=utf-8');
         header('Cache-Control: no-cache, must-revalidate');
@@ -1066,6 +1152,13 @@ final class Styleguide
             if ($meta !== null && $route['kind'] === 'component') {
                 $config['render'] = $meta['render'] ?? 'inset';
             }
+            // File-convention variant (v0.9.0) — Router::parse() has already
+            // syntactically whitelisted this; Renderer re-validates existence
+            // against the actual styleguide.<variant>.twig files and falls
+            // back to the default variant for anything that doesn't resolve.
+            if (isset($route['variant']) && is_string($route['variant'])) {
+                $config['variant'] = $route['variant'];
+            }
         } elseif ($route['kind'] === 'foundations') {
             $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
             // foundations.twig uses Tailwind utility classes the consumer's
@@ -1086,6 +1179,10 @@ final class Styleguide
             slug: $route['slug'],
             config: $config,
             langcode: $langcode,
+            // Router::parse() / synthesizeEmbeddedRoute() always set this for
+            // `render`-type routes, but re-whitelist defensively — $route is a
+            // loosely-typed array<string,mixed>, not a value object.
+            theme: Router::whitelistTheme($route['theme'] ?? null),
         );
     }
 
@@ -1101,6 +1198,21 @@ final class Styleguide
         if ($matches === false || count($matches) === 0) {
             return null;
         }
+        if (count($matches) > 1) {
+            // A stale hashed file from a previous build that `emptyOutDir`
+            // should have removed (interrupted build, manual file copy, a
+            // consumer vendoring dist/ oddly). Pick the newest by mtime so a
+            // rebuild's fresh CSS wins over debris instead of depending on
+            // glob()'s filesystem-order — and leave a breadcrumb, since
+            // silently serving a stale bundle is a confusing bug to chase
+            // without one.
+            usort($matches, static fn(string $a, string $b): int => (int) filemtime($b) <=> (int) filemtime($a));
+            error_log(sprintf(
+                '[parisek/styleguide] multiple dist/foundations.*.css found (%s) — using newest: %s',
+                implode(', ', array_map('basename', $matches)),
+                basename($matches[0]),
+            ));
+        }
         return '/styleguide/assets/' . basename($matches[0]);
     }
 
@@ -1114,6 +1226,7 @@ final class Styleguide
             'docs' => new Api\DocsEndpoint($this->parser),
             'fields' => new Api\FieldsEndpoint($this->parser),
             'pages' => new Api\PagesEndpoint($this->parser),
+            'health' => new Api\HealthEndpoint($this->parser),
             default => null,
         };
 

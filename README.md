@@ -12,7 +12,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Alpine.js 3 + Tailwind v4 sidebar with collapsible sections, search (`⌘K` / `Ctrl+K`), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -40,7 +40,7 @@ Local dev against a sibling checkout — register a path repository so the consu
         "parisek-styleguide-local": {
             "type": "path",
             "url": "../styleguide",
-            "canonical": false,                 // critical: lets Packagist still supply ^0.1 when needed
+            "canonical": false,                 // critical: lets Packagist still supply ^1.0 when needed
             "options": {
                 "symlink": true,
                 "versions": { "parisek/styleguide": "dev-local" }
@@ -49,12 +49,12 @@ Local dev against a sibling checkout — register a path repository so the consu
     },
     "scripts": {
         "styleguide:local":  "@composer require parisek/styleguide:dev-local --no-interaction",
-        "styleguide:remote": "@composer require parisek/styleguide:^0.1 --no-interaction"
+        "styleguide:remote": "@composer require parisek/styleguide:^1.0 --no-interaction"
     }
 }
 ```
 
-`canonical: false` is what keeps Packagist visible — without it the path repo would shadow it and the `^0.1` constraint would fail to resolve. The `versions` override pins the local copy to a fixed `dev-local` identifier so the switch scripts have a deterministic string to ask for. See `AGENTS.md` § *Local development against a consuming project* for the full mechanism.
+`canonical: false` is what keeps Packagist visible — without it the path repo would shadow it and the `^1.0` constraint would fail to resolve. The `versions` override pins the local copy to a fixed `dev-local` identifier so the switch scripts have a deterministic string to ask for. See `AGENTS.md` § *Local development against a consuming project* for the full mechanism.
 
 ---
 
@@ -96,6 +96,7 @@ require __DIR__ . '/vendor/autoload.php';
 | `twig_options` | no | `[]` | Options merged onto the package defaults when building the pristine env. Ignored when `twig` is provided (the package never mutates a consumer-owned env). |
 | `typography_config` | no | `null` | Path to a typography settings yaml consumed by `\Parisek\Twig\TypographyExtension`. Only matters if your templates use `|typography` and you want non-default behavior. |
 | `namespaces` | no | `[]` | Extra Twig namespaces (`<name> => <absolute path>`) for paths that live outside `templates_path` and aren't covered by the auto-registered conventional namespaces. |
+| `auth` | no | `null` | Optional `callable(array $route): bool` gate checked once per request, before any dispatch (SPA, render, JSON API, or asset). Return `false` to reject with a plain-text `403 Forbidden`; return `true` (or omit the key entirely) to allow. Receives the parsed route array (`type`, plus `slug`/`kind`/`endpoint`/`path`/`theme` depending on route type). Requests loaded inside the styleguide's own iframe (`Sec-Fetch-Dest: iframe`) are re-typed to `type: 'render'` (carrying `kind: 'component'`/`'page'`/`'doc'`/`'foundations'`) before the callable ever sees them — don't gate solely on `type === 'component'`, or every iframe-embedded component render will fall through as `'render'` and bypass that branch. A non-`null`, non-callable value throws `InvalidArgumentException` at construction time (fail loudly at boot) rather than silently allowing every request; a callable that throws is treated as a denial (fail closed) and logged via `error_log()`, never surfaced to the caller. For publicly reachable deployments, HTTP Basic Auth at the web-server level is usually simpler and more robust than an in-PHP callable — reach for `auth` when the check needs request context only PHP has access to (e.g. a signed query token, a session check your framework already performs). |
 
 ### `twig` config — when to pass it
 
@@ -216,26 +217,29 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 | URL | Served | Purpose |
 |---|---|---|
 | `/styleguide/` | SPA HTML | Landing (auto-routes to overview) |
-| `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view |
-| `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide |
-| `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group) |
+| `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view. Also accepts `?variant=<id>`* |
+| `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide. Also accepts `?variant=<id>`* |
+| `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group). Also accepts `?variant=<id>`* |
 | `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
 | `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
 | `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
-| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted) to stamp `class="dark"` on the iframe `<html>` for consumers that opt into Tailwind dark mode. |
+| `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted, invalid/missing → `light`) to stamp `class="dark"` and a matching `color-scheme` on the iframe `<html>` for consumers that opt into Tailwind dark mode; inert for projects with no dark-mode CSS. When `?theme=` is absent — e.g. a native link click inside the rendered content navigating to another SPA-shell URL — the SPA's own `sg-iframe-theme` cookie (`path=/styleguide`) is consulted as a fallback so the visitor's toggle choice survives in-iframe navigation; an explicit `?theme=` always wins over the cookie. Also accepts `?variant=<id>` (`<id>` matching `[a-z0-9-]+`) to render `styleguide.<id>.twig` instead of the default `styleguide.twig`, for `component`/`page`/`doc` kinds — see `docs/API.md` § Component Twig file conventions. Query-only, no cookie fallback: an absent, invalid, or unknown (deleted/renamed) variant silently falls back to the default `styleguide.twig` → `<slug>.twig` chain rather than 404ing, so a bookmarked deep link to a removed variant keeps working. Composes independently with `?theme=`. |
 | `/styleguide/api/components` | JSON | List of components — see [API](#api) below |
 | `/styleguide/api/pages` | JSON | List of pages — same shape as components |
 | `/styleguide/api/docs` | JSON | List of doc entries — same shape as pages; `[]` when `templates/doc/` is absent |
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
+| `/styleguide/api/health` | JSON | Parse-resilience diagnostics — see [API](#api) below |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
+
+\* Same whitelist/fallback rules as the render-endpoint row above (`^[a-z0-9-]+$`, unknown/removed values fall back to the default rather than 404ing); `Router::synthesizeEmbeddedRoute()` forwards the SPA-shell's `?variant=` across the iframe-embed swap so the preview and the deep link agree.
 
 ---
 
 ## API
 
-Four read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
+Five read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
 
-The SPA consumes all four (`frontend/stores/components.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
+The SPA consumes all five (`frontend/src/stores/catalog.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
 
 ### `GET /styleguide/api/components`
 
@@ -255,12 +259,12 @@ Flat list of every component template under `templates/component/**/<id>.twig` w
     "drupal":        "",                // from `drupal:`, "" if absent — Drupal docs / module link
     "web":           "",                // from `web:`, "" if absent — generic external link
     "weight":        50,                // from `weight:`, default 50, sidebar order
-    "usage":         "404,article-list",// from `usage:`, raw comma-separated id string
+    "usage":         ["404", "article-list"], // from `usage:`, normalised to an array by the parser
     "fields": {                          // from `fields:`, {} if absent
       "url":   { "title": "URL",   "type": "url",  "required": 1 },
       "title": { "title": "Label", "type": "text", "required": 1 }
     },
-    "hasStyleguide": true               // true when a sibling styleguide.twig exists
+    "has_styleguide": true              // true when a sibling styleguide.twig exists
                                          // OR metadata declares `styleguide:`
   }
   // …
@@ -268,7 +272,7 @@ Flat list of every component template under `templates/component/**/<id>.twig` w
 ```
 
 **Notes**
-- `usage` is intentionally **a raw comma-separated string**, not a parsed array — the SPA splits client-side because templates use looser whitespace conventions (`"404, article-list"` vs `"404,article-list"`).
+- `usage` is **authored as a comma-separated string** in YAML (`usage: 404, article-list`) — looser whitespace is fine — but **normalised to an array** by `ComponentParser` before it reaches the wire, so consumers (the SPA included) work with `string[]` directly instead of re-splitting a CSV.
 - `fields` is passed through verbatim from the YAML. Shape is consumer-defined; the bundled SPA assumes `{ title, type, required }` per the convention in *Per-template metadata*, but extra keys are preserved end-to-end.
 - Templates without a parseable YAML block, or with YAML missing `name:`, are silently dropped — that's the only way to keep a `.twig` file under `templates/component/` and have the styleguide chrome ignore it.
 
@@ -306,6 +310,24 @@ Aggregated view of every component's `fields:` metadata, **flattened across comp
 
 Data source for the SPA's `/styleguide/fields` inspector — useful for one-shot answers like *"where do we use a `richtext` field?"* without walking the whole component list.
 
+### `GET /styleguide/api/health`
+
+Diagnostics for `ComponentParser`'s resilience: `parse()`/`parseAll()` now catch `\Throwable` per file instead of only a YAML parse error, so one pathological template is skipped and recorded rather than 500ing the whole catalogue. This endpoint reports what got skipped, plus how much made it through.
+
+Unlike the four endpoints above, the response is an **object**, not a bare array — there's no additive slot to bolt a `_warnings` field onto a bare-array response without breaking every existing consumer of that shape.
+
+**Response shape**:
+
+```jsonc
+{
+  "warnings": [
+    { "file": "component/broken-widget/broken-widget.twig", "error": "…exception message…" }
+    // empty array when nothing was skipped
+  ],
+  "counts": { "components": 42, "pages": 7, "docs": 3 }
+}
+```
+
 ### Caching
 
 Every endpoint sets `Cache-Control: no-cache`. Responses are recomputed per request because the underlying source (YAML in `.twig` files) changes during dev and there's no invalidation signal. The work is a filesystem walk + one YAML parse per file — acceptable even for large component libraries.
@@ -314,13 +336,13 @@ If you need to serve these at scale, wrap them behind your project's own HTTP ca
 
 ### Adding a new endpoint
 
-The three endpoint classes (`src/Api/*Endpoint.php`) share the same shape: constructor takes the `ComponentParser`, `handle()` emits headers + `json_encode()`. New endpoints follow the same pattern:
+The endpoint classes (`src/Api/*Endpoint.php`) share the same shape: constructor takes the `ComponentParser`, `handle()` emits headers + `json_encode()`. New endpoints follow the same pattern:
 
 1. Create `src/Api/<Name>Endpoint.php` mirroring the existing trio.
 2. Wire it into `Styleguide::dispatchApi()` (the `match` block on `$route['endpoint']`).
 3. Add a test under `tests/Api/<Name>EndpointTest.php`.
 
-There's deliberately no shared base class — three near-identical classes are clearer than an abstraction that hides where the headers and encoding happen.
+There's deliberately no shared base class — near-identical classes are clearer than an abstraction that hides where the headers and encoding happen.
 
 ---
 
@@ -347,6 +369,33 @@ vendor/bin/styleguide list | jq '.[] | select(.category == "Block")'
 ```
 
 `show <id>` exits `1` with an empty stdout when the component is not found, so a missing entry surfaces as a non-zero exit code rather than a parsing error downstream.
+
+### `lint` — metadata quality report
+
+```bash
+vendor/bin/styleguide lint                       # scan component + page + doc, text output
+vendor/bin/styleguide lint --type=component       # scan just one type
+vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
+```
+
+Reports five issue types: templates with no parseable `name:` (dropped from
+the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
+the renderer never reads (`dead-styleguide-content` — see *Fixtures &
+sample data* below), `usage:` references to ids that don't exist
+(`broken-usage-ref`), `render:` values outside the four canonical modes
+(`unknown-render`), and empty `description` strings (`empty-description`,
+informational only).
+
+Text output is one line per finding: `SEVERITY  file  message`. JSON output
+is an array of `{ severity, file, rule, message }` objects. Exit code: `0`
+clean (or notice-only), `1` when any `warning`/`error` finding is present,
+`2` on a usage/internal error — run it in CI to catch metadata regressions
+before they ship.
+
+Replacing a bespoke, hand-rolled styleguide with this package? See
+[`docs/MIGRATION.md`](docs/MIGRATION.md) for a step-by-step guide, including
+worked per-project notes for the fleet's Tailwind/SCSS, Drupal-Twig, and
+Bootstrap 5 stacks.
 
 ---
 
@@ -390,9 +439,9 @@ fields:
 | Key | Used by |
 |---|---|
 | `name` | sidebar label, iframe title |
-| `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/stores/components.js`. Unknown labels never get dropped, they fall into a default bucket. |
+| `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/src/stores/catalog.js`. Unknown labels never get dropped, they fall into a default bucket. |
 | `weight` | sort order within a bucket (lower = earlier; default `50`) |
-| `usage` | comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view) — drives the cross-reference chip panel |
+| `usage` | authored as comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view); normalized to an array by the parser — drives the cross-reference chip panel |
 | `description` | sidebar tooltip + overview cards |
 | `fields` | `/api/fields` endpoint + the Fields inspector view |
 | `asana` | external link chip — Asana task URL |
@@ -400,9 +449,10 @@ fields:
 | `drupal` | external link chip — Drupal docs / module URL |
 | `web` | external link chip — generic external URL |
 | `render` | iframe-wrapper rendering mode for components — see *Component render modes* below |
-| `styleguide` | optional flag — when set (or when a sibling `styleguide.twig` exists), the component exposes a separate styleguide-only render variant |
+| `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
+| `variants` | **legacy fallback** map of display titles (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files, keyed by id — prefer a `title:`/`description:` annotation in the sibling file itself; see *File-convention variants* below |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 
@@ -444,6 +494,66 @@ body_class: "bg-secondary-500 body-secondary"
 
 The render iframe builds `<body>` via `create_attribute({ class: [iframe.body_class, <entry>.body_class] })`, so the per-entry value is appended after the global one and empty values are dropped (no stray `class=""`). This mirrors what the production layout puts on `<body>` (e.g. from an ACF `body_background_color`), so the styleguide preview matches production without wrapping the page content in a styleguide-only `<div>`.
 
+### File-convention variants
+
+Drop a `styleguide.<variant>.twig` file next to `styleguide.twig` and it's automatically discovered — no YAML required:
+
+```
+component/hero/
+├── hero.twig
+├── styleguide.twig            ← default variant
+├── styleguide.secondary.twig  ← discovered variant "secondary"
+└── styleguide.dark-bg.twig    ← discovered variant "dark-bg"
+```
+
+The SPA preview area shows every variant at once — a responsive grid of independent preview tiles (default fixture first, then each discovered variant in filename order) — the moment at least one sibling exists; no toolbar switcher, no clicking through.
+
+**Display metadata — annotate the sibling file itself (preferred).** Give the variant a title and optional description with the same front-comment convention every component/page template already uses, right in the sibling file it describes:
+
+```twig
+{# styleguide.dark-bg.twig #}
+{#
+title: "Dark background"
+description: "Same hero, tuned for a dark section background."
+#}
+<div class="hero hero--dark">…</div>
+```
+
+```twig
+{# styleguide.secondary.twig #}
+{#
+title: "Secondary style"
+#}
+<div class="hero hero--secondary">…</div>
+```
+
+Metadata lives next to the markup it describes instead of a centralised map you'd otherwise have to keep in sync by id as variants are added, renamed, or removed.
+
+**Legacy fallback — the `variants:` map.** Templates written before per-sibling annotations existed (or not yet migrated) can still supply titles/descriptions from the component's own front comment, keyed by variant id — either a plain string, or a map with an optional `description` too:
+
+```twig
+{#
+name: "Hero"
+variants:
+  secondary: "Secondary style"
+  dark-bg:
+    title: "Dark background"
+    description: "Same hero, tuned for a dark section background."
+#}
+```
+
+(`label:` is also accepted in the map as a legacy alias for `title:` — `title:` wins when both are present.) A sibling's own annotation always wins over its map entry when both exist; an id with no annotation falls back to the map, then to the id itself.
+
+An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
+
+**Default view (SPA).** With no `?variant=` (a bare deep link), the preview area becomes a grid — one independent `<iframe>` tile per variant (the default fixture first, then each discovered variant in filename order), each with its own slim header (title + optional description). This is the whole point of having variants: see every treatment at a glance, no switcher to click through. Deep-linking a specific `?variant=<id>` still shows the classic single, resizable preview of just that one variant. An entry with no discovered variants is unaffected — it renders the single default preview exactly as it always has.
+
+**Device presets, per tile.** The toolbar's viewport preset dropdown (Mobile/Tablet/Desktop/Full, custom width, orientation) stays visible and works the same way in the grid as in the classic single preview — the chosen preset applies to every tile at once. A fixed-width/fixed-height preset renders each tile's iframe at exactly that preset's logical size, then scales the whole tile down (never up) to fit the tile's own available width, with a small scale readout in the tile's header (e.g. `375 × 667 · 84 %`). Full stays fluid — each tile's iframe simply tracks its cell's width with auto content height, no scaling.
+
+**Tile density — Auto | 1 | 2 | 3 | 4.** A segmented toolbar control next to the preset dropdown (visible only while the grid is active) controls how many tiles fit per row. "Auto" (the default) derives the column basis from the *active viewport preset* rather than one fixed number for every preset — a Desktop preset (1280 px) settles on far fewer tiles per row than a Mobile preset (375 px) on the same canvas, always scaled down to fit each tile's own cell as usual. "1"–"4" fix the column count exactly, ignoring the preset — "1" is the direct replacement for the earlier "rows" stacked layout (a single-column grid renders identically). The choice is remembered across visits (`localStorage`, key `sg-variant-columns`); upgrading from a pre-2.0 install migrates an existing `sg-variant-layout` value once (`"rows"` → `1`, `"grid"` → `"auto"`).
+
+**Click-to-isolate.** Clicking (or pressing Enter/Space on) a tile's header jumps straight to that variant's classic single preview — the same as typing `?variant=<id>` by hand. The Default tile's header is the one exception: it has no dedicated single-preview URL of its own (an entry with variants and no `?variant=` always resolves back to the grid), so it isn't clickable. Once a variant is isolated this way, a small "← All" control appears in the toolbar to return to the grid.
+
 ### Page wrapper
 
 `body_class` styles the iframe's `<body>`; `iframe.page_wrapper_class` adds the structural **shell** most projects wrap their page in — the `<div class="page-wrapper …">` that owns the sticky-footer flex column and `min-h-dvh` height in the production layout. Set it once in `styleguide.yaml` and **every page render** is wrapped:
@@ -460,6 +570,74 @@ Rules:
 - **Built through `create_attribute`** — same class-escaping contract as the `<body>` line, no stray `class=""`.
 
 This completes the production-parity pair: `body_class` reproduces the page's `<body>` styling, `page_wrapper_class` reproduces the wrapper `<div>` around `header + main + footer` — so a page preview matches production without each consumer hand-wrapping every `page/<name>/styleguide.twig`.
+
+---
+
+## Fixtures & sample data
+
+The **only supported convention** for demo content is a sibling
+`styleguide.twig` next to the component or page it demos:
+
+```
+templates/component/breadcrumb/
+├── breadcrumb.twig       # the component itself — receives content.* from the CMS in production
+└── styleguide.twig       # sample data, rendered ONLY in the styleguide preview
+```
+
+```twig
+{# templates/component/breadcrumb/styleguide.twig #}
+{{ component_breadcrumb({
+    container: 'container',
+    items: [
+        { title: 'Úvod', url: '#' },
+        { title: 'Služby', url: '#' },
+        { title: 'Detail služby', url: '#' },
+    ],
+}) }}
+```
+
+`Renderer` auto-detects the sibling file and prefers it — no YAML key
+required. The `styleguide:` front-comment key (nested sample data under the
+YAML metadata) still works for backward compatibility, but content placed
+under it is **never read** — only its presence is checked. Run
+`vendor/bin/styleguide lint` to find leftover instances (reported as
+`dead-styleguide-content`) and move the data into a `styleguide.twig`
+sibling; see `docs/MIGRATION.md` for a worked before/after.
+
+### Placeholder images — no external network calls
+
+Use the bundled `placeholder()` Twig function in `styleguide.twig` files
+instead of a service like `picsum.photos`. It's deterministic (the same
+`seed` always renders the same image), fully offline (an inline SVG data
+URL — no network round-trip, no rate limit, no dead links when a
+third-party service changes its API), and returns an image-array shape
+most `component_picture`-style helpers already expect:
+
+```twig
+{# bare call — abstract subject, pastel mood, 3/2 aspect #}
+{{ component_picture({ image: placeholder() }) }}
+
+{# tuned for a hero — landscape subject, warm mood, explicit size #}
+{{ component_picture({
+    image: placeholder({ subject: 'landscape', mood: 'warm', width: 1920, height: 1080, seed: 'hero-1' }),
+}) }}
+
+{# repeatable across a gallery loop — same subject, distinct seed per index avoids visually identical repeats #}
+{% for i in 1..4 %}
+    {{ component_picture({ image: placeholder({ subject: 'product', seed: 'gallery-' ~ i }) }) }}
+{% endfor %}
+```
+
+| Option | Values | Default |
+|---|---|---|
+| `subject` | `abstract` \| `landscape` \| `portrait` \| `product` \| `food` \| `architecture` \| `avatar` | `abstract` |
+| `mood` | `pastel` \| `vibrant` \| `monochrome` \| `warm` \| `cold` \| `natural` \| `vintage` | `pastel` |
+| `seed` | any string — same seed ⇒ same image | auto-incrementing counter |
+| `width` / `height` / `aspect` | pixels, or a `"w/h"` ratio string | `aspect: '3/2'`, 1200px wide |
+| `label` | `true` \| a string \| `false` | `false` |
+
+See `docs/API.md` § Twig functions for the full option list (`grain`,
+`vignette`, `alt`).
 
 ---
 
@@ -503,10 +681,12 @@ cd styleguide
 composer install
 vendor/bin/phpunit
 
-# SPA chrome (Vite + Tailwind v4 + Alpine)
+# SPA chrome (Vite + Vue 3 + Pinia + Tailwind v4)
 cd frontend
 npm install
 npm run watch          # rebuilds dist/ on every edit
+npm test               # Vitest unit suite (src/lib, src/stores, src/composables, src/components)
+npm run test:e2e       # Playwright, full-browser parity checklist
 ```
 
 Changes to PHP `src/` are picked up immediately (no build step). Changes to `frontend/*` require a Vite build — committed `dist/` artifacts are what consumers receive, so always commit the rebuilt bundle when the SPA changes.

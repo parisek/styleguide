@@ -21,3 +21,9 @@
 /.editorconfig       export-ignore
 /.php-cs-fixer.dist.php export-ignore
 /.php-cs-fixer.cache export-ignore
+
+# Agent/AI development instructions and archived changelog — dev-only,
+# consumers get README.md + docs/API.md + docs/MIGRATION.md.
+/AGENTS.md            export-ignore
+/CLAUDE.md            export-ignore
+/CHANGELOG-archive.md export-ignore

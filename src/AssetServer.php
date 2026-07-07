@@ -71,7 +71,7 @@ final class AssetServer
         return match (strtolower(pathinfo($file, PATHINFO_EXTENSION))) {
             'css' => 'text/css; charset=utf-8',
             'js', 'mjs' => 'application/javascript; charset=utf-8',
-            'json' => 'application/json; charset=utf-8',
+            'json', 'map' => 'application/json; charset=utf-8',
             'svg' => 'image/svg+xml',
             'html' => 'text/html; charset=utf-8',
             'woff2' => 'font/woff2',

@@ -468,4 +468,53 @@ final class BundledHelpersTest extends TestCase
         self::assertSame($render('"N:many"|typography'), $render('_nt("one", "many", 2, "d")'), '_nt composes over project _n');
         self::assertSame($render('"NX:many"|typography'), $render('_nxt("one", "many", 2, "ctx", "d")'), '_nxt composes over project _nx');
     }
+
+    #[Test]
+    public function project_preregistered_helper_wins_without_throwing(): void
+    {
+        $env = new Environment(new ArrayLoader());
+        $env->addFunction(new TwigFunction('placeholder', static fn(array $opts = []): array => ['project' => true]));
+
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+        $twig = self::twigOf($sg);
+
+        $result = $twig->createTemplate('{{ placeholder()["project"] ? "Y" : "N" }}')->render();
+        self::assertSame('Y', $result);
+    }
+
+    #[Test]
+    public function non_duplicate_logic_exception_from_twig_is_swallowed_not_thrown(): void
+    {
+        // Pre-register every extension the package would otherwise add itself
+        // (so registerBundledExtensions()'s addExtension() calls are skipped
+        // via its own hasExtension() guard — unrelated to what this test
+        // covers) and lock the environment via getFunctions(), which forces
+        // Twig's ExtensionSet::initExtensions(). Every subsequent
+        // addFunction()/addFilter() call inside registerBundledHelpers() then
+        // throws "Unable to register ... as extensions have already been
+        // initialized" — a LogicException with a message that does NOT
+        // contain "already registered", i.e. exactly the case the old
+        // str_contains() check used to rethrow.
+        $env = new Environment(new ArrayLoader());
+        $env->addExtension(new \Parisek\Twig\TypographyExtension(''));
+        $env->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(new \Symfony\Component\VarDumper\Cloner\VarCloner()));
+        $env->addExtension(new \Twig\Extra\Intl\IntlExtension());
+        $env->addExtension(new \Twig\Extra\String\StringExtension());
+        $env->addExtension(new \Parisek\Twig\AttributeExtension());
+        $env->getFunctions(); // locks the extension set
+
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+
+        self::assertInstanceOf(Styleguide::class, $sg);
+    }
 }

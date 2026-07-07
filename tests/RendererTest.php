@@ -175,6 +175,42 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function theme_dark_stamps_dark_class_and_color_scheme(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+        ], 'cs', 'dark');
+
+        self::assertStringContainsString('<html lang="cs" class="dark">', $html);
+        self::assertStringContainsString('color-scheme: dark', $html);
+    }
+
+    #[Test]
+    public function theme_light_is_the_default_and_omits_the_dark_class(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css'],
+        ], 'cs'); // theme omitted → default
+
+        self::assertStringContainsString('<html lang="cs">', $html);
+        self::assertStringNotContainsString('class="dark"', $html);
+        self::assertStringContainsString('color-scheme: light', $html);
+    }
+
+    #[Test]
+    public function theme_dark_combines_with_an_existing_iframe_html_class(): void
+    {
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => ['css' => '/dist/style.css', 'html_class' => 'notranslate'],
+        ], 'cs', 'dark');
+
+        self::assertStringContainsString('<html lang="cs" class="notranslate dark">', $html);
+    }
+
+    #[Test]
     public function renders_404_for_missing_component(): void
     {
         $html = $this->renderer->render('component', 'nonexistent', [
@@ -198,6 +234,36 @@ final class RendererTest extends TestCase
 
         self::assertSame(404, http_response_code());
         self::assertStringContainsString('invalid/whatever', $html);
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function render_error_sets_http_500_and_keeps_error_markup_visible(): void
+    {
+        $html = $this->renderer->render('component', 'broken-sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertSame(500, http_response_code());
+        self::assertStringContainsString('Render error:', $html);
+        // The underlying Twig message stays visible (existing errorMarkup()
+        // behaviour) — this test only pins the new status-code contract, not
+        // a new markup shape.
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function render_404_status_is_unaffected_by_the_500_path(): void
+    {
+        // Guards against a sloppy refactor that moves the 500 call somewhere
+        // that also fires for the 404 branch.
+        $this->renderer->render('component', 'nonexistent', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertSame(404, http_response_code());
         http_response_code(200);
     }
 
@@ -545,4 +611,77 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('onerror="this.onerror=null;this.src=', $html);
         self::assertStringContainsString('data:image/svg+xml,', $html);
     }
+
+    #[Test]
+    public function renders_named_variant_when_it_exists(): void
+    {
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => 'secondary',
+        ], 'en');
+
+        self::assertStringContainsString('multi--secondary', $html);
+        self::assertStringNotContainsString('multi--demo', $html);
+    }
+
+    #[Test]
+    public function falls_back_to_default_variant_for_unknown_variant(): void
+    {
+        // A deleted/renamed variant file must not 404 a bookmarked deep link —
+        // it falls through to the same default chain as no variant at all.
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => 'retired',
+        ], 'en');
+
+        self::assertSame(200, http_response_code());
+        self::assertStringContainsString('multi--demo', $html);
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function falls_back_to_default_variant_when_variant_key_is_malformed(): void
+    {
+        // Renderer re-validates the same regex Router already checked —
+        // defensive because Renderer is called directly here, bypassing
+        // Router entirely, matching the existing normaliseRender() precedent.
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => '../../etc/passwd',
+        ], 'en');
+
+        self::assertStringContainsString('multi--demo', $html);
+    }
+
+    #[Test]
+    public function renders_default_variant_when_no_variant_requested(): void
+    {
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+
+        self::assertStringContainsString('multi--demo', $html);
+    }
+
+    #[Test]
+    public function variant_composes_with_theme(): void
+    {
+        // Confirmed against the shipped Phase 2 theme mechanism: `theme` is a
+        // dedicated positional param on render(), not a $config key — passed
+        // alongside `variant` (a $config key) to prove the two features don't
+        // interfere with each other.
+        $html = $this->renderer->render('component', 'multi', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+            'variant' => 'secondary',
+        ], 'en', 'dark');
+
+        self::assertStringContainsString('multi--secondary', $html, 'variant still resolves with theme set');
+        self::assertStringContainsString('class="dark"', $html, 'theme still stamps the <html> class with variant set');
+    }
+
 }

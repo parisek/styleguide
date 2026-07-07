@@ -1,12 +1,13 @@
 import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
+import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
     // Asset URLs in dist/index.html become `/styleguide/assets/styleguide.[hash].(js|css)`,
     // matching the AssetServer route `/styleguide/assets/*` so served files hit the
     // hashed-filename branch (immutable cache) without a separate rewrite layer.
     base: '/styleguide/assets/',
-    plugins: [tailwindcss()],
+    plugins: [vue(), tailwindcss()],
     publicDir: 'public',
     build: {
         outDir: '../dist',

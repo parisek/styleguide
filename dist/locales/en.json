@@ -22,7 +22,19 @@
         "orientation_portrait": "Portrait",
         "orientation_landscape": "Landscape",
         "reload": "Reload",
-        "more_actions": "More actions"
+        "more_actions": "More actions",
+        "iframe_theme": "Toggle iframe dark mode",
+        "variant_label": "Variant",
+        "variant_default": "Default",
+        "variant_isolate_prefix": "Isolate",
+        "breadcrumb_back_to_grid": "Back to all variants",
+        "variant_columns_label": "Tile density",
+        "variant_columns_auto_label": "Auto",
+        "variant_columns_auto": "Auto — tile size follows the viewport preset",
+        "variant_columns_1": "1 column",
+        "variant_columns_2": "2 columns",
+        "variant_columns_3": "3 columns",
+        "variant_columns_4": "4 columns"
     },
     "preview": {
         "mobile": "Mobile (375 px)",
@@ -33,7 +45,13 @@
     "search": {
         "label": "Search",
         "placeholder": "Search…",
-        "shortcut_hint": "⌘ K"
+        "shortcut_hint": "⌘ K",
+        "no_results": "No results",
+        "group_components": "Components",
+        "group_pages": "Pages",
+        "group_docs": "Documentation",
+        "hint_navigate": "↵ open",
+        "hint_close": "Esc close"
     },
     "nav": {
         "styleguide": "Styleguide",
@@ -66,5 +84,8 @@
         "dark": "Dark theme",
         "system": "Match system",
         "toggle": "Toggle theme"
+    },
+    "health": {
+        "warnings_title": "Some templates failed to parse — click to log details to the console"
     }
 }

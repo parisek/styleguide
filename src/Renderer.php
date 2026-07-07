@@ -42,11 +42,21 @@ final class Renderer
      *   render?:string,
      *   body_class?:string,
      *   foundations_css_url?:string,
+     *   variant?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
      *   plus, for the foundations kind, the full yaml under `styleguide`).
+     *   `variant`, when present and syntactically valid, is threaded into
+     *   {@see self::renderInner()} to prefer a `styleguide.<variant>.twig`
+     *   sibling over the default `styleguide.twig` — see that method for the
+     *   full resolution order and fallback contract.
+     * @param string $theme
+     *   `'light'` or `'dark'` — stamps `class="dark"` + a matching
+     *   `color-scheme` on the rendered `<html>`. Callers should route the
+     *   raw (query-string-sourced) value through {@see Router::whitelistTheme()}
+     *   first; this method re-coerces anyway as a defensive fallback.
      */
-    public function render(string $kind, string $slug, array $config, string $langcode = 'en'): string
+    public function render(string $kind, string $slug, array $config, string $langcode = 'en', string $theme = 'light'): string
     {
         if (!in_array($kind, ['component', 'page', 'doc', 'foundations'], true)) {
             return $this->render404($kind, $slug, $config);
@@ -78,6 +88,13 @@ final class Renderer
                 return $this->render404($kind, $slug, $config);
             }
         } catch (\Throwable $e) {
+            // A component/page that throws during render used to return HTTP 200
+            // with error markup — a health check or CI smoke test polling
+            // `/render/component/<id>` would see "success" for a broken
+            // component. The error markup itself stays visible (still useful for
+            // local dev — the whole point of NOT swallowing it into a generic
+            // "something went wrong" page).
+            http_response_code(500);
             $body = $this->errorMarkup($e);
         }
 
@@ -111,6 +128,11 @@ final class Renderer
             'kind' => $kind,
             'slug' => $slug,
             'langcode' => $langcode,
+            // Callers other than Styleguide::dispatchRender() (notably tests,
+            // and any future direct Renderer use) may pass an unwhitelisted
+            // string — re-coerce defensively rather than trusting the caller,
+            // same rationale as ComponentParser::normaliseRender().
+            'theme' => $theme === 'dark' ? 'dark' : 'light',
             'project' => $config['project'] ?? [],
             'iframe' => $iframe,
             'component' => [
@@ -208,7 +230,11 @@ final class Renderer
     private function renderBody(string $kind, string $slug, array $config): ?string
     {
         return match ($kind) {
-            'component', 'page', 'doc' => $this->renderInner($kind, $slug),
+            'component', 'page', 'doc' => $this->renderInner(
+                $kind,
+                $slug,
+                is_string($config['variant'] ?? null) ? $config['variant'] : null,
+            ),
             'foundations' => $this->twig->render('foundations.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
             ] + $this->context),
@@ -217,20 +243,34 @@ final class Renderer
     }
 
     /**
-     * Look up the actual component/page Twig template and render it with the styleguide context.
+     * Look up the actual component/page Twig template and render it with the
+     * styleguide context.
      *
-     * Prefers `styleguide.twig` (the visual demo file) over the main component template
-     * — same convention as the legacy TwigStyleguide renderer.
+     * Resolution order: the requested variant sibling (only when `$variant`
+     * is non-null AND syntactically valid) → the default `styleguide.twig`
+     * demo file → the component's own `<slug>.twig`. Same convention as the
+     * legacy TwigStyleguide renderer, extended with the variant preference
+     * on top.
+     *
+     * The regex re-check is defensive, not redundant: `Renderer` is
+     * unit-tested and can be called directly (bypassing `Router::
+     * whitelistVariant()` entirely), so an invalid/malformed `$variant`
+     * must never reach the candidate list — it degrades to exactly the
+     * no-variant case, same as an unknown-but-well-formed id that has no
+     * matching file. Either way a deleted/renamed/mistyped variant never
+     * 404s a bookmarked deep link.
      */
-    private function renderInner(string $kind, string $slug): ?string
+    private function renderInner(string $kind, string $slug, ?string $variant = null): ?string
     {
         $loader = $this->twig->getLoader();
         $namespace = '@project/' . $kind . '/' . $slug;
 
-        $candidates = [
-            $namespace . '/styleguide.twig',
-            $namespace . '/' . $slug . '.twig',
-        ];
+        $candidates = [];
+        if ($variant !== null && preg_match('/^[a-z0-9-]+$/', $variant) === 1) {
+            $candidates[] = $namespace . '/styleguide.' . $variant . '.twig';
+        }
+        $candidates[] = $namespace . '/styleguide.twig';
+        $candidates[] = $namespace . '/' . $slug . '.twig';
 
         foreach ($candidates as $path) {
             if ($loader->exists($path)) {

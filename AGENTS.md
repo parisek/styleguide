@@ -8,7 +8,7 @@ Project instructions for AI coding assistants (Claude Code, Codex CLI, Cursor, C
 
 - **PHP backend** (`src/`, PSR-4 `Parisek\Styleguide\`) — `Styleguide` bootstrap + `Router` + `Renderer` + `ComponentParser` + `AssetServer` + 3 API endpoints.
 - **Templates** (`templates/`) — `render-cell.twig` (iframe wrapper), `overview.twig`, `styleguide-404.twig`.
-- **Frontend SPA** (`frontend/` → built into `dist/`) — Alpine.js 3 + Tailwind v4, ~160 KB. Sidebar, search, preview chrome, locale switcher, deep-link routing.
+- **Frontend SPA** (`frontend/` → built into `dist/`) — Vue 3 + Pinia + vue-router + Tailwind v4. Sidebar, search, preview chrome, locale switcher, deep-link routing.
 
 Consumers wire `\Parisek\Styleguide\Styleguide::run()` into a public PHP file and the package handles every `/styleguide/*` request. See `README.md` § *Bootstrap*.
 
@@ -31,7 +31,7 @@ PHP commands run from the repo root, frontend commands from `frontend/`. Node is
 
 ```bash
 # Tests + static analysis (PHP)
-composer test                                # phpunit (23 tests, ~30 ms)
+composer test                                # phpunit (208 tests, ~0.4 s)
 composer phpstan                             # phpstan analyse (level configured in phpstan.neon)
 vendor/bin/phpunit --filter <pattern>        # single test method
 
@@ -39,6 +39,8 @@ vendor/bin/phpunit --filter <pattern>        # single test method
 cd frontend && npm install                   # first time / lock-file change
 cd frontend && npm run build                 # one-shot build → ../dist/
 cd frontend && npm run watch                 # rebuild on save (use during dev)
+cd frontend && npm test                      # Vitest — src/lib, src/stores, src/composables, src/components
+cd frontend && npm run test:e2e              # Playwright — full-browser parity checklist against tests/fixtures
 ```
 
 After PHP changes inside `src/` you don't need to rebuild — Composer's autoloader picks them up. After Twig changes inside `templates/` you don't need to rebuild either. After **anything** in `frontend/` (JS, HTML, CSS, locale JSON) you MUST run `npm run build`, otherwise the consuming project still ships the previous bundle from `dist/`.
@@ -56,7 +58,7 @@ In the consumer's `composer.json` (already wired in `tailwind-base`):
     "parisek-styleguide-local": {
         "type": "path",
         "url": "../styleguide",
-        "canonical": false,             // critical: lets Packagist supply ^0.1 when needed
+        "canonical": false,             // critical: lets Packagist supply ^1.0 when needed
         "options": {
             "symlink": true,
             "versions": { "parisek/styleguide": "dev-local" }
@@ -65,23 +67,23 @@ In the consumer's `composer.json` (already wired in `tailwind-base`):
 },
 "scripts": {
     "styleguide:local":  "@composer require parisek/styleguide:dev-local --no-interaction",
-    "styleguide:remote": "@composer require parisek/styleguide:^0.1 --no-interaction"
+    "styleguide:remote": "@composer require parisek/styleguide:^1.0 --no-interaction"
 }
 ```
 
-Why `canonical: false`: Composer treats path repos as canonical by default, which blocks lower-priority repositories (Packagist) from supplying versions. Without `canonical: false` the `^0.1` constraint would fail because Packagist is shadowed and the path repo only carries `dev-local`. With it set, both versions can satisfy the constraint depending on which one you ask for.
+Why `canonical: false`: Composer treats path repos as canonical by default, which blocks lower-priority repositories (Packagist) from supplying versions. Without `canonical: false` the `^1.0` constraint would fail because Packagist is shadowed and the path repo only carries `dev-local`. With it set, both versions can satisfy the constraint depending on which one you ask for.
 
-Why `versions` override: a path repo derives the package version from the local `composer.json` `version` field or (if missing) from git. Pinning it to `dev-local` makes the local copy unambiguous — the `^0.1` constraint never accidentally resolves against it, and `dev-local` is the only string a switch command needs to know.
+Why `versions` override: a path repo derives the package version from the local `composer.json` `version` field or (if missing) from git. Pinning it to `dev-local` makes the local copy unambiguous — the `^1.0` constraint never accidentally resolves against it, and `dev-local` is the only string a switch command needs to know.
 
 ### Workflow
 
 ```bash
 # From the consumer (tailwind-base) repo root:
 composer styleguide:local      # vendor/parisek/styleguide → symlink to ../styleguide
-composer styleguide:remote     # vendor/parisek/styleguide → extracted v0.1.x from Packagist
+composer styleguide:remote     # vendor/parisek/styleguide → extracted v1.x from Packagist
 ```
 
-The single line that changes in `composer.json` is `"parisek/styleguide": "dev-local"` ↔ `"^0.1"`. `composer.lock` updates too. Both are intended to land in commits when needed.
+The single line that changes in `composer.json` is `"parisek/styleguide": "dev-local"` ↔ `"^1.0"`. `composer.lock` updates too. Both are intended to land in commits when needed.
 
 After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/styleguide/`. PHP/Twig changes are picked up on the next request to the consumer. For frontend changes, run `cd frontend && npm run watch` so `dist/` rebuilds on save and the consumer's iframe chrome stays current.
 
@@ -89,7 +91,7 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 
 - Before tagging a release of the package (verify the consumer still works against the published Packagist version).
 - When debugging an issue that might be specific to the symlinked dev copy (caching, autoload, file permissions).
-- When handing the consumer repo to CI — CI installs from Packagist normally; the `repositories` block stays in `composer.json` but the `^0.1` constraint keeps it inert.
+- When handing the consumer repo to CI — CI installs from Packagist normally; the `repositories` block stays in `composer.json` but the `^1.0` constraint keeps it inert.
 
 ## Repo layout
 
@@ -106,12 +108,18 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   ├── render-cell.twig       # iframe wrapper (HTML doc with project CSS/JS)
 │   ├── overview.twig          # auto-generated palette / typography / fonts page
 │   └── styleguide-404.twig
-├── frontend/                  # SPA source (Vite + Alpine 3 + Tailwind v4)
+├── frontend/                  # SPA source (Vite + Vue 3 + Pinia + Tailwind v4)
 │   ├── index.html             # SPA shell — sidebar, toolbar, iframe preview
-│   ├── styleguide.js          # entrypoint (registers Alpine data + stores)
 │   ├── styleguide.css         # Tailwind v4 with @import / @source
-│   ├── components/            # Alpine components (preview, search, sidebar, usage, languageSwitcher)
-│   ├── stores/                # Alpine stores (ui, i18n, components)
+│   ├── src/
+│   │   ├── main.js            # entrypoint — boots Pinia + vue-router + mounts App.vue
+│   │   ├── App.vue            # shell: sidebar, mobile backdrop, shared toolbar/description/usage/link/fields chrome
+│   │   ├── router.js          # vue-router instance + route table
+│   │   ├── views/             # OverviewView, FoundationsView, PreviewView (renders PreviewPane)
+│   │   ├── components/        # Sidebar, ViewportToolbar, PreviewPane, FieldsDrawer, UsagePanel, LinkBar
+│   │   ├── composables/       # useViewportPreset, useSearchShortcuts
+│   │   ├── stores/            # Pinia: catalog, ui, i18n, theme
+│   │   └── lib/                # framework-free: searchMatch, prefixTree, viewportMath, fieldsTree, externalLinks, persistedRef, routeInfo, config
 │   └── public/locales/        # cs.json, en.json
 ├── dist/                      # built SPA bundle (committed — consumers ship without npm)
 ├── tests/                     # phpunit
@@ -139,10 +147,11 @@ The package surface has three independent layers; pick the smallest one that fit
 ### SPA chrome change (anything under `frontend/`)
 
 1. Run `cd frontend && npm run watch` so `dist/` updates on save.
-2. Edit `frontend/index.html` (templates), `frontend/components/*.js` (Alpine components), `frontend/stores/*.js` (state), `frontend/public/locales/*.json` (i18n).
+2. Edit `frontend/src/components/*.vue` / `frontend/src/views/*.vue` (templates + logic), `frontend/src/stores/*.js` (Pinia state), `frontend/src/lib/*.js` (pure logic — write a Vitest spec first), `frontend/public/locales/*.json` (i18n).
 3. Reload the consumer's styleguide URL — Vite has already rebuilt `dist/`.
-4. Verify the touched feature plus one adjacent feature (smoke).
-5. Commit both source files AND the rebuilt `dist/` artifacts — consumers receive `dist/` verbatim.
+4. Run `cd frontend && npm test` — every store/lib/component change needs a passing spec before commit (see `docs/superpowers/plans/2026-07-04-phase-1-vue-rewrite.md` for the test-first pattern this codebase now follows).
+5. Verify the touched feature plus one adjacent feature (smoke) against the consumer via `composer styleguide:local`.
+6. Commit source files, specs, AND the rebuilt `dist/` artifacts — consumers receive `dist/` verbatim; CI's `dist-reproducible` job (Task 13) fails the build if you forget.
 
 ### Documentation is part of the change — not a follow-up
 
@@ -179,7 +188,7 @@ Static analysis: `composer phpstan`. PHPStan config lives in `phpstan.neon`.
 2. Bump `CHANGELOG.md` — move `[Unreleased]` notes under a new `## [x.y.z] - YYYY-MM-DD` heading following the existing format.
 3. Commit, tag (`git tag vX.Y.Z`), push tag.
 4. Packagist auto-imports the new tag (the GitHub webhook is wired). Verify on https://packagist.org/packages/parisek/styleguide.
-5. In each consumer, `composer styleguide:remote && composer update parisek/styleguide` (or just `composer update parisek/styleguide` if it's already on `^0.1`).
+5. In each consumer, `composer styleguide:remote && composer update parisek/styleguide` (or just `composer update parisek/styleguide` if it's already on `^1.0`).
 
 `composer.json` no longer carries a hardcoded `version` field — Packagist derives versions from git tags exclusively (see CHANGELOG `[0.1.2]`). Don't reintroduce it.
 
@@ -187,7 +196,7 @@ Static analysis: `composer phpstan`. PHPStan config lives in `phpstan.neon`.
 
 - **PHP**: PSR-12, strict types declared at the top of every file, `final` classes by default.
 - **Twig**: tabs for indentation (matches consumer projects); first `{# ... #}` comment in a component template carries YAML metadata parsed by `ComponentParser`.
-- **JS**: ES modules, 4-space indent, no transpiler beyond what Vite ships. Alpine components live in `frontend/components/<name>.js` and register via `Alpine.data('<name>', () => ({...}))`. Stores live in `frontend/stores/<name>.js` and register via `Alpine.store('<name>', {...})`.
+- **JS**: ES modules, 4-space indent, no transpiler beyond what Vite ships. Components live in `frontend/src/components/<Name>.vue` / `frontend/src/views/<Name>View.vue` (Vue SFCs, `<script setup>`). Stores live in `frontend/src/stores/<name>.js` and register via Pinia's `defineStore('<name>', {...})`.
 - **CSS**: Tailwind v4 `@import` + `@source` in `frontend/styleguide.css`. No preflight disable (preflight runs for SPA chrome only; iframe content is isolated by the iframe boundary).
 - **Comments**: WHY, not WHAT — explain hidden constraints, subtle invariants, workarounds for specific bugs. Don't reference PRs, issues, or call sites; those rot.
 

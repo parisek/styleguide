@@ -6,28 +6,27 @@ the version of the code in this repo — so a behaviour change here is caught he
 not by every downstream project on a version bump.
 
 ```bash
-composer test:e2e                 # Layer A (+ B if agent-browser is installed)
-bash tests/e2e/run.sh --no-browser  # Layer A only
+composer test:e2e                 # Layer A
 PORT=9000 bash tests/e2e/run.sh   # different port
 ```
 
 `run.sh` boots a `php -S` server with `tests/fixtures/index.php` as the router,
-runs the layers, and tears the server down.
+runs the layer, and tears the server down.
 
 ## Layers
 
 | | Tool | What it catches | In CI |
 |---|---|---|---|
 | **A — `smoke-http.sh`** | `curl` + `python3` | Routing, render endpoint, JSON APIs, hashed-asset cache headers, locale JSON, path-traversal guard | ✅ yes |
-| **B — `smoke-browser.sh`** | `agent-browser` | SPA hydration, sidebar buckets, `sgNavigate()` routing, iframe `src`, ⌘K focus, width preset, locale switch + `<html lang>`, standalone back-bar visibility | local only |
-| **C — PHPUnit** | `composer test` | Backend units — `Router`, `Renderer`, `ComponentParser`, `AssetServer` | ✅ yes |
+| **PHPUnit** | `composer test` | Backend units — `Router`, `Renderer`, `ComponentParser`, `AssetServer` | ✅ yes |
+| **Playwright** (`tests/e2e/playwright/styleguide.spec.js`) | `cd frontend && npm run test:e2e` | SPA hydration, sidebar buckets, router navigation, iframe `src`, ⌘K focus, viewport presets/drag-resize/rotation, prefix-tree grouping, locale + theme switching, canvas mode, fields drawer, standalone back-bar visibility | ✅ yes (`e2e-playwright` job) |
 
-Layer B is browser-only and stays out of CI (needs Chrome + agent-browser). It's
-skipped automatically when `agent-browser` isn't installed:
-
-```bash
-npm i -g agent-browser && agent-browser install   # one-time, to run Layer B locally
-```
+The Playwright suite superseded a local-only "Layer B" (`smoke-browser.sh`,
+driven by the `agent-browser` CLI) that read state directly out of
+`window.Alpine.store(...)`. The Vue rewrite (Phase 1 of the Styleguide 2.0
+effort) removed that global, so Layer B was deleted rather than ported —
+Playwright asserts the same behaviour through the rendered DOM only, and
+unlike its predecessor it actually runs in CI.
 
 ## Why these live here, not in consuming projects
 

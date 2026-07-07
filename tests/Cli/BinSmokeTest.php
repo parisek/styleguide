@@ -75,4 +75,17 @@ final class BinSmokeTest extends TestCase
         self::assertSame(0, $exit, "stderr: $stderr");
         self::assertStringContainsString('Usage:', $stdout);
     }
+
+    #[Test]
+    public function bin_lint_runs_end_to_end(): void
+    {
+        $fixtures = realpath(__DIR__ . '/../fixtures/lint/templates');
+        self::assertNotFalse($fixtures, 'lint fixtures path missing');
+
+        $args = sprintf('lint --templates=%s', escapeshellarg($fixtures));
+        [$exit, $stdout, $stderr] = $this->runBin($args);
+
+        self::assertSame(1, $exit, "stderr: $stderr");
+        self::assertStringContainsString('WARNING', $stdout);
+    }
 }

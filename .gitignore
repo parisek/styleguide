@@ -5,3 +5,7 @@
 .phpunit.cache/
 /.claude/
 .php-cs-fixer.cache
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/blob-report/
+/docs/superpowers/

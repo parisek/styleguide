@@ -55,6 +55,23 @@ final class AssetServerTest extends TestCase
     }
 
     #[Test]
+    public function map_files_serve_with_json_content_type(): void
+    {
+        // headers_list() is unusable here: PHP's CLI SAPI has no HTTP
+        // response stage, so header() calls never populate it — headers_sent()
+        // reports true before any header() call runs, in every CLI process,
+        // regardless of PHPUnit. mimeType() is exercised directly via
+        // reflection instead, same pattern as StyleguideTest's coverage of
+        // resolveFoundationsCssUrl().
+        $server = new AssetServer($this->distRoot);
+        $method = new \ReflectionMethod(AssetServer::class, 'mimeType');
+        self::assertSame(
+            'application/json; charset=utf-8',
+            $method->invoke($server, $this->distRoot . '/test-asset.js.map'),
+        );
+    }
+
+    #[Test]
     public function returns_404_for_missing_file(): void
     {
         $server = new AssetServer($this->distRoot);

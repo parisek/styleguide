@@ -22,7 +22,19 @@
         "orientation_portrait": "Na výšku",
         "orientation_landscape": "Na šířku",
         "reload": "Znovu načíst",
-        "more_actions": "Další akce"
+        "more_actions": "Další akce",
+        "iframe_theme": "Přepnout tmavý režim v iframu",
+        "variant_label": "Varianta",
+        "variant_default": "Výchozí",
+        "variant_isolate_prefix": "Izolovat",
+        "breadcrumb_back_to_grid": "Zpět na všechny varianty",
+        "variant_columns_label": "Hustota dlaždic",
+        "variant_columns_auto_label": "Auto",
+        "variant_columns_auto": "Auto — velikost dlaždice podle zvoleného zobrazení",
+        "variant_columns_1": "1 sloupec",
+        "variant_columns_2": "2 sloupce",
+        "variant_columns_3": "3 sloupce",
+        "variant_columns_4": "4 sloupce"
     },
     "preview": {
         "mobile": "Mobil (375 px)",
@@ -33,7 +45,13 @@
     "search": {
         "label": "Hledat",
         "placeholder": "Hledat…",
-        "shortcut_hint": "⌘ K"
+        "shortcut_hint": "⌘ K",
+        "no_results": "Žádné výsledky",
+        "group_components": "Komponenty",
+        "group_pages": "Stránky",
+        "group_docs": "Dokumentace",
+        "hint_navigate": "↵ otevřít",
+        "hint_close": "Esc zavřít"
     },
     "nav": {
         "styleguide": "Styleguide",
@@ -66,5 +84,8 @@
         "dark": "Tmavé téma",
         "system": "Podle systému",
         "toggle": "Přepnout vzhled"
+    },
+    "health": {
+        "warnings_title": "Některé šablony se nepodařilo zpracovat — kliknutím zobrazíte podrobnosti v konzoli"
     }
 }
