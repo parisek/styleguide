@@ -31,6 +31,36 @@
 		   200vh so sticky / fixed chrome has scroll-room to demo. #}
 		{%- if kind == 'component' and component.render in ['bleed', 'chrome', 'overlay'] %} :root { --header-height: 0px; } {%- endif -%}
 		{%- if kind == 'component' and component.render == 'chrome' %} body { min-height: 200vh; } {%- endif -%}
+		{% if variant_stack %}{# Stacked default-view chrome (no ?variant= + the entry
+		   has discovered variants — Renderer::renderInner()). Gated on
+		   `variant_stack` (set only for a genuine stacked render) so every
+		   other render path — no variants at all, or an isolated ?variant=
+		   — stays byte-identical to pre-stacking output; these rules would
+		   otherwise leak a few extra bytes of CSS into every single render.
+		   Styleguide-owned, neutral typography independent of the project's
+		   own CSS framework — this heading/description pair must read
+		   consistently whether the project ships Tailwind, Bootstrap, or
+		   nothing at all, so it's `system-ui` + hardcoded colors rather than
+		   inheriting body font/color. Theme-branched the same way as the
+		   color-scheme/background rules above (a Twig ternary on `theme`,
+		   not a CSS `.dark` class — this template has no Tailwind build of
+		   its own to process `dark:` utilities). #}
+		.sg-variant-section:first-child .sg-variant-heading { margin-top: 0; }
+		.sg-variant-heading {
+			margin: 2.5rem 0 .75rem;
+			padding-bottom: .5rem;
+			font: 600 11px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+			text-transform: uppercase;
+			letter-spacing: .08em;
+			color: {{ theme == 'dark' ? '#a1a1aa' : '#71717a' }};
+			border-bottom: 1px solid {{ theme == 'dark' ? '#3f3f46' : '#e4e4e7' }};
+		}
+		.sg-variant-description {
+			margin: 0 0 .75rem;
+			font: 400 13px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+			color: {{ theme == 'dark' ? '#a1a1aa' : '#71717a' }};
+		}
+		{% endif %}
 	</style>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">

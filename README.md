@@ -452,7 +452,7 @@ fields:
 | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
-| `variants` | display labels for auto-discovered `styleguide.<variant>.twig` sibling files — see *File-convention variants* below |
+| `variants` | display labels (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files — see *File-convention variants* below |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 
@@ -506,17 +506,22 @@ component/hero/
 └── styleguide.dark-bg.twig    ← discovered variant "dark-bg"
 ```
 
-The preview toolbar shows a switcher (Default + each discovered variant, ordered by filename) the moment at least one sibling exists. Optional YAML supplies display labels:
+The preview toolbar shows a switcher ("Vše"/"All" + each discovered variant, ordered by filename) the moment at least one sibling exists. Optional YAML supplies display labels — either a plain string, or a map with an optional `description` too:
 
 ```twig
 {#
 name: "Hero"
 variants:
   secondary: "Secondary style"
+  dark-bg:
+    label: "Dark background"
+    description: "Same hero, tuned for a dark section background."
 #}
 ```
 
-A label with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. Deep link with `?variant=<id>`; an unknown or since-deleted variant silently falls back to the default instead of 404ing.
+An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. Deep link with `?variant=<id>`; an unknown or since-deleted variant silently falls back to the default view instead of 404ing.
+
+**Default view.** With no `?variant=` (the toolbar's "Vše"/"All" pill, or a bare deep link), the preview stacks every block vertically — the default `styleguide.twig` body first, then each discovered variant in order — every block preceded by an `<h2>` heading (its label) and, when supplied, a `<p>` description. This is the whole point of having variants: see every treatment at a glance without clicking through the switcher. Selecting a specific variant (pill or `?variant=<id>`) still isolates just that one block, no headings. An entry with no discovered variants is unaffected — it renders the single default block exactly as it always has.
 
 ### Page wrapper
 

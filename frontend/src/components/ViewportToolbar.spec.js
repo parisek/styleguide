@@ -25,7 +25,7 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             viewport_preset: 'Viewport', custom_width_label: 'Custom', custom_width_placeholder: 'px',
             orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
-            variant_label: 'Variant', variant_default: 'Default',
+            variant_label: 'Variant', variant_default: 'All',
         },
         sections: { blocks: 'Blocks' },
         a11y: { check_action: 'Accessibility check' },
@@ -100,7 +100,7 @@ describe('ViewportToolbar — variant switcher', () => {
         expect(wrapper.find('[data-testid="variant-switcher"]').exists()).toBe(false);
     });
 
-    it('renders Default + each discovered variant when variants exist', () => {
+    it('renders All + each discovered variant when variants exist', () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -115,7 +115,10 @@ describe('ViewportToolbar — variant switcher', () => {
         const switcher = wrapper.find('[data-testid="variant-switcher"]');
         expect(switcher.exists()).toBe(true);
         const labels = switcher.findAll('button').map((b) => b.text());
-        expect(labels).toEqual(['Default', 'dark-bg', 'Secondary style']);
+        // "All" (toolbar.variant_default) -- the no-?variant= default view now
+        // stacks every variant instead of showing just the implicit default,
+        // so the pill label reflects that ("Default" would misdescribe it).
+        expect(labels).toEqual(['All', 'dark-bg', 'Secondary style']);
     });
 
     it('clicking a variant button calls viewport.setVariant with its id', async () => {
@@ -129,7 +132,7 @@ describe('ViewportToolbar — variant switcher', () => {
         expect(setVariant).toHaveBeenCalledWith('secondary');
     });
 
-    it('clicking Default calls viewport.setVariant(null)', async () => {
+    it('clicking All calls viewport.setVariant(null)', async () => {
         const setVariant = vi.fn();
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
@@ -169,7 +172,7 @@ describe('ViewportToolbar — variant switcher', () => {
         });
         const switcher = wrapper.find('[data-testid="variant-switcher"]');
         expect(switcher.exists()).toBe(true);
-        expect(switcher.findAll('button').map((b) => b.text())).toEqual(['Default', 'Secondary style']);
+        expect(switcher.findAll('button').map((b) => b.text())).toEqual(['All', 'Secondary style']);
         expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
     });
 });

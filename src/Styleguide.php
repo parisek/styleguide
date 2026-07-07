@@ -1152,6 +1152,14 @@ final class Styleguide
             if ($meta !== null && $route['kind'] === 'component') {
                 $config['render'] = $meta['render'] ?? 'inset';
             }
+            // Discovered file-convention variant records (id/label/
+            // description) — forwarded so Renderer can stack them under
+            // labeled headings on the no-?variant= default view. Absent/
+            // empty is the BC case: Renderer::renderInner() renders the
+            // single default block exactly as before.
+            if ($meta !== null && !empty($meta['variants'])) {
+                $config['variants'] = $meta['variants'];
+            }
             // File-convention variant (v0.9.0) — Router::parse() has already
             // syntactically whitelisted this; Renderer re-validates existence
             // against the actual styleguide.<variant>.twig files and falls

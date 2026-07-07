@@ -275,11 +275,38 @@ final class ComponentParserTest extends TestCase
         self::assertNotNull($multi);
         self::assertSame(
             [
-                ['id' => 'dark-bg', 'label' => 'dark-bg'],
-                ['id' => 'secondary', 'label' => 'Secondary style'],
+                // No YAML `variants.dark-bg` entry at all -> label falls back
+                // to the id, description stays empty.
+                ['id' => 'dark-bg', 'label' => 'dark-bg', 'description' => ''],
+                // YAML entry is the {label, description} map shape.
+                ['id' => 'secondary', 'label' => 'Secondary style', 'description' => 'Tuned for a secondary-toned surface.'],
             ],
             $multi['variants'],
-            'variants are ordered by id/filename (dark-bg before secondary), labels from YAML fall back to the id',
+            'variants are ordered by id/filename (dark-bg before secondary); dark-bg has no YAML entry (label falls back to id), secondary uses the {label, description} map shape',
+        );
+    }
+
+    #[Test]
+    public function variant_entries_accept_plain_string_map_shape_or_garbage_values(): void
+    {
+        // Isolated fixture root (not tests/fixtures/templates) so this
+        // doesn't perturb the shared component catalogue other tests assert
+        // against (parses_all_components_sorted_by_weight and friends).
+        $parser = new ComponentParser(__DIR__ . '/fixtures/variant-shapes-templates');
+        $widget = $parser->parse('component', 'widget');
+
+        self::assertNotNull($widget);
+        self::assertSame(
+            [
+                // Garbage (int) value -> same fallback as an absent entry:
+                // label = id, description = '' -- never throws.
+                ['id' => 'garbage-label', 'label' => 'garbage-label', 'description' => ''],
+                ['id' => 'map-label', 'label' => 'Map Label', 'description' => 'Map-shape description.'],
+                // Plain string (BC shape) -> the string itself is the label,
+                // description stays empty.
+                ['id' => 'str-label', 'label' => 'String Label', 'description' => ''],
+            ],
+            $widget['variants'],
         );
     }
 

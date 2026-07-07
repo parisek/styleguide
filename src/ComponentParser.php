@@ -243,18 +243,25 @@ class ComponentParser
     /**
      * Discover `styleguide.<variant>.twig` siblings in a component/page/doc
      * directory. Filesystem is canonical — the optional YAML `variants:`
-     * map supplies DISPLAY LABELS only, keyed by id; a label for an id with
-     * no matching file is silently dropped (never fabricates a phantom
+     * map supplies DISPLAY METADATA only, keyed by id; an entry for an id
+     * with no matching file is silently dropped (never fabricates a phantom
      * variant). Plain `styleguide.twig` (no captured group) is the implicit
      * default and is never itself listed here — callers add the default
      * separately (or, for the SPA, prepend it client-side; see docs/API.md).
      *
+     * Each YAML entry accepts either shape:
+     *   - a plain string — the label (original, BC shape)
+     *   - a map — `{label?: string, description?: string}`
+     * Anything else (missing entry, or a non-string/non-map garbage value
+     * such as an int/bool/null) degrades to label = id, description = ''
+     * — never throws.
+     *
      * @param array<string,mixed> $metadata
-     * @return list<array{id:string,label:string}>
+     * @return list<array{id:string,label:string,description:string}>
      */
     private function discoverVariants(string $dir, array $metadata): array
     {
-        $labels = is_array($metadata['variants'] ?? null) ? $metadata['variants'] : [];
+        $entries = is_array($metadata['variants'] ?? null) ? $metadata['variants'] : [];
 
         $variants = [];
         foreach (glob($dir . '/styleguide.*.twig') ?: [] as $file) {
@@ -262,8 +269,8 @@ class ComponentParser
                 continue; // not a canonical variant filename (e.g. a stray .bak) — skip, don't error
             }
             $id = $m[1];
-            $label = is_string($labels[$id] ?? null) ? $labels[$id] : $id;
-            $variants[] = ['id' => $id, 'label' => $label];
+            [$label, $description] = self::normaliseVariantEntry($id, $entries[$id] ?? null);
+            $variants[] = ['id' => $id, 'label' => $label, 'description' => $description];
         }
 
         // Sort by id — equivalent to filename order (id is the only variable
@@ -275,8 +282,29 @@ class ComponentParser
     }
 
     /**
+     * Coerce a single `variants.<id>` YAML value into a [label, description]
+     * pair. See {@see self::discoverVariants()} for the accepted shapes.
+     *
+     * @return array{0:string,1:string}
+     */
+    private static function normaliseVariantEntry(string $id, mixed $entry): array
+    {
+        if (is_string($entry)) {
+            return [$entry, ''];
+        }
+        if (is_array($entry)) {
+            $label = is_string($entry['label'] ?? null) ? $entry['label'] : $id;
+            $description = is_string($entry['description'] ?? null) ? $entry['description'] : '';
+            return [$label, $description];
+        }
+        // Absent entry, or garbage (int/bool/null/list…) — same fallback as
+        // "no label supplied": id as label, no description. Never throws.
+        return [$id, ''];
+    }
+
+    /**
      * @param array<string,mixed> $metadata
-     * @param list<array{id:string,label:string}> $variants
+     * @param list<array{id:string,label:string,description:string}> $variants
      * @return array<string,mixed>
      */
     private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide, array $variants): array
@@ -312,6 +340,8 @@ class ComponentParser
             // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
             // siblings; [] when none exist — every pre-Phase-4 template keeps
             // this BC default. Default variant is implicit, never listed here.
+            // Each record's `description` (additive) is '' unless the YAML
+            // `variants.<id>` entry is a map with a string `description` key.
             'variants' => $variants,
         ];
     }
