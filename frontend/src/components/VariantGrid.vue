@@ -155,16 +155,19 @@ onBeforeUnmount(() => {
              tiles side by side as fit at >=420px each, then wraps -- a narrow
              canvas (mobile preset width, small window) collapses to a single
              column via the `min(420px, 100%)` clamp instead of overflowing.
-             `items-start` keeps each row's tiles aligned to the top instead
-             of CSS grid's default stretch-to-tallest-in-row.
+             Each tile spans TWO grid rows (header / canvas) and lays itself
+             out with `grid-template-rows: subgrid`, so headers within a row
+             share the tallest header's height -- a tile with a description
+             no longer pushes its screen lower than its neighbours', and the
+             canvas row stretches tiles in a row to one uniform card height.
              "rows": one tile per row, full width -- `align-items: stretch`
              (flex-col's own default) is what's wanted there, so each tile
              fills the row; the per-tile canvas area centers itself within
              that width via its own `justify-center` wrapper below. -->
         <div data-testid="variant-grid-tiles"
              class="gap-6"
-             :class="ui.variantLayout === 'rows' ? 'flex flex-col' : 'grid items-start'"
-             :style="ui.variantLayout === 'rows' ? '' : 'grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));'">
+             :class="ui.variantLayout === 'rows' ? 'flex flex-col' : 'grid'"
+             :style="ui.variantLayout === 'rows' ? '' : 'grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); grid-auto-rows: auto;'">
             <!-- Staggered entrance on first render: opacity/translateY tween
                  driven by the .sg-tile-enter keyframe (styleguide.css),
                  30ms further delayed per tile via the --i custom property
@@ -173,7 +176,8 @@ onBeforeUnmount(() => {
                  prefers-reduced-motion:no-preference in the CSS itself. -->
             <div v-for="(tile, i) in renderTiles" :key="tile.key"
                  data-testid="variant-tile"
-                 class="sg-tile-enter flex flex-col rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
+                 class="sg-tile-enter rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
+                 :class="ui.variantLayout === 'rows' ? 'flex flex-col' : 'grid grid-rows-[subgrid] row-span-2 gap-y-0'"
                  :style="{ '--i': i }">
                 <!-- Slim SPA-chrome header -- variant label (muted) plus an
                      optional description underneath, plus a per-tile scale
