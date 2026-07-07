@@ -28,9 +28,13 @@
         "variant_default": "Default",
         "variant_back_all": "← All",
         "variant_isolate_prefix": "Isolate",
-        "variant_layout_label": "Tile layout",
-        "layout_rows": "Stacked",
-        "layout_grid": "Side by side"
+        "variant_columns_label": "Tile density",
+        "variant_columns_auto_label": "Auto",
+        "variant_columns_auto": "Auto — tile size follows the viewport preset",
+        "variant_columns_1": "1 column",
+        "variant_columns_2": "2 columns",
+        "variant_columns_3": "3 columns",
+        "variant_columns_4": "4 columns"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

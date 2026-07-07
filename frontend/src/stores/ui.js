@@ -3,6 +3,34 @@ import { usePersistedRef } from '../lib/persistedRef.js';
 import { setCookie } from '../lib/cookie.js';
 import { parseWidthParam, isPortraitOrientation, rotationForPortrait } from '../lib/viewportMath.js';
 
+// Migrates the pre-2.0 rows/grid tile-layout toggle (key `sg-variant-layout`,
+// values "rows"/"grid") to the new 5-option density control (key
+// `sg-variant-columns`, values "auto"/1/2/3/4) the first time this module
+// loads after the upgrade -- a visitor's persisted choice should carry
+// forward instead of silently resetting to the new default. "rows" (one
+// tile per row) maps to the exact replacement, `1` -- VariantGrid.vue's
+// single-column subgrid renders identically, just via a different knob.
+// "grid" (side-by-side auto-fit columns) maps to "auto" (device-aware
+// density), the closest new equivalent and the new default besides. Runs
+// unconditionally at import time (not lazily inside usePersistedRef, which
+// is a generic helper with no knowledge of this specific key's history);
+// guarded on the new key already existing so it's a true one-shot and the
+// legacy key removal below can't re-trigger it on a later reload.
+function migrateVariantColumnsKey() {
+    try {
+        if (localStorage.getItem('sg-variant-columns') !== null) return;
+        const raw = localStorage.getItem('sg-variant-layout');
+        if (raw === null) return;
+        let legacy;
+        try { legacy = JSON.parse(raw); } catch { legacy = raw; }
+        localStorage.setItem('sg-variant-columns', JSON.stringify(legacy === 'rows' ? 1 : 'auto'));
+        localStorage.removeItem('sg-variant-layout');
+    } catch (e) {
+        // Safari private mode throws on localStorage access; fall back silently
+        // (usePersistedRef's own read just below tolerates this the same way).
+    }
+}
+
 // Ported from frontend/stores/ui.js. `routeType`/`routeSlug` replace the
 // legacy `route: {type, slug}` object with two flat fields (Pinia state
 // diffing is simpler on primitives); `src/lib/routeInfo.js` + the
@@ -10,45 +38,51 @@ import { parseWidthParam, isPortraitOrientation, rotationForPortrait } from '../
 // every navigation, replacing the old `router.js` `apply()`/`popstate`
 // listener.
 export const useUiStore = defineStore('ui', {
-    state: () => ({
-        sidebarOpen: usePersistedRef('sg-sidebar-open', true),
-        previewWidth: usePersistedRef('sg-preview-width', '100%'),
-        previewHeight: usePersistedRef('sg-preview-height', null),
-        previewRotated: usePersistedRef('sg-preview-rotated', false),
-        isDragging: false,
-        isPreviewLoading: false,
-        searchQuery: '',
-        routeType: 'landing',
-        routeSlug: null,
-        // On-demand accessibility check (axe-core). Ephemeral, NOT persisted
-        // (unlike previewWidth/sidebarOpen/etc. above) — a stale violation
-        // list surviving a reload or a route change would describe a
-        // document that's no longer loaded in the iframe. Reset by
-        // setRoute() below, mirroring isPreviewLoading's own per-navigation
-        // reset.
-        a11yResults: null,
-        a11yRunning: false,
-        // Monotonic counter bumped by setRoute() (see below) alongside the
-        // reset above. ViewportToolbar's runA11yCheck() snapshots this
-        // before starting a check and compares it again after awaiting
-        // runAxeCheck() -- a mismatch means a navigation happened while the
-        // check was in flight, so the (now-stale) result is discarded
-        // instead of repopulating these fields for a document the iframe no
-        // longer shows. Store-level (not a local ref in ViewportToolbar)
-        // because setRoute() is the single place navigation is observed;
-        // mirrors the reloadNonce idiom in useViewportPreset.js.
-        a11yGeneration: 0,
-        // Iframe content theme — independent of the SPA chrome's own light/
-        // dark/system toggle (stores/theme.js). Persisted under its own
-        // localStorage key so switching one doesn't affect the other.
-        iframeTheme: usePersistedRef('sg-iframe-theme', 'light'),
-        // Variant grid tile layout — "grid" (side-by-side auto-fit columns,
-        // the original prototype behavior) or "rows" (one tile per row,
-        // stacked). Persisted under its own key, independent of previewWidth
-        // etc., since it's a VariantGrid-only concern (inert once a specific
-        // `?variant=` isolates to the classic single preview).
-        variantLayout: usePersistedRef('sg-variant-layout', 'grid'),
-    }),
+    state: () => {
+        migrateVariantColumnsKey();
+        return {
+            sidebarOpen: usePersistedRef('sg-sidebar-open', true),
+            previewWidth: usePersistedRef('sg-preview-width', '100%'),
+            previewHeight: usePersistedRef('sg-preview-height', null),
+            previewRotated: usePersistedRef('sg-preview-rotated', false),
+            isDragging: false,
+            isPreviewLoading: false,
+            searchQuery: '',
+            routeType: 'landing',
+            routeSlug: null,
+            // On-demand accessibility check (axe-core). Ephemeral, NOT persisted
+            // (unlike previewWidth/sidebarOpen/etc. above) — a stale violation
+            // list surviving a reload or a route change would describe a
+            // document that's no longer loaded in the iframe. Reset by
+            // setRoute() below, mirroring isPreviewLoading's own per-navigation
+            // reset.
+            a11yResults: null,
+            a11yRunning: false,
+            // Monotonic counter bumped by setRoute() (see below) alongside the
+            // reset above. ViewportToolbar's runA11yCheck() snapshots this
+            // before starting a check and compares it again after awaiting
+            // runAxeCheck() -- a mismatch means a navigation happened while the
+            // check was in flight, so the (now-stale) result is discarded
+            // instead of repopulating these fields for a document the iframe no
+            // longer shows. Store-level (not a local ref in ViewportToolbar)
+            // because setRoute() is the single place navigation is observed;
+            // mirrors the reloadNonce idiom in useViewportPreset.js.
+            a11yGeneration: 0,
+            // Iframe content theme — independent of the SPA chrome's own light/
+            // dark/system toggle (stores/theme.js). Persisted under its own
+            // localStorage key so switching one doesn't affect the other.
+            iframeTheme: usePersistedRef('sg-iframe-theme', 'light'),
+            // Variant grid tile density — "auto" (column sizing derives from the
+            // shared viewport preset, see lib/tileGeometry.js's
+            // autoGridColumnBasis()) or an exact column count 1-4. Persisted
+            // under its own key, independent of previewWidth etc., since it's a
+            // VariantGrid-only concern (inert once a specific `?variant=`
+            // isolates to the classic single preview). Replaces the pre-2.0
+            // rows/grid toggle -- see migrateVariantColumnsKey() above for the
+            // one-shot upgrade of a visitor's existing preference.
+            variantColumns: usePersistedRef('sg-variant-columns', 'auto'),
+        };
+    },
     getters: {
         isPortrait: (state) => isPortraitOrientation({
             width: parseInt(state.previewWidth, 10),
@@ -134,10 +168,13 @@ export const useUiStore = defineStore('ui', {
             setCookie('sg-iframe-theme', this.iframeTheme);
         },
         // Whitelisted the same way as setIframeTheme() above — a corrupted
-        // localStorage value can never resolve to anything but the "grid"
-        // default.
-        setVariantLayout(value) {
-            this.variantLayout = value === 'rows' ? 'rows' : 'grid';
+        // localStorage value (or a stray call with an out-of-range number)
+        // can never resolve to anything but the "auto" default. Numbers, not
+        // numeric strings -- ViewportToolbar.vue's segmented buttons pass 1-4
+        // as actual numbers, matching the type usePersistedRef round-trips
+        // through JSON (JSON.parse('1') is the number 1, not "1").
+        setVariantColumns(value) {
+            this.variantColumns = ['auto', 1, 2, 3, 4].includes(value) ? value : 'auto';
         },
     },
 });

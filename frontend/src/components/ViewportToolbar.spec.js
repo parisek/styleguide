@@ -26,7 +26,10 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
             variant_label: 'Variant', variant_default: 'Default', variant_back_all: '← All',
-            variant_layout_label: 'Tile layout', layout_rows: 'Stacked', layout_grid: 'Side by side',
+            variant_columns_label: 'Tile density', variant_columns_auto_label: 'Auto',
+            variant_columns_auto: 'Auto tooltip',
+            variant_columns_1: '1 column', variant_columns_2: '2 columns',
+            variant_columns_3: '3 columns', variant_columns_4: '4 columns',
         },
         sections: { blocks: 'Blocks' },
         a11y: { check_action: 'Accessibility check', unavailable_in_grid: 'Needs a single preview' },
@@ -169,7 +172,7 @@ describe('ViewportToolbar — grid mode', () => {
         expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
     });
 
-    it('renders the rows/grid layout toggle only when the grid is active', () => {
+    it('renders the density segmented control only when the grid is active', () => {
         const gridWrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -178,10 +181,10 @@ describe('ViewportToolbar — grid mode', () => {
                 variants: [{ id: 'secondary', label: 'Secondary style' }],
             }],
         });
-        expect(gridWrapper.find('[data-testid="variant-layout-toggle"]').exists()).toBe(true);
+        expect(gridWrapper.find('[data-testid="variant-columns-toggle"]').exists()).toBe(true);
 
         const noVariantsWrapper = mountWithViewport('component', 'hero');
-        expect(noVariantsWrapper.find('[data-testid="variant-layout-toggle"]').exists()).toBe(false);
+        expect(noVariantsWrapper.find('[data-testid="variant-columns-toggle"]').exists()).toBe(false);
 
         const isolatedWrapper = mountWithViewport('component', 'multi', {
             items: [{
@@ -192,10 +195,26 @@ describe('ViewportToolbar — grid mode', () => {
             }],
             variant: ref('secondary'),
         });
-        expect(isolatedWrapper.find('[data-testid="variant-layout-toggle"]').exists()).toBe(false);
+        expect(isolatedWrapper.find('[data-testid="variant-columns-toggle"]').exists()).toBe(false);
     });
 
-    it('clicking the rows/grid layout buttons updates ui.variantLayout', async () => {
+    it('renders all five density options (Auto, 1, 2, 3, 4), Auto pressed by default', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+        });
+        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-pressed')).toBe('true');
+        for (const n of [1, 2, 3, 4]) {
+            expect(wrapper.find(`[data-testid="variant-columns-${n}"]`).attributes('aria-pressed')).toBe('false');
+            expect(wrapper.find(`[data-testid="variant-columns-${n}"]`).text()).toBe(String(n));
+        }
+    });
+
+    it('clicking a density button updates ui.variantColumns and moves aria-pressed', async () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -205,11 +224,16 @@ describe('ViewportToolbar — grid mode', () => {
             }],
         });
         const ui = useUiStore();
-        expect(ui.variantLayout).toBe('grid');
-        await wrapper.find('[data-testid="variant-layout-rows"]').trigger('click');
-        expect(ui.variantLayout).toBe('rows');
-        await wrapper.find('[data-testid="variant-layout-grid"]').trigger('click');
-        expect(ui.variantLayout).toBe('grid');
+        expect(ui.variantColumns).toBe('auto');
+
+        await wrapper.find('[data-testid="variant-columns-2"]').trigger('click');
+        expect(ui.variantColumns).toBe(2);
+        expect(wrapper.find('[data-testid="variant-columns-2"]').attributes('aria-pressed')).toBe('true');
+        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-pressed')).toBe('false');
+
+        await wrapper.find('[data-testid="variant-columns-auto"]').trigger('click');
+        expect(ui.variantColumns).toBe('auto');
+        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-pressed')).toBe('true');
     });
 });
 

@@ -28,9 +28,13 @@
         "variant_default": "Výchozí",
         "variant_back_all": "← Vše",
         "variant_isolate_prefix": "Izolovat",
-        "variant_layout_label": "Rozložení dlaždic",
-        "layout_rows": "Pod sebe",
-        "layout_grid": "Vedle sebe"
+        "variant_columns_label": "Hustota dlaždic",
+        "variant_columns_auto_label": "Auto",
+        "variant_columns_auto": "Auto — velikost dlaždice podle zvoleného zobrazení",
+        "variant_columns_1": "1 sloupec",
+        "variant_columns_2": "2 sloupce",
+        "variant_columns_3": "3 sloupce",
+        "variant_columns_4": "4 sloupce"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

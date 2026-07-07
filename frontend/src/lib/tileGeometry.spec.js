@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { computeTileGeometry, formatTileScaleLabel } from './tileGeometry.js';
+import {
+    computeTileGeometry, formatTileScaleLabel, autoGridColumnBasis,
+    AUTO_GRID_FLUID_BASIS_PX, TILE_CHROME_PADDING_PX,
+} from './tileGeometry.js';
 
 describe('computeTileGeometry', () => {
     it('is fluid (no scaling) for the Full preset (presetWidth null)', () => {
@@ -59,5 +62,28 @@ describe('formatTileScaleLabel', () => {
 
     it('is empty when called with no geometry (defensive)', () => {
         expect(formatTileScaleLabel(null)).toBe('');
+    });
+});
+
+// Auto density (styleguide 2.0): the variant grid's "Auto" column mode
+// derives its minmax() basis from the shared preset instead of one fixed
+// constant for every preset.
+describe('autoGridColumnBasis', () => {
+    it('falls back to the original 420px basis for the Full preset (no canonical width)', () => {
+        expect(autoGridColumnBasis(null)).toBe(AUTO_GRID_FLUID_BASIS_PX);
+        expect(autoGridColumnBasis(undefined)).toBe(AUTO_GRID_FLUID_BASIS_PX);
+    });
+
+    it('adds the fixed tile-chrome padding to a device preset\'s effective width', () => {
+        expect(autoGridColumnBasis(375)).toBe(375 + TILE_CHROME_PADDING_PX);
+        expect(autoGridColumnBasis(1280)).toBe(1280 + TILE_CHROME_PADDING_PX);
+    });
+
+    it('scales with the preset -- Mobile fits more per row than Desktop on the same canvas', () => {
+        // Both bases are what auto-fit's minmax() divides the canvas width
+        // by, so a SMALLER basis (Mobile) always packs at least as many
+        // (usually more) columns into the same available width as a LARGER
+        // one (Desktop).
+        expect(autoGridColumnBasis(375)).toBeLessThan(autoGridColumnBasis(1280));
     });
 });

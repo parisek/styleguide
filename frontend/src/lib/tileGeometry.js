@@ -51,3 +51,22 @@ export function formatTileScaleLabel(geometry) {
     const pct = Math.round(geometry.zoom * 100);
     return `${geometry.iframeWidth} × ${geometry.iframeHeight} · ${pct} %`;
 }
+
+// "Auto" density (styleguide 2.0, replaces the old rows/grid toggle): the
+// variant grid's minmax() basis derives from the shared viewport preset
+// instead of a single fixed constant -- a Desktop preset (1280px effective
+// width) shouldn't cram to the same per-row tile count as Mobile (375px).
+// TILE_CHROME_PADDING_PX accounts for the fixed-width tile's own chrome
+// around the scaled preview -- the content-area wrapper's `p-3` padding
+// (12px each side, VariantGrid.vue) plus the scaled wrapper's `ring-1`
+// border -- so a tile never has to zoom below 100% just to make room for
+// its own frame. AUTO_GRID_FLUID_BASIS_PX is the Full-preset (no canonical
+// width) fallback -- the original prototype's fixed 420px basis, kept
+// unchanged since there's no preset width to derive a smarter one from.
+export const AUTO_GRID_FLUID_BASIS_PX = 420;
+export const TILE_CHROME_PADDING_PX = 32;
+
+export function autoGridColumnBasis(presetWidth) {
+    if (presetWidth === null || presetWidth === undefined) return AUTO_GRID_FLUID_BASIS_PX;
+    return presetWidth + TILE_CHROME_PADDING_PX;
+}

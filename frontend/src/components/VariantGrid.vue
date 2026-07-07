@@ -13,13 +13,18 @@
 //      fit that tile's own measured cell width. Full stays fluid (100% cell
 //      width, auto content height, no scaling) -- see lib/tileGeometry.js
 //      for the (unit-tested) pure math.
-//   2. A "rows" vs "grid" layout toggle (ui.variantLayout, persisted) --
-//      tiles stacked one per row vs the original side-by-side auto-fit
-//      columns.
+//   2. A tile-density control, `ui.variantColumns` (persisted): "auto"
+//      derives the minmax() column basis from the shared preset itself (a
+//      Desktop preset shouldn't cram to Mobile's tile count -- see
+//      lib/tileGeometry.js's autoGridColumnBasis()), or an exact column
+//      count 1-4. Replaces the earlier rows/grid toggle -- "1" is the exact
+//      visual replacement for the old "rows" stacked layout (see the
+//      subgrid comment in the template below for why one column needs no
+//      special-casing at all).
 import { inject, computed, reactive, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
-import { computeTileGeometry, formatTileScaleLabel } from '../lib/tileGeometry.js';
+import { computeTileGeometry, formatTileScaleLabel, autoGridColumnBasis } from '../lib/tileGeometry.js';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
@@ -136,6 +141,22 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
     };
 }));
 
+// Density control (ui.variantColumns): "auto" derives the auto-fit minmax()
+// basis from the shared preset (viewport.effective -- already resolves
+// orientation/rotation and Custom width, the SAME dimensions every tile's
+// own fit-to-cell zoom above already consumes), so Desktop and Mobile
+// presets settle on a different per-row tile count on the same canvas
+// instead of always packing to one fixed basis. An exact 1-4 sets the
+// column count directly, ignoring the preset entirely.
+const gridTemplateColumns = computed(() => {
+    const columns = ui.variantColumns;
+    if (columns === 'auto') {
+        const basis = autoGridColumnBasis(viewport.effective.value.width);
+        return `repeat(auto-fit, minmax(min(${basis}px, 100%), 1fr))`;
+    }
+    return `repeat(${columns}, minmax(0, 1fr))`;
+});
+
 function isolateTile(tile) {
     if (!tile.clickable) return;
     viewport.setVariant(tile.id);
@@ -151,23 +172,27 @@ onBeforeUnmount(() => {
 
 <template>
     <div data-testid="variant-grid" class="w-full p-6">
-        <!-- "grid": `auto-fit` + `minmax(min(420px, 100%), 1fr)` puts as many
-             tiles side by side as fit at >=420px each, then wraps -- a narrow
-             canvas (mobile preset width, small window) collapses to a single
-             column via the `min(420px, 100%)` clamp instead of overflowing.
-             Each tile spans TWO grid rows (header / canvas) and lays itself
-             out with `grid-template-rows: subgrid`, so headers within a row
-             share the tallest header's height -- a tile with a description
-             no longer pushes its screen lower than its neighbours', and the
-             canvas row stretches tiles in a row to one uniform card height.
-             "rows": one tile per row, full width -- `align-items: stretch`
-             (flex-col's own default) is what's wanted there, so each tile
-             fills the row; the per-tile canvas area centers itself within
-             that width via its own `justify-center` wrapper below. -->
+        <!-- Always a CSS grid, never flex-col -- the density control only
+             changes HOW MANY columns `grid-template-columns` describes, not
+             whether it's a grid at all. "auto": `auto-fit` +
+             `minmax(min(<basis>px, 100%), 1fr)` puts as many tiles side by
+             side as fit at >=<basis>px each, then wraps -- a narrow canvas
+             (mobile preset width, small window) collapses to a single column
+             via the `min(<basis>px, 100%)` clamp instead of overflowing.
+             1-4: an exact `repeat(N, minmax(0, 1fr))`, ignoring the preset.
+             Every tile spans TWO grid rows (header / canvas) and lays itself
+             out with `grid-template-rows: subgrid`, so headers within a ROW
+             (not necessarily the whole grid) share the tallest header's
+             height in that row, and the canvas row stretches to one uniform
+             card height -- this is what N=1 replaces the old "rows" stacked
+             layout with: a single-column grid still gives every tile its own
+             row (of 2 subgrid tracks), which LOOKS identical to the old
+             flex-col stack (nothing to share a row with), so it needed no
+             special-casing at all once the rows/grid toggle became a plain
+             column count. -->
         <div data-testid="variant-grid-tiles"
-             class="gap-6"
-             :class="ui.variantLayout === 'rows' ? 'flex flex-col' : 'grid'"
-             :style="ui.variantLayout === 'rows' ? '' : 'grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); grid-auto-rows: auto;'">
+             class="grid gap-6"
+             :style="{ gridTemplateColumns, gridAutoRows: 'auto' }">
             <!-- Staggered entrance on first render: opacity/translateY tween
                  driven by the .sg-tile-enter keyframe (styleguide.css),
                  30ms further delayed per tile via the --i custom property
@@ -176,8 +201,7 @@ onBeforeUnmount(() => {
                  prefers-reduced-motion:no-preference in the CSS itself. -->
             <div v-for="(tile, i) in renderTiles" :key="tile.key"
                  data-testid="variant-tile"
-                 class="sg-tile-enter rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
-                 :class="ui.variantLayout === 'rows' ? 'flex flex-col' : 'grid grid-rows-[subgrid] row-span-2 gap-y-0'"
+                 class="sg-tile-enter grid grid-rows-[subgrid] row-span-2 gap-y-0 rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
                  :style="{ '--i': i }">
                 <!-- Slim SPA-chrome header -- variant label (muted) plus an
                      optional description underneath, plus a per-tile scale

@@ -168,29 +168,82 @@ describe('iframeTheme', () => {
     });
 });
 
-// Variant grid tile layout (styleguide 2.0: rows vs grid). Its own
-// localStorage key, independent of previewWidth/etc. -- it's a VariantGrid-
-// only concern.
-describe('variantLayout', () => {
+// Variant grid tile density (styleguide 2.0: Auto | 1 | 2 | 3 | 4, replacing
+// the earlier rows/grid toggle). Its own localStorage key, independent of
+// previewWidth/etc. -- it's a VariantGrid-only concern.
+describe('variantColumns', () => {
     beforeEach(() => {
         localStorage.clear();
         setActivePinia(createPinia());
     });
 
-    it('defaults to "grid"', () => {
-        expect(useUiStore().variantLayout).toBe('grid');
+    it('defaults to "auto"', () => {
+        expect(useUiStore().variantColumns).toBe('auto');
     });
 
-    it('setVariantLayout persists the chosen layout across store instances', async () => {
-        useUiStore().setVariantLayout('rows');
+    it('setVariantColumns persists the chosen density across store instances', async () => {
+        useUiStore().setVariantColumns(2);
         await Promise.resolve();
         setActivePinia(createPinia());
-        expect(useUiStore().variantLayout).toBe('rows');
+        expect(useUiStore().variantColumns).toBe(2);
     });
 
-    it('rejects invalid values by falling back to "grid"', () => {
+    it('rejects invalid values (including out-of-range numbers and numeric strings) by falling back to "auto"', () => {
         const ui = useUiStore();
-        ui.setVariantLayout('columns');
-        expect(ui.variantLayout).toBe('grid');
+        ui.setVariantColumns('columns');
+        expect(ui.variantColumns).toBe('auto');
+        ui.setVariantColumns(5);
+        expect(ui.variantColumns).toBe('auto');
+        ui.setVariantColumns('2');
+        expect(ui.variantColumns).toBe('auto');
+    });
+});
+
+// Migration of the pre-2.0 rows/grid toggle (`sg-variant-layout`) to the new
+// density control (`sg-variant-columns`) -- see migrateVariantColumnsKey()
+// in ui.js. Every test here sets up the legacy key BEFORE the store (and
+// therefore usePersistedRef/the migration) is ever instantiated, mirroring
+// what a real upgrade looks like: an old localStorage value already sitting
+// there when the new build's JS first runs.
+describe('variantColumns migration from the legacy sg-variant-layout key', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        setActivePinia(createPinia());
+    });
+
+    it('migrates a legacy "rows" value to the exact replacement, 1', () => {
+        localStorage.clear();
+        localStorage.setItem('sg-variant-layout', JSON.stringify('rows'));
+        setActivePinia(createPinia());
+        expect(useUiStore().variantColumns).toBe(1);
+    });
+
+    it('migrates a legacy "grid" value to "auto", the closest new equivalent', () => {
+        localStorage.clear();
+        localStorage.setItem('sg-variant-layout', JSON.stringify('grid'));
+        setActivePinia(createPinia());
+        expect(useUiStore().variantColumns).toBe('auto');
+    });
+
+    it('removes the legacy key once migrated, so it cannot re-migrate on a later reload', () => {
+        localStorage.clear();
+        localStorage.setItem('sg-variant-layout', JSON.stringify('rows'));
+        setActivePinia(createPinia());
+        useUiStore();
+        expect(localStorage.getItem('sg-variant-layout')).toBeNull();
+    });
+
+    it('leaves an already-set sg-variant-columns value alone even if the legacy key is still present', () => {
+        localStorage.clear();
+        localStorage.setItem('sg-variant-columns', JSON.stringify(3));
+        localStorage.setItem('sg-variant-layout', JSON.stringify('rows'));
+        setActivePinia(createPinia());
+        expect(useUiStore().variantColumns).toBe(3);
+    });
+
+    it('defaults to "auto" with no legacy key present (fresh install, not an upgrade)', () => {
+        localStorage.clear();
+        setActivePinia(createPinia());
+        expect(useUiStore().variantColumns).toBe('auto');
     });
 });

@@ -163,18 +163,22 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await expect(firstIframe).not.toHaveAttribute('style', /transform/);
     });
 
-    test('layout toggle: "rows" stacks every tile in a single column; "grid" is the default', async ({ page }) => {
+    // Replaces the pre-2.0 "rows" layout entirely (styleguide-2.0 density
+    // control: Auto | 1 | 2 | 3 | 4) -- a single-column grid gives every tile
+    // its own row of subgrid header/canvas tracks (VariantGrid.vue), which
+    // is visually identical to the old dedicated flex-col "rows" branch.
+    test('density control: "1" stacks every tile in a single column; "Auto" is the default', async ({ page }) => {
         await page.goto('/styleguide/component/multi');
         const tiles = page.getByTestId('variant-tile');
         await expect(tiles).toHaveCount(3);
 
-        // Default layout is "grid" — the toggle exists and the grid button
+        // Default density is "Auto" — the toggle exists and the Auto button
         // reads pressed.
-        await expect(page.getByTestId('variant-layout-toggle')).toBeVisible();
-        await expect(page.getByTestId('variant-layout-grid')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByTestId('variant-columns-toggle')).toBeVisible();
+        await expect(page.getByTestId('variant-columns-auto')).toHaveAttribute('aria-pressed', 'true');
 
-        await page.getByTestId('variant-layout-rows').click();
-        await expect(page.getByTestId('variant-layout-rows')).toHaveAttribute('aria-pressed', 'true');
+        await page.getByTestId('variant-columns-1').click();
+        await expect(page.getByTestId('variant-columns-1')).toHaveAttribute('aria-pressed', 'true');
 
         const boxes = await tiles.evaluateAll((els) => els.map((el) => {
             const r = el.getBoundingClientRect();
@@ -187,6 +191,72 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         // ...and stacks top to bottom, one full row per tile.
         expect(boxes[1].top).toBeGreaterThanOrEqual(boxes[0].bottom - 1);
         expect(boxes[2].top).toBeGreaterThanOrEqual(boxes[1].bottom - 1);
+    });
+
+    // "Auto" derives the auto-fit minmax() basis from the ACTIVE preset
+    // (lib/tileGeometry.js's autoGridColumnBasis()) instead of one fixed
+    // constant for every preset -- a Mobile preset's small effective width
+    // fits multiple tiles per row on a wide canvas, unlike a Desktop preset
+    // on the same canvas (see the next test).
+    test('density control: "Auto" packs multiple Mobile-preset tiles per row on a wide canvas', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/multi');
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(3);
+
+        await expect(page.getByTestId('variant-columns-auto')).toHaveAttribute('aria-pressed', 'true');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-mobile').click();
+
+        const tops = await tiles.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+        // At least two of the three tiles share a row (same top) -- i.e.
+        // strictly more than one tile per row, which a fixed 420px-only
+        // basis would already satisfy, but a preset-BLIND implementation
+        // (always the Full-preset basis) would too; the real assertion this
+        // guards is the density DIFFERENCE from Desktop in the next test.
+        const rowCount = new Set(tops).size;
+        expect(rowCount).toBeLessThan(3);
+    });
+
+    test('density control: "Auto" packs fewer Desktop-preset tiles per row than Mobile on the same wide canvas', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/multi');
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(3);
+
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-desktop').click();
+
+        const tops = await tiles.evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+        // Desktop's preset width (1280px) plus tile chrome padding already
+        // exceeds most of a 1680px canvas, so every tile lands in its own
+        // row -- unlike Mobile's basis in the test above.
+        const rowCount = new Set(tops).size;
+        expect(rowCount).toBe(3);
+    });
+
+    test('density control: "2" always packs exactly two tiles per row, regardless of the active preset', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/multi');
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(3);
+
+        // Desktop would otherwise force one tile per row under Auto (see
+        // above) -- an explicit "2" overrides that regardless of preset.
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-desktop').click();
+        await page.getByTestId('variant-columns-2').click();
+        await expect(page.getByTestId('variant-columns-2')).toHaveAttribute('aria-pressed', 'true');
+
+        const boxes = await tiles.evaluateAll((els) => els.map((el) => {
+            const r = el.getBoundingClientRect();
+            return { left: Math.round(r.left), top: Math.round(r.top) };
+        }));
+        // Tiles 0 and 1 share the first row (same top, different left);
+        // tile 2 starts a new row.
+        expect(boxes[0].top).toBe(boxes[1].top);
+        expect(boxes[0].left).not.toBe(boxes[1].left);
+        expect(boxes[2].top).toBeGreaterThan(boxes[0].top);
     });
 
     test('the Default tile header is not clickable; every other tile header isolates it to the classic single preview, with a back control to return', async ({ page }) => {

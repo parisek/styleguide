@@ -9,6 +9,12 @@ import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
 
 function mountGrid(type = 'component', slug = 'multi', { items, variant, setVariant } = {}) {
+    // Every mount gets a genuinely fresh ui store -- localStorage.clear()
+    // first, otherwise a PREVIOUS test's ui.setWidth() (previewWidth is
+    // persisted via usePersistedRef, real localStorage, not reset by
+    // setActivePinia(createPinia()) alone) leaks into this test's "default"
+    // preset expectations.
+    localStorage.clear();
     setActivePinia(createPinia());
     useI18nStore().strings = { toolbar: { variant_default: 'Default', variant_isolate_prefix: 'Isolate' } };
     useCatalogStore().items = items ?? [{
@@ -159,22 +165,47 @@ describe('VariantGrid — device presets', () => {
     });
 });
 
-describe('VariantGrid — rows/grid layout toggle', () => {
-    it('defaults to the grid layout (CSS grid, auto-fit columns)', () => {
+describe('VariantGrid — density control (ui.variantColumns)', () => {
+    it('defaults to Auto -- CSS grid, auto-fit columns, always the 420px fluid basis at the Full preset', () => {
         const wrapper = mountGrid();
         const container = wrapper.find('[data-testid="variant-grid-tiles"]');
         expect(container.classes()).toContain('grid');
-        expect(container.attributes('style')).toContain('grid-template-columns');
+        expect(container.attributes('style')).toContain('grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr))');
     });
 
-    it('switches to a single-column stacked layout when ui.variantLayout is "rows"', async () => {
+    it('Auto derives a larger basis from a device preset (preset width + tile chrome padding)', async () => {
         const wrapper = mountGrid();
         const ui = useUiStore();
-        ui.setVariantLayout('rows');
+        ui.setWidth('1280px', 800);
         await wrapper.vm.$nextTick();
         const container = wrapper.find('[data-testid="variant-grid-tiles"]');
-        expect(container.classes()).toContain('flex-col');
-        expect(container.classes()).not.toContain('grid');
+        expect(container.attributes('style')).toContain('minmax(min(1312px, 100%), 1fr)');
+    });
+
+    it('stays a CSS grid (never flex-col) at every density -- 1-4 use an exact repeat(N, ...) column count', async () => {
+        const wrapper = mountGrid();
+        const ui = useUiStore();
+        for (const n of [1, 2, 3, 4]) {
+            ui.setVariantColumns(n);
+            // eslint-disable-next-line no-await-in-loop -- each iteration needs its
+            // own re-render before asserting the freshly computed style string.
+            await wrapper.vm.$nextTick();
+            const container = wrapper.find('[data-testid="variant-grid-tiles"]');
+            expect(container.classes()).toContain('grid');
+            expect(container.classes()).not.toContain('flex-col');
+            expect(container.attributes('style')).toContain(`grid-template-columns: repeat(${n}, minmax(0, 1fr))`);
+        }
+    });
+
+    it('every tile keeps the subgrid row-span-2 mechanics regardless of density, including N=1 (the old flex-col "rows" branch is gone)', async () => {
+        const wrapper = mountGrid();
+        const ui = useUiStore();
+        ui.setVariantColumns(1);
+        await wrapper.vm.$nextTick();
+        const tile = wrapper.findAll('[data-testid="variant-tile"]')[0];
+        expect(tile.classes()).toContain('grid');
+        expect(tile.classes()).toContain('row-span-2');
+        expect(tile.classes()).not.toContain('flex-col');
     });
 });
 

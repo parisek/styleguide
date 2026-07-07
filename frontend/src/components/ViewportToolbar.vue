@@ -184,47 +184,41 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              styleguide-2.0 redesign brief -- variants are now a full-canvas
              grid of independent preview tiles (VariantGrid.vue, rendered by
              PreviewPane.vue whenever viewport.gridActive is true). Its
-             toolbar affordance is the rows/grid layout toggle just below
+             toolbar affordance is the density segmented control just below
              (grid mode only) -- the responsive-width preset dropdown stays
              visible too and applies the same shared preset to every tile. -->
         <template v-if="viewport.previewActionsVisible.value">
             <div class="flex items-center gap-2 shrink-0">
-                <!-- Rows vs grid tile layout -- VariantGrid.vue-only control,
-                     so it only makes sense (and only renders) while the grid
-                     itself is active. Persisted via ui.variantLayout. -->
+                <!-- Tile density -- VariantGrid.vue-only control, so it only
+                     makes sense (and only renders) while the grid itself is
+                     active. Persisted via ui.variantColumns. "Auto" derives
+                     column sizing from the active viewport preset (a Desktop
+                     preset packs fewer tiles per row than Mobile on the same
+                     canvas -- see lib/tileGeometry.js's
+                     autoGridColumnBasis()); 1-4 fixes the column count
+                     exactly, ignoring the preset. Replaces the earlier
+                     rows/grid toggle -- "1" is the exact visual replacement
+                     for the old "rows" stacked layout. -->
                 <template v-if="viewport.gridActive.value">
-                    <div role="group" :aria-label="i18n.t('toolbar.variant_layout_label')"
-                         data-testid="variant-layout-toggle"
+                    <div role="group" :aria-label="i18n.t('toolbar.variant_columns_label')"
+                         data-testid="variant-columns-toggle"
                          class="inline-flex gap-px rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-700 shrink-0">
                         <button type="button"
-                                data-testid="variant-layout-rows"
-                                @click="ui.setVariantLayout('rows')"
-                                :title="i18n.t('toolbar.layout_rows')"
-                                :aria-label="i18n.t('toolbar.layout_rows')"
-                                :aria-pressed="ui.variantLayout === 'rows' ? 'true' : 'false'"
-                                class="h-9 w-9 flex items-center justify-center transition-colors"
-                                :class="ui.variantLayout === 'rows' ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">
-                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="4" y="5" width="16" height="3" rx="1"/>
-                                <rect x="4" y="10.5" width="16" height="3" rx="1"/>
-                                <rect x="4" y="16" width="16" height="3" rx="1"/>
-                            </svg>
-                        </button>
-                        <button type="button"
-                                data-testid="variant-layout-grid"
-                                @click="ui.setVariantLayout('grid')"
-                                :title="i18n.t('toolbar.layout_grid')"
-                                :aria-label="i18n.t('toolbar.layout_grid')"
-                                :aria-pressed="ui.variantLayout === 'grid' ? 'true' : 'false'"
-                                class="h-9 w-9 flex items-center justify-center transition-colors"
-                                :class="ui.variantLayout === 'grid' ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">
-                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="3" width="8" height="8" rx="1"/>
-                                <rect x="13" y="3" width="8" height="8" rx="1"/>
-                                <rect x="3" y="13" width="8" height="8" rx="1"/>
-                                <rect x="13" y="13" width="8" height="8" rx="1"/>
-                            </svg>
-                        </button>
+                                data-testid="variant-columns-auto"
+                                @click="ui.setVariantColumns('auto')"
+                                :title="i18n.t('toolbar.variant_columns_auto')"
+                                :aria-label="i18n.t('toolbar.variant_columns_auto')"
+                                :aria-pressed="ui.variantColumns === 'auto' ? 'true' : 'false'"
+                                class="h-9 px-2.5 flex items-center justify-center text-xs font-semibold transition-colors"
+                                :class="ui.variantColumns === 'auto' ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">{{ i18n.t('toolbar.variant_columns_auto_label') }}</button>
+                        <button v-for="n in [1, 2, 3, 4]" :key="n" type="button"
+                                :data-testid="`variant-columns-${n}`"
+                                @click="ui.setVariantColumns(n)"
+                                :title="i18n.t(`toolbar.variant_columns_${n}`)"
+                                :aria-label="i18n.t(`toolbar.variant_columns_${n}`)"
+                                :aria-pressed="ui.variantColumns === n ? 'true' : 'false'"
+                                class="h-9 w-8 flex items-center justify-center text-xs font-mono tabular-nums transition-colors"
+                                :class="ui.variantColumns === n ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">{{ n }}</button>
                     </div>
                 </template>
                 <!-- Responsive-width preset dropdown + custom width +
