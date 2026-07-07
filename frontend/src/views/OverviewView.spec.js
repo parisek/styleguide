@@ -10,10 +10,10 @@ async function mountOverview() {
     setActivePinia(createPinia());
     localStorage.clear();
     const catalog = useCatalogStore();
-    catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: 'hero', hasStyleguide: true }];
+    catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: ['hero'], has_styleguide: true }];
     catalog.items = [
-        { id: 'hero', name: 'Hero', category: 'Block', hasStyleguide: true, figma: 'https://figma/hero' },
-        { id: 'gutenberg-block', name: 'GB block', category: 'Gutenberg', hasStyleguide: true },
+        { id: 'hero', name: 'Hero', category: 'Block', has_styleguide: true, figma: 'https://figma/hero' },
+        { id: 'gutenberg-block', name: 'GB block', category: 'Gutenberg', has_styleguide: true },
     ];
     useI18nStore().strings = {
         overview: { title: 'Components and pages', subtitle: 'Sub', show_usage: 'Show usage', pages: 'Pages', components: 'Components', used_in: 'Used in' },

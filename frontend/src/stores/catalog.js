@@ -17,7 +17,7 @@ export const useCatalogStore = defineStore('catalog', {
     }),
     getters: {
         docEntries: (state) => state.docs,
-        pagesTree: (state) => buildTree(state.pages.filter((p) => p.hasStyleguide !== false)),
+        pagesTree: (state) => buildTree(state.pages.filter((p) => p.has_styleguide !== false)),
     },
     actions: {
         async init() {
@@ -58,7 +58,7 @@ export const useCatalogStore = defineStore('catalog', {
         },
 
         bySection(section) {
-            return this.items.filter((c) => this.sectionOf(c) === section && c.hasStyleguide !== false);
+            return this.items.filter((c) => this.sectionOf(c) === section && c.has_styleguide !== false);
         },
 
         treeOf(section) {
@@ -73,7 +73,7 @@ export const useCatalogStore = defineStore('catalog', {
         reverseUsageFor(id) {
             const map = new Map();
             for (const page of this.pages) {
-                const ids = String(page.usage ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+                const ids = page.usage ?? [];
                 for (const usedId of ids) {
                     if (!map.has(usedId)) map.set(usedId, []);
                     map.get(usedId).push({ id: page.id, type: 'page', name: page.name ?? page.id, ...pickLinks(page) });
@@ -87,7 +87,7 @@ export const useCatalogStore = defineStore('catalog', {
             const decorate = (item, type) => ({ id: item.id, type, name: item.name ?? item.id, ...pickLinks(item) });
             const source = [...this.pages, ...this.items].find((it) => it.id === id);
             if (!source) return [];
-            const ids = String(source.usage ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+            const ids = source.usage ?? [];
             return ids.map((usedId) => {
                 const page = this.pages.find((p) => p.id === usedId);
                 if (page) return decorate(page, 'page');

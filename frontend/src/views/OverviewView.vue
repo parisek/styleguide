@@ -16,12 +16,12 @@ const router = useRouter();
 
 const showUsage = usePersistedRef('sg-overview-show-usage', true);
 
-const pages = computed(() => catalog.pages.filter((p) => p.hasStyleguide !== false));
+const pages = computed(() => catalog.pages.filter((p) => p.has_styleguide !== false));
 
 const componentSections = computed(() => {
     const buckets = {};
     for (const item of catalog.items) {
-        if (item.hasStyleguide === false) continue;
+        if (item.has_styleguide === false) continue;
         const section = catalog.sectionOf(item, 'component');
         if (!buckets[section]) buckets[section] = [];
         buckets[section].push(item);

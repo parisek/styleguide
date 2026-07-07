@@ -174,13 +174,7 @@ final class Linter
         }
 
         if (isset($metadata['usage'])) {
-            $rawUsage = $metadata['usage'];
-            $usageString = is_string($rawUsage) ? $rawUsage : (is_scalar($rawUsage) ? (string) $rawUsage : '');
-            $ids = array_filter(
-                array_map(static fn(string $id): string => trim($id), explode(',', $usageString)),
-                static fn(string $id): bool => $id !== '',
-            );
-            foreach ($ids as $id) {
+            foreach (ComponentParser::normaliseUsage($metadata['usage']) as $id) {
                 if (!isset($knownIds[$id])) {
                     $findings[] = new LintFinding(
                         LintSeverity::Error,

@@ -112,6 +112,38 @@ class ComponentParser
     }
 
     /**
+     * @api Public contract. Shared with `Cli\Linter`'s `broken-usage-ref`
+     *      rule so the catalogue's own usage-array parsing and the linter's
+     *      raw-YAML re-read can never disagree about how a `usage:` value
+     *      splits into ids. Any downstream tooling that needs the same
+     *      coercion should call this rather than re-implementing it.
+     *
+     * Coerce a `usage:` YAML value into a list of trimmed, non-empty ids.
+     * Authoring convention stays a comma-separated string
+     * (`usage: 404, article-list`) — this is where that string gets parsed
+     * into the array the wire contract (`/api/components` et al.) actually
+     * emits. An already-array YAML value (e.g. a block list) is accepted
+     * too, so authors aren't punished for reaching for YAML's native list
+     * syntax: each entry is stringified, trimmed, and empty entries
+     * dropped, same as the comma-split path. Anything else (null, bool,
+     * int, …) yields `[]`.
+     *
+     * @return list<string>
+     */
+    public static function normaliseUsage(mixed $value): array
+    {
+        if (is_array($value)) {
+            $ids = array_map(static fn(mixed $id): string => trim((string) $id), $value);
+        } elseif (is_scalar($value)) {
+            $ids = array_map('trim', explode(',', (string) $value));
+        } else {
+            return [];
+        }
+
+        return array_values(array_filter($ids, static fn(string $id): bool => $id !== ''));
+    }
+
+    /**
      * Parse metadata from a single component/page .twig file.
      *
      * @return array<string,mixed>|null  Null when file missing or metadata invalid.
@@ -348,7 +380,7 @@ class ComponentParser
             'drupal' => $metadata['drupal'] ?? '',
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
-            'usage' => $metadata['usage'] ?? '',
+            'usage' => self::normaliseUsage($metadata['usage'] ?? null),
             'fields' => $metadata['fields'] ?? [],
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
@@ -365,7 +397,7 @@ class ComponentParser
             // Default true; only an explicit YAML `false` opts out — strict
             // !== false so strings, integers, or typos never disable it.
             'responsive' => ($metadata['responsive'] ?? true) !== false,
-            'hasStyleguide' => $hasStyleguide,
+            'has_styleguide' => $hasStyleguide,
             // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
             // siblings; [] when none exist — every pre-Phase-4 template keeps
             // this BC default. Default variant is implicit, never listed here.

@@ -199,13 +199,13 @@ test.describe('Styleguide SPA', () => {
         // silent category-bucket drops: sectionOf() in catalog.js maps every
         // component into exactly one of basic/blocks/gutenberg, so the sum of
         // links rendered across those three sidebar sections must equal the
-        // count of renderable components (hasStyleguide !== false) returned
+        // count of renderable components (has_styleguide !== false) returned
         // by the API — an unrecognised/mistyped category label must never
         // make a component vanish from the sidebar entirely.
         const components = await (await request.get('/styleguide/api/components')).json();
         const pages = await (await request.get('/styleguide/api/pages')).json();
-        const renderableComponents = components.filter((c) => c.hasStyleguide !== false).length;
-        const renderablePages = pages.filter((p) => p.hasStyleguide !== false).length;
+        const renderableComponents = components.filter((c) => c.has_styleguide !== false).length;
+        const renderablePages = pages.filter((p) => p.has_styleguide !== false).length;
 
         // Seed the persisted section-collapse state *before* the SPA boots so
         // every section (basic/blocks/gutenberg/pages) starts expanded --

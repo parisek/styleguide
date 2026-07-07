@@ -95,7 +95,7 @@ function items(section) {
 }
 
 const docItems = computed(() => filterItems(catalog.docEntries, ui.searchQuery));
-const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.hasStyleguide !== false), ui.searchQuery));
+const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_styleguide !== false), ui.searchQuery));
 
 function supportedLocales() {
     return ['cs', 'en'];

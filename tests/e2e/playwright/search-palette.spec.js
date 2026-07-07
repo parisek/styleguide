@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 // Fixture data note: tests/fixtures/templates/page/landing has no
-// styleguide.twig sibling, so it's a hasStyleguide:false skeleton and the
+// styleguide.twig sibling, so it's a has_styleguide:false skeleton and the
 // palette (like the sidebar) never surfaces it -- these specs stick to the
 // component/doc groups, which the fixture set does cover.
 

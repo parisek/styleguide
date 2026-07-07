@@ -259,12 +259,12 @@ Flat list of every component template under `templates/component/**/<id>.twig` w
     "drupal":        "",                // from `drupal:`, "" if absent — Drupal docs / module link
     "web":           "",                // from `web:`, "" if absent — generic external link
     "weight":        50,                // from `weight:`, default 50, sidebar order
-    "usage":         "404,article-list",// from `usage:`, raw comma-separated id string
+    "usage":         ["404", "article-list"], // from `usage:`, normalised to an array by the parser
     "fields": {                          // from `fields:`, {} if absent
       "url":   { "title": "URL",   "type": "url",  "required": 1 },
       "title": { "title": "Label", "type": "text", "required": 1 }
     },
-    "hasStyleguide": true               // true when a sibling styleguide.twig exists
+    "has_styleguide": true              // true when a sibling styleguide.twig exists
                                          // OR metadata declares `styleguide:`
   }
   // …
@@ -272,7 +272,7 @@ Flat list of every component template under `templates/component/**/<id>.twig` w
 ```
 
 **Notes**
-- `usage` is intentionally **a raw comma-separated string**, not a parsed array — the SPA splits client-side because templates use looser whitespace conventions (`"404, article-list"` vs `"404,article-list"`).
+- `usage` is **authored as a comma-separated string** in YAML (`usage: 404, article-list`) — looser whitespace is fine — but **normalised to an array** by `ComponentParser` before it reaches the wire, so consumers (the SPA included) work with `string[]` directly instead of re-splitting a CSV.
 - `fields` is passed through verbatim from the YAML. Shape is consumer-defined; the bundled SPA assumes `{ title, type, required }` per the convention in *Per-template metadata*, but extra keys are preserved end-to-end.
 - Templates without a parseable YAML block, or with YAML missing `name:`, are silently dropped — that's the only way to keep a `.twig` file under `templates/component/` and have the styleguide chrome ignore it.
 
@@ -441,7 +441,7 @@ fields:
 | `name` | sidebar label, iframe title |
 | `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/src/stores/catalog.js`. Unknown labels never get dropped, they fall into a default bucket. |
 | `weight` | sort order within a bucket (lower = earlier; default `50`) |
-| `usage` | comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view) — drives the cross-reference chip panel |
+| `usage` | authored as comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view); normalized to an array by the parser — drives the cross-reference chip panel |
 | `description` | sidebar tooltip + overview cards |
 | `fields` | `/api/fields` endpoint + the Fields inspector view |
 | `asana` | external link chip — Asana task URL |

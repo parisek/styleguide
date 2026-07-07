@@ -5,9 +5,9 @@ import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
 
 // Ported from frontend/components/usage.js. Reads the current route's
-// `usage` CSV (`page-header-image,gallery-slider,...`) and resolves each
-// token against the pages/items stores so the panel can render real names +
-// clickable navigation chips.
+// `usage` array (ComponentParser normalises the YAML `usage:` CSV into
+// string[] on the wire) and resolves each id against the pages/items
+// stores so the panel can render real names + clickable navigation chips.
 //
 // Semantic difference by route kind:
 //   - on a component view → `usage` lists OTHER components/pages that USE this one
@@ -27,8 +27,7 @@ const label = computed(() => (viewport.type.value === 'page' ? i18n.t('usage.com
 
 const items = computed(() => {
     const cur = viewport.currentItem.value;
-    if (!cur?.usage) return [];
-    const ids = String(cur.usage).split(',').map((s) => s.trim()).filter(Boolean);
+    const ids = cur?.usage ?? [];
     return ids.map((id) => {
         const page = catalog.pages.find((p) => p.id === id);
         if (page) return { id, type: 'page', name: page.name ?? id };

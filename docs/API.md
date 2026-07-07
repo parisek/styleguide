@@ -81,6 +81,14 @@ public static function normaliseRender(mixed $value): string
 
 Returns one of the four `RENDER_MODES`. Used by the CLI and any downstream consumer that wants to coerce YAML values.
 
+### `Parisek\Styleguide\ComponentParser::normaliseUsage()` (`@api`)
+
+```php
+public static function normaliseUsage(mixed $value): array // list<string>
+```
+
+Coerces a `usage:` YAML value (comma-separated string, the authoring convention — or an already-array value, accepted gracefully) into the `list<string>` shape the `usage` field emits on the wire. Shared with `Cli\Linter`'s `broken-usage-ref` rule so the catalogue and the linter can never disagree about how a `usage:` value splits into ids; used by the CLI and any downstream consumer that wants the same coercion.
+
 ### Other PHP classes & methods — `@internal`
 
 These are public PHP visibility for autoload / framework reasons, but **not** part of the SemVer contract:
@@ -128,7 +136,7 @@ The first `{# … #}` comment in each component / page / doc Twig template is pa
 | `category` | no | `string` | `''` | Sidebar bucket |
 | `description` | no | `string` (HTML allowed) | `''` | Sidebar tooltip + Overview card |
 | `weight` | no | `int` | `50` | Sort order within bucket (lower = earlier) |
-| `usage` | no | `string` (comma-separated) | `''` | Cross-reference between pages and components |
+| `usage` | no | `string` (comma-separated) — normalised to `string[]` on the wire | `[]` | Cross-reference between pages and components |
 | `fields` | no | recursive map | `[]` | Fields inspector view + `/api/fields` |
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
@@ -138,6 +146,8 @@ The first `{# … #}` comment in each component / page / doc Twig template is pa
 | `variants` | no — **legacy fallback** | map `<variant-id>: <title-string \| {title?, label?, description?}>` | `[]` (absent) | Legacy display-metadata map for auto-discovered `styleguide.<variant>.twig` sibling files — see *Component Twig file conventions*. **The primary authoring convention is a `{# title: … description: … #}` front-comment annotation directly in the sibling file itself** (same convention as this table); this map only exists for variants that predate that convention or haven't been migrated yet. Each entry accepts either a plain string (the title, original shape) or a map with optional `title`, `label` (legacy alias for `title` — `title` wins when both are present), and `description` keys; a non-string/non-map value (or a missing entry) falls back to the id as title and an empty description — never throws. Filesystem is canonical: an entry with no matching sibling file is ignored, never fabricates a variant. A malformed sibling annotation degrades the same way — it never fails the whole component, it just falls through to this map, then to the id. |
 
 Adding new optional keys: **non-breaking**. Changing the default of `render`, or the canonical list of `render` values: **breaking** (consumers may rely on the current set).
+
+> **Extending external links.** `asana`/`figma`/`drupal`/`web` are four flat, individually-named keys — a deliberate closed set. Any FUTURE external-link type should NOT become a fifth flat key; add a generic `links: { <key>: <url> }` map instead, so the wire shape (and the chip-rendering code that walks it) grows by adding map entries rather than by repeating the same four-field pattern a fifth time.
 
 ### Component Twig file conventions — `@api`
 
@@ -203,12 +213,12 @@ Returns array of all components, one object per. Object shape:
   drupal: string;
   web: string;
   weight: number;        // int, default 50
-  usage: string;         // CSV
+  usage: string[];       // normalised from the YAML comma-separated `usage:` string (or an already-array YAML value) by ComponentParser::normaliseUsage() — see § PHP API
   fields: object;        // recursive map mirroring YAML
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
   body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`
-  hasStyleguide: boolean; // true if <id>/styleguide.twig exists OR YAML has `styleguide:` key
+  has_styleguide: boolean; // true if <id>/styleguide.twig exists OR YAML has `styleguide:` key
   variants: Array<{ id: string; title: string; description: string }>; // [] when no sibling styleguide.<variant>.twig files exist; title/description come from the sibling's own front-comment annotation first, falling back to the component's legacy `variants:` map, then to the id (title only)
 }
 ```
@@ -219,7 +229,7 @@ Field order is **not** part of the contract. Adding new fields is non-breaking. 
 
 ### `GET /styleguide/api/pages`
 
-Same shape as `/api/components` but reads from `templates_path/page/` and the `hasStyleguide` field is interpreted accordingly. Pages may carry a `usage:` value indicating which components they use.
+Same shape as `/api/components` but reads from `templates_path/page/` and the `has_styleguide` field is interpreted accordingly. Pages may carry a `usage:` value indicating which components they use.
 
 ### `GET /styleguide/api/docs`
 
@@ -261,7 +271,7 @@ Diagnostics for `ComponentParser`'s per-file resilience (added alongside the `\T
 | `/styleguide/foundations` | SPA — foundations (logo/colors/typography) |
 | `/styleguide/fields` | SPA — fields inspector |
 | `/styleguide/overview` | SPA — Components & Pages catalog |
-| `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations`. Accepts an additive `?theme=light\|dark` query param (whitelisted server-side, default `light`) — stamps `class="dark"` + `color-scheme: dark` on the rendered `<html>`. Also accepts an additive `?variant=<id>` query param (whitelisted server-side against `^[a-z0-9-]+$`) for `component \| page \| doc` kinds — resolves `styleguide.<id>.twig` in place of the default `styleguide.twig` when that file exists; absent, invalid, or unknown-but-well-formed values silently fall back to the default `styleguide.twig` → `<slug>.twig` chain (never a 404), so a bookmarked deep link survives a deleted/renamed variant. Query-only — no cookie fallback, unlike `theme`. Composes independently with `?theme=`. This endpoint always renders exactly ONE block regardless of how many variants an entry has — no `?variant=` means the default fixture, a resolvable `?variant=<id>` means that one variant, full stop; there is no server-side "show every variant" response. The SPA is what assembles multiple isolated renders (one iframe per tile, each hitting this same endpoint with its own `?variant=`) into the variant grid described in *Component Twig file conventions* above. |
+| `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations`. Accepts an additive `?theme=light\|dark` query param (whitelisted server-side, default `light`) — stamps `class="dark"` + `color-scheme: dark` on the rendered `<html>`. Also accepts an additive `?variant=<id>` query param (whitelisted server-side against `^[a-z0-9-]+$`) for `component \| page \| doc` kinds — resolves `styleguide.<id>.twig` in place of the default `styleguide.twig` when that file exists; absent, invalid, or unknown-but-well-formed values silently fall back to the default `styleguide.twig` → `<slug>.twig` chain (never a 404), so a bookmarked deep link survives a deleted/renamed variant. Query-only — no cookie fallback, unlike `theme`. Composes independently with `?theme=`. This endpoint always renders exactly ONE block regardless of how many variants an entry has — no `?variant=` means the default fixture, a resolvable `?variant=<id>` means that one variant, full stop; there is no server-side "show every variant" response. The SPA is what assembles multiple isolated renders (one iframe per tile, each hitting this same endpoint with its own `?variant=`) into the variant grid described in *Component Twig file conventions* above. Also accepts an additive, **presence-based** `?canvas` query param — any presence of the key (`?canvas`, `?canvas=1`, `?canvas=`, …; the value is never inspected) suppresses the standalone back-bar the render endpoint otherwise shows when its document is the top-level window, so the SPA's own "Canvas" toolbar action can render a truly clean, full-viewport document. Absent → bar shows (top-level) or stays hidden (embedded in an iframe, unaffected either way). Composes independently with `?theme=`/`?variant=`. |
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
 | `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |

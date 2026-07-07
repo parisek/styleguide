@@ -40,12 +40,12 @@ async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
     setActivePinia(createPinia());
     const catalog = useCatalogStore();
     catalog.items = [
-        { id: 'widget-one', name: 'Widget - one', category: 'Block', hasStyleguide: true },
-        { id: 'widget-two', name: 'Widget - two', category: 'Block', hasStyleguide: true },
-        { id: 'widget-three', name: 'Widget - three', category: 'Block', hasStyleguide: true },
-        { id: 'gizmo', name: 'Gizmo', category: '', hasStyleguide: true },
+        { id: 'widget-one', name: 'Widget - one', category: 'Block', has_styleguide: true },
+        { id: 'widget-two', name: 'Widget - two', category: 'Block', has_styleguide: true },
+        { id: 'widget-three', name: 'Widget - three', category: 'Block', has_styleguide: true },
+        { id: 'gizmo', name: 'Gizmo', category: '', has_styleguide: true },
     ];
-    catalog.pages = [{ id: 'homepage', name: 'Homepage', hasStyleguide: true }];
+    catalog.pages = [{ id: 'homepage', name: 'Homepage', has_styleguide: true }];
     catalog.docs = [];
     catalog.loading = false;
     useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
@@ -216,7 +216,7 @@ describe('Sidebar', () => {
         // Simulate catalog.init()'s fetch resolving after app.mount() —
         // the real page-load sequence, not the "seed before mount" shortcut
         // every other test in this file uses.
-        catalog.items = [{ id: 'gizmo', name: 'Gizmo', category: '', hasStyleguide: true }];
+        catalog.items = [{ id: 'gizmo', name: 'Gizmo', category: '', has_styleguide: true }];
         catalog.loading = false;
         await wrapper.vm.$nextTick();
 

@@ -22,7 +22,7 @@ const inputRef = ref(null);
 
 // Field-level filtering mirrors Sidebar.vue's own rules exactly, so the
 // palette never surfaces something the sidebar itself would hide: pages and
-// components drop hasStyleguide:false skeleton templates (Sidebar's
+// components drop has_styleguide:false skeleton templates (Sidebar's
 // pageItems / catalog.bySection), docs stay unfiltered (Sidebar's docItems
 // has never filtered them either).
 function rank(type, list) {
@@ -37,8 +37,8 @@ function rank(type, list) {
 // some default listing.
 const groups = computed(() => {
     if (query.value.trim() === '') return [];
-    const componentRows = rank('component', catalog.items.filter((c) => c.hasStyleguide !== false));
-    const pageRows = rank('page', catalog.pages.filter((p) => p.hasStyleguide !== false));
+    const componentRows = rank('component', catalog.items.filter((c) => c.has_styleguide !== false));
+    const pageRows = rank('page', catalog.pages.filter((p) => p.has_styleguide !== false));
     const docRows = rank('doc', catalog.docEntries);
     return [
         { key: 'components', labelKey: 'search.group_components', rows: componentRows },

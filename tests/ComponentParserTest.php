@@ -160,6 +160,65 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function normalise_usage_splits_trims_and_drops_empty_tokens(): void
+    {
+        // Authoring convention: comma-separated, looser whitespace allowed
+        // (`"404, article-list"` as well as `"404,article-list"`).
+        self::assertSame(['404', 'article-list'], ComponentParser::normaliseUsage('404, article-list'));
+        self::assertSame(['a', 'b'], ComponentParser::normaliseUsage('a,,b,'));
+    }
+
+    #[Test]
+    public function normalise_usage_accepts_an_already_array_yaml_value(): void
+    {
+        // A block-list `usage:\n  - 404\n  - article-list` parses to a PHP
+        // array before it ever reaches normaliseUsage() — must not be
+        // punished for using YAML's native list syntax instead of a CSV.
+        self::assertSame(['404', 'article-list'], ComponentParser::normaliseUsage(['404', ' article-list ']));
+        self::assertSame([], ComponentParser::normaliseUsage([]));
+    }
+
+    #[Test]
+    public function normalise_usage_defaults_to_empty_array_for_absent_or_non_scalar_non_array(): void
+    {
+        self::assertSame([], ComponentParser::normaliseUsage(null));
+        self::assertSame([], ComponentParser::normaliseUsage(false));
+    }
+
+    #[Test]
+    public function normalise_usage_stringifies_scalar_entries_in_an_array(): void
+    {
+        // A malformed YAML list item (e.g. `usage: [404, true]`) must not
+        // throw — non-string entries are stringified like the CSV path
+        // already stringifies the whole scalar value.
+        self::assertSame(['404', '1'], ComponentParser::normaliseUsage([404, true]));
+    }
+
+    #[Test]
+    public function parse_emits_usage_as_empty_array_when_absent(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $sample = $parser->parse('component', 'sample');
+        self::assertNotNull($sample);
+        self::assertSame([], $sample['usage']);
+    }
+
+    #[Test]
+    public function parse_emits_has_styleguide_key_not_the_old_camel_case_name(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $multi = $parser->parse('component', 'multi');
+        self::assertNotNull($multi);
+        self::assertArrayHasKey('has_styleguide', $multi);
+        self::assertArrayNotHasKey('hasStyleguide', $multi);
+        self::assertTrue($multi['has_styleguide'], 'multi/ ships a sibling styleguide.twig');
+
+        $another = $parser->parse('component', 'another');
+        self::assertNotNull($another);
+        self::assertFalse($another['has_styleguide'], 'another/ has no sibling styleguide.twig and no `styleguide:` key');
+    }
+
+    #[Test]
     public function parse_defaults_render_to_inset_when_missing(): void
     {
         // The `another` fixture has no `render:` key in its YAML.

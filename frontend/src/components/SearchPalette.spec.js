@@ -31,10 +31,10 @@ async function mountPalette(initialPath = '/') {
     setActivePinia(createPinia());
     const catalog = useCatalogStore();
     catalog.items = [
-        { id: 'multi', name: 'Multi', category: '', description: '', hasStyleguide: true },
-        { id: 'gizmo', name: 'Gizmo', category: '', description: '', hasStyleguide: true },
+        { id: 'multi', name: 'Multi', category: '', description: '', has_styleguide: true },
+        { id: 'gizmo', name: 'Gizmo', category: '', description: '', has_styleguide: true },
     ];
-    catalog.pages = [{ id: 'homepage', name: 'Homepage', category: '', description: '', hasStyleguide: true }];
+    catalog.pages = [{ id: 'homepage', name: 'Homepage', category: '', description: '', has_styleguide: true }];
     // Deliberately no letter 'o' in this name -- keeps it out of the 'o'
     // query used by several tests below, so those tests can assert an exact
     // 2-group (component + page) result set without an incidental 3rd doc

@@ -11,8 +11,8 @@ function mountPanel(type, slug) {
     setActivePinia(createPinia());
     useI18nStore().strings = { usage: { used_in: 'Used in', components_in_page: 'Components in page' } };
     const catalog = useCatalogStore();
-    catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: 'hero,ghost-id' }];
-    catalog.items = [{ id: 'hero', name: 'Hero', usage: 'homepage' }];
+    catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: ['hero', 'ghost-id'] }];
+    catalog.items = [{ id: 'hero', name: 'Hero', usage: ['homepage'] }];
 
     const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div/>' } }] });
 

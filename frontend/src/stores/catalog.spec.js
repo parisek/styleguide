@@ -14,7 +14,7 @@ describe('useCatalogStore', () => {
     it('init() fetches components/pages/docs in parallel and flips loading off', async () => {
         global.fetch = vi.fn((url) => {
             if (url.endsWith('/api/components')) return jsonResponse([{ id: 'hero', name: 'Hero', category: 'Block' }]);
-            if (url.endsWith('/api/pages')) return jsonResponse([{ id: 'homepage', name: 'Homepage', usage: 'hero' }]);
+            if (url.endsWith('/api/pages')) return jsonResponse([{ id: 'homepage', name: 'Homepage', usage: ['hero'] }]);
             if (url.endsWith('/api/docs')) return jsonResponse([]);
             if (url.endsWith('/api/health')) return jsonResponse({ warnings: [], counts: {} });
             throw new Error(`unexpected fetch ${url}`);
@@ -74,11 +74,11 @@ describe('useCatalogStore', () => {
         expect(catalog.sectionOf({}, 'page')).toBe('pages');
     });
 
-    it('bySection excludes hasStyleguide:false skeleton templates', () => {
+    it('bySection excludes has_styleguide:false skeleton templates', () => {
         const catalog = useCatalogStore();
         catalog.items = [
-            { id: 'a', category: 'Block', hasStyleguide: true },
-            { id: 'b', category: 'Block', hasStyleguide: false },
+            { id: 'a', category: 'Block', has_styleguide: true },
+            { id: 'b', category: 'Block', has_styleguide: false },
         ];
         expect(catalog.bySection('blocks').map((i) => i.id)).toEqual(['a']);
     });
@@ -106,9 +106,9 @@ describe('useCatalogStore', () => {
         expect(catalog.find('component', 'missing')).toBeNull();
     });
 
-    it('reverseUsageFor inverts page.usage CSVs into a component -> [pages] map', () => {
+    it('reverseUsageFor inverts page.usage arrays into a component -> [pages] map', () => {
         const catalog = useCatalogStore();
-        catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: 'hero, footer' }];
+        catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: ['hero', 'footer'] }];
         catalog.items = [{ id: 'hero', name: 'Hero' }, { id: 'footer', name: 'Footer' }];
         expect(catalog.reverseUsageFor('hero')).toEqual([
             expect.objectContaining({ id: 'homepage', type: 'page', name: 'Homepage' }),
@@ -116,9 +116,9 @@ describe('useCatalogStore', () => {
         expect(catalog.reverseUsageFor('nonexistent')).toEqual([]);
     });
 
-    it('forwardUsageFor resolves a page.usage CSV into named+typed chips, greying out unknown ids', () => {
+    it('forwardUsageFor resolves a page.usage array into named+typed chips, greying out unknown ids', () => {
         const catalog = useCatalogStore();
-        catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: 'hero,ghost-id' }];
+        catalog.pages = [{ id: 'homepage', name: 'Homepage', usage: ['hero', 'ghost-id'] }];
         catalog.items = [{ id: 'hero', name: 'Hero' }];
         const chips = catalog.forwardUsageFor(catalog.pages[0]);
         expect(chips).toEqual([
