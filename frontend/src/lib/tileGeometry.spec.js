@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    computeTileGeometry, formatTileScaleLabel, autoGridColumnBasis,
+    computeTileGeometry, autoGridColumnBasis,
     AUTO_GRID_FLUID_BASIS_PX, TILE_CHROME_PADDING_PX,
 } from './tileGeometry.js';
 
@@ -42,26 +42,6 @@ describe('computeTileGeometry', () => {
     it('treats a zero/unmeasured cell width as "not fitting" (fitZoom returns 1 when availWidth is falsy)', () => {
         const g = computeTileGeometry({ presetWidth: 375, presetHeight: 667, cellWidth: 0, rawContentHeight: null, minHeight: 96 });
         expect(g.zoom).toBe(1);
-    });
-});
-
-describe('formatTileScaleLabel', () => {
-    it('formats "W × H · pct %" for a scaled tile', () => {
-        const label = formatTileScaleLabel({ fluid: false, zoom: 200 / 375, iframeWidth: 375, iframeHeight: 667 });
-        expect(label).toBe('375 × 667 · 53 %');
-    });
-
-    it('rounds to 100 % (not upscaled) when zoom is exactly 1', () => {
-        const label = formatTileScaleLabel({ fluid: false, zoom: 1, iframeWidth: 1280, iframeHeight: 800 });
-        expect(label).toBe('1280 × 800 · 100 %');
-    });
-
-    it('is empty for a fluid (Full preset) tile', () => {
-        expect(formatTileScaleLabel({ fluid: true, zoom: 1, iframeWidth: null, iframeHeight: 480 })).toBe('');
-    });
-
-    it('is empty when called with no geometry (defensive)', () => {
-        expect(formatTileScaleLabel(null)).toBe('');
     });
 });
 

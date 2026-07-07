@@ -31,7 +31,11 @@ function activeWordLabel() {
 function triggerDims() {
     if (viewport.activePreset.value === 'full') return '100 %';
     if (viewport.activePreset.value === 'custom') {
-        const z = viewport.zoom.value;
+        // effectiveZoom (not the classic single preview's own zoom)
+        // -- while the variant grid is active this is the shared per-tile
+        // zoom VariantGrid.vue reports, so a Custom width applied in grid
+        // mode shows its real common scale here too.
+        const z = viewport.effectiveZoom.value;
         const w = viewport.customWidthInput.value || 0;
         return z < 1 ? `${w} px · ${Math.round(z * 100)} %` : `${w} px`;
     }

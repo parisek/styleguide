@@ -237,6 +237,75 @@ describe('ViewportToolbar — grid mode', () => {
     });
 });
 
+// The per-tile "375 × 667 · 84 %" readout VariantGrid.vue used to render in
+// every tile header is gone (styleguide 2.0 UX fix) -- the shared scale
+// (every tile shares the same preset and, since cell widths are uniform,
+// the same zoom) now shows ONCE in this trigger label instead, via the
+// gridZoom the grid reports through the viewport composable.
+describe('ViewportToolbar — grid-mode shared scale readout', () => {
+    it('appends the shared scale percentage to the trigger label when gridZoom < 1 in grid mode', async () => {
+        let viewport;
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+            onViewport: (vp) => { viewport = vp; },
+        });
+        viewport.setPreset('mobile');
+        viewport.setGridZoom(0.84);
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="viewport-trigger"]').text()).toContain('375 × 667 (84 %)');
+    });
+
+    it('shows dimensions alone, with no percentage, when gridZoom is exactly 1 in grid mode', async () => {
+        let viewport;
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+            onViewport: (vp) => { viewport = vp; },
+        });
+        viewport.setPreset('mobile');
+        viewport.setGridZoom(1);
+        await wrapper.vm.$nextTick();
+        const text = wrapper.find('[data-testid="viewport-trigger"]').text();
+        expect(text).toContain('375 × 667');
+        expect(text).not.toContain('%');
+    });
+
+    it('falls back to the classic single-preview zoom once gridZoom is reset to null (grid deactivation)', async () => {
+        let viewport;
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+            onViewport: (vp) => { viewport = vp; },
+        });
+        viewport.setPreset('mobile');
+        viewport.setGridZoom(0.5);
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="viewport-trigger"]').text()).toContain('(50 %)');
+
+        viewport.setGridZoom(null);
+        await wrapper.vm.$nextTick();
+        // No container ever measured in this toolbar-only mount, so the
+        // classic zoom (fitZoom with availWidth 0) is capped at 1 -- dims
+        // alone, no percentage.
+        const text = wrapper.find('[data-testid="viewport-trigger"]').text();
+        expect(text).toContain('375 × 667');
+        expect(text).not.toContain('%');
+    });
+});
+
 describe('ViewportToolbar — variant back control', () => {
     it('is absent in grid mode (no variant selected)', () => {
         const wrapper = mountWithViewport('component', 'multi', {

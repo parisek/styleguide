@@ -44,14 +44,6 @@ export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawC
     };
 }
 
-// "375 × 667 · 84 %" for a scaled tile; omitted entirely for fluid (Full)
-// tiles, which have no scale concept.
-export function formatTileScaleLabel(geometry) {
-    if (!geometry || geometry.fluid) return '';
-    const pct = Math.round(geometry.zoom * 100);
-    return `${geometry.iframeWidth} × ${geometry.iframeHeight} · ${pct} %`;
-}
-
 // "Auto" density (styleguide 2.0, replaces the old rows/grid toggle): the
 // variant grid's minmax() basis derives from the shared viewport preset
 // instead of a single fixed constant -- a Desktop preset (1280px effective

@@ -26,16 +26,24 @@ function mountGrid(type = 'component', slug = 'multi', { items, variant, setVari
         ],
     }];
 
+    let capturedViewport;
     const Host = defineComponent({
         setup() {
             const typeRef = ref(type);
             const slugRef = ref(slug);
             const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, setVariant });
+            capturedViewport = viewport;
             provide('viewport', viewport);
             return () => h(VariantGrid);
         },
     });
-    return mount(Host, { attachTo: document.body });
+    const wrapper = mount(Host, { attachTo: document.body });
+    // Exposed for tests that assert on the composable's own state (e.g.
+    // gridZoom reporting) alongside the rendered DOM -- an additive
+    // property, so every pre-existing `wrapper.find(...)`/`wrapper.vm`
+    // call site above is unaffected.
+    wrapper.viewport = capturedViewport;
+    return wrapper;
 }
 
 // Stubs `clientWidth` (jsdom never computes real layout, so every element's
@@ -118,7 +126,7 @@ describe('VariantGrid', () => {
 // measured cell width -- see lib/tileGeometry.js for the underlying math
 // (unit-tested there directly; these specs cover the Vue-level wiring).
 describe('VariantGrid — device presets', () => {
-    it('renders the Full preset (default) as fluid tiles -- no scaling, no scale readout', () => {
+    it('renders the Full preset (default) as fluid tiles -- no scaling, no per-tile scale readout', () => {
         const wrapper = mountGrid();
         const iframe = wrapper.findAll('[data-testid="variant-tile"] iframe')[0];
         expect(iframe.classes()).toContain('w-full');
@@ -126,7 +134,14 @@ describe('VariantGrid — device presets', () => {
         expect(wrapper.find('[data-testid="variant-tile-scale"]').exists()).toBe(false);
     });
 
-    it('scales a fixed-width/fixed-height preset down to fit each tile\'s measured cell width, with a per-tile scale readout', async () => {
+    // The per-tile "375 × 667 · 53 %" readout is gone (styleguide 2.0 UX
+    // fix) -- every tile shares the identical preset and, since cell
+    // widths are uniform, the identical zoom, so it was pure repeated
+    // noise. VariantGrid.vue now reports just the representative (first)
+    // tile's zoom up to the shared viewport composable instead, for
+    // ViewportToolbar.vue's single trigger label to show once (see
+    // ViewportToolbar.spec.js).
+    it('scales a fixed-width/fixed-height preset down to fit each tile\'s measured cell width, with no per-tile readout -- reports the shared zoom to the viewport composable instead', async () => {
         const restore = stubClientWidth(200);
         try {
             const wrapper = mountGrid();
@@ -141,15 +156,14 @@ describe('VariantGrid — device presets', () => {
             expect(iframe.attributes('style')).toContain('height: 667px');
             expect(iframe.attributes('style')).toContain(`transform: scale(${expectedZoom})`);
 
-            const scale = tile.find('[data-testid="variant-tile-scale"]');
-            expect(scale.exists()).toBe(true);
-            expect(scale.text()).toBe(`375 × 667 · ${Math.round(expectedZoom * 100)} %`);
+            expect(wrapper.find('[data-testid="variant-tile-scale"]').exists()).toBe(false);
+            expect(wrapper.viewport.gridZoom.value).toBeCloseTo(expectedZoom, 10);
         } finally {
             restore();
         }
     });
 
-    it('never upscales a tile beyond the preset\'s logical size when the cell is wider than the preset', async () => {
+    it('never upscales a tile beyond the preset\'s logical size when the cell is wider than the preset, and reports a zoom of 1', async () => {
         const restore = stubClientWidth(2000);
         try {
             const wrapper = mountGrid();
@@ -159,6 +173,23 @@ describe('VariantGrid — device presets', () => {
 
             const iframe = wrapper.findAll('[data-testid="variant-tile"] iframe')[0];
             expect(iframe.attributes('style')).toContain('transform: scale(1)');
+            expect(wrapper.viewport.gridZoom.value).toBe(1);
+        } finally {
+            restore();
+        }
+    });
+
+    it('resets the shared grid zoom to null on unmount so the classic single preview is never left with a stale value', async () => {
+        const restore = stubClientWidth(200);
+        try {
+            const wrapper = mountGrid();
+            const ui = useUiStore();
+            ui.setWidth('375px', 667);
+            await wrapper.vm.$nextTick();
+            expect(wrapper.viewport.gridZoom.value).not.toBeNull();
+
+            wrapper.unmount();
+            expect(wrapper.viewport.gridZoom.value).toBeNull();
         } finally {
             restore();
         }

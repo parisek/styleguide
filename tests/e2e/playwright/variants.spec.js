@@ -134,7 +134,22 @@ test.describe('file-convention variants', () => {
 // click/keyboard affordance that isolates it to the classic single preview
 // (with a small "back to all" control to return).
 test.describe('variant grid v2 — device presets, layout toggle, click-to-isolate', () => {
-    test('the viewport preset dropdown stays visible in grid mode and applies to every tile, scaled with a per-tile readout', async ({ page }) => {
+    // styleguide 2.0 UX fix: every tile shares the same preset and (uniform
+    // cell widths) the same zoom, so a per-tile "375 × 667 · NN %" readout
+    // in each tile header was pure repeated noise. The shared scale now
+    // shows ONCE in the toolbar's viewport trigger label instead, in the
+    // same "(NN %)" convention the classic single preview's dimensions
+    // readout already uses.
+    //
+    // Manual "4" columns on the same 1680px canvas the density tests below
+    // use is deliberate: "Auto" density's own minmax() basis at Mobile's
+    // 375px preset width already fits fewer, WIDER-than-375px columns on
+    // this canvas (see "Auto packs multiple Mobile-preset tiles per row"
+    // below, which nets a zoom of exactly 1) -- forcing exactly 4 equal
+    // columns instead gives each tile a ~330px cell, genuinely narrower
+    // than the 375px preset, so the shared zoom actually drops below 100%.
+    test('grid mode shows the shared scale ONCE in the toolbar trigger label, not per tile', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
         await page.goto('/styleguide/component/multi');
         await expect(page.getByTestId('variant-grid')).toBeVisible();
 
@@ -142,25 +157,42 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await expect(page.getByTestId('viewport-trigger')).toBeVisible();
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('viewport-preset-mobile').click();
+        await page.getByTestId('variant-columns-4').click();
 
         const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(3);
+        // No per-tile scale readout anywhere in the grid -- removed as
+        // redundant noise (every tile shares the identical preset + zoom).
+        await expect(page.getByTestId('variant-tile-scale')).toHaveCount(0);
+
         for (let i = 0; i < 3; i++) {
             const iframe = tiles.nth(i).locator('iframe');
             // Logical preset size (Mobile: 375×667) — the actual VISIBLE
             // size is this scaled down (never up) to fit the tile's own
-            // cell via `transform: scale(...)`; the readout in the header
-            // reports that scale.
+            // cell via `transform: scale(...)`.
             await expect(iframe).toHaveAttribute('style', /width: 375px/);
             await expect(iframe).toHaveAttribute('style', /height: 667px/);
-            await expect(tiles.nth(i).getByTestId('variant-tile-scale')).toContainText('375 × 667');
         }
+
+        // The toolbar's single trigger label carries the shared scale
+        // instead -- and the forced 4-column cell here is narrower than
+        // 375px, so it must actually read below 100%.
+        const trigger = page.getByTestId('viewport-trigger');
+        await expect(trigger).toContainText('375 × 667');
+        const triggerText = await trigger.innerText();
+        const match = triggerText.match(/\((\d+) %\)/);
+        expect(match).not.toBeNull();
+        expect(Number(match[1])).toBeLessThan(100);
     });
 
-    test('the Full preset (default) renders fluid tiles with no scale readout', async ({ page }) => {
+    test('the Full preset (default) renders fluid tiles with no scale readout, and no percentage in the trigger', async ({ page }) => {
         await page.goto('/styleguide/component/multi');
         await expect(page.getByTestId('variant-tile-scale')).toHaveCount(0);
         const firstIframe = page.getByTestId('variant-tile').nth(0).locator('iframe');
         await expect(firstIframe).not.toHaveAttribute('style', /transform/);
+        // Full's trigger reads a fixed "100 %" (ViewportToolbar.vue's own
+        // 'full' branch, independent of the grid's shared-zoom reporting).
+        await expect(page.getByTestId('viewport-trigger')).toContainText('100 %');
     });
 
     // Replaces the pre-2.0 "rows" layout entirely (styleguide-2.0 density
@@ -216,6 +248,12 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         // guards is the density DIFFERENCE from Desktop in the next test.
         const rowCount = new Set(tops).size;
         expect(rowCount).toBeLessThan(3);
+
+        // Auto's own minmax() basis here already gives each tile a cell at
+        // least as wide as Mobile's 375px preset, so the shared zoom is 1
+        // -- the trigger shows dimensions alone, no "(NN %)" suffix (at
+        // zoom 1 the dims already say everything there is to say).
+        await expect(page.getByTestId('viewport-trigger')).not.toContainText('%');
     });
 
     test('density control: "Auto" packs fewer Desktop-preset tiles per row than Mobile on the same wide canvas', async ({ page }) => {

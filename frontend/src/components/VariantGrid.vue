@@ -21,10 +21,10 @@
 //      visual replacement for the old "rows" stacked layout (see the
 //      subgrid comment in the template below for why one column needs no
 //      special-casing at all).
-import { inject, computed, reactive, onBeforeUnmount } from 'vue';
+import { inject, computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
-import { computeTileGeometry, formatTileScaleLabel, autoGridColumnBasis } from '../lib/tileGeometry.js';
+import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
@@ -114,9 +114,8 @@ function registerCell(key, el) {
 const PRE_MEASURE_MIN_HEIGHT = 96;
 
 // One combined per-tile view-model: geometry (lib/tileGeometry.js's pure
-// fit-to-cell math) plus the formatted scale readout, recomputed whenever
-// the shared preset, this tile's measured cell width, or its measured
-// content height changes.
+// fit-to-cell math), recomputed whenever the shared preset, this tile's
+// measured cell width, or its measured content height changes.
 const renderTiles = computed(() => tiles.value.map((tile) => {
     const key = tileKey(tile);
     const geometry = computeTileGeometry({
@@ -130,7 +129,6 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
         ...tile,
         key,
         geometry,
-        scaleLabel: formatTileScaleLabel(geometry),
         // The Default tile has no isolated single-preview URL of its own to
         // navigate to: gridActive's own activation rule (useViewportPreset.js)
         // is precisely "no `?variant=` selected", so there is no route that
@@ -162,11 +160,29 @@ function isolateTile(tile) {
     viewport.setVariant(tile.id);
 }
 
+// Every tile renders the SAME shared preset at the SAME zoom (uniform cell
+// widths, one preset for the whole grid), so a per-tile scale readout in
+// each tile's header used to repeat identical information N times. Report
+// the representative (first) tile's zoom up to the shared viewport
+// composable instead -- ViewportToolbar.vue's single trigger label shows
+// the common scale once, in the same "(NN %)" convention the classic
+// single preview's own dimensionsLabel already uses. `immediate: true` so
+// the toolbar has a value from this component's very first render, not
+// just after the first reactive change.
+watch(() => renderTiles.value[0]?.geometry.zoom ?? null, (zoom) => {
+    viewport.setGridZoom(zoom);
+}, { immediate: true });
+
 onBeforeUnmount(() => {
     heightObservers.forEach((ro) => ro.disconnect());
     heightObservers.clear();
     cellObservers.forEach((ro) => ro.disconnect());
     cellObservers.clear();
+    // Never leave a stale grid zoom behind for the classic single preview
+    // to inherit -- PreviewPane.vue unmounts this component the instant
+    // `gridActive` goes false, so this is the one place that transition is
+    // observable from inside the grid itself.
+    viewport.setGridZoom(null);
 });
 </script>
 
@@ -199,14 +215,31 @@ onBeforeUnmount(() => {
                  (index-based, set inline since Tailwind has no per-index
                  arbitrary-value hook). Gated behind
                  prefers-reduced-motion:no-preference in the CSS itself. -->
+            <!-- `min-w-0` (here and on the content-area wrapper below): a CSS
+                 grid item's automatic minimum width defaults to its content's
+                 min-content size, NOT the track it's been sized into --
+                 without it, a scaled-DOWN fixed-width preset's iframe (still
+                 its full logical width, only visually shrunk via `transform:
+                 scale`) forced this card's own column back open to fit it,
+                 which then measured back into cellWidths (below) as an even
+                 WIDER cell, ratcheting the zoom up to 1 every time -- the
+                 documented "scaled down, never up" behavior never actually
+                 engaged in a real browser without this. Invisible in jsdom
+                 (VariantGrid.spec.js stubs `clientWidth`, never lays
+                 anything out for real), only caught via a live Playwright
+                 run -- see tests/e2e/playwright/variants.spec.js. -->
             <div v-for="(tile, i) in renderTiles" :key="tile.key"
                  data-testid="variant-tile"
-                 class="sg-tile-enter grid grid-rows-[subgrid] row-span-2 gap-y-0 rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
+                 class="sg-tile-enter grid grid-rows-[subgrid] row-span-2 gap-y-0 rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm min-w-0"
                  :style="{ '--i': i }">
                 <!-- Slim SPA-chrome header -- variant label (muted) plus an
-                     optional description underneath, plus a per-tile scale
-                     readout whenever the shared preset isn't Full. `v-html`
-                     for the description: same dev-authored-YAML trust model
+                     optional description underneath. The shared scale
+                     readout lives ONCE in ViewportToolbar.vue's trigger
+                     label now, not repeated per tile -- every tile shares
+                     the same preset and (uniform cell widths) the same
+                     zoom, so a per-tile "375 × 667 · 84 %" was pure
+                     redundant noise. `v-html` for the description: same
+                     dev-authored-YAML trust model
                      as App.vue's description bar (content originates in the
                      project's own .twig front-comment, never visitor input).
                      Clickable (mouse + keyboard) for every tile EXCEPT the
@@ -224,14 +257,13 @@ onBeforeUnmount(() => {
                          class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
                          :class="tile.clickable ? 'group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:underline' : ''">{{ tile.label }}</div>
                     <div v-if="tile.description" data-testid="variant-tile-description" class="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed" v-html="tile.description"></div>
-                    <div v-if="tile.scaleLabel" data-testid="variant-tile-scale" class="mt-0.5 text-[10px] text-zinc-400 dark:text-zinc-500 font-mono tabular-nums">{{ tile.scaleLabel }}</div>
                 </div>
                 <!-- Content-area wrapper: stable across a fluid<->scaled swap
                      (only its CHILDREN toggle via v-if below) so the
                      ResizeObserver registered on it keeps reporting this
                      tile's cell width regardless of which mode is active. -->
                 <div :ref="(el) => registerCell(tile.key, el)"
-                     class="bg-zinc-50 dark:bg-zinc-950/40"
+                     class="bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
                      :class="tile.geometry.fluid ? '' : 'flex justify-center p-3'">
                     <!-- Full preset: fluid tile, no scaling -- iframe width
                          tracks the cell via `w-full`, height is content-fit. -->

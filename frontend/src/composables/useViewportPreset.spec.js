@@ -202,6 +202,50 @@ describe('useViewportPreset', () => {
         expect(vp.dimensionsLabel.value).toBe('2560 × 1440 (50 %)');
     });
 
+    // gridZoom/setGridZoom (styleguide 2.0 UX fix): VariantGrid.vue reports
+    // its representative tile's zoom here instead of each tile rendering
+    // its own scale readout -- effectiveZoom/dimensionsLabel prefer it over
+    // the classic single preview's own container-fit zoom whenever it's
+    // set, so ViewportToolbar's trigger label shows the grid's shared scale
+    // once. `null` (the default, and what VariantGrid.vue resets it to on
+    // unmount) falls back to the classic zoom untouched.
+    it('gridZoom defaults to null and effectiveZoom/dimensionsLabel fall back to the classic container-fit zoom', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        vp.setPreset('desktop-2k');
+        vp.observeContainer({ clientWidth: 1328, clientHeight: 848, addEventListener: () => {} });
+        expect(vp.gridZoom.value).toBeNull();
+        expect(vp.effectiveZoom.value).toBeCloseTo(0.5, 2);
+        expect(vp.dimensionsLabel.value).toBe('2560 × 1440 (50 %)');
+    });
+
+    it('setGridZoom overrides effectiveZoom/dimensionsLabel while set, independent of the classic container-fit zoom', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        vp.setPreset('desktop-2k');
+        // Classic zoom would be 1 here (no container measured), but a grid
+        // zoom of 0.8 -- as VariantGrid.vue would report for a narrower
+        // measured tile cell -- takes over the trigger label's reading.
+        vp.setGridZoom(0.8);
+        expect(vp.effectiveZoom.value).toBe(0.8);
+        expect(vp.dimensionsLabel.value).toBe('2560 × 1440 (80 %)');
+    });
+
+    it('setGridZoom(null) hands control back to the classic container-fit zoom (grid deactivation)', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        vp.setPreset('desktop-2k');
+        vp.observeContainer({ clientWidth: 1328, clientHeight: 848, addEventListener: () => {} });
+        vp.setGridZoom(0.8);
+        expect(vp.effectiveZoom.value).toBe(0.8);
+        vp.setGridZoom(null);
+        expect(vp.effectiveZoom.value).toBeCloseTo(0.5, 2);
+        expect(vp.dimensionsLabel.value).toBe('2560 × 1440 (50 %)');
+    });
+
     it('applyCustomWidth rejects an out-of-range value and reverts the input', () => {
         const type = ref('component');
         const slug = ref('hero');

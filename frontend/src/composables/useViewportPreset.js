@@ -88,11 +88,35 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         availHeight: containerAvailableHeight.value,
     }));
 
+    // The variant grid's own scale readout (styleguide 2.0 UX fix,
+    // replaces a per-tile "375 × 667 · 84 %" repeated in every tile
+    // header): every tile in the grid shares the SAME preset and (uniform
+    // cell widths) the SAME zoom, so VariantGrid.vue reports just the
+    // representative (first) tile's zoom here via setGridZoom() instead of
+    // each tile computing/rendering its own. `null` means "no grid active
+    // right now" -- VariantGrid.vue resets it to null on unmount (the
+    // instant PreviewPane.vue's `gridActive` v-if goes false), so the
+    // classic single preview's own zoom (below) is never shadowed by a
+    // stale grid value left over from a previous route.
+    const gridZoom = ref(null);
+    function setGridZoom(z) {
+        gridZoom.value = z;
+    }
+
+    // Whichever zoom currently governs the visible preview's scale: the
+    // classic single preview's own container-fit zoom, or -- while the
+    // variant grid owns the canvas -- the shared per-tile zoom reported
+    // above. Centralizes the choice so both dimensionsLabel (device
+    // presets, below) and ViewportToolbar.vue's Custom-width branch don't
+    // each have to re-derive "grid zoom if set, else the classic zoom".
+    const effectiveZoom = computed(() => gridZoom.value ?? zoom.value);
+
     const dimensionsLabel = computed(() => {
         const { width, height } = effective.value;
         if (!width || !height) return null;
         const dims = `${width} × ${height}`;
-        return zoom.value < 1 ? `${dims} (${Math.round(zoom.value * 100)} %)` : dims;
+        const z = effectiveZoom.value;
+        return z < 1 ? `${dims} (${Math.round(z * 100)} %)` : dims;
     });
 
     const isPortrait = computed(() => isPortraitOrientation({
@@ -305,6 +329,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         // `x-data="preview"` Alpine component provided.
         type, slug, variant, setVariant,
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
+        gridZoom, setGridZoom, effectiveZoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
         reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, showVariantBackControl, currentSectionKey, currentItemName,
         currentItemDescription, fieldsTree, fieldsCount, isDragging, startDrag,
