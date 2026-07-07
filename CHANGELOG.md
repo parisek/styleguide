@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-07
+
 ### Added
 
 - **`styleguide lint` CLI subcommand.** Reports metadata quality issues across `templates/`: unindexed templates (no parseable `name:`), dead `styleguide:` YAML content, broken `usage:` cross-references, unknown `render:` values, and empty `description` strings. `--type=component|page|doc` (default: all three), `--format=text|json` (default: text), reuses `--templates`/`--pretty`. Exit `0` clean, `1` warning/error findings present, `2` usage/internal error — a three-tier contract specific to `lint` (`list`/`show` keep their existing `0`/`1` codes). See `docs/API.md` § CLI and `README.md` § Command-line catalogue. The `broken-usage-ref` check and the catalogue itself now share one `ComponentParser::normaliseUsage()` helper, so a `usage:` value — comma-separated string as authored, or an already-array YAML value — is parsed into ids exactly once; `/api/components`/`/api/pages`/`/api/docs` emit the result as `usage: string[]` rather than the raw CSV.
@@ -158,5 +160,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/parisek/styleguide/compare/v0.6.5...v1.0.0
 [0.4.0]: https://github.com/parisek/styleguide/compare/v0.3.14...v0.4.0
