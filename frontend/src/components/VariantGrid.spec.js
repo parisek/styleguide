@@ -21,8 +21,8 @@ function mountGrid(type = 'component', slug = 'multi', { items, variant, setVari
         id: 'multi',
         name: 'Multi',
         variants: [
-            { id: 'dark-bg', label: 'dark-bg', description: '' },
-            { id: 'secondary', label: 'Secondary style', description: 'Tuned for a secondary-toned surface.' },
+            { id: 'dark-bg', title: 'dark-bg', description: '' },
+            { id: 'secondary', title: 'Secondary style', description: 'Tuned for a secondary-toned surface.' },
         ],
     }];
 

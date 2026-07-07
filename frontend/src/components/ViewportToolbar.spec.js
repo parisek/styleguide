@@ -94,7 +94,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
         });
         expect(wrapper.find('[data-testid="variant-switcher"]').exists()).toBe(false);
@@ -107,7 +107,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
             variant: ref('secondary'),
         });
@@ -124,7 +124,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
         });
         expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
@@ -139,7 +139,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
         });
         expect(gridWrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(true);
@@ -152,7 +152,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
             variant: ref('secondary'),
         });
@@ -165,7 +165,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
         });
         const trigger = wrapper.find('[data-testid="variant-columns-trigger"]');
@@ -191,7 +191,7 @@ describe('ViewportToolbar — grid mode', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
         });
         const ui = useUiStore();
@@ -227,7 +227,7 @@ describe('ViewportToolbar — grid-mode shared scale readout', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
             onViewport: (vp) => { viewport = vp; },
         });
@@ -244,7 +244,7 @@ describe('ViewportToolbar — grid-mode shared scale readout', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
             onViewport: (vp) => { viewport = vp; },
         });
@@ -263,7 +263,7 @@ describe('ViewportToolbar — grid-mode shared scale readout', () => {
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
+                variants: [{ id: 'secondary', title: 'Secondary style' }],
             }],
             onViewport: (vp) => { viewport = vp; },
         });
@@ -292,7 +292,7 @@ describe('ViewportToolbar — grid-mode shared scale readout', () => {
 describe('ViewportToolbar — breadcrumb variant segment', () => {
     it('renders a plain, non-interactive item-name crumb with no Variant segment in grid mode (no variant selected)', () => {
         const wrapper = mountWithViewport('component', 'multi', {
-            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', title: 'Secondary style' }] }],
         });
         const crumb = wrapper.find('[data-testid="breadcrumb-item-name"]');
         expect(crumb.exists()).toBe(true);
@@ -302,7 +302,7 @@ describe('ViewportToolbar — breadcrumb variant segment', () => {
 
     it('turns the item-name crumb into a button and appends the Variant segment once a specific variant is deep-linked', () => {
         const wrapper = mountWithViewport('component', 'multi', {
-            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', title: 'Secondary style' }] }],
             variant: ref('secondary'),
         });
         const crumb = wrapper.find('[data-testid="breadcrumb-item-name"]');
@@ -313,7 +313,7 @@ describe('ViewportToolbar — breadcrumb variant segment', () => {
     it('clicking the item-name crumb calls setVariant(null), returning to the grid', async () => {
         let capturedId = 'not-called';
         const wrapper = mountWithViewport('component', 'multi', {
-            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', title: 'Secondary style' }] }],
             variant: ref('secondary'),
             setVariant: (id) => { capturedId = id; },
         });

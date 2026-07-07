@@ -452,7 +452,7 @@ fields:
 | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
-| `variants` | display labels (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files — see *File-convention variants* below |
+| `variants` | **legacy fallback** map of display titles (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files, keyed by id — prefer a `title:`/`description:` annotation in the sibling file itself; see *File-convention variants* below |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 
@@ -506,7 +506,30 @@ component/hero/
 └── styleguide.dark-bg.twig    ← discovered variant "dark-bg"
 ```
 
-The SPA preview area shows every variant at once — a responsive grid of independent preview tiles (default fixture first, then each discovered variant in filename order) — the moment at least one sibling exists; no toolbar switcher, no clicking through. Optional YAML supplies display labels — either a plain string, or a map with an optional `description` too:
+The SPA preview area shows every variant at once — a responsive grid of independent preview tiles (default fixture first, then each discovered variant in filename order) — the moment at least one sibling exists; no toolbar switcher, no clicking through.
+
+**Display metadata — annotate the sibling file itself (preferred).** Give the variant a title and optional description with the same front-comment convention every component/page template already uses, right in the sibling file it describes:
+
+```twig
+{# styleguide.dark-bg.twig #}
+{#
+title: "Dark background"
+description: "Same hero, tuned for a dark section background."
+#}
+<div class="hero hero--dark">…</div>
+```
+
+```twig
+{# styleguide.secondary.twig #}
+{#
+title: "Secondary style"
+#}
+<div class="hero hero--secondary">…</div>
+```
+
+Metadata lives next to the markup it describes instead of a centralised map you'd otherwise have to keep in sync by id as variants are added, renamed, or removed.
+
+**Legacy fallback — the `variants:` map.** Templates written before per-sibling annotations existed (or not yet migrated) can still supply titles/descriptions from the component's own front comment, keyed by variant id — either a plain string, or a map with an optional `description` too:
 
 ```twig
 {#
@@ -514,14 +537,16 @@ name: "Hero"
 variants:
   secondary: "Secondary style"
   dark-bg:
-    label: "Dark background"
+    title: "Dark background"
     description: "Same hero, tuned for a dark section background."
 #}
 ```
 
+(`label:` is also accepted in the map as a legacy alias for `title:` — `title:` wins when both are present.) A sibling's own annotation always wins over its map entry when both exist; an id with no annotation falls back to the map, then to the id itself.
+
 An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
 
-**Default view (SPA).** With no `?variant=` (a bare deep link), the preview area becomes a grid — one independent `<iframe>` tile per variant (the default fixture first, then each discovered variant in filename order), each with its own slim header (label + optional description). This is the whole point of having variants: see every treatment at a glance, no switcher to click through. Deep-linking a specific `?variant=<id>` still shows the classic single, resizable preview of just that one variant. An entry with no discovered variants is unaffected — it renders the single default preview exactly as it always has.
+**Default view (SPA).** With no `?variant=` (a bare deep link), the preview area becomes a grid — one independent `<iframe>` tile per variant (the default fixture first, then each discovered variant in filename order), each with its own slim header (title + optional description). This is the whole point of having variants: see every treatment at a glance, no switcher to click through. Deep-linking a specific `?variant=<id>` still shows the classic single, resizable preview of just that one variant. An entry with no discovered variants is unaffected — it renders the single default preview exactly as it always has.
 
 **Device presets, per tile.** The toolbar's viewport preset dropdown (Mobile/Tablet/Desktop/Full, custom width, orientation) stays visible and works the same way in the grid as in the classic single preview — the chosen preset applies to every tile at once. A fixed-width/fixed-height preset renders each tile's iframe at exactly that preset's logical size, then scales the whole tile down (never up) to fit the tile's own available width, with a small scale readout in the tile's header (e.g. `375 × 667 · 84 %`). Full stays fluid — each tile's iframe simply tracks its cell's width with auto content height, no scaling.
 

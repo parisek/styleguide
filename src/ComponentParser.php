@@ -242,22 +242,41 @@ class ComponentParser
 
     /**
      * Discover `styleguide.<variant>.twig` siblings in a component/page/doc
-     * directory. Filesystem is canonical — the optional YAML `variants:`
-     * map supplies DISPLAY METADATA only, keyed by id; an entry for an id
-     * with no matching file is silently dropped (never fabricates a phantom
-     * variant). Plain `styleguide.twig` (no captured group) is the implicit
-     * default and is never itself listed here — callers add the default
-     * separately (or, for the SPA, prepend it client-side; see docs/API.md).
+     * directory. Filesystem is canonical — display metadata (title,
+     * description) is layered on top with the following precedence:
      *
-     * Each YAML entry accepts either shape:
-     *   - a plain string — the label (original, BC shape)
-     *   - a map — `{label?: string, description?: string}`
-     * Anything else (missing entry, or a non-string/non-map garbage value
-     * such as an int/bool/null) degrades to label = id, description = ''
-     * — never throws.
+     *   1. The sibling file's OWN first `{# ... #}` comment (same authoring
+     *      convention as every component/page front-comment) — `title:` /
+     *      `description:`. THIS is the primary convention going forward:
+     *      metadata lives next to the markup it describes, not in a
+     *      centralised map the author has to keep in sync by id.
+     *   2. The component's `variants:` map entry for this id — legacy
+     *      fallback, kept for templates written before per-sibling
+     *      annotations existed. Accepts a plain string (the title, original
+     *      BC shape) or a map `{title?: string, label?: string, description?: string}`
+     *      (`label` is a legacy alias for `title`; `title` wins when both
+     *      are present).
+     *   3. The id itself, for title; `''` for description.
+     *
+     * An id with no matching file is silently dropped (never fabricates a
+     * phantom variant) — that check happens before any of the above, on the
+     * glob result, not on the YAML map.
+     *
+     * A missing or malformed sibling annotation is NOT an error: parseTwigComment()
+     * already degrades absence/malformed YAML to `false` without throwing,
+     * so this method falls straight through to the map (or the id) exactly
+     * as if the sibling carried no comment at all — one broken variant
+     * annotation must never kill the whole catalogue walk (same resilience
+     * contract as parse()/parseAll(), just without a getWarnings() entry:
+     * this is a per-FIELD fallback within an otherwise-successful variant,
+     * not a skipped file).
+     *
+     * Plain `styleguide.twig` (no captured group) is the implicit default
+     * and is never itself listed here — callers add the default separately
+     * (or, for the SPA, prepend it client-side; see docs/API.md).
      *
      * @param array<string,mixed> $metadata
-     * @return list<array{id:string,label:string,description:string}>
+     * @return list<array{id:string,title:string,description:string}>
      */
     private function discoverVariants(string $dir, array $metadata): array
     {
@@ -269,8 +288,15 @@ class ComponentParser
                 continue; // not a canonical variant filename (e.g. a stray .bak) — skip, don't error
             }
             $id = $m[1];
-            [$label, $description] = self::normaliseVariantEntry($id, $entries[$id] ?? null);
-            $variants[] = ['id' => $id, 'label' => $label, 'description' => $description];
+            [$mapTitle, $mapDescription] = self::normaliseVariantEntry($id, $entries[$id] ?? null);
+            $annotation = $this->parseTwigComment((string) file_get_contents($file));
+            $title = is_array($annotation) && is_string($annotation['title'] ?? null)
+                ? $annotation['title']
+                : $mapTitle;
+            $description = is_array($annotation) && is_string($annotation['description'] ?? null)
+                ? $annotation['description']
+                : $mapDescription;
+            $variants[] = ['id' => $id, 'title' => $title, 'description' => $description];
         }
 
         // Sort by id — equivalent to filename order (id is the only variable
@@ -282,8 +308,9 @@ class ComponentParser
     }
 
     /**
-     * Coerce a single `variants.<id>` YAML value into a [label, description]
-     * pair. See {@see self::discoverVariants()} for the accepted shapes.
+     * Coerce a single `variants.<id>` YAML value (the legacy map fallback)
+     * into a [title, description] pair. See {@see self::discoverVariants()}
+     * for the full precedence chain and the accepted shapes.
      *
      * @return array{0:string,1:string}
      */
@@ -293,18 +320,20 @@ class ComponentParser
             return [$entry, ''];
         }
         if (is_array($entry)) {
-            $label = is_string($entry['label'] ?? null) ? $entry['label'] : $id;
+            $title = is_string($entry['title'] ?? null)
+                ? $entry['title']
+                : (is_string($entry['label'] ?? null) ? $entry['label'] : $id); // `label` = legacy alias
             $description = is_string($entry['description'] ?? null) ? $entry['description'] : '';
-            return [$label, $description];
+            return [$title, $description];
         }
         // Absent entry, or garbage (int/bool/null/list…) — same fallback as
-        // "no label supplied": id as label, no description. Never throws.
+        // "no title supplied": id as title, no description. Never throws.
         return [$id, ''];
     }
 
     /**
      * @param array<string,mixed> $metadata
-     * @param list<array{id:string,label:string,description:string}> $variants
+     * @param list<array{id:string,title:string,description:string}> $variants
      * @return array<string,mixed>
      */
     private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide, array $variants): array
@@ -340,8 +369,10 @@ class ComponentParser
             // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
             // siblings; [] when none exist — every pre-Phase-4 template keeps
             // this BC default. Default variant is implicit, never listed here.
-            // Each record's `description` (additive) is '' unless the YAML
-            // `variants.<id>` entry is a map with a string `description` key.
+            // Each record's `title`/`description` come from the sibling's own
+            // front-comment annotation first, falling back to the component's
+            // legacy `variants:` map, then to the id (title only) — see
+            // discoverVariants().
             'variants' => $variants,
         ];
     }

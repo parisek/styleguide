@@ -39,7 +39,7 @@ const tiles = computed(() => {
     const variants = item.variants ?? [];
     return [
         { id: null, label: i18n.t('toolbar.variant_default'), description: '' },
-        ...variants.map((v) => ({ id: v.id, label: v.label, description: v.description || '' })),
+        ...variants.map((v) => ({ id: v.id, label: v.title, description: v.description || '' })),
     ].map((tile) => ({ ...tile, src: viewport.iframeSrcForVariant(tile.id) }));
 });
 

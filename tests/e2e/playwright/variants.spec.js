@@ -1,15 +1,18 @@
 import { test, expect } from '@playwright/test';
 
 // Fixture: tests/fixtures/templates/component/multi ships two file-convention
-// siblings (styleguide.dark-bg.twig, styleguide.secondary.twig) plus a
-// YAML-only `ghost` entry with no matching file (must never surface) --
-// exercises the full variant-discovery/render/grid chain end to end.
-// `sample` has no styleguide.twig at all (falls back to its own component
-// template), so it doubles as the "no variants discovered" fixture for the
-// no-grid case below. The fixture server's default locale is `cs`, so the
-// grid's synthetic "Default" tile label renders as its Czech string
-// ("Výchozí") -- English literal fallbacks are asserted via regex
-// alternation throughout.
+// siblings. `styleguide.secondary.twig` carries its OWN {# title: description: #}
+// front-comment annotation (the primary authoring convention) --
+// `styleguide.dark-bg.twig` deliberately carries none, exercising the
+// id-fallback path. `multi.twig`'s `variants:` map keeps only a `ghost`
+// entry with no matching file (must never surface) -- the legacy map
+// fallback for secondary is gone now that its metadata lives in the sibling
+// file. `sample` has no styleguide.twig at all (falls back to its own
+// component template), so it doubles as the "no variants discovered"
+// fixture for the no-grid case below. The fixture server's default locale
+// is `cs`, so the grid's synthetic "Default" tile label renders as its
+// Czech string ("Výchozí") -- English literal fallbacks are asserted via
+// regex alternation throughout.
 //
 // styleguide-2.0 redesign: the toolbar pill switcher (commit dc4715a) and
 // the server-side stacked view (commit 901e1b8) are both GONE. An entry

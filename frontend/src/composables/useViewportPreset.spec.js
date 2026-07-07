@@ -105,7 +105,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary' }] }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.gridActive.value).toBe(true);
     });
@@ -114,7 +114,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary' }] }];
         const variant = ref('secondary');
         const vp = useViewportPreset({ type, slug, variant });
         expect(vp.gridActive.value).toBe(false);
@@ -146,7 +146,7 @@ describe('useViewportPreset', () => {
         const catalog = useCatalogStore();
         catalog.docs = [{
             id: 'sample-doc', name: 'Sample doc', responsive: false,
-            variants: [{ id: 'secondary', label: 'Secondary' }],
+            variants: [{ id: 'secondary', title: 'Secondary' }],
         }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.toolbarVisible.value).toBe(false);
@@ -164,7 +164,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary' }] }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.gridActive.value).toBe(true);
         expect(vp.toolbarVisible.value).toBe(true);
@@ -320,7 +320,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary' }] }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.currentVariantLabel.value).toBeNull();
     });
@@ -329,7 +329,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary style' }] }];
         const variant = ref('secondary');
         const vp = useViewportPreset({ type, slug, variant });
         expect(vp.currentVariantLabel.value).toBe('Secondary style');
@@ -339,7 +339,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary style' }] }];
         const vpNoVariant = useViewportPreset({ type, slug });
         expect(vpNoVariant.currentVariantDescription.value).toBe('');
 
@@ -352,7 +352,7 @@ describe('useViewportPreset', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style', description: 'Tuned for a secondary-toned surface.' }] }];
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary style', description: 'Tuned for a secondary-toned surface.' }] }];
         const variant = ref('secondary');
         const vp = useViewportPreset({ type, slug, variant });
         expect(vp.currentVariantDescription.value).toBe('Tuned for a secondary-toned surface.');
@@ -375,7 +375,7 @@ describe('useViewportPreset', () => {
             id: 'multi',
             name: 'Multi',
             description: 'The multi component.',
-            variants: [{ id: 'secondary', label: 'Secondary style', description: 'Tuned for a secondary-toned surface.' }],
+            variants: [{ id: 'secondary', title: 'Secondary style', description: 'Tuned for a secondary-toned surface.' }],
         }];
         const variant = ref('secondary');
         const vp = useViewportPreset({ type, slug, variant });
@@ -391,7 +391,7 @@ describe('useViewportPreset', () => {
             id: 'multi',
             name: 'Multi',
             description: 'The multi component.',
-            variants: [{ id: 'dark-bg', label: 'dark-bg' }],
+            variants: [{ id: 'dark-bg', title: 'dark-bg' }],
         }];
         const variant = ref('dark-bg');
         const vp = useViewportPreset({ type, slug, variant });

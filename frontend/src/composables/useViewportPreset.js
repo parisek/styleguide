@@ -260,7 +260,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
     // being falsy to know whether a variant is isolated at all.
     const currentVariantLabel = computed(() => {
         if (!variant.value) return null;
-        return currentItem.value?.variants?.find((v) => v.id === variant.value)?.label ?? variant.value;
+        return currentItem.value?.variants?.find((v) => v.id === variant.value)?.title ?? variant.value;
     });
     const currentVariantDescription = computed(() => {
         if (!variant.value) return '';

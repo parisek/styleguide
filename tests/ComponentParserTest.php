@@ -273,14 +273,19 @@ final class ComponentParserTest extends TestCase
         self::assertNotNull($multi);
         self::assertSame(
             [
-                // No YAML `variants.dark-bg` entry at all -> label falls back
-                // to the id, description stays empty.
-                ['id' => 'dark-bg', 'label' => 'dark-bg', 'description' => ''],
-                // YAML entry is the {label, description} map shape.
-                ['id' => 'secondary', 'label' => 'Secondary style', 'description' => 'Tuned for a secondary-toned surface.'],
+                // styleguide.dark-bg.twig carries no front-comment annotation
+                // and has no `variants.dark-bg` map entry either -> title
+                // falls back to the id, description stays empty.
+                ['id' => 'dark-bg', 'title' => 'dark-bg', 'description' => ''],
+                // styleguide.secondary.twig carries its OWN {# title:
+                // description: #} annotation -- the primary authoring
+                // convention -- which wins over (and here is the only source
+                // for, since the map no longer has a `secondary` entry) the
+                // display metadata.
+                ['id' => 'secondary', 'title' => 'Secondary style', 'description' => 'Tuned for a secondary-toned surface.'],
             ],
             $multi['variants'],
-            'variants are ordered by id/filename (dark-bg before secondary); dark-bg has no YAML entry (label falls back to id), secondary uses the {label, description} map shape',
+            'variants are ordered by id/filename (dark-bg before secondary); dark-bg has no annotation or map entry (title falls back to id), secondary is sourced entirely from its own sibling-file annotation',
         );
     }
 
@@ -289,7 +294,11 @@ final class ComponentParserTest extends TestCase
     {
         // Isolated fixture root (not tests/fixtures/templates) so this
         // doesn't perturb the shared component catalogue other tests assert
-        // against (parses_all_components_sorted_by_weight and friends).
+        // against (parses_all_components_sorted_by_weight and friends). None
+        // of these siblings carry their own front-comment annotation, so
+        // every title/description here is sourced from the legacy
+        // `variants:` map fallback -- see discovers_sibling_variant_files_ordered_by_filename
+        // for the annotation-wins case.
         $parser = new ComponentParser(__DIR__ . '/fixtures/variant-shapes-templates');
         $widget = $parser->parse('component', 'widget');
 
@@ -297,12 +306,17 @@ final class ComponentParserTest extends TestCase
         self::assertSame(
             [
                 // Garbage (int) value -> same fallback as an absent entry:
-                // label = id, description = '' -- never throws.
-                ['id' => 'garbage-label', 'label' => 'garbage-label', 'description' => ''],
-                ['id' => 'map-label', 'label' => 'Map Label', 'description' => 'Map-shape description.'],
-                // Plain string (BC shape) -> the string itself is the label,
+                // title = id, description = '' -- never throws.
+                ['id' => 'garbage-label', 'title' => 'garbage-label', 'description' => ''],
+                // Map shape uses the legacy `label:` alias for `title:` --
+                // still accepted, still resolves to the same field.
+                ['id' => 'map-label', 'title' => 'Map Label', 'description' => 'Map-shape description.'],
+                // Plain string (BC shape) -> the string itself is the title,
                 // description stays empty.
-                ['id' => 'str-label', 'label' => 'String Label', 'description' => ''],
+                ['id' => 'str-label', 'title' => 'String Label', 'description' => ''],
+                // Map entry carries BOTH keys -> `title:` wins, `label:` is
+                // ignored (not merely a fallback for a missing `title:`).
+                ['id' => 'title-and-label', 'title' => 'Title Wins', 'description' => ''],
             ],
             $widget['variants'],
         );
@@ -348,5 +362,45 @@ final class ComponentParserTest extends TestCase
 
         self::assertNotFalse($multi);
         self::assertSame(['dark-bg', 'secondary'], array_column($multi['variants'], 'id'));
+    }
+
+    #[Test]
+    public function sibling_annotation_wins_over_the_legacy_map_entry(): void
+    {
+        // Isolated fixture root: a component whose `secondary`-equivalent
+        // variant (here `title-and-label`, see the widget fixture) is
+        // covered elsewhere for the map-only path; this fixture set instead
+        // proves the annotation itself takes priority when BOTH a sibling
+        // annotation AND a map entry exist for the same id.
+        $parser = new ComponentParser($this->fixturesPath);
+        $multi = $parser->parse('component', 'multi');
+
+        self::assertNotNull($multi);
+        $secondary = current(array_filter($multi['variants'], static fn(array $v): bool => $v['id'] === 'secondary'));
+        self::assertNotFalse($secondary);
+        self::assertSame('Secondary style', $secondary['title']);
+        self::assertSame('Tuned for a secondary-toned surface.', $secondary['description']);
+    }
+
+    #[Test]
+    public function a_malformed_sibling_annotation_falls_back_silently_to_the_map_and_records_no_warning(): void
+    {
+        // `styleguide.broken.twig`'s own front comment is deliberately
+        // unparseable YAML (an unclosed quoted scalar). parseTwigComment()
+        // already degrades that to `false` without throwing -- discovery
+        // must fall through to the component's `variants.broken` map entry
+        // exactly as if the sibling carried no comment at all, and getWarnings()
+        // must stay empty: a broken variant ANNOTATION is a per-field
+        // fallback, not the same "skip this file, record a warning" failure
+        // mode as a broken component/page front-comment.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/variant-annotation-templates');
+        $gadget = $parser->parse('component', 'gadget');
+
+        self::assertNotNull($gadget);
+        self::assertSame(
+            [['id' => 'broken', 'title' => 'Map Fallback Title', 'description' => 'Map fallback description.']],
+            $gadget['variants'],
+        );
+        self::assertSame([], $parser->getWarnings(), 'a malformed variant annotation must not surface as a catalogue warning');
     }
 }
