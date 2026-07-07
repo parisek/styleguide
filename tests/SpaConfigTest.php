@@ -51,7 +51,9 @@ final class SpaConfigTest extends TestCase
         // touching the fixture every other test in this suite (and other
         // suites) asserts against verbatim.
         $this->runnerScript = $this->distRoot . '/run-styleguide.php';
-        file_put_contents($this->runnerScript, <<<PHP
+        file_put_contents(
+            $this->runnerScript,
+            <<<PHP
             <?php
             declare(strict_types=1);
             require '{$autoload}';
@@ -158,7 +160,9 @@ final class SpaConfigTest extends TestCase
         // execute as a real script tag (XSS via styleguide.yaml, which some
         // consumers populate from user-editable project settings).
         $maliciousYaml = $this->distRoot . '/malicious.yaml';
-        file_put_contents($maliciousYaml, <<<YAML
+        file_put_contents(
+            $maliciousYaml,
+            <<<YAML
             project:
               name: 'Evil</script><script>alert(1)</script>'
             YAML,

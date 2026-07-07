@@ -110,7 +110,7 @@ final class Command
         $findings = (new Linter($templates))->run($types);
 
         if ($rawFormat === 'json') {
-            $payload = array_map(static fn (LintFinding $finding): array => $finding->toArray(), $findings);
+            $payload = array_map(static fn(LintFinding $finding): array => $finding->toArray(), $findings);
             // A JSON-encode failure here is an internal error, not "findings
             // present" — map it to lint's own exit code 2, distinct from
             // writeJson()'s generic list/show 0/1 contract.

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Tests\Cli;
 
-use Parisek\Styleguide\Cli\LintFinding;
 use Parisek\Styleguide\Cli\Linter;
+use Parisek\Styleguide\Cli\LintFinding;
 use Parisek\Styleguide\Cli\LintSeverity;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -25,7 +25,7 @@ final class LinterTest extends TestCase
      */
     private function findingsFor(array $findings, string $rule): array
     {
-        return array_values(array_filter($findings, static fn (LintFinding $f): bool => $f->rule === $rule));
+        return array_values(array_filter($findings, static fn(LintFinding $f): bool => $f->rule === $rule));
     }
 
     #[Test]
@@ -41,7 +41,7 @@ final class LinterTest extends TestCase
         $findings = (new Linter($this->fixtures))->run();
         $forClean = array_values(array_filter(
             $findings,
-            static fn (LintFinding $f): bool => str_starts_with($f->file, 'component/clean/'),
+            static fn(LintFinding $f): bool => str_starts_with($f->file, 'component/clean/'),
         ));
         self::assertSame([], $forClean);
     }
@@ -132,7 +132,7 @@ final class LinterTest extends TestCase
     public function findings_are_sorted_by_file(): void
     {
         $findings = (new Linter($this->fixtures))->run();
-        $files = array_map(static fn (LintFinding $f): string => $f->file, $findings);
+        $files = array_map(static fn(LintFinding $f): string => $f->file, $findings);
         $sorted = $files;
         sort($sorted);
         self::assertSame($sorted, $files);

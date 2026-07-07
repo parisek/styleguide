@@ -75,7 +75,7 @@ final class Linter
 
         usort(
             $findings,
-            static fn (LintFinding $a, LintFinding $b): int => [$a->file, $a->rule] <=> [$b->file, $b->rule],
+            static fn(LintFinding $a, LintFinding $b): int => [$a->file, $a->rule] <=> [$b->file, $b->rule],
         );
 
         return $findings;
@@ -177,8 +177,8 @@ final class Linter
             $rawUsage = $metadata['usage'];
             $usageString = is_string($rawUsage) ? $rawUsage : (is_scalar($rawUsage) ? (string) $rawUsage : '');
             $ids = array_filter(
-                array_map(static fn (string $id): string => trim($id), explode(',', $usageString)),
-                static fn (string $id): bool => $id !== '',
+                array_map(static fn(string $id): string => trim($id), explode(',', $usageString)),
+                static fn(string $id): bool => $id !== '',
             );
             foreach ($ids as $id) {
                 if (!isset($knownIds[$id])) {

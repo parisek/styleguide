@@ -15,8 +15,7 @@ final class LintFinding
         public readonly string $file,
         public readonly string $rule,
         public readonly string $message,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{severity: string, file: string, rule: string, message: string}
