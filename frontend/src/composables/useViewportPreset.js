@@ -224,6 +224,14 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         && type.value !== 'overview'
         && currentItem.value?.responsive !== false);
 
+    // Secondary actions (iframe theme / canvas / open-in-new-tab / reload)
+    // apply to ANY rendered iframe — foundations and responsive:false
+    // entries included. Only the width machinery above is scoped narrower.
+    // One shared cluster gated on this flag replaces the old duplicated
+    // (and visually drifted: h-7 vs h-9) foundations-only button block.
+    const secondaryActionsVisible = computed(() => !!iframeSrc.value
+        && type.value !== 'overview');
+
     // The responsive-width preset dropdown + custom-width input + orientation
     // toggle stay meaningful in grid mode too — VariantGrid.vue applies the
     // same shared preset uniformly to every tile (scaled down per tile to
@@ -342,7 +350,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         gridZoom, setGridZoom, effectiveZoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
-        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, currentSectionKey, currentItemName,
+        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, secondaryActionsVisible, gridActive, currentSectionKey, currentItemName,
         currentItemDescription, currentVariantLabel, currentVariantDescription, descriptionBarText, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

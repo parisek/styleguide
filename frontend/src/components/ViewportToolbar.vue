@@ -171,7 +171,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              toolbar affordance is the density dropdown just below (grid mode
              only) -- the responsive-width preset dropdown stays
              visible too and applies the same shared preset to every tile. -->
-        <template v-if="viewport.previewActionsVisible.value">
+        <template v-if="viewport.secondaryActionsVisible.value">
             <div class="flex items-center gap-2 shrink-0">
                 <!-- Tile density -- VariantGrid.vue-only control, so it only
                      makes sense (and only renders) while the grid itself is
@@ -345,7 +345,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                     </button>
                     <button type="button"
                             @click="goCanvasMode()"
-                            :disabled="!viewport.slug.value"
+                            :disabled="!viewport.iframeSrc.value"
                             :title="i18n.t('toolbar.canvas_mode')"
                             :aria-label="i18n.t('toolbar.canvas_mode_label')"
                             class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
@@ -405,7 +405,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         </button>
                         <button type="button"
                                 @click="overflowOpen = false; goCanvasMode()"
-                                :disabled="!viewport.slug.value"
+                                :disabled="!viewport.iframeSrc.value"
                                 class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                             <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"/>
@@ -430,44 +430,6 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         </button>
                     </div>
                 </div>
-            </div>
-        </template>
-        <!-- Foundations route still gets the open-in-new-tab affordance,
-             just without the viewport controls. -->
-        <template v-if="viewport.iframeSrc.value && viewport.type.value === 'foundations'">
-            <div class="flex items-center gap-1 shrink-0">
-                <button type="button"
-                        data-testid="iframe-theme-toggle"
-                        @click="toggleIframeTheme()"
-                        :aria-pressed="ui.iframeTheme === 'dark' ? 'true' : 'false'"
-                        :title="i18n.t('toolbar.iframe_theme')"
-                        :aria-label="i18n.t('toolbar.iframe_theme')"
-                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
-                    <svg v-if="ui.iframeTheme === 'dark'" aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/>
-                    </svg>
-                    <svg v-else aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="4"/>
-                        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-                    </svg>
-                </button>
-                <a :href="openInNewTabHref()" target="_blank" rel="noopener"
-                   :title="i18n.t('toolbar.open_in_new_tab')"
-                   :aria-label="i18n.t('toolbar.open_in_new_tab')"
-                   class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
-                    <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M14 4h6v6M20 4l-9 9M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/>
-                    </svg>
-                </a>
-                <button type="button" @click="viewport.reloadPreview()"
-                        :title="i18n.t('toolbar.reload')"
-                        :aria-label="i18n.t('toolbar.reload')"
-                        class="h-7 w-7 flex items-center justify-center rounded text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors">
-                    <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                        <path d="M3 3v5h5"/>
-                    </svg>
-                </button>
             </div>
         </template>
     </div>
