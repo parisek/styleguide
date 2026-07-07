@@ -100,7 +100,10 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
          viewport dropdown below xl keeps the row narrow enough to fit
          even on ~720px screens, so the dropdown popover is free to
          break out of the toolbar's flow without getting clipped. -->
-    <div class="flex justify-between items-center gap-3 px-4 py-2.5 bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
+    <!-- min-h-[57px] = the natural height of the busiest configuration
+         (h-9 action buttons + py-2.5 + 1px border-b, border-box) — routes with fewer/no controls (overview)
+         get the exact same bar height instead of a visibly thinner strip. -->
+    <div class="flex justify-between items-center gap-3 px-4 py-2.5 min-h-[57px] bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
         <div class="flex items-center gap-3 min-w-0">
             <!-- Hamburger <-> close morph: three independent bars (not a single
                  SVG path) so each can be transformed on its own axis -- the
