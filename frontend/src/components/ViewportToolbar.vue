@@ -9,8 +9,10 @@ const viewport = inject('viewport');
 
 const dropdownOpen = ref(false);
 const overflowOpen = ref(false);
+const columnsOpen = ref(false);
 const dropdownRef = ref(null);
 const overflowRef = ref(null);
+const columnsRef = ref(null);
 
 const CATEGORY_ICON_PATHS = {
     mobile: '<rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/>',
@@ -18,6 +20,15 @@ const CATEGORY_ICON_PATHS = {
     desktop: '<rect x="2" y="4" width="20" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
     full: '<polyline points="4 8 4 4 8 4"/><polyline points="20 8 20 4 16 4"/><polyline points="4 16 4 20 8 20"/><polyline points="20 16 20 20 16 20"/>',
 };
+
+// Tile density trigger label -- "Auto" or the full "N sloupec/sloupce" /
+// "N column(s)" string (the same i18n key VariantGrid.vue's own basis
+// comment refers to), matching the viewport trigger's "word + dims" shape
+// so the two dropdowns read as one family at a glance.
+function columnsLabel() {
+    if (ui.variantColumns === 'auto') return i18n.t('toolbar.variant_columns_auto_label');
+    return i18n.t(`toolbar.variant_columns_${ui.variantColumns}`);
+}
 
 function activeWordLabel() {
     const key = viewport.activePreset.value;
@@ -73,6 +84,9 @@ function onDocumentClick(event) {
     }
     if (overflowOpen.value && overflowRef.value && !overflowRef.value.contains(event.target)) {
         overflowOpen.value = false;
+    }
+    if (columnsOpen.value && columnsRef.value && !columnsRef.value.contains(event.target)) {
+        columnsOpen.value = false;
     }
 }
 
@@ -154,8 +168,8 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              styleguide-2.0 redesign brief -- variants are now a full-canvas
              grid of independent preview tiles (VariantGrid.vue, rendered by
              PreviewPane.vue whenever viewport.gridActive is true). Its
-             toolbar affordance is the density segmented control just below
-             (grid mode only) -- the responsive-width preset dropdown stays
+             toolbar affordance is the density dropdown just below (grid mode
+             only) -- the responsive-width preset dropdown stays
              visible too and applies the same shared preset to every tile. -->
         <template v-if="viewport.previewActionsVisible.value">
             <div class="flex items-center gap-2 shrink-0">
@@ -168,27 +182,54 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      autoGridColumnBasis()); 1-4 fixes the column count
                      exactly, ignoring the preset. Replaces the earlier
                      rows/grid toggle -- "1" is the exact visual replacement
-                     for the old "rows" stacked layout. -->
+                     for the old "rows" stacked layout.
+                     Styleguide 2.0 UX fix: the five options used to be a
+                     segmented pill row, which read as visual clutter next to
+                     the device-preset dropdown right beside it. Rebuilt as a
+                     second rounded-full trigger sharing the SAME
+                     pill/icon/label/chevron shape and open/close/click-outside
+                     mechanics as the viewport dropdown below (columnsOpen/
+                     columnsRef mirror dropdownOpen/dropdownRef exactly) --
+                     the two now read as one family of controls instead of
+                     two different widget styles bolted together. -->
                 <template v-if="viewport.gridActive.value">
-                    <div role="group" :aria-label="i18n.t('toolbar.variant_columns_label')"
-                         data-testid="variant-columns-toggle"
-                         class="inline-flex gap-px rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-700 shrink-0">
+                    <div class="relative" ref="columnsRef" @keydown.escape="columnsOpen = false">
                         <button type="button"
-                                data-testid="variant-columns-auto"
-                                @click="ui.setVariantColumns('auto')"
-                                :title="i18n.t('toolbar.variant_columns_auto')"
-                                :aria-label="i18n.t('toolbar.variant_columns_auto')"
-                                :aria-pressed="ui.variantColumns === 'auto' ? 'true' : 'false'"
-                                class="h-9 px-2.5 flex items-center justify-center text-xs font-semibold transition-colors"
-                                :class="ui.variantColumns === 'auto' ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">{{ i18n.t('toolbar.variant_columns_auto_label') }}</button>
-                        <button v-for="n in [1, 2, 3, 4]" :key="n" type="button"
-                                :data-testid="`variant-columns-${n}`"
-                                @click="ui.setVariantColumns(n)"
-                                :title="i18n.t(`toolbar.variant_columns_${n}`)"
-                                :aria-label="i18n.t(`toolbar.variant_columns_${n}`)"
-                                :aria-pressed="ui.variantColumns === n ? 'true' : 'false'"
-                                class="h-9 w-8 flex items-center justify-center text-xs font-mono tabular-nums transition-colors"
-                                :class="ui.variantColumns === n ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">{{ n }}</button>
+                                data-testid="variant-columns-trigger"
+                                @click="columnsOpen = !columnsOpen"
+                                :aria-expanded="columnsOpen"
+                                :title="i18n.t('toolbar.variant_columns_label')"
+                                :aria-label="i18n.t('toolbar.variant_columns_label')"
+                                class="flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border text-xs font-medium tabular-nums transition-colors"
+                                :class="columnsOpen ? 'bg-zinc-200 border-zinc-300 text-zinc-900 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-100' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700'">
+                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="5" height="16" rx="1"/>
+                                <rect x="9.5" y="4" width="5" height="16" rx="1"/>
+                                <rect x="16" y="4" width="5" height="16" rx="1"/>
+                            </svg>
+                            <span class="font-semibold">{{ columnsLabel() }}</span>
+                            <svg aria-hidden="true" focusable="false" class="w-3 h-3 shrink-0 transition-transform text-zinc-400 dark:text-zinc-500" :class="columnsOpen && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="6 9 12 15 18 9"/>
+                            </svg>
+                        </button>
+                        <div v-show="columnsOpen"
+                             class="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
+                            <button type="button"
+                                    data-testid="variant-columns-auto"
+                                    @click="ui.setVariantColumns('auto'); columnsOpen = false"
+                                    :title="i18n.t('toolbar.variant_columns_auto')"
+                                    class="w-full px-3 py-2 flex items-center gap-2.5 text-xs tabular-nums rounded-lg transition-colors"
+                                    :class="ui.variantColumns === 'auto' ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
+                                <span class="font-medium">{{ i18n.t('toolbar.variant_columns_auto_label') }}</span>
+                            </button>
+                            <button v-for="n in [1, 2, 3, 4]" :key="n" type="button"
+                                    :data-testid="`variant-columns-${n}`"
+                                    @click="ui.setVariantColumns(n); columnsOpen = false"
+                                    class="w-full px-3 py-2 flex items-center gap-2.5 text-xs tabular-nums rounded-lg transition-colors"
+                                    :class="ui.variantColumns === n ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
+                                <span class="font-medium">{{ i18n.t(`toolbar.variant_columns_${n}`) }}</span>
+                            </button>
+                        </div>
                     </div>
                 </template>
                 <!-- Responsive-width preset dropdown + custom width +

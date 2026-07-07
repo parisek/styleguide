@@ -91,14 +91,34 @@ function onTileLoad(tile, event) {
 // a function `:ref` on the (layout-stable) content-area wrapper, so it keeps
 // working across a fluid<->scaled toggle (only the wrapper's CHILDREN swap
 // via v-if, not the wrapper itself).
+//
+// The wrapper itself carries `p-3` in scaled mode (the padding around the
+// scaled screen), so its `clientWidth` (padding-box) OVERSTATES the space
+// actually available to the scaled wrapper by the padding amount --
+// computeTileGeometry() would then fit the zoom to a cellWidth ~24px too
+// generous, sizing `wrapperWidth` past the true content-box and clipping
+// the transformed iframe's right edge against the wrapper's own
+// `overflow: hidden` (invisible in a screenshot when the box also happens
+// to flex-shrink back down, but real content past the true content-box
+// still gets cropped). `contentBoxWidth()` subtracts the wrapper's own
+// (possibly zero, in fluid mode) padding so both the synchronous initial
+// read and every subsequent ResizeObserver tick agree on the same
+// padding-excluded number -- ResizeObserver's own `contentRect` already
+// excludes padding, so this just makes the FIRST read consistent with it.
 const cellWidths = reactive({});
 const cellObservers = new Map();
+
+function contentBoxWidth(el) {
+    const style = getComputedStyle(el);
+    const paddingX = parseFloat(style.paddingLeft || '0') + parseFloat(style.paddingRight || '0');
+    return Math.max(0, el.clientWidth - paddingX);
+}
 
 function registerCell(key, el) {
     const previous = cellObservers.get(key);
     if (previous) { previous.disconnect(); cellObservers.delete(key); }
     if (!el) return;
-    cellWidths[key] = el.clientWidth ?? 0;
+    cellWidths[key] = contentBoxWidth(el);
     const ro = new ResizeObserver((entries) => {
         for (const entry of entries) cellWidths[key] = entry.contentRect.width;
     });

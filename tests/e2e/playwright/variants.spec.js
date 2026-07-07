@@ -151,6 +151,7 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await expect(page.getByTestId('viewport-trigger')).toBeVisible();
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('viewport-preset-mobile').click();
+        await page.getByTestId('variant-columns-trigger').click();
         await page.getByTestId('variant-columns-4').click();
 
         const tiles = page.getByTestId('variant-tile');
@@ -198,13 +199,16 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         const tiles = page.getByTestId('variant-tile');
         await expect(tiles).toHaveCount(3);
 
-        // Default density is "Auto" — the toggle exists and the Auto button
-        // reads pressed.
-        await expect(page.getByTestId('variant-columns-toggle')).toBeVisible();
-        await expect(page.getByTestId('variant-columns-auto')).toHaveAttribute('aria-pressed', 'true');
+        // Default density is "Auto" — the dropdown trigger exists and
+        // reads "Auto"; opening it highlights the Auto row.
+        const columnsTrigger = page.getByTestId('variant-columns-trigger');
+        await expect(columnsTrigger).toBeVisible();
+        await expect(columnsTrigger).toContainText('Auto');
+        await columnsTrigger.click();
+        await expect(page.getByTestId('variant-columns-auto')).toHaveClass(/text-red-700/);
 
         await page.getByTestId('variant-columns-1').click();
-        await expect(page.getByTestId('variant-columns-1')).toHaveAttribute('aria-pressed', 'true');
+        await expect(columnsTrigger).toContainText(/1 (column|sloupec)/);
 
         const boxes = await tiles.evaluateAll((els) => els.map((el) => {
             const r = el.getBoundingClientRect();
@@ -230,7 +234,7 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         const tiles = page.getByTestId('variant-tile');
         await expect(tiles).toHaveCount(3);
 
-        await expect(page.getByTestId('variant-columns-auto')).toHaveAttribute('aria-pressed', 'true');
+        await expect(page.getByTestId('variant-columns-trigger')).toContainText('Auto');
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('viewport-preset-mobile').click();
 
@@ -277,8 +281,10 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         // above) -- an explicit "2" overrides that regardless of preset.
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('viewport-preset-desktop').click();
+        const columnsTrigger = page.getByTestId('variant-columns-trigger');
+        await columnsTrigger.click();
         await page.getByTestId('variant-columns-2').click();
-        await expect(page.getByTestId('variant-columns-2')).toHaveAttribute('aria-pressed', 'true');
+        await expect(columnsTrigger).toContainText(/2 (columns|sloupce)/);
 
         const boxes = await tiles.evaluateAll((els) => els.map((el) => {
             const r = el.getBoundingClientRect();
@@ -289,6 +295,53 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         expect(boxes[0].top).toBe(boxes[1].top);
         expect(boxes[0].left).not.toBe(boxes[1].left);
         expect(boxes[2].top).toBeGreaterThan(boxes[0].top);
+    });
+
+    // Regression test for a tile-centering bug: computeTileGeometry()'s zoom
+    // used to be fit against the content-area wrapper's PADDING-BOX width
+    // (`el.clientWidth`, which includes the wrapper's own `p-3`), overstating
+    // the space actually available to the scaled screen by the padding
+    // amount -- the scaled iframe then rendered past the wrapper's true
+    // content box and got cropped by its `overflow: hidden`, clipping the
+    // right edge of every fixed-width-preset tile's rendered screen
+    // (VariantGrid.vue's registerCell() now reads the wrapper's content-box
+    // width -- clientWidth minus its own padding -- so both the initial
+    // synchronous measurement and every ResizeObserver tick agree). Real
+    // layout only, hence Playwright rather than tileGeometry.spec.js: the
+    // bug lived in what gets measured, not in the (already-correct) math
+    // that consumes the measurement.
+    test('a fixed-width preset scales each tile centered in its cell -- no left/right gap asymmetry, no clipped screen edge', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/multi');
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(3);
+
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-desktop').click();
+        await page.getByTestId('variant-columns-trigger').click();
+        await page.getByTestId('variant-columns-4').click();
+
+        const measurements = await tiles.evaluateAll((els) => els.map((tile) => {
+            const cell = tile.children[1]; // content-area wrapper (registerCell's ref target)
+            const scaledWrapper = cell.querySelector(':scope > div'); // the width/height-styled scaling box
+            const iframe = scaledWrapper.querySelector('iframe');
+            const cellRect = cell.getBoundingClientRect();
+            const wrapperRect = scaledWrapper.getBoundingClientRect();
+            const iframeRect = iframe.getBoundingClientRect();
+            return {
+                leftGap: wrapperRect.left - cellRect.left,
+                rightGap: cellRect.right - wrapperRect.right,
+                // A positive value here means the scaled screen's own right
+                // edge extends past the wrapper that clips it -- i.e. it is
+                // being cropped off, not just visually mis-centered.
+                iframeOverflowRight: iframeRect.right - wrapperRect.right,
+            };
+        }));
+
+        for (const { leftGap, rightGap, iframeOverflowRight } of measurements) {
+            expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(2);
+            expect(iframeOverflowRight).toBeLessThanOrEqual(0.5);
+        }
     });
 
     // styleguide 2.0 UX redesign: the earlier "← All" toolbar back control is

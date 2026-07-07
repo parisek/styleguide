@@ -130,7 +130,10 @@ describe('ViewportToolbar — grid mode', () => {
         expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
     });
 
-    it('renders the density segmented control only when the grid is active', () => {
+    // Styleguide 2.0 UX fix: the five density options used to be a
+    // segmented pill row; they're now a dropdown sharing the viewport
+    // trigger's own pill/icon/label/chevron shape and open/close mechanics.
+    it('renders the density dropdown trigger only when the grid is active', () => {
         const gridWrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -139,10 +142,10 @@ describe('ViewportToolbar — grid mode', () => {
                 variants: [{ id: 'secondary', label: 'Secondary style' }],
             }],
         });
-        expect(gridWrapper.find('[data-testid="variant-columns-toggle"]').exists()).toBe(true);
+        expect(gridWrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(true);
 
         const noVariantsWrapper = mountWithViewport('component', 'hero');
-        expect(noVariantsWrapper.find('[data-testid="variant-columns-toggle"]').exists()).toBe(false);
+        expect(noVariantsWrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(false);
 
         const isolatedWrapper = mountWithViewport('component', 'multi', {
             items: [{
@@ -153,10 +156,10 @@ describe('ViewportToolbar — grid mode', () => {
             }],
             variant: ref('secondary'),
         });
-        expect(isolatedWrapper.find('[data-testid="variant-columns-toggle"]').exists()).toBe(false);
+        expect(isolatedWrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(false);
     });
 
-    it('renders all five density options (Auto, 1, 2, 3, 4), Auto pressed by default', () => {
+    it('trigger reads "Auto" by default; opening it lists all five options with Auto highlighted', async () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -165,14 +168,24 @@ describe('ViewportToolbar — grid mode', () => {
                 variants: [{ id: 'secondary', label: 'Secondary style' }],
             }],
         });
-        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-pressed')).toBe('true');
+        const trigger = wrapper.find('[data-testid="variant-columns-trigger"]');
+        expect(trigger.text()).toContain('Auto');
+
+        // Menu is closed by default -- rows exist in the DOM (v-show) but
+        // the trigger's own aria-expanded says so.
+        expect(trigger.attributes('aria-expanded')).toBe('false');
+        await trigger.trigger('click');
+        expect(trigger.attributes('aria-expanded')).toBe('true');
+
+        expect(wrapper.find('[data-testid="variant-columns-auto"]').classes()).toContain('text-red-700');
         for (const n of [1, 2, 3, 4]) {
-            expect(wrapper.find(`[data-testid="variant-columns-${n}"]`).attributes('aria-pressed')).toBe('false');
-            expect(wrapper.find(`[data-testid="variant-columns-${n}"]`).text()).toBe(String(n));
+            const row = wrapper.find(`[data-testid="variant-columns-${n}"]`);
+            expect(row.text()).toBe(`${n} column${n === 1 ? '' : 's'}`);
+            expect(row.classes()).not.toContain('text-red-700');
         }
     });
 
-    it('clicking a density button updates ui.variantColumns and moves aria-pressed', async () => {
+    it('clicking a density row updates ui.variantColumns, moves the highlight, and updates the trigger label', async () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -184,14 +197,20 @@ describe('ViewportToolbar — grid mode', () => {
         const ui = useUiStore();
         expect(ui.variantColumns).toBe('auto');
 
+        await wrapper.find('[data-testid="variant-columns-trigger"]').trigger('click');
         await wrapper.find('[data-testid="variant-columns-2"]').trigger('click');
         expect(ui.variantColumns).toBe(2);
-        expect(wrapper.find('[data-testid="variant-columns-2"]').attributes('aria-pressed')).toBe('true');
-        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-pressed')).toBe('false');
+        expect(wrapper.find('[data-testid="variant-columns-trigger"]').text()).toContain('2 columns');
+        // Menu closes on selection, same as the viewport preset dropdown.
+        expect(wrapper.find('[data-testid="variant-columns-trigger"]').attributes('aria-expanded')).toBe('false');
+
+        await wrapper.find('[data-testid="variant-columns-trigger"]').trigger('click');
+        expect(wrapper.find('[data-testid="variant-columns-2"]').classes()).toContain('text-red-700');
+        expect(wrapper.find('[data-testid="variant-columns-auto"]').classes()).not.toContain('text-red-700');
 
         await wrapper.find('[data-testid="variant-columns-auto"]').trigger('click');
         expect(ui.variantColumns).toBe('auto');
-        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-pressed')).toBe('true');
+        expect(wrapper.find('[data-testid="variant-columns-trigger"]').text()).toContain('Auto');
     });
 });
 
