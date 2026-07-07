@@ -215,9 +215,16 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                 <polyline points="6 9 12 15 18 9"/>
                             </svg>
                         </button>
+                        <!-- role=menuitemradio + aria-checked: the active
+                             density used to be announced via aria-pressed on
+                             the old segmented pills; the dropdown rebuild
+                             must keep that state audible, not color-only. -->
                         <div v-show="columnsOpen"
+                             role="menu"
                              class="absolute right-0 top-full mt-2 z-50 min-w-[200px] rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
                             <button type="button"
+                                    role="menuitemradio"
+                                    :aria-checked="ui.variantColumns === 'auto' ? 'true' : 'false'"
                                     data-testid="variant-columns-auto"
                                     @click="ui.setVariantColumns('auto'); columnsOpen = false"
                                     :title="i18n.t('toolbar.variant_columns_auto')"
@@ -226,6 +233,8 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                 <span class="font-medium">{{ i18n.t('toolbar.variant_columns_auto_label') }}</span>
                             </button>
                             <button v-for="n in [1, 2, 3, 4]" :key="n" type="button"
+                                    role="menuitemradio"
+                                    :aria-checked="ui.variantColumns === n ? 'true' : 'false'"
                                     :data-testid="`variant-columns-${n}`"
                                     @click="ui.setVariantColumns(n); columnsOpen = false"
                                     class="w-full px-3 py-2 flex items-center gap-2.5 text-xs tabular-nums rounded-lg transition-colors"

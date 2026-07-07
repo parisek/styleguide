@@ -67,6 +67,22 @@ function tileKey(tile) {
 const heights = reactive({});
 const heightObservers = new Map();
 
+// Navigating between two variant-having entries keeps VariantGrid mounted
+// (gridActive never flips), so onBeforeUnmount alone would leak one
+// ResizeObserver per tile of every previously visited entry — the v-for key
+// diff removes the old iframes but nothing revisits their Map entries.
+// Prune whenever the live tile-key set changes.
+watch(() => tiles.value.map((t) => tileKey(t)), (liveKeys) => {
+    const live = new Set(liveKeys);
+    for (const [key, ro] of heightObservers) {
+        if (!live.has(key)) {
+            ro.disconnect();
+            heightObservers.delete(key);
+            delete heights[key];
+        }
+    }
+});
+
 function onTileLoad(tile, event) {
     const iframe = event.target;
     const doc = iframe?.contentDocument;
@@ -303,8 +319,15 @@ onBeforeUnmount(() => {
                      class="bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
                      :class="tile.geometry.fluid ? '' : 'flex justify-center p-3'">
                     <!-- Full preset: fluid tile, no scaling -- iframe width
-                         tracks the cell via `w-full`, height is content-fit. -->
+                         tracks the cell via `w-full`, height is content-fit.
+                         `:key="tile.src"` remounts the iframe whenever the
+                         render URL changes (reload nonce, theme toggle,
+                         locale) instead of patching `src` in place -- same
+                         flash-free-navigation fix as PreviewPane.vue's
+                         single iframe; a patched src keeps painting the OLD
+                         document until the new one loads. -->
                     <iframe v-if="tile.geometry.fluid"
+                            :key="tile.src"
                             :src="tile.src"
                             class="w-full border-0 block bg-white"
                             :style="{ height: tile.geometry.iframeHeight + 'px' }"
@@ -317,7 +340,8 @@ onBeforeUnmount(() => {
                     <div v-else
                          class="overflow-hidden bg-white ring-1 ring-zinc-200 dark:ring-zinc-800 rounded shadow-sm"
                          :style="{ width: tile.geometry.wrapperWidth + 'px', height: tile.geometry.wrapperHeight + 'px' }">
-                        <iframe :src="tile.src"
+                        <iframe :key="tile.src"
+                                :src="tile.src"
                                 class="border-0 block"
                                 :style="{ width: tile.geometry.iframeWidth + 'px', height: tile.geometry.iframeHeight + 'px', transform: `scale(${tile.geometry.zoom})`, transformOrigin: '0 0' }"
                                 @load="onTileLoad(tile, $event)"></iframe>

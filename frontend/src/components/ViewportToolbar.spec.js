@@ -178,6 +178,10 @@ describe('ViewportToolbar — grid mode', () => {
         expect(trigger.attributes('aria-expanded')).toBe('true');
 
         expect(wrapper.find('[data-testid="variant-columns-auto"]').classes()).toContain('text-red-700');
+        // The active option must be announced, not just colored — regression
+        // guard for the aria-pressed state lost in the dropdown rebuild.
+        expect(wrapper.find('[data-testid="variant-columns-auto"]').attributes('aria-checked')).toBe('true');
+        expect(wrapper.find('[data-testid="variant-columns-2"]').attributes('aria-checked')).toBe('false');
         for (const n of [1, 2, 3, 4]) {
             const row = wrapper.find(`[data-testid="variant-columns-${n}"]`);
             expect(row.text()).toBe(`${n} column${n === 1 ? '' : 's'}`);
