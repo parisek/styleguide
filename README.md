@@ -40,7 +40,7 @@ Local dev against a sibling checkout — register a path repository so the consu
         "parisek-styleguide-local": {
             "type": "path",
             "url": "../styleguide",
-            "canonical": false,                 // critical: lets Packagist still supply ^0.1 when needed
+            "canonical": false,                 // critical: lets Packagist still supply ^1.0 when needed
             "options": {
                 "symlink": true,
                 "versions": { "parisek/styleguide": "dev-local" }
@@ -49,12 +49,12 @@ Local dev against a sibling checkout — register a path repository so the consu
     },
     "scripts": {
         "styleguide:local":  "@composer require parisek/styleguide:dev-local --no-interaction",
-        "styleguide:remote": "@composer require parisek/styleguide:^0.1 --no-interaction"
+        "styleguide:remote": "@composer require parisek/styleguide:^1.0 --no-interaction"
     }
 }
 ```
 
-`canonical: false` is what keeps Packagist visible — without it the path repo would shadow it and the `^0.1` constraint would fail to resolve. The `versions` override pins the local copy to a fixed `dev-local` identifier so the switch scripts have a deterministic string to ask for. See `AGENTS.md` § *Local development against a consuming project* for the full mechanism.
+`canonical: false` is what keeps Packagist visible — without it the path repo would shadow it and the `^1.0` constraint would fail to resolve. The `versions` override pins the local copy to a fixed `dev-local` identifier so the switch scripts have a deterministic string to ask for. See `AGENTS.md` § *Local development against a consuming project* for the full mechanism.
 
 ---
 

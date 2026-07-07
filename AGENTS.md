@@ -31,7 +31,7 @@ PHP commands run from the repo root, frontend commands from `frontend/`. Node is
 
 ```bash
 # Tests + static analysis (PHP)
-composer test                                # phpunit (161 tests, ~0.3 s)
+composer test                                # phpunit (208 tests, ~0.4 s)
 composer phpstan                             # phpstan analyse (level configured in phpstan.neon)
 vendor/bin/phpunit --filter <pattern>        # single test method
 
@@ -58,7 +58,7 @@ In the consumer's `composer.json` (already wired in `tailwind-base`):
     "parisek-styleguide-local": {
         "type": "path",
         "url": "../styleguide",
-        "canonical": false,             // critical: lets Packagist supply ^0.1 when needed
+        "canonical": false,             // critical: lets Packagist supply ^1.0 when needed
         "options": {
             "symlink": true,
             "versions": { "parisek/styleguide": "dev-local" }
@@ -67,23 +67,23 @@ In the consumer's `composer.json` (already wired in `tailwind-base`):
 },
 "scripts": {
     "styleguide:local":  "@composer require parisek/styleguide:dev-local --no-interaction",
-    "styleguide:remote": "@composer require parisek/styleguide:^0.1 --no-interaction"
+    "styleguide:remote": "@composer require parisek/styleguide:^1.0 --no-interaction"
 }
 ```
 
-Why `canonical: false`: Composer treats path repos as canonical by default, which blocks lower-priority repositories (Packagist) from supplying versions. Without `canonical: false` the `^0.1` constraint would fail because Packagist is shadowed and the path repo only carries `dev-local`. With it set, both versions can satisfy the constraint depending on which one you ask for.
+Why `canonical: false`: Composer treats path repos as canonical by default, which blocks lower-priority repositories (Packagist) from supplying versions. Without `canonical: false` the `^1.0` constraint would fail because Packagist is shadowed and the path repo only carries `dev-local`. With it set, both versions can satisfy the constraint depending on which one you ask for.
 
-Why `versions` override: a path repo derives the package version from the local `composer.json` `version` field or (if missing) from git. Pinning it to `dev-local` makes the local copy unambiguous — the `^0.1` constraint never accidentally resolves against it, and `dev-local` is the only string a switch command needs to know.
+Why `versions` override: a path repo derives the package version from the local `composer.json` `version` field or (if missing) from git. Pinning it to `dev-local` makes the local copy unambiguous — the `^1.0` constraint never accidentally resolves against it, and `dev-local` is the only string a switch command needs to know.
 
 ### Workflow
 
 ```bash
 # From the consumer (tailwind-base) repo root:
 composer styleguide:local      # vendor/parisek/styleguide → symlink to ../styleguide
-composer styleguide:remote     # vendor/parisek/styleguide → extracted v0.1.x from Packagist
+composer styleguide:remote     # vendor/parisek/styleguide → extracted v1.x from Packagist
 ```
 
-The single line that changes in `composer.json` is `"parisek/styleguide": "dev-local"` ↔ `"^0.1"`. `composer.lock` updates too. Both are intended to land in commits when needed.
+The single line that changes in `composer.json` is `"parisek/styleguide": "dev-local"` ↔ `"^1.0"`. `composer.lock` updates too. Both are intended to land in commits when needed.
 
 After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/styleguide/`. PHP/Twig changes are picked up on the next request to the consumer. For frontend changes, run `cd frontend && npm run watch` so `dist/` rebuilds on save and the consumer's iframe chrome stays current.
 
@@ -91,7 +91,7 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 
 - Before tagging a release of the package (verify the consumer still works against the published Packagist version).
 - When debugging an issue that might be specific to the symlinked dev copy (caching, autoload, file permissions).
-- When handing the consumer repo to CI — CI installs from Packagist normally; the `repositories` block stays in `composer.json` but the `^0.1` constraint keeps it inert.
+- When handing the consumer repo to CI — CI installs from Packagist normally; the `repositories` block stays in `composer.json` but the `^1.0` constraint keeps it inert.
 
 ## Repo layout
 
@@ -188,7 +188,7 @@ Static analysis: `composer phpstan`. PHPStan config lives in `phpstan.neon`.
 2. Bump `CHANGELOG.md` — move `[Unreleased]` notes under a new `## [x.y.z] - YYYY-MM-DD` heading following the existing format.
 3. Commit, tag (`git tag vX.Y.Z`), push tag.
 4. Packagist auto-imports the new tag (the GitHub webhook is wired). Verify on https://packagist.org/packages/parisek/styleguide.
-5. In each consumer, `composer styleguide:remote && composer update parisek/styleguide` (or just `composer update parisek/styleguide` if it's already on `^0.1`).
+5. In each consumer, `composer styleguide:remote && composer update parisek/styleguide` (or just `composer update parisek/styleguide` if it's already on `^1.0`).
 
 `composer.json` no longer carries a hardcoded `version` field — Packagist derives versions from git tags exclusively (see CHANGELOG `[0.1.2]`). Don't reintroduce it.
 
