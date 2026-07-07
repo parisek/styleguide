@@ -59,15 +59,13 @@ final class ComponentParserTest extends TestCase
         // regression precisely. Weights: Another 10, Sample 20, Multi 30
         // (Phase-4 variant-discovery fixture), With fields 50 (no explicit
         // weight -> parser default), then the sidebar-tree cluster
-        // widget-one/two/three 51/52/53, gizmo 54, Broken Sample 999
-        // (deliberately near-last — its Twig body throws, exercised by
+        // widget-one/two/three 51/52/53, gizmo 54, and Broken Sample 999
+        // (deliberately last — its Twig body throws, exercised by
         // RendererTest, but its YAML metadata is valid so ComponentParser,
         // which never renders the body, picks it up like any other
-        // component), and A11y Demo 1000 (Phase 4 Task 6 fixture — a bare
-        // <img> with no alt, deliberately last, used by the on-demand a11y
-        // check's Playwright spec).
+        // component).
         self::assertSame(
-            ['Another', 'Sample', 'Multi', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample', 'A11y Demo'],
+            ['Another', 'Sample', 'Multi', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mount, flushPromises } from '@vue/test-utils';
+import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
 import { ref, provide, defineComponent, h } from 'vue';
 import ViewportToolbar from './ViewportToolbar.vue';
@@ -7,16 +7,6 @@ import { useViewportPreset } from '../composables/useViewportPreset.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
-import { runAxeCheck } from '../lib/axeInject.js';
-
-// axeInject.js's runAxeCheck() reaches into a real iframe's
-// contentWindow/contentDocument -- unavailable in these toolbar-only mounts
-// (PreviewPane.vue, the actual iframe owner, isn't rendered here), so it's
-// mocked at the module boundary. formatAxeResults() is NOT mocked -- these
-// tests exercise the real pure function, only the DOM-heavy injection is
-// stubbed. Covered end-to-end (including the real axe-core script) by
-// tests/e2e/playwright/a11y-check.spec.js.
-vi.mock('../lib/axeInject.js', () => ({ runAxeCheck: vi.fn() }));
 
 function mountWithViewport(type = 'component', slug = 'hero', { items, variant, setVariant, onViewport } = {}) {
     setActivePinia(createPinia());
@@ -32,7 +22,6 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             variant_columns_3: '3 columns', variant_columns_4: '4 columns',
         },
         sections: { blocks: 'Blocks' },
-        a11y: { check_action: 'Accessibility check', unavailable_in_grid: 'Needs a single preview' },
     };
     useCatalogStore().items = items ?? [{ id: 'hero', name: 'Hero', category: 'Block' }];
 
@@ -41,10 +30,8 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             const typeRef = ref(type);
             const slugRef = ref(slug);
             const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, setVariant });
-            // Lets the a11y-check tests below reach viewport.registerIframe()
-            // directly (a real iframe/contentWindow is DOM/browser-only —
-            // PreviewPane.vue isn't mounted in these toolbar-only specs) —
-            // optional, so every pre-existing call site above is unaffected.
+            // Hands the composable instance back to the caller — optional,
+            // so every pre-existing call site above is unaffected.
             onViewport?.(viewport);
             provide('viewport', viewport);
             return () => h(ViewportToolbar);
@@ -93,8 +80,7 @@ describe('ViewportToolbar', () => {
 // -- variants now render as a full-canvas grid of independent preview tiles
 // (VariantGrid.vue / VariantGrid.spec.js), which has no toolbar affordance.
 // ViewportToolbar's own responsibility in grid mode is narrower: hide the
-// single-preview-only width controls, and disable (not hide) the a11y check
-// button since it needs one iframe. No `[data-testid="variant-switcher"]`
+// single-preview-only width controls. No `[data-testid="variant-switcher"]`
 // exists anywhere in this file's specs any more.
 describe('ViewportToolbar — grid mode', () => {
     // styleguide-2.0 rework: the width-preset dropdown now stays visible AND
@@ -126,34 +112,6 @@ describe('ViewportToolbar — grid mode', () => {
             variant: ref('secondary'),
         });
         expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(true);
-    });
-
-    it('disables the a11y check button (with a title hint) in grid mode', () => {
-        const wrapper = mountWithViewport('component', 'multi', {
-            items: [{
-                id: 'multi',
-                name: 'Multi',
-                category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
-            }],
-        });
-        const button = wrapper.find('[data-testid="a11y-check-button"]');
-        expect(button.attributes('disabled')).toBeDefined();
-        expect(button.attributes('title')).toBe('Needs a single preview');
-    });
-
-    it('re-enables the a11y check button once a specific variant is deep-linked', () => {
-        const wrapper = mountWithViewport('component', 'multi', {
-            items: [{
-                id: 'multi',
-                name: 'Multi',
-                category: 'Block',
-                variants: [{ id: 'secondary', label: 'Secondary style' }],
-            }],
-            variant: ref('secondary'),
-        });
-        const button = wrapper.find('[data-testid="a11y-check-button"]');
-        expect(button.attributes('disabled')).toBeUndefined();
     });
 
     // The secondary actions cluster (iframe theme toggle, canvas mode, open
@@ -345,96 +303,3 @@ describe('ViewportToolbar — breadcrumb variant segment', () => {
     });
 });
 
-describe('ViewportToolbar — accessibility check', () => {
-    beforeEach(() => {
-        runAxeCheck.mockReset();
-    });
-
-    it('renders the check button on the inline lg+ surface for a normal route, and on the dedicated cluster for foundations', () => {
-        const compWrapper = mountWithViewport('component', 'hero');
-        expect(compWrapper.find('[data-testid="a11y-check-button"]').exists()).toBe(true);
-        expect(compWrapper.find('[data-testid="a11y-check-button-foundations"]').exists()).toBe(false);
-
-        const foundationsWrapper = mountWithViewport('foundations', null);
-        expect(foundationsWrapper.find('[data-testid="a11y-check-button-foundations"]').exists()).toBe(true);
-        expect(foundationsWrapper.find('[data-testid="a11y-check-button"]').exists()).toBe(false);
-    });
-
-    it('also renders the check button inside the ⋮ overflow menu', () => {
-        const wrapper = mountWithViewport();
-        expect(wrapper.find('[data-testid="a11y-check-button-overflow"]').exists()).toBe(true);
-    });
-
-    it('is a no-op when no iframe has been registered yet (PreviewPane not mounted in this spec)', async () => {
-        const wrapper = mountWithViewport();
-        await wrapper.find('[data-testid="a11y-check-button"]').trigger('click');
-        expect(runAxeCheck).not.toHaveBeenCalled();
-    });
-
-    it('runs the axe check against the registered iframe and stores formatted results', async () => {
-        let viewport;
-        const wrapper = mountWithViewport('component', 'hero', { onViewport: (vp) => { viewport = vp; } });
-        const fakeIframe = {};
-        viewport.registerIframe(fakeIframe);
-        runAxeCheck.mockResolvedValue({
-            violations: [{ id: 'image-alt', impact: 'critical', description: 'Alt text', help: 'Images must have alt', helpUrl: '#', nodes: [{ target: ['img'] }] }],
-        });
-
-        await wrapper.find('[data-testid="a11y-check-button"]').trigger('click');
-        await flushPromises();
-
-        expect(runAxeCheck).toHaveBeenCalledWith(fakeIframe);
-        const ui = useUiStore();
-        expect(ui.a11yRunning).toBe(false);
-        expect(ui.a11yResults.total).toBe(1);
-        expect(ui.a11yResults.byImpact.critical).toHaveLength(1);
-    });
-
-    // Review finding baked in: a second click while a check is already
-    // in flight must not fire a duplicate axe.run() against the same
-    // iframe document.
-    it('re-entrancy guard: a second click while a check is running has no effect', async () => {
-        let viewport;
-        const wrapper = mountWithViewport('component', 'hero', { onViewport: (vp) => { viewport = vp; } });
-        viewport.registerIframe({});
-        let resolveCheck;
-        runAxeCheck.mockReturnValue(new Promise((resolve) => { resolveCheck = resolve; }));
-
-        await wrapper.find('[data-testid="a11y-check-button"]').trigger('click');
-        expect(useUiStore().a11yRunning).toBe(true);
-
-        await wrapper.find('[data-testid="a11y-check-button"]').trigger('click');
-        expect(runAxeCheck).toHaveBeenCalledTimes(1);
-
-        resolveCheck({ violations: [] });
-        await flushPromises();
-        expect(useUiStore().a11yRunning).toBe(false);
-    });
-
-    // setRoute() (stores/ui.js) fires on every navigation, including one
-    // that happens while a check from the PREVIOUS route is still in
-    // flight -- it bumps a11yGeneration, which runA11yCheck() compares
-    // against its own snapshot after awaiting, and must then discard the
-    // result instead of repopulating ui.a11yResults for a document that's
-    // no longer displayed.
-    it('discards a late-resolving check\'s results if the route changed while it was in flight', async () => {
-        let viewport;
-        const wrapper = mountWithViewport('component', 'hero', { onViewport: (vp) => { viewport = vp; } });
-        viewport.registerIframe({});
-        let resolveCheck;
-        runAxeCheck.mockReturnValue(new Promise((resolve) => { resolveCheck = resolve; }));
-
-        await wrapper.find('[data-testid="a11y-check-button"]').trigger('click');
-        const ui = useUiStore();
-        expect(ui.a11yRunning).toBe(true);
-
-        ui.setRoute('component', 'other');
-        expect(ui.a11yRunning).toBe(false);
-
-        resolveCheck({ violations: [{ id: 'image-alt', impact: 'critical', description: 'x', help: 'x', helpUrl: '#', nodes: [] }] });
-        await flushPromises();
-
-        expect(ui.a11yResults).toBeNull();
-        expect(ui.a11yRunning).toBe(false);
-    });
-});

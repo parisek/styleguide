@@ -214,8 +214,8 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         && !variant.value);
 
     // Everything BUT the responsive-width dropdown/drag-handles/orientation
-    // toggle -- a11y check, iframe theme toggle, canvas mode, open-in-new-tab,
-    // reload -- stays available in grid mode too (they act on the grid's
+    // toggle -- iframe theme toggle, canvas mode, open-in-new-tab, reload --
+    // stays available in grid mode too (they act on the grid's
     // default tile / the whole preview area), so it's gated on this broader
     // flag rather than `toolbarVisible` below. Foundations/overview and
     // responsive:false entries are excluded exactly as before.
@@ -289,21 +289,6 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         wrapperEl = el;
     }
 
-    // Shares the <iframe> DOM handle PreviewPane.vue owns with whatever
-    // triggers an on-demand action against its contentWindow/contentDocument
-    // (ViewportToolbar.vue's accessibility check) -- mirrors observeWrapper
-    // above: a plain ref rather than a full ResizeObserver-style
-    // registration, since nothing here needs to react to the iframe's own
-    // resize/mutation, just hold a reference to it. `ref` (not a bare
-    // variable like wrapperEl) because ViewportToolbar's click handler reads
-    // it reactively across renders/route changes, whereas observeWrapper's
-    // consumer (startDrag) only ever reads the latest value synchronously
-    // inside an event handler.
-    const iframeEl = ref(null);
-    function registerIframe(el) {
-        iframeEl.value = el;
-    }
-
     function startDrag(event) {
         event.preventDefault();
         const startX = event.clientX ?? event.touches?.[0]?.clientX;
@@ -359,6 +344,6 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
         reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, currentSectionKey, currentItemName,
         currentItemDescription, currentVariantLabel, currentVariantDescription, descriptionBarText, fieldsTree, fieldsCount, isDragging, startDrag,
-        observeWrapper, observeContainer, iframeEl, registerIframe, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
+        observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };
 }

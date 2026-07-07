@@ -73,27 +73,6 @@ describe('useUiStore', () => {
         expect(ui.isPreviewLoading).toBe(false);
     });
 
-    // Review finding baked in: on-demand a11y check state is ephemeral and
-    // must not survive a navigation — a stale violation list (or a
-    // never-cleared "running" flag from an abandoned check) would describe
-    // a document the iframe no longer shows. Mirrors the existing
-    // isPreviewLoading reset test above.
-    it('setRoute clears a11yResults and a11yRunning on every navigation', () => {
-        const ui = useUiStore();
-        ui.a11yResults = { byImpact: { critical: [], serious: [], moderate: [], minor: [] }, total: 0 };
-        ui.a11yRunning = true;
-        ui.setRoute('component', 'hero');
-        expect(ui.a11yResults).toBeNull();
-        expect(ui.a11yRunning).toBe(false);
-    });
-
-    it('setRoute clears a11y state even for a non-iframe-bearing route (overview)', () => {
-        const ui = useUiStore();
-        ui.a11yResults = { byImpact: { critical: [], serious: [], moderate: [], minor: [] }, total: 1 };
-        ui.setRoute('overview', null);
-        expect(ui.a11yResults).toBeNull();
-    });
-
     it('initFromUrl applies a valid ?width= URL param exactly once at boot', () => {
         window.history.replaceState(null, '', '/styleguide/?width=768');
         const ui = useUiStore();

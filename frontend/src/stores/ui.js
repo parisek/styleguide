@@ -50,24 +50,6 @@ export const useUiStore = defineStore('ui', {
             searchQuery: '',
             routeType: 'landing',
             routeSlug: null,
-            // On-demand accessibility check (axe-core). Ephemeral, NOT persisted
-            // (unlike previewWidth/sidebarOpen/etc. above) — a stale violation
-            // list surviving a reload or a route change would describe a
-            // document that's no longer loaded in the iframe. Reset by
-            // setRoute() below, mirroring isPreviewLoading's own per-navigation
-            // reset.
-            a11yResults: null,
-            a11yRunning: false,
-            // Monotonic counter bumped by setRoute() (see below) alongside the
-            // reset above. ViewportToolbar's runA11yCheck() snapshots this
-            // before starting a check and compares it again after awaiting
-            // runAxeCheck() -- a mismatch means a navigation happened while the
-            // check was in flight, so the (now-stale) result is discarded
-            // instead of repopulating these fields for a document the iframe no
-            // longer shows. Store-level (not a local ref in ViewportToolbar)
-            // because setRoute() is the single place navigation is observed;
-            // mirrors the reloadNonce idiom in useViewportPreset.js.
-            a11yGeneration: 0,
             // Iframe content theme — independent of the SPA chrome's own light/
             // dark/system toggle (stores/theme.js). Persisted under its own
             // localStorage key so switching one doesn't affect the other.
@@ -141,15 +123,6 @@ export const useUiStore = defineStore('ui', {
             }
             this.routeType = type;
             this.routeSlug = slug;
-            // Review finding baked in: clear on EVERY navigation, not just
-            // iframe-bearing ones (unlike the isPreviewLoading branch above)
-            // — a stale a11y panel from the previous route/document would
-            // otherwise linger over /overview or /foundations too.
-            this.a11yResults = null;
-            this.a11yRunning = false;
-            // Invalidates any check still in flight from the previous route
-            // — see the a11yGeneration state comment above.
-            this.a11yGeneration++;
         },
         // Mirrors the server-side whitelist in Router::whitelistTheme() — any
         // value other than the literal string 'dark' resolves to 'light', so
