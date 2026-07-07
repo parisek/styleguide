@@ -121,6 +121,23 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
             <button @click="ui.toggleSidebar()" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="i18n.t('toolbar.toggle_sidebar')" :aria-label="i18n.t('toolbar.toggle_sidebar')">
                 <svg aria-hidden="true" focusable="false" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
+            <!-- "Back to all variants" -- only present once a deep-linked
+                 `?variant=<id>` has isolated the classic single preview
+                 (VariantGrid.vue's click-to-isolate, or a hand-typed/
+                 bookmarked URL). Placed first, ahead of the breadcrumb, so
+                 it reads as "leave this isolated view" rather than part of
+                 the breadcrumb trail itself. Clears the query param via the
+                 same setVariant(null) the grid's own affordances use --
+                 lands back on the grid (or the classic single preview, for
+                 an entry that never had variants in the first place, though
+                 showVariantBackControl never shows for those). -->
+            <template v-if="viewport.showVariantBackControl.value">
+                <button type="button"
+                        data-testid="variant-back-control"
+                        @click="viewport.setVariant(null)"
+                        :title="i18n.t('toolbar.variant_back_all')"
+                        class="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0 transition-colors">{{ i18n.t('toolbar.variant_back_all') }}</button>
+            </template>
             <template v-if="viewport.type.value === 'overview'">
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ i18n.t('nav.overview') }}</span>
             </template>
@@ -155,18 +172,59 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
              that used to live here (commit dc4715a) is GONE per the
              styleguide-2.0 redesign brief -- variants are now a full-canvas
              grid of independent preview tiles (VariantGrid.vue, rendered by
-             PreviewPane.vue whenever viewport.gridActive is true), which
-             has no toolbar affordance of its own. Deciding what (if
-             anything) belongs here to indicate/control grid mode is this
-             prototype's open question -- not addressed in this pass. -->
+             PreviewPane.vue whenever viewport.gridActive is true). Its
+             toolbar affordance is the rows/grid layout toggle just below
+             (grid mode only) -- the responsive-width preset dropdown stays
+             visible too and applies the same shared preset to every tile. -->
         <template v-if="viewport.previewActionsVisible.value">
             <div class="flex items-center gap-2 shrink-0">
-                <!-- Responsive-width preset dropdown + drag handles +
-                     orientation toggle. Single-preview-only machinery --
-                     hidden in grid mode (viewport.toolbarVisible narrows
-                     previewActionsVisible by `!gridActive`; the grid manages
-                     its own per-tile layout) as well as on the foundations
-                     route and responsive:false entries. -->
+                <!-- Rows vs grid tile layout -- VariantGrid.vue-only control,
+                     so it only makes sense (and only renders) while the grid
+                     itself is active. Persisted via ui.variantLayout. -->
+                <template v-if="viewport.gridActive.value">
+                    <div role="group" :aria-label="i18n.t('toolbar.variant_layout_label')"
+                         data-testid="variant-layout-toggle"
+                         class="inline-flex gap-px rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-700 shrink-0">
+                        <button type="button"
+                                data-testid="variant-layout-rows"
+                                @click="ui.setVariantLayout('rows')"
+                                :title="i18n.t('toolbar.layout_rows')"
+                                :aria-label="i18n.t('toolbar.layout_rows')"
+                                :aria-pressed="ui.variantLayout === 'rows' ? 'true' : 'false'"
+                                class="h-9 w-9 flex items-center justify-center transition-colors"
+                                :class="ui.variantLayout === 'rows' ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">
+                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="4" y="5" width="16" height="3" rx="1"/>
+                                <rect x="4" y="10.5" width="16" height="3" rx="1"/>
+                                <rect x="4" y="16" width="16" height="3" rx="1"/>
+                            </svg>
+                        </button>
+                        <button type="button"
+                                data-testid="variant-layout-grid"
+                                @click="ui.setVariantLayout('grid')"
+                                :title="i18n.t('toolbar.layout_grid')"
+                                :aria-label="i18n.t('toolbar.layout_grid')"
+                                :aria-pressed="ui.variantLayout === 'grid' ? 'true' : 'false'"
+                                class="h-9 w-9 flex items-center justify-center transition-colors"
+                                :class="ui.variantLayout === 'grid' ? 'bg-red-600 text-white dark:bg-red-500 dark:text-white' : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-600'">
+                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="8" height="8" rx="1"/>
+                                <rect x="13" y="3" width="8" height="8" rx="1"/>
+                                <rect x="3" y="13" width="8" height="8" rx="1"/>
+                                <rect x="13" y="13" width="8" height="8" rx="1"/>
+                            </svg>
+                        </button>
+                    </div>
+                </template>
+                <!-- Responsive-width preset dropdown + custom width +
+                     orientation toggle. Stays visible AND functional in grid
+                     mode -- the same shared preset now applies uniformly to
+                     every tile, scaled down per tile to fit (VariantGrid.vue
+                     + lib/tileGeometry.js). Only PreviewPane.vue's drag
+                     handles/chassis decorations remain single-preview-only
+                     (they simply aren't rendered while the grid is active),
+                     and only on the foundations route / responsive:false
+                     entries does this whole block still disappear. -->
                 <template v-if="viewport.toolbarVisible.value">
                 <!-- Unified viewport switcher — one labelled dropdown at every width
                      (replaces the old xl segmented bar + separate mobile menu). The

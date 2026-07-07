@@ -25,7 +25,12 @@
         "more_actions": "Další akce",
         "iframe_theme": "Přepnout tmavý režim v iframu",
         "variant_label": "Varianta",
-        "variant_default": "Výchozí"
+        "variant_default": "Výchozí",
+        "variant_back_all": "← Vše",
+        "variant_isolate_prefix": "Izolovat",
+        "variant_layout_label": "Rozložení dlaždic",
+        "layout_rows": "Pod sebe",
+        "layout_grid": "Vedle sebe"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

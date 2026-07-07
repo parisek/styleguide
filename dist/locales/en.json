@@ -25,7 +25,12 @@
         "more_actions": "More actions",
         "iframe_theme": "Toggle iframe dark mode",
         "variant_label": "Variant",
-        "variant_default": "Default"
+        "variant_default": "Default",
+        "variant_back_all": "← All",
+        "variant_isolate_prefix": "Isolate",
+        "variant_layout_label": "Tile layout",
+        "layout_rows": "Stacked",
+        "layout_grid": "Side by side"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

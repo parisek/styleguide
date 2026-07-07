@@ -25,7 +25,8 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             viewport_preset: 'Viewport', custom_width_label: 'Custom', custom_width_placeholder: 'px',
             orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
-            variant_label: 'Variant', variant_default: 'Default',
+            variant_label: 'Variant', variant_default: 'Default', variant_back_all: '← All',
+            variant_layout_label: 'Tile layout', layout_rows: 'Stacked', layout_grid: 'Side by side',
         },
         sections: { blocks: 'Blocks' },
         a11y: { check_action: 'Accessibility check', unavailable_in_grid: 'Needs a single preview' },
@@ -93,7 +94,12 @@ describe('ViewportToolbar', () => {
 // button since it needs one iframe. No `[data-testid="variant-switcher"]`
 // exists anywhere in this file's specs any more.
 describe('ViewportToolbar — grid mode', () => {
-    it('hides the width-preset dropdown when the entry has variants and none is selected (grid mode)', () => {
+    // styleguide-2.0 rework: the width-preset dropdown now stays visible AND
+    // functional in grid mode -- the shared preset applies to every tile
+    // (VariantGrid.vue scales each one down to fit its own cell). There is
+    // still no `[data-testid="variant-switcher"]` toolbar pill -- that stays
+    // gone per the original redesign.
+    it('keeps the width-preset dropdown visible when the entry has variants and none is selected (grid mode)', () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
@@ -103,7 +109,7 @@ describe('ViewportToolbar — grid mode', () => {
             }],
         });
         expect(wrapper.find('[data-testid="variant-switcher"]').exists()).toBe(false);
-        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(true);
     });
 
     it('shows the width-preset dropdown again once a specific variant is deep-linked (classic single preview)', () => {
@@ -161,6 +167,71 @@ describe('ViewportToolbar — grid mode', () => {
             }],
         });
         expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
+    });
+
+    it('renders the rows/grid layout toggle only when the grid is active', () => {
+        const gridWrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+        });
+        expect(gridWrapper.find('[data-testid="variant-layout-toggle"]').exists()).toBe(true);
+
+        const noVariantsWrapper = mountWithViewport('component', 'hero');
+        expect(noVariantsWrapper.find('[data-testid="variant-layout-toggle"]').exists()).toBe(false);
+
+        const isolatedWrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+            variant: ref('secondary'),
+        });
+        expect(isolatedWrapper.find('[data-testid="variant-layout-toggle"]').exists()).toBe(false);
+    });
+
+    it('clicking the rows/grid layout buttons updates ui.variantLayout', async () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+        });
+        const ui = useUiStore();
+        expect(ui.variantLayout).toBe('grid');
+        await wrapper.find('[data-testid="variant-layout-rows"]').trigger('click');
+        expect(ui.variantLayout).toBe('rows');
+        await wrapper.find('[data-testid="variant-layout-grid"]').trigger('click');
+        expect(ui.variantLayout).toBe('grid');
+    });
+});
+
+describe('ViewportToolbar — variant back control', () => {
+    it('is absent in grid mode (no variant selected)', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+        });
+        expect(wrapper.find('[data-testid="variant-back-control"]').exists()).toBe(false);
+    });
+
+    it('shows once a specific variant is deep-linked, and calls setVariant(null) to return to the grid', async () => {
+        let capturedId = 'not-called';
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+            variant: ref('secondary'),
+            setVariant: (id) => { capturedId = id; },
+        });
+        const back = wrapper.find('[data-testid="variant-back-control"]');
+        expect(back.exists()).toBe(true);
+        await back.trigger('click');
+        expect(capturedId).toBeNull();
     });
 });
 

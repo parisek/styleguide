@@ -1,0 +1,53 @@
+// Pure per-tile sizing math for VariantGrid.vue — split out from the
+// component so the scaling rules (device preset applied uniformly to every
+// tile, scaled down to fit each tile's own measured cell width) are testable
+// without mounting a component or faking ResizeObserver/iframe navigation.
+//
+// `presetWidth`/`presetHeight` come straight from useViewportPreset's
+// `effective` computed (the SAME preset the toolbar's viewport dropdown
+// drives for the classic single preview — Full is `presetWidth === null`).
+// `cellWidth` is the tile's own measured content-area width (VariantGrid's
+// per-tile ResizeObserver registry). `rawContentHeight` is the tile's
+// same-origin auto-measured iframe height (VariantGrid's `heights` registry)
+// — only consulted when there's no canonical preset height (Full, or a
+// fixed-width preset/Custom-width with no canonical height).
+import { fitZoom } from './viewportMath.js';
+
+// Full preset: fluid tile, no scaling, height is whatever the iframe's own
+// content measures (or the caller's pre-measure floor before the first
+// load/ResizeObserver tick).
+export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawContentHeight, minHeight }) {
+    const contentHeight = rawContentHeight ?? minHeight ?? 0;
+    if (presetWidth === null) {
+        return {
+            fluid: true, zoom: 1,
+            iframeWidth: null, iframeHeight: contentHeight,
+            wrapperWidth: null, wrapperHeight: null,
+        };
+    }
+    // Only the WIDTH constrains the scale — a tile's cell has no fixed
+    // height ceiling in either layout mode (rows: the row grows to fit;
+    // grid: `align-items: start` lets each tile own its natural height), so
+    // `availHeight` is omitted and fitZoom's height branch never engages.
+    const zoom = fitZoom({ width: presetWidth, height: presetHeight, availWidth: cellWidth, availHeight: 0 });
+    // Fixed-width preset without a canonical height (Custom width behaves
+    // the same way) falls back to the tile's own measured content height,
+    // exactly like the classic single preview's Custom-width mode.
+    const logicalHeight = presetHeight ?? contentHeight;
+    return {
+        fluid: false,
+        zoom,
+        iframeWidth: presetWidth,
+        iframeHeight: logicalHeight,
+        wrapperWidth: Math.max(1, Math.round(presetWidth * zoom)),
+        wrapperHeight: Math.max(1, Math.round(logicalHeight * zoom)),
+    };
+}
+
+// "375 × 667 · 84 %" for a scaled tile; omitted entirely for fluid (Full)
+// tiles, which have no scale concept.
+export function formatTileScaleLabel(geometry) {
+    if (!geometry || geometry.fluid) return '';
+    const pct = Math.round(geometry.zoom * 100);
+    return `${geometry.iframeWidth} × ${geometry.iframeHeight} · ${pct} %`;
+}

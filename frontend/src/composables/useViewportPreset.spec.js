@@ -153,14 +153,21 @@ describe('useViewportPreset', () => {
         expect(vp.gridActive.value).toBe(true);
     });
 
-    it('toolbarVisible is false in grid mode even though previewActionsVisible stays true', () => {
+    // styleguide-2.0 rework: the responsive-width dropdown/custom-width/
+    // orientation controls stay visible AND functional in grid mode — they
+    // apply the same shared preset to every tile (VariantGrid.vue scales
+    // each tile down to fit its own cell). Only the classic single preview's
+    // drag handles/chassis decorations remain single-preview-only, and those
+    // are gated in PreviewPane.vue itself (which doesn't render them in grid
+    // mode), not via toolbarVisible.
+    it('toolbarVisible stays true in grid mode (the shared preset dropdown applies per tile)', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
         catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.gridActive.value).toBe(true);
-        expect(vp.toolbarVisible.value).toBe(false);
+        expect(vp.toolbarVisible.value).toBe(true);
         expect(vp.previewActionsVisible.value).toBe(true);
     });
 
@@ -259,6 +266,32 @@ describe('useViewportPreset', () => {
         vp.setVariant('dark-bg');
         expect(variant.value).toBe('dark-bg');
         expect(vp.variant.value).toBe('dark-bg');
+    });
+
+    it('showVariantBackControl is true once a specific variant is deep-linked', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        const variant = ref('secondary');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.showVariantBackControl.value).toBe(true);
+    });
+
+    it('showVariantBackControl is false in grid mode (no variant selected)', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.showVariantBackControl.value).toBe(false);
+    });
+
+    it('showVariantBackControl is false for an entry with no variants at all', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.showVariantBackControl.value).toBe(false);
     });
 
     it('fieldsTree/fieldsCount reflect the current item\'s YAML fields map', () => {

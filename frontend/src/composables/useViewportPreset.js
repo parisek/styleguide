@@ -200,11 +200,25 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         && type.value !== 'overview'
         && currentItem.value?.responsive !== false);
 
-    // The responsive-width preset dropdown (+ drag handles + orientation
-    // toggle in PreviewPane.vue) only makes sense against ONE iframe -- the
-    // grid manages its own per-tile sizing, so this narrows
-    // previewActionsVisible further by `!gridActive`.
-    const toolbarVisible = computed(() => previewActionsVisible.value && !gridActive.value);
+    // The responsive-width preset dropdown + custom-width input + orientation
+    // toggle stay meaningful in grid mode too — VariantGrid.vue applies the
+    // same shared preset uniformly to every tile (scaled down per tile to
+    // fit that tile's own cell), rather than owning independent per-tile
+    // controls. Only the classic single preview's drag-to-resize handles and
+    // device chassis decorations are single-preview-only (PreviewPane.vue
+    // simply doesn't render them in grid mode, since VariantGrid.vue owns
+    // its own layout there) — so this no longer narrows by `!gridActive`;
+    // it's kept as its own computed (rather than inlining
+    // previewActionsVisible everywhere) so a future single-preview-only
+    // exception has one place to land.
+    const toolbarVisible = computed(() => previewActionsVisible.value);
+
+    // Shows a small "back to all variants" control in ViewportToolbar.vue
+    // when a deep-linked `?variant=<id>` has isolated the classic single
+    // preview. `variant.value` is already whitelisted against the current
+    // entry's discovered variants by useVariant.js (an unknown/removed id
+    // resolves to null), so no extra entry lookup is needed here.
+    const showVariantBackControl = computed(() => !!variant.value);
 
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
@@ -292,7 +306,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         type, slug, variant, setVariant,
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
-        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, currentSectionKey, currentItemName,
+        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, showVariantBackControl, currentSectionKey, currentItemName,
         currentItemDescription, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, iframeEl, registerIframe, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

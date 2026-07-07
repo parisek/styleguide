@@ -42,6 +42,12 @@ export const useUiStore = defineStore('ui', {
         // dark/system toggle (stores/theme.js). Persisted under its own
         // localStorage key so switching one doesn't affect the other.
         iframeTheme: usePersistedRef('sg-iframe-theme', 'light'),
+        // Variant grid tile layout — "grid" (side-by-side auto-fit columns,
+        // the original prototype behavior) or "rows" (one tile per row,
+        // stacked). Persisted under its own key, independent of previewWidth
+        // etc., since it's a VariantGrid-only concern (inert once a specific
+        // `?variant=` isolates to the classic single preview).
+        variantLayout: usePersistedRef('sg-variant-layout', 'grid'),
     }),
     getters: {
         isPortrait: (state) => isPortraitOrientation({
@@ -126,6 +132,12 @@ export const useUiStore = defineStore('ui', {
         setIframeTheme(value) {
             this.iframeTheme = value === 'dark' ? 'dark' : 'light';
             setCookie('sg-iframe-theme', this.iframeTheme);
+        },
+        // Whitelisted the same way as setIframeTheme() above — a corrupted
+        // localStorage value can never resolve to anything but the "grid"
+        // default.
+        setVariantLayout(value) {
+            this.variantLayout = value === 'rows' ? 'rows' : 'grid';
         },
     },
 });

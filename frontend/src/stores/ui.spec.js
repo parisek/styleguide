@@ -167,3 +167,30 @@ describe('iframeTheme', () => {
         expect(document.cookie).toContain('sg-iframe-theme=light');
     });
 });
+
+// Variant grid tile layout (styleguide 2.0: rows vs grid). Its own
+// localStorage key, independent of previewWidth/etc. -- it's a VariantGrid-
+// only concern.
+describe('variantLayout', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        setActivePinia(createPinia());
+    });
+
+    it('defaults to "grid"', () => {
+        expect(useUiStore().variantLayout).toBe('grid');
+    });
+
+    it('setVariantLayout persists the chosen layout across store instances', async () => {
+        useUiStore().setVariantLayout('rows');
+        await Promise.resolve();
+        setActivePinia(createPinia());
+        expect(useUiStore().variantLayout).toBe('rows');
+    });
+
+    it('rejects invalid values by falling back to "grid"', () => {
+        const ui = useUiStore();
+        ui.setVariantLayout('columns');
+        expect(ui.variantLayout).toBe('grid');
+    });
+});

@@ -127,3 +127,92 @@ test.describe('file-convention variants', () => {
         await expect(page).not.toHaveURL(/variant=/);
     });
 });
+
+// styleguide-2.0 rework: device presets now apply to every grid tile
+// (scaled down per tile to fit its own cell — never upscaled), a rows/grid
+// layout toggle controls how tiles flow, and a tile's header is itself a
+// click/keyboard affordance that isolates it to the classic single preview
+// (with a small "back to all" control to return).
+test.describe('variant grid v2 — device presets, layout toggle, click-to-isolate', () => {
+    test('the viewport preset dropdown stays visible in grid mode and applies to every tile, scaled with a per-tile readout', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        await expect(page.getByTestId('variant-grid')).toBeVisible();
+
+        // Grid mode no longer hides the responsive-width dropdown.
+        await expect(page.getByTestId('viewport-trigger')).toBeVisible();
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-mobile').click();
+
+        const tiles = page.getByTestId('variant-tile');
+        for (let i = 0; i < 3; i++) {
+            const iframe = tiles.nth(i).locator('iframe');
+            // Logical preset size (Mobile: 375×667) — the actual VISIBLE
+            // size is this scaled down (never up) to fit the tile's own
+            // cell via `transform: scale(...)`; the readout in the header
+            // reports that scale.
+            await expect(iframe).toHaveAttribute('style', /width: 375px/);
+            await expect(iframe).toHaveAttribute('style', /height: 667px/);
+            await expect(tiles.nth(i).getByTestId('variant-tile-scale')).toContainText('375 × 667');
+        }
+    });
+
+    test('the Full preset (default) renders fluid tiles with no scale readout', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        await expect(page.getByTestId('variant-tile-scale')).toHaveCount(0);
+        const firstIframe = page.getByTestId('variant-tile').nth(0).locator('iframe');
+        await expect(firstIframe).not.toHaveAttribute('style', /transform/);
+    });
+
+    test('layout toggle: "rows" stacks every tile in a single column; "grid" is the default', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(3);
+
+        // Default layout is "grid" — the toggle exists and the grid button
+        // reads pressed.
+        await expect(page.getByTestId('variant-layout-toggle')).toBeVisible();
+        await expect(page.getByTestId('variant-layout-grid')).toHaveAttribute('aria-pressed', 'true');
+
+        await page.getByTestId('variant-layout-rows').click();
+        await expect(page.getByTestId('variant-layout-rows')).toHaveAttribute('aria-pressed', 'true');
+
+        const boxes = await tiles.evaluateAll((els) => els.map((el) => {
+            const r = el.getBoundingClientRect();
+            return { left: r.left, top: r.top, bottom: r.bottom };
+        }));
+        expect(boxes).toHaveLength(3);
+        // Single column: every tile starts at the same left edge...
+        const lefts = new Set(boxes.map((b) => Math.round(b.left)));
+        expect(lefts.size).toBe(1);
+        // ...and stacks top to bottom, one full row per tile.
+        expect(boxes[1].top).toBeGreaterThanOrEqual(boxes[0].bottom - 1);
+        expect(boxes[2].top).toBeGreaterThanOrEqual(boxes[1].bottom - 1);
+    });
+
+    test('the Default tile header is not clickable; every other tile header isolates it to the classic single preview, with a back control to return', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        const tiles = page.getByTestId('variant-tile');
+
+        // Default tile (index 0): no role="button", not focusable.
+        const defaultHeader = tiles.nth(0).getByTestId('variant-tile-header');
+        await expect(defaultHeader).not.toHaveAttribute('role', 'button');
+        await expect(defaultHeader).not.toHaveAttribute('tabindex', '0');
+
+        // dark-bg tile (index 1): clicking its header isolates it.
+        await expect(page.getByTestId('variant-back-control')).toHaveCount(0);
+        await tiles.nth(1).getByTestId('variant-tile-header').click();
+        await expect(page).toHaveURL(/variant=dark-bg/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+        const iframe = page.frameLocator('iframe');
+        await expect(iframe.locator('.multi')).toContainText('Multi demo (dark-bg variant, no YAML label)');
+
+        // The back control appears once isolated, and returns to the grid.
+        const back = page.getByTestId('variant-back-control');
+        await expect(back).toBeVisible();
+        await back.click();
+        await expect(page).not.toHaveURL(/variant=/);
+        await expect(page.getByTestId('variant-grid')).toBeVisible();
+        await expect(page.getByTestId('variant-tile')).toHaveCount(3);
+        await expect(page.getByTestId('variant-back-control')).toHaveCount(0);
+    });
+});
