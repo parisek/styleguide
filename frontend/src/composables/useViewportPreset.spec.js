@@ -98,10 +98,49 @@ describe('useViewportPreset', () => {
         expect(vp.effective.value).toEqual({ width: null, height: null });
     });
 
-    // Regression for Phase 4 Task 3 review finding 1: variantSwitcherVisible
-    // must stay true for a responsive:false entry that has variants — only
-    // toolbarVisible (the width controls) should react to `responsive`.
-    it('variantSwitcherVisible stays true for a responsive:false entry that has variants', () => {
+    // gridActive replaces the never-shipped variantSwitcherVisible pill
+    // gate: the whole preview area becomes a tile grid whenever the current
+    // entry has discovered variants and no `?variant=` is selected.
+    it('gridActive is true when the current entry has variants and no variant is selected', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.gridActive.value).toBe(true);
+    });
+
+    it('gridActive is false once a specific variant is selected (classic single preview)', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        const variant = ref('secondary');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.gridActive.value).toBe(false);
+    });
+
+    it('gridActive is false when the current item has no variants', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.gridActive.value).toBe(false);
+    });
+
+    it('gridActive is false for foundations even though iframeSrc is set', () => {
+        const type = ref('foundations');
+        const slug = ref(null);
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBeTruthy();
+        expect(vp.gridActive.value).toBe(false);
+    });
+
+    // Regression for the equivalent Phase 4 Task 3 finding, now expressed via
+    // previewActionsVisible/gridActive: a responsive:false entry with
+    // variants still activates the grid (which has no width controls to hide
+    // in the first place) — only toolbarVisible (the width controls) reacts
+    // to `responsive`.
+    it('gridActive stays true for a responsive:false entry that has variants (toolbarVisible stays false)', () => {
         const type = ref('doc');
         const slug = ref('sample-doc');
         const catalog = useCatalogStore();
@@ -111,22 +150,36 @@ describe('useViewportPreset', () => {
         }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.toolbarVisible.value).toBe(false);
-        expect(vp.variantSwitcherVisible.value).toBe(true);
+        expect(vp.gridActive.value).toBe(true);
     });
 
-    it('variantSwitcherVisible is false when the current item has no variants', () => {
+    it('toolbarVisible is false in grid mode even though previewActionsVisible stays true', () => {
         const type = ref('component');
-        const slug = ref('hero');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
         const vp = useViewportPreset({ type, slug });
-        expect(vp.variantSwitcherVisible.value).toBe(false);
+        expect(vp.gridActive.value).toBe(true);
+        expect(vp.toolbarVisible.value).toBe(false);
+        expect(vp.previewActionsVisible.value).toBe(true);
     });
 
-    it('variantSwitcherVisible is false for foundations even though iframeSrc is set', () => {
-        const type = ref('foundations');
-        const slug = ref(null);
+    it('iframeSrcForVariant builds the default (no-variant) URL for a null/undefined id', () => {
+        const type = ref('component');
+        const slug = ref('multi');
         const vp = useViewportPreset({ type, slug });
-        expect(vp.iframeSrc.value).toBeTruthy();
-        expect(vp.variantSwitcherVisible.value).toBe(false);
+        expect(vp.iframeSrcForVariant(null)).toBe('/styleguide/render/component/multi');
+        expect(vp.iframeSrcForVariant()).toBe('/styleguide/render/component/multi');
+    });
+
+    it('iframeSrcForVariant builds an isolated ?variant= URL for a given id, independent of the deep-linked variant ref', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const variant = ref('secondary');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.iframeSrcForVariant('dark-bg')).toBe('/styleguide/render/component/multi?variant=dark-bg');
+        // The deep-linked variant ref itself is untouched by grid-tile lookups.
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/multi?variant=secondary');
     });
 
     it('dimensionsLabel reports the scaled percentage when zoom < 1', () => {

@@ -50,10 +50,6 @@ final class Renderer
      *   {@see self::renderInner()} to prefer a `styleguide.<variant>.twig`
      *   sibling over the default `styleguide.twig` — see that method for the
      *   full resolution order and fallback contract.
-     *   `variants`, when non-empty, is the entry's discovered variant
-     *   records (`ComponentParser::discoverVariants()`'s output — id/label/
-     *   description) and drives the stacked default view — see
-     *   {@see self::renderInner()}.
      * @param string $theme
      *   `'light'` or `'dark'` — stamps `class="dark"` + a matching
      *   `color-scheme` on the rendered `<html>`. Callers should route the
@@ -86,14 +82,8 @@ final class Renderer
             }
         }
 
-        // $variantStack is true only for a genuine stacked-default-view
-        // render — it gates render-cell.twig's .sg-variant-* CSS so every
-        // OTHER render path (no variants at all, or an isolated ?variant=)
-        // stays byte-identical to pre-stacking output; the CSS would
-        // otherwise leak a few extra bytes into every single render.
-        $variantStack = false;
         try {
-            [$body, $variantStack] = $this->renderBody($kind, $slug, $config, $langcode);
+            $body = $this->renderBody($kind, $slug, $config);
             if ($body === null) {
                 return $this->render404($kind, $slug, $config);
             }
@@ -106,7 +96,6 @@ final class Renderer
             // "something went wrong" page).
             http_response_code(500);
             $body = $this->errorMarkup($e);
-            $variantStack = false;
         }
 
         // `iframe.css` / `iframe.fonts` accept a single URL string or a list of
@@ -159,7 +148,6 @@ final class Renderer
             ],
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,
-            'variant_stack' => $variantStack,
         ]);
     }
 
@@ -237,137 +225,60 @@ final class Renderer
      * Dispatch the inner body render by kind. Components / pages render the
      * project's own template; foundations renders the package-shipped
      * template against the full styleguide.yaml.
-     *
      * @param array<string, mixed> $config
-     * @return array{0:?string,1:bool} Body HTML (or null → 404) plus whether
-     *   it's a genuine stacked-default-view render (see {@see self::render()}
-     *   for why the flag exists).
      */
-    private function renderBody(string $kind, string $slug, array $config, string $langcode): array
+    private function renderBody(string $kind, string $slug, array $config): ?string
     {
         return match ($kind) {
             'component', 'page', 'doc' => $this->renderInner(
                 $kind,
                 $slug,
                 is_string($config['variant'] ?? null) ? $config['variant'] : null,
-                is_array($config['variants'] ?? null) ? $config['variants'] : [],
-                $langcode,
             ),
-            'foundations' => [$this->twig->render('foundations.twig', [
+            'foundations' => $this->twig->render('foundations.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
-            ] + $this->context), false],
-            default => [null, false],
+            ] + $this->context),
+            default => null,
         };
     }
 
     /**
-     * Look up the actual component/page/doc Twig template(s) and render the
-     * styleguide context against them.
+     * Look up the actual component/page Twig template and render it with the
+     * styleguide context.
      *
-     * Two distinct outcomes:
-     *   - A variant is REQUESTED (`$variant` non-null AND syntactically
-     *     valid): isolate mode, unchanged since the file-convention variant
-     *     feature shipped. Candidate order — the requested variant sibling →
-     *     the default `styleguide.twig` demo file → the component's own
-     *     `<slug>.twig`. The regex re-check is defensive, not redundant:
-     *     `Renderer` is unit-tested and can be called directly (bypassing
-     *     `Router::whitelistVariant()` entirely), so an invalid/malformed
-     *     `$variant` must never reach the candidate list. A deleted/renamed/
-     *     mistyped variant id (syntactically valid but no matching file)
-     *     still resolves here, to the plain default — single block, no
-     *     stack — never a 404 for a bookmarked deep link.
-     *   - NO variant requested: when `$variants` (the entry's discovered
-     *     variant records) is empty, byte-identical single-block output to
-     *     pre-stacking behaviour (BC). When non-empty, the STACK: the
-     *     default block first (heading "Výchozí"/"Default" by langcode),
-     *     then every discovered variant in order, each preceded by its
-     *     label heading and optional description. Selecting a variant (the
-     *     first branch above) always isolates it — the stack only ever
-     *     appears on the no-variant-requested path.
+     * Resolution order: the requested variant sibling (only when `$variant`
+     * is non-null AND syntactically valid) → the default `styleguide.twig`
+     * demo file → the component's own `<slug>.twig`. Same convention as the
+     * legacy TwigStyleguide renderer, extended with the variant preference
+     * on top.
      *
-     * @param array<int|string, mixed> $variants Expected shape (from
-     *   `ComponentParser::discoverVariants()`, threaded through the config
-     *   key of the same name) is `list<array{id:string,label:string,
-     *   description:string}>`, but callers other than `Styleguide::
-     *   dispatchRender()` are untrusted — every entry is defensively
-     *   re-validated below and skipped (never fatal) if malformed.
-     * @return array{0:?string,1:bool} Body HTML (or null → 404) plus whether
-     *   this is a genuine stacked-default-view render.
+     * The regex re-check is defensive, not redundant: `Renderer` is
+     * unit-tested and can be called directly (bypassing `Router::
+     * whitelistVariant()` entirely), so an invalid/malformed `$variant`
+     * must never reach the candidate list — it degrades to exactly the
+     * no-variant case, same as an unknown-but-well-formed id that has no
+     * matching file. Either way a deleted/renamed/mistyped variant never
+     * 404s a bookmarked deep link.
      */
-    private function renderInner(string $kind, string $slug, ?string $variant, array $variants, string $langcode): array
+    private function renderInner(string $kind, string $slug, ?string $variant = null): ?string
     {
         $loader = $this->twig->getLoader();
         $namespace = '@project/' . $kind . '/' . $slug;
 
-        $requestedVariant = ($variant !== null && preg_match('/^[a-z0-9-]+$/', $variant) === 1) ? $variant : null;
-
-        if ($requestedVariant !== null) {
-            foreach ([
-                $namespace . '/styleguide.' . $requestedVariant . '.twig',
-                $namespace . '/styleguide.twig',
-                $namespace . '/' . $slug . '.twig',
-            ] as $path) {
-                if ($loader->exists($path)) {
-                    return [$this->twig->render($path, $this->context), false];
-                }
-            }
-            return [null, false];
+        $candidates = [];
+        if ($variant !== null && preg_match('/^[a-z0-9-]+$/', $variant) === 1) {
+            $candidates[] = $namespace . '/styleguide.' . $variant . '.twig';
         }
+        $candidates[] = $namespace . '/styleguide.twig';
+        $candidates[] = $namespace . '/' . $slug . '.twig';
 
-        $defaultPath = null;
-        foreach ([$namespace . '/styleguide.twig', $namespace . '/' . $slug . '.twig'] as $path) {
+        foreach ($candidates as $path) {
             if ($loader->exists($path)) {
-                $defaultPath = $path;
-                break;
+                return $this->twig->render($path, $this->context);
             }
         }
-        if ($defaultPath === null) {
-            return [null, false];
-        }
 
-        if ($variants === []) {
-            return [$this->twig->render($defaultPath, $this->context), false];
-        }
-
-        $defaultLabel = str_starts_with($langcode, 'cs') ? 'Výchozí' : 'Default';
-        $sections = [$this->renderVariantSection($defaultLabel, '', $this->twig->render($defaultPath, $this->context))];
-
-        foreach ($variants as $entry) {
-            if (!is_array($entry) || !isset($entry['id']) || !is_string($entry['id'])) {
-                continue; // defensive — malformed record from a non-standard caller, never fatal
-            }
-            $path = $namespace . '/styleguide.' . $entry['id'] . '.twig';
-            if (!$loader->exists($path)) {
-                continue; // discovered records are filesystem-backed already, but re-check defensively
-            }
-            $label = is_string($entry['label'] ?? null) ? $entry['label'] : $entry['id'];
-            $description = is_string($entry['description'] ?? null) ? $entry['description'] : '';
-            $sections[] = $this->renderVariantSection($label, $description, $this->twig->render($path, $this->context));
-        }
-
-        return [implode('', $sections), true];
-    }
-
-    /**
-     * Wrap one stacked-default-view block: `<section class="sg-variant-
-     * section">` with an escaped heading, an optional description
-     * paragraph, then the rendered variant body.
-     *
-     * `$description` is rendered RAW (not escaped) — same trust model as the
-     * pre-existing YAML `description` metadata field the API already
-     * surfaces unescaped elsewhere: it's dev-authored content in the
-     * project's own template front-comment, never visitor-supplied, so no
-     * HTML-injection boundary is crossed here. `$label` IS escaped — it
-     * renders inside a heading with no such established raw-HTML precedent.
-     */
-    private function renderVariantSection(string $label, string $description, string $body): string
-    {
-        $html = '<section class="sg-variant-section"><h2 class="sg-variant-heading">'
-            . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</h2>';
-        if ($description !== '') {
-            $html .= '<p class="sg-variant-description">' . $description . '</p>';
-        }
-        return $html . $body . '</section>';
+        return null;
     }
 
     /**

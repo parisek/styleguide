@@ -132,7 +132,15 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         reloadNonce.value++;
     }
 
-    const iframeSrc = computed(() => {
+    // Shared URL builder — same composition rules (reload nonce, iframe
+    // theme, variant) for both the classic single preview (iframeSrc, below)
+    // and the variant grid's per-tile sources (VariantGrid.vue). Pulled out
+    // so the grid can request a specific tile's variant id independent of
+    // the URL-driven `variant` ref this composable also tracks (a grid tile
+    // is never itself deep-linked — only the classic single-preview
+    // ?variant= is). `variantIdOverride` of `null`/`undefined` means "no
+    // variant" (the default tile / the historical no-?variant= URL shape).
+    function buildIframeSrc(variantIdOverride) {
         let src;
         if (type.value === 'foundations') {
             src = '/styleguide/render/foundations/index';
@@ -150,26 +158,53 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         // Task 2: Router::whitelistVariant()/Renderer resolve it server-side).
         // Only appended when set, same omit-the-default-case shape as theme
         // above -- the historical no-variant render URL is unchanged.
-        if (variant.value) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variant.value)}`;
+        if (variantIdOverride) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variantIdOverride)}`;
         return src;
-    });
+    }
 
-    const toolbarVisible = computed(() => !!iframeSrc.value
+    const iframeSrc = computed(() => buildIframeSrc(variant.value));
+
+    // A dedicated builder for a grid tile's own iframe src — the default
+    // tile (id null/undefined) reuses the base no-variant URL, every other
+    // tile isolates its own `?variant=<id>`. Exposed (not just used
+    // internally) so VariantGrid.vue doesn't need to re-derive the same
+    // reload-nonce/theme composition rules.
+    function iframeSrcForVariant(variantId) {
+        return buildIframeSrc(variantId ?? null);
+    }
+
+    // The variant GRID (replaces the removed toolbar pill switcher, commit
+    // 901e1b8's server-side stacked view, and the never-shipped
+    // variantSwitcherVisible pill gate) takes over the whole preview area
+    // whenever the current entry has discovered variants AND no specific
+    // `?variant=` is selected. A deep-linked `?variant=<id>` still isolates
+    // to the classic single preview -- see useVariant.js: an unknown/
+    // removed id is whitelisted back to null, so it falls through to the
+    // grid rather than 404ing or showing a blank single preview. Restricted
+    // to routes that actually render an iframe (component/page/doc) so
+    // foundations/overview -- which never carry `variants` -- can't
+    // accidentally qualify.
+    const gridActive = computed(() => !!slug.value
+        && ['component', 'page', 'doc'].includes(type.value)
+        && (currentItem.value?.variants?.length ?? 0) > 0
+        && !variant.value);
+
+    // Everything BUT the responsive-width dropdown/drag-handles/orientation
+    // toggle -- a11y check, iframe theme toggle, canvas mode, open-in-new-tab,
+    // reload -- stays available in grid mode too (they act on the grid's
+    // default tile / the whole preview area), so it's gated on this broader
+    // flag rather than `toolbarVisible` below. Foundations/overview and
+    // responsive:false entries are excluded exactly as before.
+    const previewActionsVisible = computed(() => !!iframeSrc.value
         && type.value !== 'foundations'
         && type.value !== 'overview'
         && currentItem.value?.responsive !== false);
 
-    // Deliberately independent of toolbarVisible/`responsive` (docs/API.md:
-    // "when at least one exists, the SPA toolbar shows a variant switcher" —
-    // no carve-out for responsive:false). A fixed-layout doc/demo can still
-    // ship alternate markup files; hiding the switcher just because width
-    // controls don't apply would make those variants unreachable from the
-    // SPA. Restricted to routes that actually render an iframe (component/
-    // page/doc) so foundations/overview — which never carry `variants` —
-    // can't accidentally qualify.
-    const variantSwitcherVisible = computed(() => !!iframeSrc.value
-        && ['component', 'page', 'doc'].includes(type.value)
-        && (currentItem.value?.variants?.length ?? 0) > 0);
+    // The responsive-width preset dropdown (+ drag handles + orientation
+    // toggle in PreviewPane.vue) only makes sense against ONE iframe -- the
+    // grid manages its own per-tile sizing, so this narrows
+    // previewActionsVisible further by `!gridActive`.
+    const toolbarVisible = computed(() => previewActionsVisible.value && !gridActive.value);
 
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
@@ -257,7 +292,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         type, slug, variant, setVariant,
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
-        reloadPreview, iframeSrc, toolbarVisible, variantSwitcherVisible, currentSectionKey, currentItemName,
+        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, currentSectionKey, currentItemName,
         currentItemDescription, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, iframeEl, registerIframe, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

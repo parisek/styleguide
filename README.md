@@ -12,7 +12,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a toolbar variant switcher for entries with discovered `styleguide.<variant>.twig` siblings (see *File-convention variants* below), an on-demand accessibility check (axe-core, results grouped by impact), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, tiled to fit the canvas (see *File-convention variants* below), an on-demand accessibility check (axe-core, results grouped by impact), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -506,7 +506,7 @@ component/hero/
 └── styleguide.dark-bg.twig    ← discovered variant "dark-bg"
 ```
 
-The preview toolbar shows a switcher ("Vše"/"All" + each discovered variant, ordered by filename) the moment at least one sibling exists. Optional YAML supplies display labels — either a plain string, or a map with an optional `description` too:
+The SPA preview area shows every variant at once — a responsive grid of independent preview tiles (default fixture first, then each discovered variant in filename order) — the moment at least one sibling exists; no toolbar switcher, no clicking through. Optional YAML supplies display labels — either a plain string, or a map with an optional `description` too:
 
 ```twig
 {#
@@ -519,9 +519,9 @@ variants:
 #}
 ```
 
-An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. Deep link with `?variant=<id>`; an unknown or since-deleted variant silently falls back to the default view instead of 404ing.
+An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
 
-**Default view.** With no `?variant=` (the toolbar's "Vše"/"All" pill, or a bare deep link), the preview stacks every block vertically — the default `styleguide.twig` body first, then each discovered variant in order — every block preceded by an `<h2>` heading (its label) and, when supplied, a `<p>` description. This is the whole point of having variants: see every treatment at a glance without clicking through the switcher. Selecting a specific variant (pill or `?variant=<id>`) still isolates just that one block, no headings. An entry with no discovered variants is unaffected — it renders the single default block exactly as it always has.
+**Default view (SPA).** With no `?variant=` (a bare deep link), the preview area becomes a grid — one independent `<iframe>` tile per variant (the default fixture first, then each discovered variant in filename order), each with its own slim header (label + optional description) and auto-height iframe, wrapping to fit the canvas width. This is the whole point of having variants: see every treatment at a glance, no switcher to click through. Deep-linking a specific `?variant=<id>` still shows the classic single, resizable preview of just that one variant. An entry with no discovered variants is unaffected — it renders the single default preview exactly as it always has.
 
 ### Page wrapper
 

@@ -25,7 +25,7 @@
         "more_actions": "Další akce",
         "iframe_theme": "Přepnout tmavý režim v iframu",
         "variant_label": "Varianta",
-        "variant_default": "Vše"
+        "variant_default": "Výchozí"
     },
     "preview": {
         "mobile": "Mobil (375 px)",
@@ -81,6 +81,7 @@
     },
     "a11y": {
         "check_action": "Kontrola přístupnosti",
+        "unavailable_in_grid": "Kontrola přístupnosti vyžaduje samostatný náhled — nejprve vyberte variantu",
         "panel_title": "Výsledky kontroly přístupnosti",
         "running": "Probíhá kontrola…",
         "no_violations": "Žádné problémy nenalezeny",

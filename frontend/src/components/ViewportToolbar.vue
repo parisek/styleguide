@@ -151,55 +151,22 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
             </template>
         </div>
 
-        <!-- Right-side controls cluster. Rendered whenever either the width
-             toolbar or the variant switcher has something to show, so a
-             responsive:false entry with variants still gets a right-side
-             group (just without the width controls) instead of losing the
-             cluster's flex slot entirely (this parent is justify-between —
-             a 3rd top-level child here would misplace the gap instead of
-             just widening this cluster). -->
-        <template v-if="viewport.toolbarVisible.value || viewport.variantSwitcherVisible.value">
+        <!-- Right-side controls cluster. The toolbar pill variant switcher
+             that used to live here (commit dc4715a) is GONE per the
+             styleguide-2.0 redesign brief -- variants are now a full-canvas
+             grid of independent preview tiles (VariantGrid.vue, rendered by
+             PreviewPane.vue whenever viewport.gridActive is true), which
+             has no toolbar affordance of its own. Deciding what (if
+             anything) belongs here to indicate/control grid mode is this
+             prototype's open question -- not addressed in this pass. -->
+        <template v-if="viewport.previewActionsVisible.value">
             <div class="flex items-center gap-2 shrink-0">
-                <!-- Variant switcher (Phase 4 Task 3) -- one file-convention
-                     styleguide.<variant>.twig sibling per button (Task 1:
-                     ComponentParser.discoverVariants()), plus a leading
-                     "Default" entry for the implicit no-variant file. Gated
-                     on its own variantSwitcherVisible (has variants +
-                     renders an iframe), deliberately NOT on toolbarVisible/
-                     `responsive` — a responsive:false entry still has
-                     reachable variants, it just doesn't get resizable width
-                     controls (docs/API.md: "when at least one exists, the
-                     SPA toolbar shows a variant switcher", no carve-out for
-                     responsive:false). -->
-                <div
-                    v-if="viewport.variantSwitcherVisible.value"
-                    data-testid="variant-switcher"
-                    role="group"
-                    :aria-label="i18n.t('toolbar.variant_label')"
-                    class="inline-flex items-center gap-0.5 rounded-full bg-zinc-100 p-0.5 dark:bg-zinc-800"
-                >
-                    <button
-                        type="button"
-                        class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                        :class="!viewport.variant.value ? 'bg-red-600 text-white dark:bg-red-500' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
-                        @click="viewport.setVariant(null)"
-                    >{{ i18n.t('toolbar.variant_default') }}</button>
-                    <button
-                        v-for="v in viewport.currentItem.value.variants"
-                        :key="v.id"
-                        type="button"
-                        class="rounded-full px-2.5 py-1 text-xs font-medium transition-colors"
-                        :class="viewport.variant.value === v.id ? 'bg-red-600 text-white dark:bg-red-500' : 'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100'"
-                        @click="viewport.setVariant(v.id)"
-                    >{{ v.label }}</button>
-                </div>
-                <!-- Width controls + secondary preview actions. Hidden on the
-                     foundations route where responsive testing doesn't make
-                     sense (foundations shows palette / typography / project
-                     surface; locking it to 100% width keeps the layout
-                     stable across reloads) and on responsive:false entries
-                     (the variant switcher above still renders independently
-                     of this template). -->
+                <!-- Responsive-width preset dropdown + drag handles +
+                     orientation toggle. Single-preview-only machinery --
+                     hidden in grid mode (viewport.toolbarVisible narrows
+                     previewActionsVisible by `!gridActive`; the grid manages
+                     its own per-tile layout) as well as on the foundations
+                     route and responsive:false entries. -->
                 <template v-if="viewport.toolbarVisible.value">
                 <!-- Unified viewport switcher — one labelled dropdown at every width
                      (replaces the old xl segmented bar + separate mobile menu). The
@@ -281,14 +248,20 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         </div>
                     </div>
                 </div>
+                </template>
                 <!-- Secondary preview actions: inline on lg+, collapsed into a ⋮
-                     overflow below lg so the toolbar doesn't crowd on tablet / phone. -->
+                     overflow below lg so the toolbar doesn't crowd on tablet / phone.
+                     Unlike the dropdown above, these stay available in grid mode too
+                     (they act on the grid's default tile / the whole preview area) --
+                     except the a11y check, which needs ONE iframe (viewport.iframeEl,
+                     registered only by the classic single preview) and is disabled
+                     with a title hint instead of hidden. -->
                 <div class="hidden lg:flex items-center gap-2">
                     <button type="button"
                             data-testid="a11y-check-button"
                             @click="runA11yCheck()"
-                            :disabled="ui.a11yRunning"
-                            :title="i18n.t('a11y.check_action')"
+                            :disabled="ui.a11yRunning || viewport.gridActive.value"
+                            :title="viewport.gridActive.value ? i18n.t('a11y.unavailable_in_grid') : i18n.t('a11y.check_action')"
                             :aria-label="i18n.t('a11y.check_action')"
                             class="h-9 w-9 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                         <svg aria-hidden="true" focusable="false" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -361,7 +334,8 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         <button type="button"
                                 data-testid="a11y-check-button-overflow"
                                 @click="overflowOpen = false; runA11yCheck()"
-                                :disabled="ui.a11yRunning"
+                                :disabled="ui.a11yRunning || viewport.gridActive.value"
+                                :title="viewport.gridActive.value ? i18n.t('a11y.unavailable_in_grid') : null"
                                 class="w-full px-3 py-2 flex items-center gap-2.5 text-xs rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
                             <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="2"/>
@@ -411,7 +385,6 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         </button>
                     </div>
                 </div>
-                </template>
             </div>
         </template>
         <!-- Foundations route still gets the open-in-new-tab affordance,

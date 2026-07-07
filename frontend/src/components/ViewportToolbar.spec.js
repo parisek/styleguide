@@ -25,10 +25,10 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             viewport_preset: 'Viewport', custom_width_label: 'Custom', custom_width_placeholder: 'px',
             orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
-            variant_label: 'Variant', variant_default: 'All',
+            variant_label: 'Variant', variant_default: 'Default',
         },
         sections: { blocks: 'Blocks' },
-        a11y: { check_action: 'Accessibility check' },
+        a11y: { check_action: 'Accessibility check', unavailable_in_grid: 'Needs a single preview' },
     };
     useCatalogStore().items = items ?? [{ id: 'hero', name: 'Hero', category: 'Block' }];
 
@@ -85,95 +85,82 @@ describe('ViewportToolbar', () => {
     });
 });
 
-describe('ViewportToolbar — variant switcher', () => {
-    it('is absent when the entry has no variants', () => {
-        const wrapper = mountWithViewport('component', 'hero', {
-            items: [{ id: 'hero', name: 'Hero', category: 'Block', variants: [] }],
-        });
-        expect(wrapper.find('[data-testid="variant-switcher"]').exists()).toBe(false);
-    });
-
-    it('is absent when the entry carries no variants field at all (BC default)', () => {
-        const wrapper = mountWithViewport('component', 'hero', {
-            items: [{ id: 'hero', name: 'Hero', category: 'Block' }],
-        });
-        expect(wrapper.find('[data-testid="variant-switcher"]').exists()).toBe(false);
-    });
-
-    it('renders All + each discovered variant when variants exist', () => {
+// The toolbar pill variant switcher (Phase 4 Task 3, commit dc4715a) is gone
+// -- variants now render as a full-canvas grid of independent preview tiles
+// (VariantGrid.vue / VariantGrid.spec.js), which has no toolbar affordance.
+// ViewportToolbar's own responsibility in grid mode is narrower: hide the
+// single-preview-only width controls, and disable (not hide) the a11y check
+// button since it needs one iframe. No `[data-testid="variant-switcher"]`
+// exists anywhere in this file's specs any more.
+describe('ViewportToolbar — grid mode', () => {
+    it('hides the width-preset dropdown when the entry has variants and none is selected (grid mode)', () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{
                 id: 'multi',
                 name: 'Multi',
                 category: 'Block',
-                variants: [
-                    { id: 'dark-bg', label: 'dark-bg' },
-                    { id: 'secondary', label: 'Secondary style' },
-                ],
-            }],
-        });
-        const switcher = wrapper.find('[data-testid="variant-switcher"]');
-        expect(switcher.exists()).toBe(true);
-        const labels = switcher.findAll('button').map((b) => b.text());
-        // "All" (toolbar.variant_default) -- the no-?variant= default view now
-        // stacks every variant instead of showing just the implicit default,
-        // so the pill label reflects that ("Default" would misdescribe it).
-        expect(labels).toEqual(['All', 'dark-bg', 'Secondary style']);
-    });
-
-    it('clicking a variant button calls viewport.setVariant with its id', async () => {
-        const setVariant = vi.fn();
-        const wrapper = mountWithViewport('component', 'multi', {
-            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
-            setVariant,
-        });
-        const buttons = wrapper.find('[data-testid="variant-switcher"]').findAll('button');
-        await buttons[1].trigger('click'); // index 0 = Default
-        expect(setVariant).toHaveBeenCalledWith('secondary');
-    });
-
-    it('clicking All calls viewport.setVariant(null)', async () => {
-        const setVariant = vi.fn();
-        const wrapper = mountWithViewport('component', 'multi', {
-            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
-            variant: ref('secondary'),
-            setVariant,
-        });
-        const buttons = wrapper.find('[data-testid="variant-switcher"]').findAll('button');
-        await buttons[0].trigger('click');
-        expect(setVariant).toHaveBeenCalledWith(null);
-    });
-
-    it('marks the active variant button (or Default) as visually selected', () => {
-        const wrapper = mountWithViewport('component', 'multi', {
-            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
-            variant: ref('secondary'),
-        });
-        const buttons = wrapper.find('[data-testid="variant-switcher"]').findAll('button');
-        expect(buttons[0].classes()).not.toContain('bg-red-600');
-        expect(buttons[1].classes()).toContain('bg-red-600');
-    });
-
-    // Regression for Phase 4 Task 3 review finding 1: the switcher used to
-    // live inside the toolbarVisible block, which excludes responsive:false
-    // entries — silently making a responsive:false entry's variants
-    // unreachable from the SPA even though docs/API.md promises the
-    // switcher shows "when at least one exists", with no carve-out for
-    // responsive:false.
-    it('still renders the variant switcher for a responsive:false entry (width controls stay hidden)', () => {
-        const wrapper = mountWithViewport('component', 'multi', {
-            items: [{
-                id: 'multi',
-                name: 'Multi',
-                category: 'Block',
-                responsive: false,
                 variants: [{ id: 'secondary', label: 'Secondary style' }],
             }],
         });
-        const switcher = wrapper.find('[data-testid="variant-switcher"]');
-        expect(switcher.exists()).toBe(true);
-        expect(switcher.findAll('button').map((b) => b.text())).toEqual(['All', 'Secondary style']);
+        expect(wrapper.find('[data-testid="variant-switcher"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
+    });
+
+    it('shows the width-preset dropdown again once a specific variant is deep-linked (classic single preview)', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+            variant: ref('secondary'),
+        });
+        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(true);
+    });
+
+    it('disables the a11y check button (with a title hint) in grid mode', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+        });
+        const button = wrapper.find('[data-testid="a11y-check-button"]');
+        expect(button.attributes('disabled')).toBeDefined();
+        expect(button.attributes('title')).toBe('Needs a single preview');
+    });
+
+    it('re-enables the a11y check button once a specific variant is deep-linked', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+            variant: ref('secondary'),
+        });
+        const button = wrapper.find('[data-testid="a11y-check-button"]');
+        expect(button.attributes('disabled')).toBeUndefined();
+    });
+
+    // The secondary actions cluster (iframe theme toggle, canvas mode, open
+    // in new tab, reload) is NOT single-preview-only machinery -- it stays
+    // available in grid mode, acting on the grid's default tile / the whole
+    // preview area.
+    it('keeps the iframe theme toggle available in grid mode', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                category: 'Block',
+                variants: [{ id: 'secondary', label: 'Secondary style' }],
+            }],
+        });
+        expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
     });
 });
 

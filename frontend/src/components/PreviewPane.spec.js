@@ -8,9 +8,12 @@ import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 
-function mountPane(type = 'component', slug = 'hero', { onViewport } = {}) {
+function mountPane(type = 'component', slug = 'hero', { onViewport, items, variant } = {}) {
     setActivePinia(createPinia());
-    useI18nStore().strings = { toolbar: { rotate: 'Rotate', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape' }, empty_state: 'Select a component', loading: 'Loading...' };
+    useI18nStore().strings = {
+        toolbar: { rotate: 'Rotate', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape', variant_default: 'Default' },
+        empty_state: 'Select a component', loading: 'Loading...',
+    };
     // The mount helper simulates a catalogue that has already finished its
     // initial fetch (items populated) -- loading defaults to true in the
     // store until init() resolves, which never runs in this isolated
@@ -18,14 +21,14 @@ function mountPane(type = 'component', slug = 'hero', { onViewport } = {}) {
     // spec below sees the (equally legacy-faithful) "loading" paragraph
     // instead, since `catalog.loading` stays true.
     const catalog = useCatalogStore();
-    catalog.items = [{ id: 'hero', name: 'Hero' }];
+    catalog.items = items ?? [{ id: 'hero', name: 'Hero' }];
     catalog.loading = false;
 
     const Host = defineComponent({
         setup() {
             const typeRef = ref(type);
             const slugRef = ref(slug);
-            const viewport = useViewportPreset({ type: typeRef, slug: slugRef });
+            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant });
             // Hands the composable instance back to the caller (Task 6's
             // registerIframe test below needs to read viewport.iframeEl
             // directly) without changing the return shape for every
@@ -146,5 +149,34 @@ describe('PreviewPane', () => {
 
         wrapper.unmount();
         expect(viewport.iframeEl.value).toBeNull();
+    });
+});
+
+// styleguide-2.0 redesign: the classic single-device chassis is replaced by
+// VariantGrid.vue whenever the current entry has discovered variants and no
+// `?variant=` is selected (see useViewportPreset.js's `gridActive`).
+describe('PreviewPane — variant grid', () => {
+    it('renders the grid (not the classic single iframe) for a multi-variant entry with no variant selected', () => {
+        const wrapper = mountPane('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+        });
+        expect(wrapper.find('[data-testid="variant-grid"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="iframe-wrapper"]').exists()).toBe(false);
+    });
+
+    it('renders the classic single iframe (no grid) for an entry without variants', () => {
+        const wrapper = mountPane('component', 'hero');
+        expect(wrapper.find('[data-testid="variant-grid"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="iframe-wrapper"]').exists()).toBe(true);
+    });
+
+    it('renders the classic single iframe (no grid) once a variant is deep-linked', () => {
+        const wrapper = mountPane('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+            variant: ref('secondary'),
+        });
+        expect(wrapper.find('[data-testid="variant-grid"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="iframe-wrapper"]').exists()).toBe(true);
+        expect(wrapper.find('iframe').attributes('src')).toBe('/styleguide/render/component/multi?variant=secondary');
     });
 });

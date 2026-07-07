@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
+import VariantGrid from './VariantGrid.vue';
 
 const ui = useUiStore();
 const i18n = useI18nStore();
@@ -111,9 +112,17 @@ const iframeStyle = computed(() => {
          extra vertical room a wide preset (2K, etc.) leaves after
          fit-to-bounds zoom. -->
     <div ref="paneRef"
-         class="flex-1 flex justify-center overflow-auto"
-         :class="viewport.isFullPreset.value ? 'p-0 bg-white dark:bg-zinc-900 items-stretch' : 'p-6 bg-zinc-100 dark:bg-zinc-950 items-center'">
-        <template v-if="viewport.iframeSrc.value">
+         class="flex-1 overflow-auto"
+         :class="viewport.gridActive.value ? 'bg-zinc-100 dark:bg-zinc-950' : (viewport.isFullPreset.value ? 'flex justify-center p-0 bg-white dark:bg-zinc-900 items-stretch' : 'flex justify-center p-6 bg-zinc-100 dark:bg-zinc-950 items-center')">
+        <!-- Variant GRID -- every discovered variant (default fixture first)
+             as its own independent preview screen, tiled to fit the canvas
+             width. Takes over the whole preview area instead of the
+             classic single-device chassis below; see useViewportPreset.js's
+             `gridActive` for the exact activation rule (deep-linking a
+             specific `?variant=` still falls through to the classic single
+             preview beneath). -->
+        <VariantGrid v-if="viewport.gridActive.value" />
+        <template v-if="!viewport.gridActive.value && viewport.iframeSrc.value">
             <!-- Outer positioning ancestor -- sized to the inner wrapper via
                  inline-block, so it inherits the scaled device dimensions.
                  Hosts the chassis decorations (speaker slot, home indicator)
