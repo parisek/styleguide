@@ -73,9 +73,21 @@ provide('viewport', viewport);
                  panel. Renders via v-html so authors can embed real anchor
                  tags — content originates in dev-authored .twig YAML
                  headers, not user input, matching the rest of the
-                 styleguide chrome's trust model. -->
-            <div v-if="viewport.currentItemDescription.value && routeSlug" class="sg-description-bar px-4 py-2 bg-zinc-100/60 border-b border-zinc-200 dark:bg-zinc-900/40 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                <span v-html="viewport.currentItemDescription.value"></span>
+                 styleguide chrome's trust model.
+
+                 Once a `?variant=` isolates the classic single preview,
+                 `descriptionBarText` (useViewportPreset.js) REPLACES the
+                 component's general description with the isolated variant's
+                 own one -- deliberate, not additive: the variant's
+                 description is strictly more specific, so showing both
+                 would be redundant at best. A small uppercase label (same
+                 treatment as VariantGrid.vue's own tile-header labels)
+                 identifies which variant the description belongs to; it's
+                 gated on the SAME v-if as the description itself, so it
+                 never appears with nothing underneath it. -->
+            <div v-if="viewport.descriptionBarText.value && routeSlug" class="sg-description-bar px-4 py-2 bg-zinc-100/60 border-b border-zinc-200 dark:bg-zinc-900/40 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                <div v-if="viewport.variant.value" data-testid="description-bar-variant-label" class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-0.5">{{ viewport.currentVariantLabel.value }}</div>
+                <span v-html="viewport.descriptionBarText.value"></span>
             </div>
             <UsagePanel />
             <LinkBar />

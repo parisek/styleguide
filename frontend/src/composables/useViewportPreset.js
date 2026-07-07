@@ -237,13 +237,6 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
     // exception has one place to land.
     const toolbarVisible = computed(() => previewActionsVisible.value);
 
-    // Shows a small "back to all variants" control in ViewportToolbar.vue
-    // when a deep-linked `?variant=<id>` has isolated the classic single
-    // preview. `variant.value` is already whitelisted against the current
-    // entry's discovered variants by useVariant.js (an unknown/removed id
-    // resolves to null), so no extra entry lookup is needed here.
-    const showVariantBackControl = computed(() => !!variant.value);
-
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
         if (type.value === 'page') return 'pages';
@@ -254,6 +247,39 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
 
     const currentItemName = computed(() => currentItem.value?.name ?? slug.value);
     const currentItemDescription = computed(() => currentItem.value?.description ?? '');
+
+    // Breadcrumb-based variant isolation (styleguide 2.0 UX redesign,
+    // replaces the earlier "← All" toolbar back control): the toolbar
+    // breadcrumb's trailing segment and the description bar's context
+    // label both need the ISOLATED variant's own display label, not just
+    // its raw id. `variant.value` is already whitelisted against the
+    // current entry's discovered variants by useVariant.js (an unknown/
+    // removed id resolves to null), so a lookup miss here can only mean
+    // "no variant isolated" — never a stale/invalid id — and `?? null`
+    // rather than a fallback string is deliberate: callers gate on this
+    // being falsy to know whether a variant is isolated at all.
+    const currentVariantLabel = computed(() => {
+        if (!variant.value) return null;
+        return currentItem.value?.variants?.find((v) => v.id === variant.value)?.label ?? variant.value;
+    });
+    const currentVariantDescription = computed(() => {
+        if (!variant.value) return '';
+        return currentItem.value?.variants?.find((v) => v.id === variant.value)?.description ?? '';
+    });
+
+    // App.vue's description bar content. Deliberately REPLACES the
+    // component/page's general `description` with the isolated variant's
+    // own one rather than appending both -- the variant's description is
+    // strictly more specific once one is isolated, so showing the general
+    // blurb underneath it would be redundant at best, contradictory at
+    // worst. If the isolated variant has no description of its own,
+    // nothing variant-specific renders at all (this resolves to '', which
+    // App.vue's v-if treats as "show nothing") -- it does NOT fall back to
+    // the component's general description, since that would silently
+    // de-contextualize a bar sitting right under a variant-labeled
+    // breadcrumb.
+    const descriptionBarText = computed(() => (variant.value ? currentVariantDescription.value : currentItemDescription.value));
+
     const fieldsTree = computed(() => flattenFieldsTree(currentItem.value?.fields));
     const fieldsCount = computed(() => fieldsTree.value.length);
 
@@ -331,8 +357,8 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         gridZoom, setGridZoom, effectiveZoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
-        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, showVariantBackControl, currentSectionKey, currentItemName,
-        currentItemDescription, fieldsTree, fieldsCount, isDragging, startDrag,
+        reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, gridActive, currentSectionKey, currentItemName,
+        currentItemDescription, currentVariantLabel, currentVariantDescription, descriptionBarText, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, iframeEl, registerIframe, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };
 }

@@ -266,4 +266,25 @@ describe('VariantGrid — click-to-isolate', () => {
         await header.trigger('keydown.enter');
         expect(capturedId).toBe('secondary');
     });
+
+    // Discoverability hint for the click-through (styleguide 2.0 UX fix):
+    // a subtle expand icon at the right edge of every CLICKABLE tile header,
+    // absent entirely from the Default tile's header since it isn't
+    // clickable in the first place -- mirrors the role/tabindex split
+    // asserted above.
+    it('renders the expand icon only on clickable (non-Default) tile headers', () => {
+        const wrapper = mountGrid();
+        const headers = wrapper.findAll('[data-testid="variant-tile-header"]');
+        expect(headers[0].find('[data-testid="variant-tile-expand-icon"]').exists()).toBe(false); // Default
+        expect(headers[1].find('[data-testid="variant-tile-expand-icon"]').exists()).toBe(true); // dark-bg
+        expect(headers[2].find('[data-testid="variant-tile-expand-icon"]').exists()).toBe(true); // secondary
+    });
+
+    it('keeps the expand icon muted/hidden by default, revealed on hover and on keyboard focus', () => {
+        const wrapper = mountGrid();
+        const icon = wrapper.findAll('[data-testid="variant-tile-header"]')[1].find('[data-testid="variant-tile-expand-icon"]');
+        expect(icon.classes()).toContain('opacity-0');
+        expect(icon.classes()).toContain('group-hover:opacity-100');
+        expect(icon.classes()).toContain('group-focus-visible:opacity-100');
+    });
 });

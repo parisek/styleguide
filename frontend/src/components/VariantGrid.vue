@@ -245,7 +245,7 @@ onBeforeUnmount(() => {
                      Clickable (mouse + keyboard) for every tile EXCEPT the
                      Default one -- see `clickable`'s comment above. -->
                 <div data-testid="variant-tile-header"
-                     class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 shrink-0"
+                     class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 shrink-0 flex items-start gap-2"
                      :class="tile.clickable ? 'cursor-pointer group' : ''"
                      :role="tile.clickable ? 'button' : undefined"
                      :tabindex="tile.clickable ? 0 : undefined"
@@ -253,10 +253,27 @@ onBeforeUnmount(() => {
                      @click="isolateTile(tile)"
                      @keydown.enter="isolateTile(tile)"
                      @keydown.space.prevent="isolateTile(tile)">
-                    <div data-testid="variant-tile-label"
-                         class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-                         :class="tile.clickable ? 'group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:underline' : ''">{{ tile.label }}</div>
-                    <div v-if="tile.description" data-testid="variant-tile-description" class="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed" v-html="tile.description"></div>
+                    <div class="min-w-0 flex-1">
+                        <div data-testid="variant-tile-label"
+                             class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                             :class="tile.clickable ? 'group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:underline' : ''">{{ tile.label }}</div>
+                        <div v-if="tile.description" data-testid="variant-tile-description" class="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed" v-html="tile.description"></div>
+                    </div>
+                    <!-- Expand affordance: a discoverable hint that this
+                         header click-throughs to the classic single
+                         preview (VariantGrid's own equivalent of a link
+                         underline). Muted and hidden by default; surfaced
+                         on hover for mouse users AND on focus-visible for
+                         keyboard users -- a hover-only reveal would leave a
+                         keyboard user tabbed onto a "button" with no visual
+                         confirmation it's interactive at all. Never
+                         rendered for the Default tile, which isn't
+                         clickable in the first place. -->
+                    <svg v-if="tile.clickable" data-testid="variant-tile-expand-icon" aria-hidden="true" focusable="false"
+                         class="w-3.5 h-3.5 mt-0.5 shrink-0 text-zinc-400 dark:text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                    </svg>
                 </div>
                 <!-- Content-area wrapper: stable across a fluid<->scaled swap
                      (only its CHILDREN toggle via v-if below) so the

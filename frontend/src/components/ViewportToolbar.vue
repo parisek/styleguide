@@ -136,23 +136,6 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                     <span class="sg-hbg-bar sg-hbg-bar-bottom"></span>
                 </span>
             </button>
-            <!-- "Back to all variants" -- only present once a deep-linked
-                 `?variant=<id>` has isolated the classic single preview
-                 (VariantGrid.vue's click-to-isolate, or a hand-typed/
-                 bookmarked URL). Placed first, ahead of the breadcrumb, so
-                 it reads as "leave this isolated view" rather than part of
-                 the breadcrumb trail itself. Clears the query param via the
-                 same setVariant(null) the grid's own affordances use --
-                 lands back on the grid (or the classic single preview, for
-                 an entry that never had variants in the first place, though
-                 showVariantBackControl never shows for those). -->
-            <template v-if="viewport.showVariantBackControl.value">
-                <button type="button"
-                        data-testid="variant-back-control"
-                        @click="viewport.setVariant(null)"
-                        :title="i18n.t('toolbar.variant_back_all')"
-                        class="text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0 transition-colors">{{ i18n.t('toolbar.variant_back_all') }}</button>
-            </template>
             <template v-if="viewport.type.value === 'overview'">
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ i18n.t('nav.overview') }}</span>
             </template>
@@ -162,19 +145,36 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
             <template v-if="viewport.slug.value">
                 <div class="flex items-center gap-2 min-w-0">
                     <span class="text-[10px] uppercase tracking-wider font-bold bg-red-600/10 text-red-700 dark:bg-red-400/15 dark:text-red-400 px-2 py-0.5 rounded-md shrink-0">{{ viewport.type.value === 'page' ? i18n.t('toolbar.type_page') : (viewport.type.value === 'doc' ? i18n.t('nav.docs') : i18n.t('toolbar.type_component')) }}</span>
-                    <!-- Breadcrumb: Section / Component name (slug). The section
-                         segment hides while the components API is still loading
-                         so the toolbar doesn't flash a translated label like
-                         `(undefined)` before data arrives. -->
-                    <nav class="flex items-center gap-1.5 min-w-0 text-sm">
+                    <!-- Breadcrumb: Section / Component name (slug) [/ Variant
+                         label]. The section segment hides while the components
+                         API is still loading so the toolbar doesn't flash a
+                         translated label like `(undefined)` before data
+                         arrives. The trailing Variant segment (styleguide 2.0
+                         redesign, replaces the earlier "← All" toolbar back
+                         control) only appears once a deep-linked `?variant=`
+                         has isolated the classic single preview -- and turns
+                         the component-name crumb itself into a clickable/
+                         keyboard breadcrumb link back to the grid, standard
+                         breadcrumb semantics (there's nothing to "go back to"
+                         when no variant is isolated, so it stays a plain,
+                         non-interactive label in that case). -->
+                    <nav class="flex items-center gap-1.5 min-w-0 text-sm" aria-label="Breadcrumb">
                         <template v-if="viewport.currentSectionKey.value">
                             <span class="text-zinc-500 shrink-0">{{ i18n.t(`sections.${viewport.currentSectionKey.value}`) }}</span>
-                        </template>
-                        <template v-if="viewport.currentSectionKey.value">
                             <span class="text-zinc-400 dark:text-zinc-600 shrink-0">/</span>
                         </template>
-                        <span class="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{{ viewport.currentItemName.value }}</span>
+                        <button v-if="viewport.variant.value" type="button"
+                                data-testid="breadcrumb-item-name"
+                                @click="viewport.setVariant(null)"
+                                :title="i18n.t('toolbar.breadcrumb_back_to_grid')"
+                                :aria-label="`${i18n.t('toolbar.breadcrumb_back_to_grid')}: ${viewport.currentItemName.value}`"
+                                class="font-semibold text-zinc-900 dark:text-zinc-100 truncate rounded-sm transition-colors hover:text-red-600 hover:underline dark:hover:text-red-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">{{ viewport.currentItemName.value }}</button>
+                        <span v-else data-testid="breadcrumb-item-name" class="font-semibold text-zinc-900 dark:text-zinc-100 truncate">{{ viewport.currentItemName.value }}</span>
                         <span class="text-zinc-500 font-mono text-xs shrink-0">({{ viewport.slug.value }})</span>
+                        <template v-if="viewport.variant.value">
+                            <span class="text-zinc-400 dark:text-zinc-600 shrink-0">/</span>
+                            <span data-testid="breadcrumb-variant" class="text-zinc-500 dark:text-zinc-400 truncate">{{ viewport.currentVariantLabel.value }}</span>
+                        </template>
                     </nav>
                 </div>
             </template>

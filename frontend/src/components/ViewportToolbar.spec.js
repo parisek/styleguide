@@ -25,7 +25,7 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             viewport_preset: 'Viewport', custom_width_label: 'Custom', custom_width_placeholder: 'px',
             orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
-            variant_label: 'Variant', variant_default: 'Default', variant_back_all: '← All',
+            variant_label: 'Variant', variant_default: 'Default', breadcrumb_back_to_grid: 'Back to all variants',
             variant_columns_label: 'Tile density', variant_columns_auto_label: 'Auto',
             variant_columns_auto: 'Auto tooltip',
             variant_columns_1: '1 column', variant_columns_2: '2 columns',
@@ -306,24 +306,41 @@ describe('ViewportToolbar — grid-mode shared scale readout', () => {
     });
 });
 
-describe('ViewportToolbar — variant back control', () => {
-    it('is absent in grid mode (no variant selected)', () => {
+// Breadcrumb-based variant isolation (styleguide 2.0 UX redesign, replaces
+// the earlier "← All" toolbar back control): the trailing Variant segment
+// only appears once a specific `?variant=` isolates the classic single
+// preview, and the component-name crumb itself becomes the "go back to the
+// grid" affordance in that state -- standard breadcrumb semantics, not a
+// separate button.
+describe('ViewportToolbar — breadcrumb variant segment', () => {
+    it('renders a plain, non-interactive item-name crumb with no Variant segment in grid mode (no variant selected)', () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
         });
-        expect(wrapper.find('[data-testid="variant-back-control"]').exists()).toBe(false);
+        const crumb = wrapper.find('[data-testid="breadcrumb-item-name"]');
+        expect(crumb.exists()).toBe(true);
+        expect(crumb.element.tagName).toBe('SPAN');
+        expect(wrapper.find('[data-testid="breadcrumb-variant"]').exists()).toBe(false);
     });
 
-    it('shows once a specific variant is deep-linked, and calls setVariant(null) to return to the grid', async () => {
+    it('turns the item-name crumb into a button and appends the Variant segment once a specific variant is deep-linked', () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
+            variant: ref('secondary'),
+        });
+        const crumb = wrapper.find('[data-testid="breadcrumb-item-name"]');
+        expect(crumb.element.tagName).toBe('BUTTON');
+        expect(wrapper.find('[data-testid="breadcrumb-variant"]').text()).toBe('Secondary style');
+    });
+
+    it('clicking the item-name crumb calls setVariant(null), returning to the grid', async () => {
         let capturedId = 'not-called';
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', label: 'Secondary style' }] }],
             variant: ref('secondary'),
             setVariant: (id) => { capturedId = id; },
         });
-        const back = wrapper.find('[data-testid="variant-back-control"]');
-        expect(back.exists()).toBe(true);
-        await back.trigger('click');
+        await wrapper.find('[data-testid="breadcrumb-item-name"]').trigger('click');
         expect(capturedId).toBeNull();
     });
 });

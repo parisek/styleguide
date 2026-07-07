@@ -312,30 +312,90 @@ describe('useViewportPreset', () => {
         expect(vp.variant.value).toBe('dark-bg');
     });
 
-    it('showVariantBackControl is true once a specific variant is deep-linked', () => {
+    // Breadcrumb-based variant isolation (styleguide 2.0 UX redesign,
+    // replaces the earlier "← All" toolbar back control): the toolbar
+    // breadcrumb and the description bar both key their variant-context
+    // rendering off these three computeds.
+    it('currentVariantLabel is null when no variant is isolated', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
         catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.currentVariantLabel.value).toBeNull();
+    });
+
+    it('currentVariantLabel resolves the isolated variant\'s display label, not its raw id', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style' }] }];
         const variant = ref('secondary');
         const vp = useViewportPreset({ type, slug, variant });
-        expect(vp.showVariantBackControl.value).toBe(true);
+        expect(vp.currentVariantLabel.value).toBe('Secondary style');
     });
 
-    it('showVariantBackControl is false in grid mode (no variant selected)', () => {
+    it('currentVariantDescription is empty when no variant is isolated, or when the isolated variant has none', () => {
         const type = ref('component');
         const slug = ref('multi');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary' }] }];
-        const vp = useViewportPreset({ type, slug });
-        expect(vp.showVariantBackControl.value).toBe(false);
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style' }] }];
+        const vpNoVariant = useViewportPreset({ type, slug });
+        expect(vpNoVariant.currentVariantDescription.value).toBe('');
+
+        const variant = ref('secondary');
+        const vpNoDescription = useViewportPreset({ type, slug, variant });
+        expect(vpNoDescription.currentVariantDescription.value).toBe('');
     });
 
-    it('showVariantBackControl is false for an entry with no variants at all', () => {
+    it('currentVariantDescription resolves the isolated variant\'s own description', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', label: 'Secondary style', description: 'Tuned for a secondary-toned surface.' }] }];
+        const variant = ref('secondary');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.currentVariantDescription.value).toBe('Tuned for a secondary-toned surface.');
+    });
+
+    it('descriptionBarText falls back to the component/page description when no variant is isolated', () => {
         const type = ref('component');
         const slug = ref('hero');
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'hero', name: 'Hero', description: 'The hero component.' }];
         const vp = useViewportPreset({ type, slug });
-        expect(vp.showVariantBackControl.value).toBe(false);
+        expect(vp.descriptionBarText.value).toBe('The hero component.');
+    });
+
+    it('descriptionBarText REPLACES the component description with the isolated variant\'s own one', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{
+            id: 'multi',
+            name: 'Multi',
+            description: 'The multi component.',
+            variants: [{ id: 'secondary', label: 'Secondary style', description: 'Tuned for a secondary-toned surface.' }],
+        }];
+        const variant = ref('secondary');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.descriptionBarText.value).toBe('Tuned for a secondary-toned surface.');
+        expect(vp.descriptionBarText.value).not.toContain('The multi component.');
+    });
+
+    it('descriptionBarText is empty (not a fallback to the component description) once isolated to a variant with no description of its own', () => {
+        const type = ref('component');
+        const slug = ref('multi');
+        const catalog = useCatalogStore();
+        catalog.items = [{
+            id: 'multi',
+            name: 'Multi',
+            description: 'The multi component.',
+            variants: [{ id: 'dark-bg', label: 'dark-bg' }],
+        }];
+        const variant = ref('dark-bg');
+        const vp = useViewportPreset({ type, slug, variant });
+        expect(vp.descriptionBarText.value).toBe('');
     });
 
     it('fieldsTree/fieldsCount reflect the current item\'s YAML fields map', () => {

@@ -62,10 +62,6 @@ test.describe('file-convention variants', () => {
         await expect(tiles.nth(0).getByTestId('variant-tile-description')).toHaveCount(0);
         await expect(tiles.nth(1).getByTestId('variant-tile-description')).toHaveCount(0);
         await expect(tiles.nth(2).getByTestId('variant-tile-description')).toHaveText('Tuned for a secondary-toned surface.');
-
-        // The a11y check button needs a single iframe, so it's disabled (not
-        // hidden) in grid mode -- see ViewportToolbar.vue.
-        await expect(page.getByTestId('a11y-check-button')).toBeDisabled();
     });
 
     test('?variant=<id> deep link shows the classic single preview, not the grid', async ({ page }) => {
@@ -80,11 +76,9 @@ test.describe('file-convention variants', () => {
         await expect(iframe.locator('.multi')).toContainText('Multi demo (secondary variant)');
         await expect(iframe.locator('body')).not.toContainText('Multi demo (default variant)');
 
-        // The single-preview machinery (responsive width dropdown) is back,
-        // and the a11y check button is enabled again -- both are grid-mode-only
-        // restrictions.
+        // The single-preview machinery (responsive width dropdown) is back
+        // -- a grid-mode-only restriction.
         await expect(page.getByTestId('viewport-trigger')).toBeVisible();
-        await expect(page.getByTestId('a11y-check-button')).toBeEnabled();
 
         // A different variant id isolates to its own body, still no grid.
         await page.goto('/styleguide/component/multi?variant=dark-bg');
@@ -297,7 +291,11 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         expect(boxes[2].top).toBeGreaterThan(boxes[0].top);
     });
 
-    test('the Default tile header is not clickable; every other tile header isolates it to the classic single preview, with a back control to return', async ({ page }) => {
+    // styleguide 2.0 UX redesign: the earlier "← All" toolbar back control is
+    // gone -- the toolbar breadcrumb's component-name crumb becomes the
+    // "back to the grid" affordance once a variant is isolated, and a
+    // trailing Variant segment appears alongside it.
+    test('the Default tile header is not clickable; every other tile header isolates it to the classic single preview, with the breadcrumb crumb returning to the grid', async ({ page }) => {
         await page.goto('/styleguide/component/multi');
         const tiles = page.getByTestId('variant-tile');
 
@@ -307,20 +305,23 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await expect(defaultHeader).not.toHaveAttribute('tabindex', '0');
 
         // dark-bg tile (index 1): clicking its header isolates it.
-        await expect(page.getByTestId('variant-back-control')).toHaveCount(0);
+        const crumb = page.getByTestId('breadcrumb-item-name');
+        await expect(crumb).not.toHaveJSProperty('tagName', 'BUTTON');
+        await expect(page.getByTestId('breadcrumb-variant')).toHaveCount(0);
         await tiles.nth(1).getByTestId('variant-tile-header').click();
         await expect(page).toHaveURL(/variant=dark-bg/);
         await expect(page.getByTestId('variant-grid')).toHaveCount(0);
         const iframe = page.frameLocator('iframe');
         await expect(iframe.locator('.multi')).toContainText('Multi demo (dark-bg variant, no YAML label)');
 
-        // The back control appears once isolated, and returns to the grid.
-        const back = page.getByTestId('variant-back-control');
-        await expect(back).toBeVisible();
-        await back.click();
+        // The breadcrumb crumb becomes a button and a Variant segment
+        // appears once isolated; clicking the crumb returns to the grid.
+        await expect(crumb).toHaveJSProperty('tagName', 'BUTTON');
+        await expect(page.getByTestId('breadcrumb-variant')).toHaveText('dark-bg');
+        await crumb.click();
         await expect(page).not.toHaveURL(/variant=/);
         await expect(page.getByTestId('variant-grid')).toBeVisible();
         await expect(page.getByTestId('variant-tile')).toHaveCount(3);
-        await expect(page.getByTestId('variant-back-control')).toHaveCount(0);
+        await expect(page.getByTestId('breadcrumb-variant')).toHaveCount(0);
     });
 });
