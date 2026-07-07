@@ -146,7 +146,16 @@ function highlightSegments(text, q) {
         class="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-24 px-4"
         @click.self="close"
     >
-        <div class="w-full max-w-lg rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
+        <!-- Open transition: scale(0.98)->1 + fade, ~120ms, via the
+             .sg-palette-in keyframe (styleguide.css). A plain CSS animation
+             rather than Vue's <Transition> -- the panel is freshly created
+             by v-if="isOpen" on every open, so the keyframe just plays once
+             on insertion with no JS-tracked enter/leave state needed (and
+             no risk of a leave transition ever holding the dialog in the
+             DOM after Escape/second Cmd+K, which callers -- and this
+             component's own tests -- expect to remove it synchronously).
+             Gated behind prefers-reduced-motion:no-preference in the CSS. -->
+        <div class="sg-palette-in w-full max-w-lg rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 overflow-hidden">
             <input
                 ref="inputRef"
                 v-model="query"

@@ -46,9 +46,15 @@ provide('viewport', viewport);
 
 <template>
     <div class="flex h-screen overflow-hidden">
+        <!-- Backdrop: always mounted (not v-show) below lg so opacity can
+             transition instead of snapping between display:none/block --
+             pointer-events-none while hidden keeps it inert exactly like the
+             old display:none did. motion-safe: gates the fade to users who
+             haven't asked for reduced motion; everyone else gets an instant
+             show/hide via the same class toggle. -->
         <div
-            v-show="ui.sidebarOpen"
-            class="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            class="fixed inset-0 z-40 bg-black/40 lg:hidden motion-safe:transition-opacity motion-safe:duration-200"
+            :class="ui.sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'"
             @click="ui.toggleSidebar()"
         ></div>
 

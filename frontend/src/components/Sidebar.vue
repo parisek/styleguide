@@ -103,8 +103,14 @@ function supportedLocales() {
 </script>
 
 <template>
+    <!-- Mobile slide-over: translateX(-100%)<->0 over 240ms with an
+         iOS-style deceleration curve (cubic-bezier(0.32,0.72,0,1) -- fast
+         start, gentle settle), gated behind motion-safe: so a
+         reduced-motion user gets an instant show/hide instead. `lg:*`
+         overrides keep the desktop persistent-column behavior (no
+         transition, no fixed positioning) exactly as before. -->
     <aside
-        class="w-72 bg-zinc-50 border-r border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-200 lg:static lg:z-auto lg:transition-none"
+        class="w-72 bg-zinc-50 border-r border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 flex flex-col fixed inset-y-0 left-0 z-50 motion-safe:transition-transform motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)] lg:static lg:z-auto lg:transition-none"
         :class="ui.sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'"
     >
         <!-- Header. Logo + project name link to the project's real
@@ -183,10 +189,18 @@ function supportedLocales() {
             <!-- DOKUMENTACE — package meta-views (foundations, overview) pinned
                  first, then consumer doc entries (server-sorted by weight). -->
             <div>
-                <button @click="toggleSection('docs')" class="w-full flex items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                <button @click="toggleSection('docs')" :aria-expanded="(sections.docs || !!ui.searchQuery) ? 'true' : 'false'" class="w-full flex items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t('nav.docs') }}</span>
                 </button>
-                <ul v-show="sections.docs || ui.searchQuery" class="mt-1 space-y-0.5">
+                <!-- Collapse animation: CSS grid-template-rows 0fr<->1fr technique
+                     (no JS height measurement) -- the outer div's row size
+                     tweens between the two, the inner overflow-hidden div
+                     clips the content during the tween. `:inert` mirrors the
+                     old v-show's display:none by pulling collapsed content
+                     out of tab order / the a11y tree without fighting the
+                     height transition the way `visibility: hidden` would. -->
+                <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections.docs || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections.docs || ui.searchQuery)">
+                <ul class="mt-1 space-y-0.5 overflow-hidden">
                     <li>
                         <a href="#" @click.prevent="select('foundations', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('foundations', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.foundations') }}</span>
@@ -203,6 +217,7 @@ function supportedLocales() {
                         </a>
                     </li>
                 </ul>
+                </div>
             </div>
 
             <!-- Hide entire section when search yields zero matches so the
@@ -224,14 +239,19 @@ function supportedLocales() {
                  wrapper. -->
             <template v-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
             <div v-show="items(section).length > 0">
-                <button @click="toggleSection(section)" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                <button @click="toggleSection(section)" :aria-expanded="(sections[section] || !!ui.searchQuery) ? 'true' : 'false'" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t(`sections.${section}`) }}</span>
                     <span class="text-zinc-400 dark:text-zinc-600 font-semibold">{{ items(section).length }}</span>
                 </button>
                 <!-- Force-open the section when a search is active so the
                      match is visible without an extra click; otherwise
-                     respect the persisted collapsed/expanded state. -->
-                <ul v-show="sections[section] || ui.searchQuery" class="mt-1 space-y-0.5">
+                     respect the persisted collapsed/expanded state.
+                     Collapse animates via the CSS grid-template-rows
+                     0fr<->1fr technique (see the docs section comment
+                     above) rather than v-show, so opening/closing tweens
+                     height instead of snapping. -->
+                <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections[section] || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections[section] || ui.searchQuery)">
+                <ul class="mt-1 space-y-0.5 overflow-hidden">
                     <!-- While searching: flat full-name results (grouping bypassed, spec #38). -->
                     <li v-for="item in (ui.searchQuery ? items(section) : [])" :key="'s:' + item.id">
                         <a
@@ -256,13 +276,21 @@ function supportedLocales() {
                         >
                             <span>{{ node.item.name ?? node.item.id }}</span>
                         </a>
+                        <!-- Group row: no chevron -- the count badge alone signals
+                             a group, and dropping the arrow glyph lets the label
+                             sit flush at the same left padding (px-3.5) as every
+                             flat sibling item above/below it, instead of being
+                             indented out of line by the icon + gap. The whole row
+                             stays the expand/collapse toggle; aria-expanded keeps
+                             the state programmatically discoverable now that the
+                             visual chevron cue is gone. -->
                         <div v-else>
-                            <button @click="toggleGroup(section, node.label)" class="w-full flex items-center gap-2 px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
-                                <svg class="w-3 h-3 shrink-0 transition-transform text-zinc-400 dark:text-zinc-600" :class="!isGroupOpen(section, node.label, node.children) && '-rotate-90'" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+                            <button @click="toggleGroup(section, node.label)" :aria-expanded="isGroupOpen(section, node.label, node.children) ? 'true' : 'false'" class="w-full flex items-center px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
                                 <span class="font-medium">{{ node.label }}</span>
                                 <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold">{{ node.children.length }}</span>
                             </button>
-                            <ul v-show="isGroupOpen(section, node.label, node.children)" class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
+                            <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: isGroupOpen(section, node.label, node.children) ? '1fr' : '0fr' }" :inert="!isGroupOpen(section, node.label, node.children)">
+                            <ul class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 overflow-hidden">
                                 <li v-for="child in node.children" :key="child.id">
                                     <a
                                         href="#"
@@ -274,19 +302,22 @@ function supportedLocales() {
                                     </a>
                                 </li>
                             </ul>
+                            </div>
                         </div>
                     </li>
                 </ul>
+                </div>
             </div>
             </template>
 
             <!-- Pages -->
             <div v-show="pageItems.length > 0">
-                <button @click="toggleSection('pages')" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                <button @click="toggleSection('pages')" :aria-expanded="(sections.pages || !!ui.searchQuery) ? 'true' : 'false'" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t('sections.pages') }}</span>
                     <span class="text-zinc-400 dark:text-zinc-600 font-semibold">{{ pageItems.length }}</span>
                 </button>
-                <ul v-show="sections.pages || ui.searchQuery" class="mt-1 space-y-0.5">
+                <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections.pages || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections.pages || ui.searchQuery)">
+                <ul class="mt-1 space-y-0.5 overflow-hidden">
                     <!-- While searching: flat full-name results (grouping bypassed). -->
                     <li v-for="page in (ui.searchQuery ? pageItems : [])" :key="'s:' + page.id">
                         <a
@@ -309,13 +340,16 @@ function supportedLocales() {
                         >
                             <span>{{ node.item.name ?? node.item.id }}</span>
                         </a>
+                        <!-- Group row: no chevron, same rationale as the component
+                             prefix tree above -- count badge alone signals a
+                             group, flush left padding matches sibling items. -->
                         <div v-else>
-                            <button @click="toggleGroup('pages', node.label)" class="w-full flex items-center gap-2 px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
-                                <svg class="w-3 h-3 shrink-0 transition-transform text-zinc-400 dark:text-zinc-600" :class="!isGroupOpen('pages', node.label, node.children) && '-rotate-90'" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+                            <button @click="toggleGroup('pages', node.label)" :aria-expanded="isGroupOpen('pages', node.label, node.children) ? 'true' : 'false'" class="w-full flex items-center px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
                                 <span class="font-medium">{{ node.label }}</span>
                                 <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold">{{ node.children.length }}</span>
                             </button>
-                            <ul v-show="isGroupOpen('pages', node.label, node.children)" class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5">
+                            <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: isGroupOpen('pages', node.label, node.children) ? '1fr' : '0fr' }" :inert="!isGroupOpen('pages', node.label, node.children)">
+                            <ul class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 overflow-hidden">
                                 <li v-for="child in node.children" :key="child.id">
                                     <a
                                         href="#"
@@ -327,9 +361,11 @@ function supportedLocales() {
                                     </a>
                                 </li>
                             </ul>
+                            </div>
                         </div>
                     </li>
                 </ul>
+                </div>
             </div>
         </nav>
 

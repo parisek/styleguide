@@ -38,8 +38,15 @@ const tiles = computed(() => {
     ].map((tile) => ({ ...tile, src: viewport.iframeSrcForVariant(tile.id) }));
 });
 
+// Keyed by slug + variant id (not variant id alone) so navigating to a
+// DIFFERENT entry that happens to share a variant id/the default tile
+// (e.g. two entries both have a "dark-bg" variant) never reuses the
+// previous entry's measured height/cell-width bookkeeping below --
+// otherwise the new tile would render at the old entry's content height
+// for a moment (the exact "problikne" flash PreviewPane.vue's iframe
+// keying also fixes) before its own onTileLoad measurement corrects it.
 function tileKey(tile) {
-    return tile.id ?? '__default__';
+    return `${viewport.slug.value}:${tile.id ?? '__default__'}`;
 }
 
 // Per-tile auto-height, same technique as PreviewPane.vue's
@@ -158,9 +165,16 @@ onBeforeUnmount(() => {
              class="gap-6"
              :class="ui.variantLayout === 'rows' ? 'flex flex-col' : 'grid items-start'"
              :style="ui.variantLayout === 'rows' ? '' : 'grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));'">
-            <div v-for="tile in renderTiles" :key="tile.key"
+            <!-- Staggered entrance on first render: opacity/translateY tween
+                 driven by the .sg-tile-enter keyframe (styleguide.css),
+                 30ms further delayed per tile via the --i custom property
+                 (index-based, set inline since Tailwind has no per-index
+                 arbitrary-value hook). Gated behind
+                 prefers-reduced-motion:no-preference in the CSS itself. -->
+            <div v-for="(tile, i) in renderTiles" :key="tile.key"
                  data-testid="variant-tile"
-                 class="flex flex-col rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm">
+                 class="sg-tile-enter flex flex-col rounded-lg overflow-hidden ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
+                 :style="{ '--i': i }">
                 <!-- Slim SPA-chrome header -- variant label (muted) plus an
                      optional description underneath, plus a per-tile scale
                      readout whenever the shared preset isn't Full. `v-html`

@@ -32,8 +32,11 @@ function mountPane(type = 'component', slug = 'hero', { onViewport, items, varia
             // Hands the composable instance back to the caller (Task 6's
             // registerIframe test below needs to read viewport.iframeEl
             // directly) without changing the return shape for every
-            // pre-existing call site, which never passes this option.
-            onViewport?.(viewport);
+            // pre-existing call site, which never passes this option. The
+            // second argument (route refs) is additive too -- only the
+            // no-flash-navigation specs below use it, to simulate a route
+            // change without a real router.
+            onViewport?.(viewport, { typeRef, slugRef });
             provide('viewport', viewport);
             return () => h(PreviewPane);
         },
@@ -149,6 +152,81 @@ describe('PreviewPane', () => {
 
         wrapper.unmount();
         expect(viewport.iframeEl.value).toBeNull();
+    });
+});
+
+// No-flash preview navigation: the OLD document used to keep painting in
+// the iframe until the new one finished loading (a real browser doesn't
+// blank an iframe just because its `src` attribute changed). Keying the
+// iframe on its own src identity forces Vue to unmount the old element and
+// mount a genuinely fresh (blank) one on every navigation instead.
+describe('PreviewPane — no-flash navigation', () => {
+    it('keys the iframe by src identity so a route change remounts a fresh element', async () => {
+        let refs;
+        const wrapper = mountPane('component', 'hero', {
+            items: [{ id: 'hero', name: 'Hero' }, { id: 'gizmo', name: 'Gizmo' }],
+            onViewport: (_vp, r) => { refs = r; },
+        });
+        const before = wrapper.find('iframe').element;
+
+        refs.slugRef.value = 'gizmo';
+        await wrapper.vm.$nextTick();
+
+        const after = wrapper.find('iframe').element;
+        expect(after).not.toBe(before);
+        expect(wrapper.find('iframe').attributes('src')).toBe('/styleguide/render/component/gizmo');
+    });
+
+    it('resets the measured content height immediately on navigation, before the new document reports its own height', async () => {
+        let refs;
+        const wrapper = mountPane('component', 'hero', {
+            items: [{ id: 'hero', name: 'Hero' }, { id: 'gizmo', name: 'Gizmo' }],
+            onViewport: (_vp, r) => { refs = r; },
+        });
+        const ui = useUiStore();
+        // Custom width, no canonical height -- wrapperStyle's height is
+        // content-driven (iframeContentHeight ?? the 400px pre-measure
+        // default), same quadrant the drag-handle specs above exercise.
+        ui.setWidth('375px');
+        await wrapper.vm.$nextTick();
+
+        // jsdom never actually navigates a same-origin iframe (no real
+        // network stack), so contentDocument.documentElement stays null
+        // (see VariantGrid.spec.js's identical caveat) -- stub a fake
+        // document directly on the element so fitIframeToContent() has
+        // something with a real scrollHeight to measure.
+        const iframeEl = wrapper.find('iframe').element;
+        Object.defineProperty(iframeEl, 'contentDocument', {
+            configurable: true,
+            value: { documentElement: { scrollHeight: 900 }, body: { scrollHeight: 900 } },
+        });
+        await wrapper.find('iframe').trigger('load');
+        await wrapper.vm.$nextTick();
+
+        let style = wrapper.find('[data-testid="iframe-wrapper"]').attributes('style');
+        expect(style).toContain('height: 900px');
+
+        refs.slugRef.value = 'gizmo';
+        await wrapper.vm.$nextTick();
+
+        style = wrapper.find('[data-testid="iframe-wrapper"]').attributes('style');
+        expect(style).toContain('height: 400px');
+    });
+
+    it('still clears ui.isPreviewLoading once the remounted (post-navigation) iframe fires load', async () => {
+        let refs;
+        const wrapper = mountPane('component', 'hero', {
+            items: [{ id: 'hero', name: 'Hero' }, { id: 'gizmo', name: 'Gizmo' }],
+            onViewport: (_vp, r) => { refs = r; },
+        });
+        const ui = useUiStore();
+
+        refs.slugRef.value = 'gizmo';
+        ui.isPreviewLoading = true; // setRoute() would normally flip this synchronously
+        await wrapper.vm.$nextTick();
+
+        await wrapper.find('iframe').trigger('load');
+        expect(ui.isPreviewLoading).toBe(false);
     });
 });
 

@@ -37,6 +37,30 @@ onBeforeUnmount(() => {
 watch(wrapperRef, (el) => viewport.observeWrapper(el));
 watch(iframeRef, (el) => viewport.registerIframe(el));
 
+// No-flash navigation: the iframe below is keyed on its own src, so Vue
+// unmounts the OLD iframe element and mounts a genuinely fresh one on every
+// src change (route change, reload, theme toggle, variant switch) instead
+// of just repointing one persistent element's `src` attribute -- a real
+// browser keeps painting the previous document until the new one finishes
+// loading, which is exactly the "problikne" (flash of stale content) this
+// fixes. The fresh element starts blank, and the loading overlay below
+// covers it until @load fires.
+//
+// A keyed remount also means the PREVIOUS document's measured height must
+// not survive into the new (not-yet-loaded) iframe -- otherwise the pane
+// jumps to the old page's height, then jumps again once the new page's own
+// height is measured. Reset eagerly (before the DOM even patches, thanks to
+// the default 'pre' watch flush) so wrapperStyle/iframeStyle fall back to
+// the neutral pre-measure default for the brief window between navigation
+// and the new document's own `load`.
+watch(() => viewport.iframeSrc.value, () => {
+    iframeContentHeight.value = null;
+    if (contentRO) {
+        contentRO.disconnect();
+        contentRO = null;
+    }
+});
+
 const isLoading = computed(() => ui.isPreviewLoading);
 
 // Same-origin iframes let the parent read contentDocument directly. Measure
@@ -213,7 +237,12 @@ const iframeStyle = computed(() => {
                          fixed-height shell. The 400px fallback shows
                          before the first onload fires so the preview area
                          has something visible during the initial paint. -->
-                    <iframe ref="iframeRef" :src="viewport.iframeSrc.value" @load="onIframeLoad"
+                    <!-- :key = src identity -- forces a genuine remount (not just a
+                         src attribute repoint) on every navigation, reload, theme
+                         toggle, or variant switch. See the iframeSrc watch above
+                         for why this also has to reset the measured content
+                         height in lockstep. -->
+                    <iframe ref="iframeRef" :key="viewport.iframeSrc.value" :src="viewport.iframeSrc.value" @load="onIframeLoad"
                             class="border-0 block"
                             :style="iframeStyle"
                             :class="{ 'pointer-events-none': viewport.isDragging.value }"></iframe>

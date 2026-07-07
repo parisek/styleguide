@@ -77,6 +77,21 @@ describe('Sidebar', () => {
         expect(wrapper.text()).toContain('Gizmo');
     });
 
+    // Chevron-less group rows: the count badge alone signals a group now --
+    // no arrow glyph pushing the label out of alignment with flat sibling
+    // items. The whole row remains the toggle (aria-expanded carries the
+    // state now that there's no visual chevron cue).
+    it('renders the Widget group toggle with no chevron svg, aria-expanded wired to its open state', async () => {
+        const { wrapper } = await mountSidebar();
+        const groupToggle = wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Widget');
+        expect(groupToggle.find('svg').exists()).toBe(false);
+        expect(groupToggle.attributes('aria-expanded')).toBe('true');
+
+        await groupToggle.trigger('click');
+        await wrapper.vm.$nextTick();
+        expect(groupToggle.attributes('aria-expanded')).toBe('false');
+    });
+
     it('navigates via router.push when a component link is clicked, then closes the sidebar on mobile', async () => {
         vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), addListener: vi.fn() }));
         const { wrapper, router } = await mountSidebar();
