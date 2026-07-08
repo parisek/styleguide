@@ -93,6 +93,24 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function foundations_body_never_receives_consumer_iframe_body_class(): void
+    {
+        // foundations.twig is a package-owned page styled zinc-on-white — a
+        // consumer's dark site-wide `iframe.body_class` (e.g. a dark green
+        // brand background) must not bleed onto it, or its zinc-on-white
+        // headings/cards become near-invisible. Component/page kinds keep
+        // receiving it (asserted by the sibling tests above) — only
+        // `foundations` is exempt.
+        $html = $this->rendererWithBase('')->render('foundations', '', [
+            'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
+            'styleguide' => [],
+        ], 'cs');
+
+        self::assertStringContainsString('<body>', $html);
+        self::assertStringNotContainsString('<body class', $html);
+    }
+
+    #[Test]
     public function wraps_page_render_in_page_wrapper_when_configured(): void
     {
         $html = $this->renderer->render('page', 'landing', [

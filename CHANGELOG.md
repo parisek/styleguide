@@ -12,6 +12,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 - **Components may ship ONLY named variant fixtures — no bare `styleguide.twig` required.** A component/page/doc directory with `styleguide.<id>.twig` siblings and no bare `styleguide.twig` now still surfaces as a renderable entry: `has_styleguide` goes `true` from named variants alone, not just from the bare sibling or the legacy `styleguide:` flag, so an all-named component is no longer silently filtered out of the sidebar/palette/overview. New additive `has_default_variant` field on `/api/components`/`/api/pages`/`/api/docs` (`true` only when `<id>/styleguide.twig` itself exists) lets the SPA's variant grid tell "has some fixture" apart from "has the unnamed default fixture" — `VariantGrid.vue` now shows its synthetic "Default" tile only when `has_default_variant` isn't explicitly `false`, so a variants-only component's grid shows exactly its named tiles (all click-to-isolate, the first included) with no broken/empty tile pointing at the component's raw production template. See `docs/API.md` § `/api/components` and `README.md` § *File-convention variants → All named, no bare default*.
 
+### Fixed
+
+- **Consumer `iframe.body_class` no longer bleeds onto the foundations page.** `render-cell.twig` applied the consumer's site-wide `iframe.body_class` (and the per-entry `component.body_class`) to `<body>` for every kind, including `foundations` — a package-owned page with a fixed zinc-on-white palette. A consumer with a dark `iframe.body_class` (e.g. a dark brand background) made the foundations page's headings/cards nearly invisible, discovered in the `mairateam` project after the 1.0 bump. Both classes are now skipped for `kind == 'foundations'`; component/page kinds are unaffected. The existing light/dark `body { background-color }` safety net in `<head>` is untouched.
+
+
 ## [1.0.0] - 2026-07-07
 
 ### Added
