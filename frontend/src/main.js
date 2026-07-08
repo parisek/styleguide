@@ -50,7 +50,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const applyFallback = () => {
         if (favEl.src === GENERIC_FAVICON) return;
         favEl.src = GENERIC_FAVICON;
-        favEl.classList.add('p-1');
     };
     favEl.addEventListener('error', applyFallback);
     if (!favEl.getAttribute('src') || (favEl.complete && favEl.naturalWidth === 0)) applyFallback();

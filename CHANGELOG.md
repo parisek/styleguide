@@ -8,6 +8,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Sidebar favicon gets protective padding.** The project favicon in the sidebar header rendered edge-to-edge inside its rounded box — icons without their own safe-area looked glued to the corners. The image now sits inset (`p-1`, `object-contain`) so any favicon shape breathes.
+- **Sidebar-toggle icon stays a hamburger.** The open-state morph into an X read as "close/dismiss" rather than "menu" and was misleading next to the sidebar's own close affordances; the icon is now static in both states (`aria-expanded` still carries the state for assistive tech).
+
 ## [1.1.0] - 2026-07-08
 
 ### Added
