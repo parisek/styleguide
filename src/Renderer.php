@@ -75,7 +75,7 @@ final class Renderer
         try {
             $this->twig->addFunction(new TwigFunction(
                 'styleguide_data',
-                static fn(?string $slug = null): array => $renderer->resolveStyleguideData($slug),
+                static fn(?string $name = null): array => $renderer->resolveStyleguideData($name),
             ));
         } catch (\LogicException) {
             // Duplicate function name, or "extensions already initialized"
@@ -89,14 +89,25 @@ final class Renderer
      * `styleguide_data()` Twig function implementation. `@internal` — only
      * reachable via the closure registered in {@see registerDataFunction()}.
      *
-     * With no argument, resolves the `styleguide.data.yaml` sidecar sitting
-     * next to the component/page/doc CURRENTLY being rendered ({@see
-     * $currentKind} / {@see $currentSlug}, set by {@see renderInner()}
-     * immediately before the Twig render call that reaches this function).
-     * An explicit `$slug` swaps the slug within the SAME kind — falls out of
-     * the same directory-resolution logic at negligible extra cost (a page
-     * fixture can pull a sibling component's demo data without duplicating
-     * it); the no-arg "current directory" form is the actual contract.
+     * Resolves ONE OF POTENTIALLY SEVERAL sidecar files sitting next to the
+     * component/page/doc CURRENTLY being rendered ({@see $currentKind} /
+     * {@see $currentSlug}, set by {@see renderInner()} immediately before the
+     * Twig render call that reaches this function):
+     *
+     *  - No argument (or `null`) → the DEFAULT set, `styleguide.data.yaml`.
+     *  - `$name` given → the NAMED set `styleguide.data-<name>.yaml`, where
+     *    `<name>` must match `^[a-z0-9-]+$` — the SAME id rule
+     *    `Router::whitelistVariant()` / `Renderer::renderInner()` already use
+     *    for `styleguide.<variant>.twig` variant ids, deliberately reused so
+     *    the two flat-suffix-naming families (variant `.twig` siblings and
+     *    named `.yaml` data sets) stay consistent.
+     *
+     * Resolution is ALWAYS scoped to the currently-rendering component's own
+     * directory — there is no cross-component/cross-slug lookup. A page or
+     * component that wants another component's demo data must duplicate it
+     * (or the styleguide.yaml/`{% extends %}` data-template escape hatch);
+     * this function intentionally never reaches outside `$currentKind` /
+     * `$currentSlug`.
      *
      * Two resolution steps run over the parsed YAML, in order:
      *  1. {@see resolvePlaceholders()} — recursively replaces every
@@ -110,10 +121,13 @@ final class Renderer
      *
      * @throws \RuntimeException
      *   When called outside an active render (no `templates_path`
-     *   configured, or invoked before any render has run) or when the
-     *   resolved sidecar file doesn't exist on disk. Fixtures are dev-time
-     *   only, so failing loudly here — rather than silently returning `[]`
-     *   — surfaces a typo'd/missing sidecar immediately.
+     *   configured, or invoked before any render has run); when `$name`
+     *   doesn't match `^[a-z0-9-]+$`; or when the resolved sidecar file
+     *   doesn't exist on disk — in the last case the message also enumerates
+     *   whatever `styleguide.data*.yaml` sets ARE present in the directory
+     *   (a typo aid), via {@see describeAvailableDataSets()}. Fixtures are
+     *   dev-time only, so failing loudly here — rather than silently
+     *   returning `[]` — surfaces a typo'd/missing sidecar immediately.
      * @throws \Symfony\Component\Yaml\Exception\ParseException
      *   Propagated UNCHANGED from `Yaml::parseFile()` on malformed YAML —
      *   deliberately not wrapped/caught, matching the existing (also
@@ -124,7 +138,7 @@ final class Renderer
      *
      * @return array<string, mixed>
      */
-    private function resolveStyleguideData(?string $slug = null): array
+    private function resolveStyleguideData(?string $name = null): array
     {
         if ($this->templatesPath === null || $this->currentKind === null || $this->currentSlug === null) {
             throw new \RuntimeException(
@@ -133,14 +147,23 @@ final class Renderer
             );
         }
 
-        $targetSlug = ($slug !== null && $slug !== '') ? $slug : $this->currentSlug;
-        $dir = rtrim($this->templatesPath, '/') . '/' . $this->currentKind . '/' . $targetSlug;
-        $file = $dir . '/styleguide.data.yaml';
+        if ($name !== null && $name !== '' && preg_match('/^[a-z0-9-]+$/', $name) !== 1) {
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): invalid data set name "%s" — must match ^[a-z0-9-]+$ '
+                . '(same id rule as styleguide.<variant>.twig variant ids)',
+                $name,
+            ));
+        }
+
+        $dir = rtrim($this->templatesPath, '/') . '/' . $this->currentKind . '/' . $this->currentSlug;
+        $filename = ($name === null || $name === '') ? 'styleguide.data.yaml' : sprintf('styleguide.data-%s.yaml', $name);
+        $file = $dir . '/' . $filename;
 
         if (!is_file($file)) {
             throw new \RuntimeException(sprintf(
-                'styleguide_data(): sidecar file not found: %s',
+                'styleguide_data(): sidecar file not found: %s (%s)',
                 $file,
+                self::describeAvailableDataSets($dir),
             ));
         }
 
@@ -151,6 +174,48 @@ final class Renderer
         $data = $this->resolvePaths($data);
 
         return $data;
+    }
+
+    /**
+     * Builds the "(did you mean one of: …)"-shaped fragment for the
+     * missing-sidecar `RuntimeException` message — enumerates whichever
+     * `styleguide.data*.yaml` sets actually exist in `$dir`, so a typo'd
+     * name (or a missing default when only named sets exist) points
+     * straight at what IS available instead of leaving the developer to
+     * `ls` the directory themselves.
+     */
+    private static function describeAvailableDataSets(string $dir): string
+    {
+        $sets = self::listAvailableDataSets($dir);
+
+        return $sets === []
+            ? 'no styleguide.data*.yaml files found in this directory'
+            : 'available data sets in this directory: ' . implode(', ', $sets);
+    }
+
+    /**
+     * Lists the data-set names present in `$dir`, exactly as they'd be
+     * passed to `styleguide_data()`: the bare `styleguide.data.yaml` sidecar
+     * (if present) is reported as `'default'`; each
+     * `styleguide.data-<name>.yaml` sibling is reported as `<name>`.
+     * Alphabetically sorted for deterministic, readable error messages.
+     *
+     * @return list<string>
+     */
+    private static function listAvailableDataSets(string $dir): array
+    {
+        $sets = [];
+        if (is_file($dir . '/styleguide.data.yaml')) {
+            $sets[] = 'default';
+        }
+        foreach (glob($dir . '/styleguide.data-*.yaml') ?: [] as $path) {
+            if (preg_match('/^styleguide\.data-([a-z0-9-]+)\.yaml$/', basename($path), $m) === 1) {
+                $sets[] = $m[1];
+            }
+        }
+        sort($sets);
+
+        return $sets;
     }
 
     /**

@@ -75,8 +75,13 @@ final class StyleguideDataTest extends TestCase
      * directly, having set `currentKind`/`currentSlug` via reflection —
      * bypasses `Renderer::render()`'s top-level try/catch so exceptions
      * surface to the test instead of being swallowed into 500 markup.
+     *
+     * @param string|null $argName Optional `styleguide_data('<name>')` set
+     *                             name — always resolved within the SAME
+     *                             `$kind`/`$slug` directory, never a
+     *                             cross-component lookup.
      */
-    private static function callStyleguideData(Renderer $renderer, Environment $twig, string $kind, string $slug, ?string $argSlug = null): mixed
+    private static function callStyleguideData(Renderer $renderer, Environment $twig, string $kind, string $slug, ?string $argName = null): mixed
     {
         $ref = new \ReflectionClass($renderer);
         $ref->getProperty('currentKind')->setValue($renderer, $kind);
@@ -85,7 +90,7 @@ final class StyleguideDataTest extends TestCase
         $callable = $twig->getFunction('styleguide_data')?->getCallable();
         self::assertIsCallable($callable);
 
-        return $argSlug === null ? $callable() : $callable($argSlug);
+        return $argName === null ? $callable() : $callable($argName);
     }
 
     #[Test]
@@ -229,10 +234,16 @@ final class StyleguideDataTest extends TestCase
 
         $expectedPath = self::TEMPLATES_PATH . '/component/data-demo-missing/styleguide.data.yaml';
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage($expectedPath);
-
-        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-missing');
+        try {
+            self::callStyleguideData($renderer, $twig, 'component', 'data-demo-missing');
+            self::fail('Expected a RuntimeException.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString($expectedPath, $e->getMessage());
+            // data-demo-missing has NO styleguide.data*.yaml files at all —
+            // the enumeration fragment says so explicitly rather than
+            // listing an empty set.
+            self::assertStringContainsString('no styleguide.data*.yaml files found in this directory', $e->getMessage());
+        }
     }
 
     #[Test]
@@ -315,29 +326,109 @@ final class StyleguideDataTest extends TestCase
     }
 
     #[Test]
-    public function explicit_slug_argument_reads_a_sibling_directorys_sidecar(): void
+    public function named_set_argument_loads_the_matching_flat_suffix_sidecar(): void
     {
-        // Escape-hatch form: styleguide_data('data-demo-2') called while
-        // rendering 'data-demo-explicit' pulls data-demo-2's sidecar instead
-        // of data-demo-explicit's own (which doesn't even have one).
+        // styleguide_data('gallery') on the data-demo directory resolves
+        // styleguide.data-gallery.yaml — a SEPARATE file from the default
+        // styleguide.data.yaml in the SAME directory (never a cross-
+        // component lookup).
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-explicit', 'data-demo-2');
+        $default = self::callStyleguideData($renderer, $twig, 'component', 'data-demo');
+        $gallery = self::callStyleguideData($renderer, $twig, 'component', 'data-demo', 'gallery');
 
-        self::assertSame('Second Demo', $data['title']);
+        self::assertSame('Demo Title', $default['title']);
+        self::assertSame('Gallery Set', $gallery['title']);
     }
 
     #[Test]
-    public function integration_render_with_explicit_slug_argument(): void
+    public function integration_render_of_a_named_set_via_a_variant_sibling(): void
     {
+        // End-to-end: the 'gallery-view' variant sibling in data-demo calls
+        // styleguide_data('gallery') — proves the named-set form works
+        // through the real render() seam, not just a direct closure call.
         $renderer = $this->newRenderer();
 
-        $html = $renderer->render('component', 'data-demo-explicit', [
+        $html = $renderer->render('component', 'data-demo', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
+            'variant' => 'gallery-view',
         ], 'en');
 
-        self::assertSame('Second Demo', self::extractSgData($html)['title']);
+        self::assertSame('Gallery Set', self::extractSgData($html)['title']);
+    }
+
+    #[Test]
+    public function loads_multiple_named_sets_from_the_same_directory(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $default = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets');
+        $hero = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'hero');
+        $gallery = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'gallery');
+
+        self::assertSame('Default Set', $default['title']);
+        self::assertSame('Hero Set', $hero['title']);
+        self::assertSame('Gallery Set', $gallery['title']);
+    }
+
+    #[Test]
+    public function rejects_a_named_set_argument_that_does_not_match_the_variant_id_pattern(): void
+    {
+        // Same ^[a-z0-9-]+$ rule Router::whitelistVariant() / renderInner()
+        // already enforce for `?variant=` — uppercase, spaces, underscores
+        // all rejected before ever touching the filesystem.
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid data set name');
+
+        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'Not Valid!');
+    }
+
+    #[Test]
+    public function throws_and_enumerates_available_sets_when_a_named_set_is_missing(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $expectedPath = self::TEMPLATES_PATH . '/component/data-demo-sets/styleguide.data-nonexistent.yaml';
+
+        try {
+            self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'nonexistent');
+            self::fail('Expected a RuntimeException.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString($expectedPath, $e->getMessage());
+            // data-demo-sets ships default + hero + gallery — all three must
+            // be enumerated as a typo aid, alphabetically sorted.
+            self::assertStringContainsString('default, gallery, hero', $e->getMessage());
+        }
+    }
+
+    #[Test]
+    public function throws_and_enumerates_available_sets_when_the_default_set_is_missing_but_named_sets_exist(): void
+    {
+        // data-demo-only-named ships ONLY styleguide.data-alt.yaml — no bare
+        // styleguide.data.yaml. A no-arg call still names the (absent)
+        // default path as "expected", but enumerates what IS present.
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $expectedPath = self::TEMPLATES_PATH . '/component/data-demo-only-named/styleguide.data.yaml';
+
+        try {
+            self::callStyleguideData($renderer, $twig, 'component', 'data-demo-only-named');
+            self::fail('Expected a RuntimeException.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString($expectedPath, $e->getMessage());
+            self::assertStringContainsString('available data sets in this directory: alt', $e->getMessage());
+        }
+
+        // The named set itself still resolves fine.
+        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-only-named', 'alt');
+        self::assertSame('Alt Set', $data['title']);
     }
 }
