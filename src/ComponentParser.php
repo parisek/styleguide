@@ -165,11 +165,16 @@ class ComponentParser
                 return null;
             }
 
-            $hasStyleguide = file_exists($dir . '/styleguide.twig')
-                || isset($metadata['styleguide']);
+            $hasDefaultFixture = file_exists($dir . '/styleguide.twig');
             $variants = $this->discoverVariants($dir, $metadata);
+            // additive (v1.1.0): a component that ships ONLY named variant
+            // siblings (no bare styleguide.twig) is still a real, renderable
+            // fixture — see normaliseMetadata()'s has_styleguide doc.
+            $hasStyleguide = $hasDefaultFixture
+                || isset($metadata['styleguide'])
+                || $variants !== [];
 
-            return $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
+            return $this->normaliseMetadata($id, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
             // for the render endpoint's <title>/body_class/render metadata)
@@ -219,11 +224,13 @@ class ComponentParser
                 }
 
                 $id = $file->getBasename('.twig');
-                $hasStyleguide = file_exists($file->getPath() . '/styleguide.twig')
-                    || isset($metadata['styleguide']);
+                $hasDefaultFixture = file_exists($file->getPath() . '/styleguide.twig');
                 $variants = $this->discoverVariants($file->getPath(), $metadata);
+                $hasStyleguide = $hasDefaultFixture
+                    || isset($metadata['styleguide'])
+                    || $variants !== [];
 
-                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide, $variants);
+                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
             } catch (\Throwable $e) {
                 // One pathological template must not 500 the whole catalogue for
                 // every sibling component. Record it and keep walking; surfaced
@@ -368,8 +375,13 @@ class ComponentParser
      * @param list<array{id:string,title:string,description:string}> $variants
      * @return array<string,mixed>
      */
-    private function normaliseMetadata(string $id, array $metadata, bool $hasStyleguide, array $variants): array
-    {
+    private function normaliseMetadata(
+        string $id,
+        array $metadata,
+        bool $hasStyleguide,
+        bool $hasDefaultFixture,
+        array $variants,
+    ): array {
         return [
             'id' => $id,
             'name' => $metadata['name'],
@@ -397,7 +409,31 @@ class ComponentParser
             // Default true; only an explicit YAML `false` opts out — strict
             // !== false so strings, integers, or typos never disable it.
             'responsive' => ($metadata['responsive'] ?? true) !== false,
+            // True when the entry has SOME renderable fixture — the bare
+            // `styleguide.twig` sibling, the legacy `styleguide:` YAML
+            // presence flag, OR (additive, v1.1.0) at least one discovered
+            // `styleguide.<variant>.twig` sibling. A component may ship
+            // ONLY named variants with no bare default at all — it must
+            // still surface in the sidebar/palette/overview like any other
+            // renderable entry (see `catalog.js`'s `has_styleguide !==
+            // false` filters), it just has no "Default" fixture. Callers
+            // that specifically need to know whether the UNNAMED default
+            // exists (e.g. the SPA variant grid deciding whether to show a
+            // synthetic Default tile) want `has_default_fixture` below
+            // instead.
             'has_styleguide' => $hasStyleguide,
+            // Additive (v1.1.0). True only when `<id>/styleguide.twig`
+            // itself exists on disk — narrower than `has_styleguide` above,
+            // which also goes true from the legacy `styleguide:` flag or
+            // from named variants alone. Exists so a caller can tell "there
+            // is a real default fixture to render" apart from "there is
+            // SOME fixture" — the render endpoint's fallback chain still
+            // resolves a no-variant request to the component's own
+            // `<slug>.twig` when this is false, but that's the raw
+            // production template, not a styleguide-authored fixture, so
+            // the SPA's variant grid uses this flag to skip the Default
+            // tile entirely rather than pointing it at that fallback.
+            'has_default_fixture' => $hasDefaultFixture,
             // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
             // siblings; [] when none exist — every pre-Phase-4 template keeps
             // this BC default. Default variant is implicit, never listed here.

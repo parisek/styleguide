@@ -93,12 +93,54 @@ describe('VariantGrid', () => {
     // catalogue entry it's pointed at -- deciding whether to mount it at
     // all when an entry has no variants is PreviewPane.vue's job (see
     // useViewportPreset.js's `gridActive` and PreviewPane.spec.js's "grid
-    // mode" tests), not this component's.
+    // mode" tests), not this component's. This item omits `has_default_fixture`
+    // entirely (pre-v1.1.0 shape) -- the `!== false` check treats that the
+    // same as an explicit `true`, so BC holds without touching this fixture.
     it('still renders a single Default tile for a variant-less entry (caller decides whether to mount the grid at all)', () => {
         const wrapper = mountGrid('component', 'hero', { items: [{ id: 'hero', name: 'Hero' }] });
         const tiles = wrapper.findAll('[data-testid="variant-tile"]');
         expect(tiles).toHaveLength(1);
         expect(tiles[0].find('[data-testid="variant-tile-label"]').text()).toBe('Default');
+    });
+
+    it('renders only the named variant tiles when has_default_fixture is false -- no synthetic Default tile', () => {
+        const wrapper = mountGrid('component', 'only-variants', {
+            items: [{
+                id: 'only-variants',
+                name: 'Only Variants',
+                has_default_fixture: false,
+                variants: [
+                    { id: 'first', title: 'First', description: '' },
+                    { id: 'second', title: 'Second', description: 'Second named variant.' },
+                ],
+            }],
+        });
+        const tiles = wrapper.findAll('[data-testid="variant-tile"]');
+        expect(tiles).toHaveLength(2);
+        const labels = tiles.map((t) => t.find('[data-testid="variant-tile-label"]').text());
+        expect(labels).toEqual(['First', 'Second']);
+
+        // No synthetic default tile ahead of it -- the FIRST tile here is
+        // itself a real, clickable/isolatable variant (unlike the Default
+        // tile's own header, which is never clickable).
+        const firstHeader = tiles[0].find('[data-testid="variant-tile-header"]');
+        expect(firstHeader.attributes('role')).toBe('button');
+        expect(firstHeader.attributes('tabindex')).toBe('0');
+    });
+
+    it('keeps rendering the Default tile first when has_default_fixture is explicitly true', () => {
+        const wrapper = mountGrid('component', 'only-variants', {
+            items: [{
+                id: 'only-variants',
+                name: 'Only Variants',
+                has_default_fixture: true,
+                variants: [{ id: 'first', title: 'First', description: '' }],
+            }],
+        });
+        const tiles = wrapper.findAll('[data-testid="variant-tile"]');
+        expect(tiles).toHaveLength(2);
+        expect(tiles[0].find('[data-testid="variant-tile-label"]').text()).toBe('Default');
+        expect(tiles[1].find('[data-testid="variant-tile-label"]').text()).toBe('First');
     });
 
     it('applies the (small, non-over-tall) pre-measure fallback height before any iframe has loaded', () => {

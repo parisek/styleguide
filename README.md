@@ -546,7 +546,18 @@ variants:
 
 An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
 
-**Default view (SPA).** With no `?variant=` (a bare deep link), the preview area becomes a grid — one independent `<iframe>` tile per variant (the default fixture first, then each discovered variant in filename order), each with its own slim header (title + optional description). This is the whole point of having variants: see every treatment at a glance, no switcher to click through. Deep-linking a specific `?variant=<id>` still shows the classic single, resizable preview of just that one variant. An entry with no discovered variants is unaffected — it renders the single default preview exactly as it always has.
+**All named, no bare default.** `styleguide.twig` itself is optional — a component can ship *only* named variant siblings, with every variant a first-class entry and no implicit "Default":
+
+```
+component/hero/
+├── hero.twig
+├── styleguide.primary.twig    ← discovered variant "primary"
+└── styleguide.secondary.twig  ← discovered variant "secondary"
+```
+
+This still counts as a renderable entry (`has_styleguide: true` — the sidebar, palette, and overview never filter it out just because there's no bare fixture) and the SPA grid shows exactly the two named tiles, no synthetic "Default" tile ahead of them — the first tile isolates via click-to-isolate exactly like any other. `/api/components` et al. expose the distinction via the additive `has_default_fixture` field (`true` only when the bare `styleguide.twig` sibling exists on disk); the grid consults it, not `has_styleguide`, to decide whether to render that synthetic tile. The render endpoint's own fallback chain (`styleguide.<variant>.twig` → `styleguide.twig` → the component's own `<slug>.twig`) is unaffected — a no-`?variant=` request to a variants-only component still resolves to its `<slug>.twig`, the raw production template rather than a styleguide-authored fixture, which is exactly why the grid — not that fallback — is what a no-variant deep link shows in the SPA.
+
+**Default view (SPA).** With no `?variant=` (a bare deep link), the preview area becomes a grid — one independent `<iframe>` tile per variant (the default fixture first when one exists, see *All named, no bare default* above; then each discovered variant in filename order), each with its own slim header (title + optional description). This is the whole point of having variants: see every treatment at a glance, no switcher to click through. Deep-linking a specific `?variant=<id>` still shows the classic single, resizable preview of just that one variant. An entry with no discovered variants is unaffected — it renders the single default preview exactly as it always has.
 
 **Device presets, per tile.** The toolbar's viewport preset dropdown (Mobile/Tablet/Desktop/Full, custom width, orientation) stays visible and works the same way in the grid as in the classic single preview — the chosen preset applies to every tile at once. A fixed-width/fixed-height preset renders each tile's iframe at exactly that preset's logical size, then scales the whole tile down (never up) to fit the tile's own available width, with a small scale readout in the tile's header (e.g. `375 × 667 · 84 %`). Full stays fluid — each tile's iframe simply tracks its cell's width with auto content height, no scaling.
 

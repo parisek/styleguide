@@ -33,12 +33,27 @@ const viewport = inject('viewport');
 // Tile list: the implicit default fixture first (no `?variant=` in its
 // render URL), then every discovered variant record in the same
 // (filename/id) order ComponentParser::discoverVariants() returns them.
+//
+// Named-only-variants (v1.1.0): a component may ship ONLY
+// styleguide.<variant>.twig siblings with no bare styleguide.twig at all —
+// every variant is a first-class named entry, there is no implicit
+// "Default" to show. ComponentParser reports this via the additive
+// `has_default_fixture` field (narrower than `has_styleguide`, which also
+// goes true from named variants alone — see its doc in
+// ComponentParser::normaliseMetadata()). The synthetic Default tile is
+// therefore included only when that flag isn't explicitly false — same
+// `!== false` default-true convention the `responsive` field already uses,
+// so pre-existing catalogue entries/test doubles that predate this field
+// keep behaving exactly as before.
 const tiles = computed(() => {
     const item = viewport.currentItem.value;
     if (!item) return [];
     const variants = item.variants ?? [];
+    const defaultTile = item.has_default_fixture !== false
+        ? [{ id: null, label: i18n.t('toolbar.variant_default'), description: '' }]
+        : [];
     return [
-        { id: null, label: i18n.t('toolbar.variant_default'), description: '' },
+        ...defaultTile,
         ...variants.map((v) => ({ id: v.id, label: v.title, description: v.description || '' })),
     ].map((tile) => ({ ...tile, src: viewport.iframeSrcForVariant(tile.id) }));
 });
