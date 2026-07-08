@@ -164,7 +164,8 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
   ```
 
   A sibling with no annotation (or one that fails to parse) falls back to the component's legacy `variants:` map entry for that id, then to the id itself — see the `variants` row in *Component YAML metadata* above.
-- `<id>/styleguide.data.yaml` — OPTIONAL. Pure-YAML sidecar read via the `styleguide_data()` Twig function (§ *Twig functions & filters* below) — never matched by the variant glob (`styleguide.*.twig`) or `STYLEGUIDE_SIBLING_PATTERN` (both `.twig`-only), so it can coexist with any number of `styleguide.<variant>.twig` siblings without ambiguity.
+- `<id>/styleguide.data.yaml` — OPTIONAL. Pure-YAML sidecar, the DEFAULT data set, read via `styleguide_data()` (no argument) (§ *Twig functions & filters* below) — never matched by the variant glob (`styleguide.*.twig`) or `STYLEGUIDE_SIBLING_PATTERN` (both `.twig`-only), so it can coexist with any number of `styleguide.<variant>.twig` siblings without ambiguity.
+- `<id>/styleguide.data-<name>.yaml` — OPTIONAL, zero or more. A NAMED data set, read via `styleguide_data('<name>')`. `<name>` matches `[a-z0-9-]+` — the same id rule `styleguide.<variant>.twig` variant ids already use. Same `.yaml`-vs-`.twig` discovery safety as the default sidecar above.
 - The `@component`, `@page`, `@doc`, `@macro`, `@icons`, `@images`, `@static` Twig namespaces are auto-registered when the matching directory exists under `templates_path`.
 
 ### Doc Twig file conventions — `@api`
@@ -194,14 +195,15 @@ The package registers these on its pristine Twig env (or layers them on top of a
 | `create_attribute(map)` | function | HTML attribute builder — from `parisek/twig-attribute` |
 | `dump(...)` | function | `symfony/var-dumper` style debug output |
 | `uniqueId()` | function | Per-render unique DOM id |
-| `styleguide_data(slug = null)` | function | Parses and returns the `styleguide.data.yaml` sidecar next to the CURRENTLY rendering component/page/doc, as a nested PHP array. See § `styleguide_data()` below for the full contract. |
+| `styleguide_data(name = null)` | function | Parses and returns a `styleguide.data.yaml` / `styleguide.data-<name>.yaml` sidecar from the CURRENTLY rendering component/page/doc's own directory, as a nested PHP array. See § `styleguide_data()` below for the full contract. |
 
 ### `styleguide_data()` — full contract
 
 Registered by `Renderer` (not `Styleguide::registerBundledHelpers()`) because it needs to read the "currently rendering directory" — state only `Renderer` has, set in `renderInner()` immediately before each Twig render call and read by the function's closure at CALL time. See README § *YAML sidecar data* for the motivation and worked examples.
 
-- **No-arg form (the contract):** `styleguide_data()` resolves `<templates_path>/<kind>/<slug>/styleguide.data.yaml`, where `<kind>`/`<slug>` are whichever component/page/doc is currently being rendered. Parsed via the same `symfony/yaml` `Yaml::parseFile()` the package already uses for `styleguide.yaml`.
-- **Explicit-arg form:** `styleguide_data('<other-slug>')` swaps the slug within the SAME kind as the current render — e.g. a page fixture reading a sibling component's sidecar. There is no cross-kind form (no `styleguide_data('page', 'other-slug')`) — falls out of the directory-resolution logic at negligible extra cost, but only within one kind.
+- **No-arg form:** `styleguide_data()` resolves `<templates_path>/<kind>/<slug>/styleguide.data.yaml` — the DEFAULT set — where `<kind>`/`<slug>` are whichever component/page/doc is currently being rendered. Parsed via the same `symfony/yaml` `Yaml::parseFile()` the package already uses for `styleguide.yaml`.
+- **Named-set form:** `styleguide_data('<name>')` resolves `<templates_path>/<kind>/<slug>/styleguide.data-<name>.yaml` instead — a SIBLING file in the SAME directory. `<name>` must match `/^[a-z0-9-]+$/` — the SAME id rule `Router::whitelistVariant()` / `Renderer::renderInner()` already enforce for `styleguide.<variant>.twig` variant ids; a non-matching `<name>` is rejected with a `RuntimeException` before the filesystem is even touched.
+- **No cross-component lookup.** Resolution is ALWAYS scoped to `$currentKind`/`$currentSlug` — there is no way to reach another component/page/doc's sidecar from `styleguide_data()`. A fixture that wants another component's demo data duplicates it, or the project reaches for the `{% extends %}`-based Twig data-template escape hatch (README § *YAML sidecar data*).
 - **Return shape:** the parsed YAML mapping/list as a plain PHP array (`array<string, mixed>` at the top level), after the two resolution passes below run over the WHOLE tree.
 - **Placeholder resolution.** Any node shaped exactly `{ placeholder: {...} }` (i.e. `placeholder` is the node's SOLE key) is replaced with `Placeholder::generate($opts)` — the exact same shape the `placeholder()` Twig function itself returns. Runs recursively at any depth (lists, nested maps). A node with sibling keys alongside `placeholder` is NOT matched (deliberately narrow, to avoid misdetecting an unrelated map that happens to have a key literally named `placeholder`).
 - **Path rebasing** — recursive, same rules as `resolveAssetUrl()`:
@@ -214,9 +216,10 @@ Registered by `Renderer` (not `Styleguide::registerBundledHelpers()`) because it
   Absolute values — URI scheme (incl. `data:`), `/`, `//` — always pass through untouched, enforced by `resolveAssetUrl()` itself.
 - **Error handling:**
   - No active render context (`templates_path` not configured on `Renderer`, or called before any render happened) → `RuntimeException`.
-  - Sidecar file doesn't exist on disk → `RuntimeException` naming the expected absolute path.
+  - `<name>` doesn't match `/^[a-z0-9-]+$/` → `RuntimeException`.
+  - Resolved sidecar file doesn't exist on disk → `RuntimeException` naming the expected absolute path AND enumerating every `styleguide.data*.yaml` set actually present in that directory (the bare default reports as `default`; each `styleguide.data-<name>.yaml` reports as `<name>`; alphabetically sorted) — e.g. `sidecar file not found: …/styleguide.data-gallry.yaml (available data sets in this directory: default, gallery, hero)`, or `… (no styleguide.data*.yaml files found in this directory)` when the directory has none at all. Applies identically to a no-arg call when the default itself is missing but named sets exist.
   - Malformed YAML → `Symfony\Component\Yaml\Exception\ParseException` propagates UNCHANGED (not wrapped/caught) — same (uncaught) contract as `Styleguide::__construct()`'s own `Yaml::parseFile($config['config_yaml'])` call.
-- **Discovery safety:** `styleguide.data.yaml` never collides with variant-sibling discovery — `ComponentParser`'s variant glob (`styleguide.*.twig`) and its `STYLEGUIDE_SIBLING_PATTERN` regex both match only `*.twig`, so a `.yaml` sidecar is invisible to that code path.
+- **Discovery safety:** `styleguide.data.yaml` / `styleguide.data-<name>.yaml` never collide with variant-sibling discovery — `ComponentParser`'s variant glob (`styleguide.*.twig`) and its `STYLEGUIDE_SIBLING_PATTERN` regex both match only `*.twig`, so a `.yaml` sidecar (default or named) is invisible to that code path.
 
 ## JSON API endpoints — `@api`
 

@@ -652,7 +652,7 @@ most `component_picture`-style helpers already expect:
 See `docs/API.md` § Twig functions for the full option list (`grain`,
 `vignette`, `alt`).
 
-### YAML sidecar data — `styleguide.data.yaml`
+### YAML sidecar data — `styleguide.data.yaml` / `styleguide.data-<name>.yaml`
 
 Twig's `{% include %}` can't export variables back to the caller — `{% set %}`
 inside an include is include-local. That's a real limitation once several
@@ -664,16 +664,23 @@ both the data AND the component call (duplicated per variant), or
 `{% extends %}`-based "data template" tricks — both add template machinery
 around what is really just data.
 
-A component/page/doc directory may instead ship a `styleguide.data.yaml`
-sidecar — pure YAML, no Twig — read via the bundled `styleguide_data()` Twig
-function:
+A component/page/doc directory may instead ship one or more `styleguide.data*.yaml`
+sidecars — pure YAML, no Twig — read via the bundled `styleguide_data()` Twig
+function. Two flat filename shapes, both living directly in the component
+directory next to the variant `.twig` siblings (no subdirectory):
+
+| File | Read via |
+|---|---|
+| `styleguide.data.yaml` | `styleguide_data()` — no argument, the DEFAULT set |
+| `styleguide.data-<name>.yaml` | `styleguide_data('<name>')` — a NAMED set. `<name>` matches `[a-z0-9-]+`, the same id rule `styleguide.<variant>.twig` variant ids already use |
 
 ```
 templates/component/hero/
 ├── hero.twig
 ├── styleguide.twig            # {{ component_hero(styleguide_data()) }}
-├── styleguide.secondary.twig  # {{ component_hero(styleguide_data()) }}
-└── styleguide.data.yaml       # shared demo data for both siblings
+├── styleguide.secondary.twig  # {{ component_hero(styleguide_data('gallery')) }}
+├── styleguide.data.yaml       # the default set — styleguide_data()
+└── styleguide.data-gallery.yaml  # a named set — styleguide_data('gallery')
 ```
 
 ```yaml
@@ -693,12 +700,33 @@ cta:
 {{ component_hero(styleguide_data()) }}
 ```
 
-**No-arg form resolves to the CURRENT fixture's own sidecar** — whichever
-component/page/doc directory is rendering picks up its own
-`styleguide.data.yaml`, no path/id to keep in sync. An optional explicit
-`styleguide_data('<slug>')` swaps the slug within the same kind, for a page
-fixture that wants to reuse a sibling component's demo data instead of
-duplicating it.
+**Resolution is always scoped to the CURRENT fixture's own directory** —
+whichever component/page/doc is rendering picks up its own sidecar(s), no
+path/id to keep in sync. There is deliberately **no cross-component lookup**:
+`styleguide_data('<name>')` only ever reads `<name>` within the SAME
+directory that's currently rendering. A page wanting to reuse another
+component's demo data duplicates it (or reaches for the `{% extends %}`
+escape hatch below) rather than pointing `styleguide_data()` at a different
+component.
+
+> **Why flat suffix naming instead of a `data/` subdirectory?** A nested
+> `data/<name>.yaml` layout was considered and deliberately deferred: the
+> flat `styleguide.data-<name>.yaml` shape mirrors the already-shipped
+> `styleguide.<variant>.twig` convention exactly (same directory, same
+> `[a-z0-9-]+` id rule, same "glob the component directory" discovery
+> model), so there's one nesting concept in the package, not two. It also
+> keeps discovery a single flat `glob()` per component directory instead of
+> a directory-existence check plus a second glob one level down.
+
+**Missing set → loud failure that lists what IS there.** A `styleguide_data()`
+/ `styleguide_data('<name>')` call with no matching file on disk throws a
+`RuntimeException` naming the expected absolute path AND enumerating every
+`styleguide.data*.yaml` set actually present in that directory — e.g.
+`sidecar file not found: …/styleguide.data-gallry.yaml (available data sets
+in this directory: default, gallery, hero)`. Fixtures are dev-time only, so
+failing loudly (and pointing at the likely typo) beats silently returning
+`[]`. An invalid `<name>` (doesn't match `[a-z0-9-]+`) is also rejected with
+a `RuntimeException`, before the filesystem is even touched.
 
 **Integrated placeholder support.** Anywhere in the YAML tree, a mapping
 shaped like:
@@ -727,13 +755,9 @@ is present in the render context; otherwise it's left unchanged. Absolute
 values (a URI scheme, `/`, `//`, `data:`) always pass through untouched —
 see `docs/API.md` § `styleguide_data()` for the full table.
 
-**Missing sidecar → loud failure.** A no-arg `styleguide_data()` call with no
-matching `styleguide.data.yaml` on disk throws a `RuntimeException` naming
-the expected absolute path — fixtures are dev-time only, so failing loudly
-here (instead of silently returning `[]`) surfaces a typo/missing file
-immediately. Malformed YAML propagates Symfony's own `ParseException`
-unchanged — the same (uncaught) contract `styleguide.yaml` itself already
-has.
+**Malformed YAML** propagates Symfony's own `ParseException` unchanged — the
+same (uncaught) contract `styleguide.yaml` itself already has; the package
+doesn't add a resilience layer here that it doesn't already have there.
 
 **Escape hatch — Twig "data templates" for expression-heavy demos.** The
 YAML sidecar is the DEFAULT approach for flat demo data, but it can't express
