@@ -125,6 +125,65 @@ test.describe('file-convention variants', () => {
     });
 });
 
+// Named-only-variants (v1.1.0): tests/fixtures/templates/component/only-variants
+// ships TWO styleguide.<variant>.twig siblings and NO bare styleguide.twig at
+// all -- every variant is a first-class named entry, there is no implicit
+// "Default" tile. Before this feature the component would have had
+// has_styleguide=false and never appeared in the sidebar/grid at all; now it
+// surfaces like any other renderable entry, just without a synthetic Default
+// tile pointing at its own <slug>.twig (only-variants.twig), which outputs
+// {{ content.title }} and would render empty/broken with no fields supplied.
+test.describe('named-only variants (no bare styleguide.twig)', () => {
+    test('grid shows exactly the two named tiles, no Default tile, and both isolate to their own body', async ({ page }) => {
+        await page.goto('/styleguide/component/only-variants');
+
+        await expect(page.getByTestId('variant-switcher')).toHaveCount(0);
+        const grid = page.getByTestId('variant-grid');
+        await expect(grid).toBeVisible();
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(2);
+
+        const labels = page.getByTestId('variant-tile-label');
+        await expect(labels).toHaveText(['First', 'Second']);
+        // No synthetic "Default"/"Výchozí" tile anywhere in the grid.
+        for (const label of await labels.allTextContents()) {
+            expect(label).not.toMatch(/Default|Výchozí/);
+        }
+
+        const firstTile = tiles.nth(0).frameLocator('iframe');
+        await expect(firstTile.locator('.only-variants')).toContainText('Only Variants demo (first)');
+        const secondTile = tiles.nth(1).frameLocator('iframe');
+        await expect(secondTile.locator('.only-variants')).toContainText('Only Variants demo (second)');
+        await expect(tiles.nth(1).getByTestId('variant-tile-description')).toHaveText(
+            'Second named variant — no bare styleguide.twig sibling exists in this directory.',
+        );
+
+        // The FIRST tile is itself clickable/isolatable -- there is no
+        // Default tile ahead of it to be the one non-clickable exception.
+        const firstHeader = tiles.nth(0).getByTestId('variant-tile-header');
+        await expect(firstHeader).toHaveAttribute('role', 'button');
+        await firstHeader.click();
+        await expect(page).toHaveURL(/variant=first/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+        const iframe = page.frameLocator('iframe');
+        await expect(iframe.locator('.only-variants')).toContainText('Only Variants demo (first)');
+
+        // Back to the grid via the breadcrumb crumb, then isolate the second tile.
+        await page.getByTestId('breadcrumb-item-name').click();
+        await expect(page.getByTestId('variant-grid')).toBeVisible();
+        await page.getByTestId('variant-tile').nth(1).getByTestId('variant-tile-header').click();
+        await expect(page).toHaveURL(/variant=second/);
+        await expect(iframe.locator('.only-variants')).toContainText('Only Variants demo (second)');
+    });
+
+    test('a bare no-variant deep link lands on the grid, not a broken single preview of the raw production template', async ({ page }) => {
+        await page.goto('/styleguide/component/only-variants');
+        await expect(page.getByTestId('variant-grid')).toBeVisible();
+        await expect(page.getByTestId('variant-tile')).toHaveCount(2);
+        await expect(page).not.toHaveURL(/variant=/);
+    });
+});
+
 // styleguide-2.0 rework: device presets now apply to every grid tile
 // (scaled down per tile to fit its own cell — never upscaled), a rows/grid
 // layout toggle controls how tiles flow, and a tile's header is itself a

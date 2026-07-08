@@ -218,14 +218,15 @@ Returns array of all components, one object per. Object shape:
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
   body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`
-  has_styleguide: boolean; // true if <id>/styleguide.twig exists OR YAML has `styleguide:` key
+  has_styleguide: boolean; // true if <id>/styleguide.twig exists, OR YAML has `styleguide:` key, OR (additive, v1.1.0) at least one styleguide.<variant>.twig sibling exists — a component may ship ONLY named variants with no bare default and still surface as a renderable entry
+  has_default_variant: boolean; // additive (v1.1.0). true only when <id>/styleguide.twig itself exists on disk — narrower than has_styleguide above, which also goes true from the legacy `styleguide:` flag or from named variants alone. The SPA's variant grid uses this (not has_styleguide) to decide whether to show a synthetic "Default" tile
   variants: Array<{ id: string; title: string; description: string }>; // [] when no sibling styleguide.<variant>.twig files exist; title/description come from the sibling's own front-comment annotation first, falling back to the component's legacy `variants:` map, then to the id (title only)
 }
 ```
 
 Field order is **not** part of the contract. Adding new fields is non-breaking. Removing or renaming fields is breaking.
 
-`/api/pages` and `/api/docs` inherit the identical additive `variants` field (already true by construction — same `normaliseMetadata()`).
+`/api/pages` and `/api/docs` inherit the identical additive `variants` and `has_default_variant` fields (already true by construction — same `normaliseMetadata()`).
 
 ### `GET /styleguide/api/pages`
 
