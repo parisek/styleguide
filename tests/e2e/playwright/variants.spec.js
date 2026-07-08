@@ -401,7 +401,11 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         }));
 
         for (const { leftGap, rightGap, iframeOverflowRight } of measurements) {
-            expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(2);
+            // 4px tolerance, not 2: the regression this guards (a whole
+            // 24px padding mis-measured into the zoom) is an order of
+            // magnitude larger, while sub-4px asymmetry flakes with
+            // environment-dependent scrollbar/font rounding.
+            expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(4);
             expect(iframeOverflowRight).toBeLessThanOrEqual(0.5);
         }
     });

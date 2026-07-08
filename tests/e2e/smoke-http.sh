@@ -82,6 +82,29 @@ assert_body_contains() {
     ko "$desc: '$url' body missing '$needle' (after $max attempts)"
 }
 
+# assert_body_not_contains URL needle description
+#
+# Inverse of assert_body_contains — re-fetches on a transport miss (same php -S
+# truncation guard) but here a truncated response could produce a FALSE pass
+# (needle absent only because the body got cut short), so this checks the body
+# is non-empty before asserting absence.
+assert_body_not_contains() {
+    local url="$1" needle="$2" desc="$3"
+    local body attempt max=5
+    for (( attempt=1; attempt<=max; attempt++ )); do
+        body=$(curl -sk "$BASE$url") || body=""
+        [ -n "$body" ] && break
+        sleep 0.2
+    done
+    if [ -z "$body" ]; then
+        ko "$desc: '$url' returned an empty body after $max attempts — cannot assert absence"
+    elif printf '%s' "$body" | grep -q -F "$needle"; then
+        ko "$desc: '$url' body unexpectedly contains '$needle'"
+    else
+        ok "$desc ${DIM}[body lacks $needle]${NC}"
+    fi
+}
+
 # assert_body_contains_all URL needle1 desc1 [needle2 desc2 ...]
 #
 # Fetches URL ONCE and asserts every (needle, description) pair against that
@@ -148,7 +171,8 @@ assert_body_contains_all "/styleguide/render/component/sample" \
     'class="sample"'      "render emits the component body" \
     "/dist/css/style.css" "render injects the project CSS path" \
     'type="module"'       "render loads JS as ES module" \
-    "sg-standalone-bar"   "render emits standalone-mode bar"
+    "sg-standalone-bar"   "render emits standalone-mode bar" \
+    "bg-consumer-global"  "render carries the consumer's global iframe.body_class"
 
 assert_status        "/styleguide/render/page/landing"     "200" "render page"
 
@@ -179,6 +203,10 @@ assert_body_contains_all "/styleguide/api/health" \
 assert_status        "/styleguide/doc/sample-doc"  "200" "deep link to doc returns SPA"
 assert_status        "/styleguide/render/doc/sample-doc" "200" "render doc"
 assert_body_contains  "/styleguide/render/doc/sample-doc" "Fixture body." "render doc emits fixture body"
+# Rule: a doc's <body> never inherits the consumer's site-wide iframe.body_class
+# (bug fix — a dark iframe.body_class broke prose readability on a doc page).
+# Contrast with the component render assertion above, which DOES carry it.
+assert_body_not_contains "/styleguide/render/doc/sample-doc" "bg-consumer-global" "render doc skips the consumer's global body_class"
 
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).

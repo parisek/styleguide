@@ -65,9 +65,21 @@
    background. `foundations.twig` is a package-owned page with its own
    fixed zinc-on-white palette — a dark consumer body_class (e.g. a dark
    brand background) would make its headings/cards unreadable. Skip both
-   classes for that one kind; the `body { background-color }` safety net
-   in the <head> above still applies regardless of kind. #}
-{% set body_class = kind == 'foundations' ? '' : [iframe.body_class|default(''), component.body_class|default('')] %}
+   classes for that kind; the `body { background-color }` safety net in
+   the <head> above still applies regardless of kind.
+
+   `doc` gets a DELIBERATELY DIFFERENT treatment: only the GLOBAL
+   `iframe.body_class` is skipped — a doc is prose content (readability
+   matters, same rationale as foundations), and a consumer's site-wide
+   body_class (e.g. a dark brand background) can make it unreadable too.
+   But the PER-ENTRY `component.body_class` (authored in the doc's own
+   YAML front-comment) still applies — that's an explicit, doc-specific
+   opt-in by the author, not a site-wide bleed, so it stays honored as
+   the escape hatch for a doc that genuinely wants a non-default body
+   class. #}
+{% set body_class = kind == 'foundations'
+	? ''
+	: (kind == 'doc' ? component.body_class|default('') : [iframe.body_class|default(''), component.body_class|default('')]) %}
 <body{{ create_attribute({ class: body_class }) }}>
 	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),
 	   revealed by the inline script when the document is the top-level window so

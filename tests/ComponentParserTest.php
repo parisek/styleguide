@@ -301,6 +301,46 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function doc_responsive_is_always_false_even_with_no_yaml_key_at_all(): void
+    {
+        // Docs are never responsive — this is a rule enforced at the parser
+        // level (type === 'doc'), not merely the pre-existing "default true
+        // unless declared false" behaviour components/pages get. A doc with
+        // NO `responsive:` key in its front-comment must still come out
+        // false, unlike a component/page (see responsive_defaults_true above).
+        $parser = new ComponentParser(__DIR__ . '/fixtures/doc-responsive-templates');
+        $meta = $parser->parse('doc', 'no-responsive-key');
+        self::assertNotNull($meta);
+        self::assertFalse($meta['responsive'], 'a doc with no responsive: key must still default to false, not true');
+    }
+
+    #[Test]
+    public function doc_responsive_stays_false_even_when_yaml_explicitly_declares_true(): void
+    {
+        // The rule wins over the YAML: an author can't opt a doc back into
+        // the responsive width toolbar, even by writing `responsive: true`
+        // explicitly — the key is ignored entirely for the doc type.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/doc-responsive-templates');
+        $meta = $parser->parse('doc', 'responsive-true-doc');
+        self::assertNotNull($meta);
+        self::assertFalse($meta['responsive'], 'responsive: true in a doc front-comment must be ignored — the rule always wins');
+    }
+
+    #[Test]
+    public function doc_responsive_is_always_false_via_parse_all_too(): void
+    {
+        // Same rule, exercised through the parseAll() catalogue-walk path
+        // (used by DocsEndpoint) rather than the single-file parse() path —
+        // both must agree since normaliseMetadata() is the shared choke point.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/doc-responsive-templates');
+        $docs = $parser->parseAll('doc');
+        self::assertNotEmpty($docs);
+        foreach ($docs as $doc) {
+            self::assertFalse($doc['responsive'], sprintf('doc "%s" must always have responsive: false', $doc['id']));
+        }
+    }
+
+    #[Test]
     public function parse_all_skips_a_throwing_file_and_records_a_warning(): void
     {
         $real = new ComponentParser($this->fixturesPath);

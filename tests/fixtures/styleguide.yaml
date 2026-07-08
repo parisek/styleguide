@@ -9,12 +9,16 @@ project:
 # The render iframe injects these into its <head>. They don't need to resolve for
 # the smoke tests (assertions check the emitted path strings + DOM, not asset
 # loading), so a fixture project that ships no compiled CSS/JS is fine.
+# body_class here is deliberately non-empty (unlike the other blank fixture
+# defaults above) so smoke-http.sh can assert the consumer's site-wide class
+# reaches component/page <body> but is skipped for foundations/doc — see
+# "render doc skips the consumer's global body_class" below.
 iframe:
   css: /dist/css/style.css
   js: /dist/js/script.js
   fonts: []
   html_class: ''
-  body_class: ''
+  body_class: 'bg-consumer-global'
   base_href: /
 
 logo:

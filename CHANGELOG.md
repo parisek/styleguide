@@ -8,6 +8,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Doc entries are never responsive.** A doc page is prose — like `foundations`/`overview` — never a widget meant to be previewed at different breakpoints, but its `responsive` YAML key still defaulted to `true` like a component/page, so a doc got the viewport-preset/width toolbar unless every author remembered to set `responsive: false` by hand. `ComponentParser` now forces `responsive: false` for every `doc` entry regardless of the YAML key — even an explicit `responsive: true` in a doc's front-comment has no effect. Component/page kinds are unaffected (still default `true`, opt out with `responsive: false`).
+- **Consumer `iframe.body_class` no longer bleeds onto doc pages.** Same bug shape as the foundations fix in [1.1.0]: `render-cell.twig` applied the consumer's site-wide `iframe.body_class` to `<body>` for `doc` renders too — a consumer with a dark `iframe.body_class` broke prose readability on a real doc page, reported after a consumer's doc rendered with the site's dark brand background. The global class is now skipped for `kind == 'doc'`, mirroring `foundations`. Deliberate difference from `foundations`: the **per-entry** `body_class` (authored in the doc's own YAML front-comment) still applies — it's an explicit per-doc opt-in by the author, not a site-wide bleed, so it remains the doc's escape hatch.
+
 ## [1.1.1] - 2026-07-08
 
 ### Fixed

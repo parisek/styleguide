@@ -111,6 +111,41 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function doc_body_never_receives_the_consumer_global_iframe_body_class(): void
+    {
+        // Mirrors foundations_body_never_receives_consumer_iframe_body_class:
+        // a doc page is prose content that must stay readable regardless of
+        // the consumer's site-wide iframe.body_class (e.g. a dark brand
+        // background). Unlike foundations, this test doesn't also assert the
+        // PER-ENTRY body_class is skipped — see the sibling test below, which
+        // proves the opposite: the per-entry class DOES still apply for docs.
+        $html = $this->renderer->render('doc', 'sample-doc', [
+            'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
+        ], 'cs');
+
+        self::assertStringContainsString('<body>', $html);
+        self::assertStringNotContainsString('<body class', $html);
+    }
+
+    #[Test]
+    public function doc_body_still_honours_its_own_per_entry_body_class(): void
+    {
+        // Deliberate difference from foundations: foundations skips BOTH the
+        // global iframe.body_class AND the per-entry component.body_class
+        // (it's a package-owned page with no per-entry authoring surface at
+        // all). A doc, by contrast, is an author-owned page — the author's
+        // own YAML `body_class:` is an explicit per-doc opt-in, not a
+        // site-wide bleed, so it stays honoured even while the consumer's
+        // global class is skipped.
+        $html = $this->renderer->render('doc', 'sample-doc', [
+            'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
+            'body_class' => 'prose-invert',
+        ], 'cs');
+
+        self::assertStringContainsString('<body class="prose-invert">', $html);
+    }
+
+    #[Test]
     public function wraps_page_render_in_page_wrapper_when_configured(): void
     {
         $html = $this->renderer->render('page', 'landing', [
