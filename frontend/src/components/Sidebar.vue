@@ -125,7 +125,7 @@ function supportedLocales() {
                 :title="i18n.t('nav.homepage_link') || 'Otevřít projekt'"
                 class="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity"
             >
-                <img :src="config.favicon" :alt="config.projectName" class="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-50 shrink-0 ring-1 ring-red-500/20" id="sg-favicon">
+                <img :src="config.favicon" :alt="config.projectName" class="w-8 h-8 p-1 object-contain rounded-lg bg-zinc-200 dark:bg-zinc-50 shrink-0 ring-1 ring-red-500/20" id="sg-favicon">
                 <div class="min-w-0 flex-1">
                     <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate" id="sg-project-name">{{ config.projectName }}</div>
                     <div class="text-xs text-zinc-500 truncate">{{ i18n.t('nav.styleguide') }}</div>

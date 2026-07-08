@@ -105,15 +105,13 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
          get the exact same bar height instead of a visibly thinner strip. -->
     <div class="flex justify-between items-center gap-3 px-4 py-2.5 min-h-[57px] bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
         <div class="flex items-center gap-3 min-w-0">
-            <!-- Hamburger <-> close morph: three independent bars (not a single
-                 SVG path) so each can be transformed on its own axis -- the
-                 top/bottom bars rotate 45deg/-45deg into an X while the
-                 middle one fades out. Pure CSS transforms (.sg-hbg-bar*
-                 rules, styleguide.css), gated behind
-                 prefers-reduced-motion:no-preference so a reduced-motion
-                 user gets an instant state swap instead of the ~200ms morph. -->
+            <!-- Deliberately static hamburger (no open-state morph into an X):
+                 the icon toggles the sidebar in BOTH directions, and an X
+                 reads as "close/dismiss" rather than "menu" -- misleading
+                 next to the sidebar's own close affordances. aria-expanded
+                 carries the state instead. -->
             <button @click="ui.toggleSidebar()" :aria-expanded="ui.sidebarOpen ? 'true' : 'false'" class="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 shrink-0" :title="i18n.t('toolbar.toggle_sidebar')" :aria-label="i18n.t('toolbar.toggle_sidebar')">
-                <span class="sg-hbg" :class="ui.sidebarOpen && 'sg-hbg-open'" aria-hidden="true">
+                <span class="sg-hbg" aria-hidden="true">
                     <span class="sg-hbg-bar sg-hbg-bar-top"></span>
                     <span class="sg-hbg-bar sg-hbg-bar-mid"></span>
                     <span class="sg-hbg-bar sg-hbg-bar-bottom"></span>

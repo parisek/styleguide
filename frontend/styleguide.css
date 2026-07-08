@@ -65,11 +65,8 @@
     .sg-heartbeat { animation: none; }
 }
 
-/* Hamburger <-> close morph (ViewportToolbar.vue's sidebar toggle). Three
-   independently-positioned bars rather than a single glyph so each can
-   transform on its own axis: top/bottom rotate into an X, the middle one
-   fades out. Static (no transition) by default -- the reduced-motion user
-   still gets the correct end state, just without the ~200ms tween. */
+/* Sidebar-toggle hamburger (ViewportToolbar.vue) — deliberately static,
+   no open-state morph; see the WHY comment at the button. */
 .sg-hbg {
     position: relative;
     display: block;
@@ -87,9 +84,6 @@
 .sg-hbg-bar-top { top: 0; }
 .sg-hbg-bar-mid { top: 50%; transform: translateY(-50%); }
 .sg-hbg-bar-bottom { bottom: 0; }
-.sg-hbg-open .sg-hbg-bar-top { top: 50%; transform: translateY(-50%) rotate(45deg); }
-.sg-hbg-open .sg-hbg-bar-mid { opacity: 0; }
-.sg-hbg-open .sg-hbg-bar-bottom { bottom: auto; top: 50%; transform: translateY(-50%) rotate(-45deg); }
 @media (prefers-reduced-motion: no-preference) {
     .sg-hbg-bar {
         transition: transform 200ms ease, opacity 200ms ease, top 200ms ease, bottom 200ms ease;
