@@ -174,7 +174,7 @@ class ComponentParser
                 || isset($metadata['styleguide'])
                 || $variants !== [];
 
-            return $this->normaliseMetadata($id, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
+            return $this->normaliseMetadata($id, $type, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
             // for the render endpoint's <title>/body_class/render metadata)
@@ -230,7 +230,7 @@ class ComponentParser
                     || isset($metadata['styleguide'])
                     || $variants !== [];
 
-                $items[] = $this->normaliseMetadata($id, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
+                $items[] = $this->normaliseMetadata($id, $type, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
             } catch (\Throwable $e) {
                 // One pathological template must not 500 the whole catalogue for
                 // every sibling component. Record it and keep walking; surfaced
@@ -377,6 +377,7 @@ class ComponentParser
      */
     private function normaliseMetadata(
         string $id,
+        string $type,
         array $metadata,
         bool $hasStyleguide,
         bool $hasDefaultFixture,
@@ -408,7 +409,18 @@ class ComponentParser
             // the responsive width toolbar and pins the preview to full width.
             // Default true; only an explicit YAML `false` opts out — strict
             // !== false so strings, integers, or typos never disable it.
-            'responsive' => ($metadata['responsive'] ?? true) !== false,
+            //
+            // `doc` is the one exception: a doc page is prose (like
+            // foundations/overview), never a widget meant to be previewed at
+            // different breakpoints, so the rule wins over the YAML — the key
+            // is ignored entirely for this type, even an explicit
+            // `responsive: true` in a doc's front-comment stays false. This is
+            // enforced HERE (not just via the SPA's `responsive !== false`
+            // gate) so the rule is data-driven: every API consumer (SPA,
+            // `vendor/bin/styleguide`, a future integration) sees the same
+            // `responsive: false` for every doc without having to know the
+            // "docs are never responsive" rule itself.
+            'responsive' => $type === 'doc' ? false : ($metadata['responsive'] ?? true) !== false,
             // True when the entry has SOME renderable fixture — the bare
             // `styleguide.twig` sibling, the legacy `styleguide:` YAML
             // presence flag, OR (additive, v1.1.0) at least one discovered

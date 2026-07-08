@@ -450,8 +450,8 @@ fields:
 | `web` | external link chip — generic external URL |
 | `render` | iframe-wrapper rendering mode for components — see *Component render modes* below |
 | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
-| `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for docs or fixed-layout demos where resizing has no meaning |
-| `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below |
+| `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for fixed-layout demos where resizing has no meaning. **Ignored for `doc` templates** — a doc page is prose, not a widget, so `responsive` is always forced to `false` there regardless of this key |
+| `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below. For `doc` templates the global `iframe.body_class` is skipped entirely, so this per-entry key is the only body class that ever applies |
 | `variants` | **legacy fallback** map of display titles (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files, keyed by id — prefer a `title:`/`description:` annotation in the sibling file itself; see *File-convention variants* below |
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
@@ -493,6 +493,8 @@ body_class: "bg-secondary-500 body-secondary"
 ```
 
 The render iframe builds `<body>` via `create_attribute({ class: [iframe.body_class, <entry>.body_class] })`, so the per-entry value is appended after the global one and empty values are dropped (no stray `class=""`). This mirrors what the production layout puts on `<body>` (e.g. from an ACF `body_background_color`), so the styleguide preview matches production without wrapping the page content in a styleguide-only `<div>`.
+
+**`foundations` and `doc` are exceptions to the global class.** `foundations` is a package-owned page with a fixed zinc-on-white palette — the global `iframe.body_class` (and any per-entry class) never applies to it, since a dark site-wide class would make it unreadable. `doc` pages get a narrower exception: the global `iframe.body_class` is skipped (same readability rationale — prose needs to stay legible regardless of the consumer's brand background), but the **per-entry** `body_class` above still applies, since that's an explicit opt-in by the doc's own author rather than a site-wide bleed.
 
 ### File-convention variants
 
