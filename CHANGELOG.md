@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-08
+
 ### Added
 
 - **Components may ship ONLY named variant fixtures — no bare `styleguide.twig` required.** A component/page/doc directory with `styleguide.<id>.twig` siblings and no bare `styleguide.twig` now still surfaces as a renderable entry: `has_styleguide` goes `true` from named variants alone, not just from the bare sibling or the legacy `styleguide:` flag, so an all-named component is no longer silently filtered out of the sidebar/palette/overview. New additive `has_default_variant` field on `/api/components`/`/api/pages`/`/api/docs` (`true` only when `<id>/styleguide.twig` itself exists) lets the SPA's variant grid tell "has some fixture" apart from "has the unnamed default fixture" — `VariantGrid.vue` now shows its synthetic "Default" tile only when `has_default_variant` isn't explicitly `false`, so a variants-only component's grid shows exactly its named tiles (all click-to-isolate, the first included) with no broken/empty tile pointing at the component's raw production template. See `docs/API.md` § `/api/components` and `README.md` § *File-convention variants → All named, no bare default*.
@@ -169,6 +171,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/parisek/styleguide/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/parisek/styleguide/compare/v0.6.5...v1.0.0
 [0.4.0]: https://github.com/parisek/styleguide/compare/v0.3.14...v0.4.0
