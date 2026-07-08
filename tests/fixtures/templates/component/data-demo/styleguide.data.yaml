@@ -1,0 +1,24 @@
+title: "Demo Title"
+image:
+  placeholder:
+    subject: portrait
+    seed: 42
+    ratio: '16:9'
+items:
+  - label: "First"
+    icon:
+      placeholder:
+        subject: product
+        seed: item-1
+  - label: "Second"
+    icon:
+      placeholder:
+        subject: product
+        seed: item-2
+asset:
+  src: /dist/foo.png
+link:
+  url: /contact
+external:
+  src: "https://cdn.example.com/x.png"
+  url: "https://example.com/page"
