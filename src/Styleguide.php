@@ -174,7 +174,7 @@ final class Styleguide
         $this->registerBundledHelpers($this->twig);
 
         $this->parser = new ComponentParser($config['templates_path']);
-        $this->renderer = new Renderer($this->twig, $this->config['twig_context']);
+        $this->renderer = new Renderer($this->twig, $this->config['twig_context'], $config['templates_path']);
         $this->assetServer = new AssetServer($this->distRoot);
     }
 

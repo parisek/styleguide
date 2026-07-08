@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
+use Twig\TwigFunction;
 
 /**
  * @internal Implementation detail of `Styleguide::run()` dispatch path.
@@ -23,12 +25,207 @@ use Twig\Environment;
 final class Renderer
 {
     /**
+     * Directory + slug of the component/page/doc CURRENTLY being rendered —
+     * set by {@see renderInner()} immediately before each Twig render call,
+     * read by {@see resolveStyleguideData()} (the `styleguide_data()` Twig
+     * function implementation) at CALL time from inside the template being
+     * rendered. `null` outside an active render (before the first render, or
+     * if `$templatesPath` was never configured).
+     */
+    private ?string $currentKind = null;
+    private ?string $currentSlug = null;
+
+    /**
      * @param array<string, mixed> $context
+     * @param string|null $templatesPath
+     *   Absolute path to the project's `templates_path` (mirrors the value
+     *   passed to `Styleguide::__construct(['templates_path' => …])`).
+     *   Required for `styleguide_data()` to resolve sidecar
+     *   `styleguide.data.yaml` files on disk; `null` (the default, kept for
+     *   backward compatibility with direct `new Renderer($twig, $context)`
+     *   callers, e.g. existing unit tests) means `styleguide_data()` always
+     *   throws — see {@see resolveStyleguideData()}.
      */
     public function __construct(
         private Environment $twig,
         private array $context = [],
-    ) {}
+        private ?string $templatesPath = null,
+    ) {
+        $this->registerDataFunction();
+    }
+
+    /**
+     * Registers the `styleguide_data()` Twig function bound to THIS
+     * `Renderer` instance via closure capture, so the callable can read
+     * whichever directory is "currently rendering" ({@see $currentKind} /
+     * {@see $currentSlug}) at CALL time rather than at registration time —
+     * the seam that makes a no-arg `styleguide_data()` call inside ANY
+     * component/page/doc fixture resolve to THAT fixture's own sidecar,
+     * without needing a fresh Twig function per render.
+     *
+     * Idempotent-add pattern mirrors `Styleguide::tryAddFunction()` (not
+     * reused directly — that method is private to `Styleguide` — but the
+     * same reasoning applies here: a project that pre-registers its own
+     * `styleguide_data` Twig function, or an env whose extensions are
+     * already initialized, must not crash `Renderer` construction).
+     */
+    private function registerDataFunction(): void
+    {
+        $renderer = $this;
+        try {
+            $this->twig->addFunction(new TwigFunction(
+                'styleguide_data',
+                static fn(?string $slug = null): array => $renderer->resolveStyleguideData($slug),
+            ));
+        } catch (\LogicException) {
+            // Duplicate function name, or "extensions already initialized"
+            // on a shared env — swallow-and-defer, same contract as
+            // Styleguide::tryAddFunction() (see that method's doc comment
+            // for why the two cases aren't distinguished).
+        }
+    }
+
+    /**
+     * `styleguide_data()` Twig function implementation. `@internal` — only
+     * reachable via the closure registered in {@see registerDataFunction()}.
+     *
+     * With no argument, resolves the `styleguide.data.yaml` sidecar sitting
+     * next to the component/page/doc CURRENTLY being rendered ({@see
+     * $currentKind} / {@see $currentSlug}, set by {@see renderInner()}
+     * immediately before the Twig render call that reaches this function).
+     * An explicit `$slug` swaps the slug within the SAME kind — falls out of
+     * the same directory-resolution logic at negligible extra cost (a page
+     * fixture can pull a sibling component's demo data without duplicating
+     * it); the no-arg "current directory" form is the actual contract.
+     *
+     * Two resolution steps run over the parsed YAML, in order:
+     *  1. {@see resolvePlaceholders()} — recursively replaces every
+     *     `{ placeholder: {...} }` node with the real `Placeholder::generate()`
+     *     output (the same shape the Twig `placeholder()` function itself
+     *     returns).
+     *  2. {@see resolvePaths()} — recursively rebases `src:` / `url:` string
+     *     values onto `templateUrl` / `homeUrl` (same rules as
+     *     {@see resolveAssetUrl()} already applies to iframe assets / logo
+     *     entries).
+     *
+     * @throws \RuntimeException
+     *   When called outside an active render (no `templates_path`
+     *   configured, or invoked before any render has run) or when the
+     *   resolved sidecar file doesn't exist on disk. Fixtures are dev-time
+     *   only, so failing loudly here — rather than silently returning `[]`
+     *   — surfaces a typo'd/missing sidecar immediately.
+     * @throws \Symfony\Component\Yaml\Exception\ParseException
+     *   Propagated UNCHANGED from `Yaml::parseFile()` on malformed YAML —
+     *   deliberately not wrapped/caught, matching the existing (also
+     *   uncaught) contract of `Styleguide::__construct()`'s own
+     *   `Yaml::parseFile($config['config_yaml'])` call for the top-level
+     *   `styleguide.yaml`. The package doesn't grow a resilience layer here
+     *   that it doesn't already have for that file.
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveStyleguideData(?string $slug = null): array
+    {
+        if ($this->templatesPath === null || $this->currentKind === null || $this->currentSlug === null) {
+            throw new \RuntimeException(
+                'styleguide_data(): no active render context — this function can only be called '
+                . 'while rendering a component/page/doc fixture (styleguide.twig / styleguide.<variant>.twig)',
+            );
+        }
+
+        $targetSlug = ($slug !== null && $slug !== '') ? $slug : $this->currentSlug;
+        $dir = rtrim($this->templatesPath, '/') . '/' . $this->currentKind . '/' . $targetSlug;
+        $file = $dir . '/styleguide.data.yaml';
+
+        if (!is_file($file)) {
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): sidecar file not found: %s',
+                $file,
+            ));
+        }
+
+        $data = Yaml::parseFile($file);
+        $data = is_array($data) ? $data : [];
+
+        $data = self::resolvePlaceholders($data);
+        $data = $this->resolvePaths($data);
+
+        return $data;
+    }
+
+    /**
+     * Recursively resolves `{ placeholder: {...} }` mapping nodes anywhere in
+     * a `styleguide.data.yaml` tree into the SAME shape the Twig
+     * `placeholder()` function itself returns ({@see Placeholder::generate()}
+     * — a one-element list). So:
+     *
+     *   image:
+     *     placeholder:
+     *       subject: people
+     *       seed: 42
+     *
+     * resolves to exactly what `image: placeholder({subject: 'people', seed:
+     * 42})` would have produced inline in a `.twig` fixture.
+     *
+     * A node matches only when `placeholder` is its SOLE key — deliberately
+     * narrow so a legitimate map that happens to have a sibling key literally
+     * named `placeholder` (holding an unrelated shape) isn't misdetected.
+     * Runs top-down (checks the current node before recursing into it), so a
+     * matched node's own opts (`subject`, `seed`, …) are never themselves
+     * walked for further placeholder/path resolution — correct, since those
+     * are `Placeholder::generate()` parameters, not further data.
+     */
+    private static function resolvePlaceholders(mixed $data): mixed
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+        if (count($data) === 1 && array_key_exists('placeholder', $data) && is_array($data['placeholder'])) {
+            return Placeholder::generate($data['placeholder']);
+        }
+        $out = [];
+        foreach ($data as $key => $value) {
+            $out[$key] = self::resolvePlaceholders($value);
+        }
+        return $out;
+    }
+
+    /**
+     * Recursively rebases `src:` / `url:` string values anywhere in a
+     * `styleguide.data.yaml` tree, mirroring the exact rules
+     * {@see resolveAssetUrl()} already applies to `iframe.css` /
+     * `project.favicon` / `styleguide.logo[*].src`:
+     *
+     *  - `src:` → rebased onto `$this->context['templateUrl']` (the
+     *    consumer's asset base). Absent/empty `templateUrl` → no-op
+     *    (standalone layout, byte-for-byte the historical behaviour).
+     *  - `url:` → rebased onto `$this->context['homeUrl']` ONLY when that
+     *    key is present in the render context as a non-empty string;
+     *    otherwise the value is left untouched (never throws).
+     *  - Absolute values (scheme incl. `data:`, `/`, `//`) always pass
+     *    through unchanged — enforced by `resolveAssetUrl()` itself.
+     */
+    private function resolvePaths(mixed $data): mixed
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+        $out = [];
+        foreach ($data as $key => $value) {
+            if ($key === 'src' && is_string($value)) {
+                $assetBase = (string) ($this->context['templateUrl'] ?? '');
+                $out[$key] = self::resolveAssetUrl($value, $assetBase);
+            } elseif ($key === 'url' && is_string($value)) {
+                $homeUrl = $this->context['homeUrl'] ?? null;
+                $out[$key] = (is_string($homeUrl) && $homeUrl !== '')
+                    ? self::resolveAssetUrl($value, $homeUrl)
+                    : $value;
+            } else {
+                $out[$key] = $this->resolvePaths($value);
+            }
+        }
+        return $out;
+    }
 
     /**
      * Render a component / page / foundations view into a full HTML
@@ -274,6 +471,12 @@ final class Renderer
 
         foreach ($candidates as $path) {
             if ($loader->exists($path)) {
+                // Bind the "currently rendering" directory for
+                // styleguide_data() BEFORE calling render() — the Twig
+                // function reads $this->currentKind/$currentSlug at CALL
+                // time from inside the template about to render.
+                $this->currentKind = $kind;
+                $this->currentSlug = $slug;
                 return $this->twig->render($path, $this->context);
             }
         }
