@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Consumer `iframe.body_class` no longer bleeds onto the foundations page.** `render-cell.twig` applied the consumer's site-wide `iframe.body_class` (and the per-entry `component.body_class`) to `<body>` for every kind, including `foundations` — a package-owned page with a fixed zinc-on-white palette. A consumer with a dark `iframe.body_class` (e.g. a dark brand background) made the foundations page's headings/cards nearly invisible, discovered in the `mairateam` project after the 1.0 bump. Both classes are now skipped for `kind == 'foundations'`; component/page kinds are unaffected. The existing light/dark `body { background-color }` safety net in `<head>` is untouched.
+
 ## [1.0.0] - 2026-07-07
 
 ### Added

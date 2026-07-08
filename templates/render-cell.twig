@@ -59,7 +59,16 @@
 	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
 	{% if iframe.js %}<script type="module" src="{{ iframe.js|cachebust|e }}"></script>{% endif %}
 </head>
-<body{{ create_attribute({ class: [iframe.body_class|default(''), component.body_class|default('')] }) }}>
+{# The consumer's global `iframe.body_class` (and any per-entry
+   `component.body_class`) is a site-wide styling hook meant for
+   component/page previews, which are meant to sit on the real site
+   background. `foundations.twig` is a package-owned page with its own
+   fixed zinc-on-white palette — a dark consumer body_class (e.g. a dark
+   brand background) would make its headings/cards unreadable. Skip both
+   classes for that one kind; the `body { background-color }` safety net
+   in the <head> above still applies regardless of kind. #}
+{% set body_class = kind == 'foundations' ? '' : [iframe.body_class|default(''), component.body_class|default('')] %}
+<body{{ create_attribute({ class: body_class }) }}>
 	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),
 	   revealed by the inline script when the document is the top-level window so
 	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
