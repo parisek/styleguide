@@ -38,7 +38,7 @@ const viewport = inject('viewport');
 // styleguide.<variant>.twig siblings with no bare styleguide.twig at all —
 // every variant is a first-class named entry, there is no implicit
 // "Default" to show. ComponentParser reports this via the additive
-// `has_default_fixture` field (narrower than `has_styleguide`, which also
+// `has_default_variant` field (narrower than `has_styleguide`, which also
 // goes true from named variants alone — see its doc in
 // ComponentParser::normaliseMetadata()). The synthetic Default tile is
 // therefore included only when that flag isn't explicitly false — same
@@ -49,7 +49,7 @@ const tiles = computed(() => {
     const item = viewport.currentItem.value;
     if (!item) return [];
     const variants = item.variants ?? [];
-    const defaultTile = item.has_default_fixture !== false
+    const defaultTile = item.has_default_variant !== false
         ? [{ id: null, label: i18n.t('toolbar.variant_default'), description: '' }]
         : [];
     return [

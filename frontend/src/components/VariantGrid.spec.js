@@ -93,7 +93,7 @@ describe('VariantGrid', () => {
     // catalogue entry it's pointed at -- deciding whether to mount it at
     // all when an entry has no variants is PreviewPane.vue's job (see
     // useViewportPreset.js's `gridActive` and PreviewPane.spec.js's "grid
-    // mode" tests), not this component's. This item omits `has_default_fixture`
+    // mode" tests), not this component's. This item omits `has_default_variant`
     // entirely (pre-v1.1.0 shape) -- the `!== false` check treats that the
     // same as an explicit `true`, so BC holds without touching this fixture.
     it('still renders a single Default tile for a variant-less entry (caller decides whether to mount the grid at all)', () => {
@@ -103,12 +103,12 @@ describe('VariantGrid', () => {
         expect(tiles[0].find('[data-testid="variant-tile-label"]').text()).toBe('Default');
     });
 
-    it('renders only the named variant tiles when has_default_fixture is false -- no synthetic Default tile', () => {
+    it('renders only the named variant tiles when has_default_variant is false -- no synthetic Default tile', () => {
         const wrapper = mountGrid('component', 'only-variants', {
             items: [{
                 id: 'only-variants',
                 name: 'Only Variants',
-                has_default_fixture: false,
+                has_default_variant: false,
                 variants: [
                     { id: 'first', title: 'First', description: '' },
                     { id: 'second', title: 'Second', description: 'Second named variant.' },
@@ -128,12 +128,12 @@ describe('VariantGrid', () => {
         expect(firstHeader.attributes('tabindex')).toBe('0');
     });
 
-    it('keeps rendering the Default tile first when has_default_fixture is explicitly true', () => {
+    it('keeps rendering the Default tile first when has_default_variant is explicitly true', () => {
         const wrapper = mountGrid('component', 'only-variants', {
             items: [{
                 id: 'only-variants',
                 name: 'Only Variants',
-                has_default_fixture: true,
+                has_default_variant: true,
                 variants: [{ id: 'first', title: 'First', description: '' }],
             }],
         });

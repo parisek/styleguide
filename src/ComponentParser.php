@@ -419,7 +419,7 @@ class ComponentParser
             // false` filters), it just has no "Default" fixture. Callers
             // that specifically need to know whether the UNNAMED default
             // exists (e.g. the SPA variant grid deciding whether to show a
-            // synthetic Default tile) want `has_default_fixture` below
+            // synthetic Default tile) want `has_default_variant` below
             // instead.
             'has_styleguide' => $hasStyleguide,
             // Additive (v1.1.0). True only when `<id>/styleguide.twig`
@@ -433,7 +433,7 @@ class ComponentParser
             // production template, not a styleguide-authored fixture, so
             // the SPA's variant grid uses this flag to skip the Default
             // tile entirely rather than pointing it at that fallback.
-            'has_default_fixture' => $hasDefaultFixture,
+            'has_default_variant' => $hasDefaultFixture,
             // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
             // siblings; [] when none exist — every pre-Phase-4 template keeps
             // this BC default. Default variant is implicit, never listed here.

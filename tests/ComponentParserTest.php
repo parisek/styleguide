@@ -59,7 +59,7 @@ final class ComponentParserTest extends TestCase
         // regression precisely. Weights: Another 10, Sample 20, Multi 30
         // (Phase-4 variant-discovery fixture), Only Variants 35 (v1.1.0 —
         // ships ONLY named variant siblings, no bare styleguide.twig; see
-        // the has_default_fixture tests below), With fields 50 (no explicit
+        // the has_default_variant tests below), With fields 50 (no explicit
         // weight -> parser default), then the sidebar-tree cluster
         // widget-one/two/three 51/52/53, gizmo 54, and Broken Sample 999
         // (deliberately last — its Twig body throws, exercised by
@@ -221,9 +221,9 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
-    public function has_default_fixture_is_true_only_when_the_bare_sibling_exists_on_disk(): void
+    public function has_default_variant_is_true_only_when_the_bare_sibling_exists_on_disk(): void
     {
-        // has_default_fixture (v1.1.0, additive) is narrower than
+        // has_default_variant (v1.1.0, additive) is narrower than
         // has_styleguide: it's true ONLY for the unnamed `styleguide.twig`
         // sibling, never from the legacy `styleguide:` flag or from named
         // variants alone — see the has_styleguide doc in
@@ -232,11 +232,11 @@ final class ComponentParserTest extends TestCase
 
         $multi = $parser->parse('component', 'multi');
         self::assertNotNull($multi);
-        self::assertTrue($multi['has_default_fixture'], 'multi/ ships a bare styleguide.twig');
+        self::assertTrue($multi['has_default_variant'], 'multi/ ships a bare styleguide.twig');
 
         $another = $parser->parse('component', 'another');
         self::assertNotNull($another);
-        self::assertFalse($another['has_default_fixture'], 'another/ has no styleguide.twig at all');
+        self::assertFalse($another['has_default_variant'], 'another/ has no styleguide.twig at all');
     }
 
     #[Test]
@@ -260,7 +260,7 @@ final class ComponentParserTest extends TestCase
             'has_styleguide must go true from named variants alone, even with no bare styleguide.twig sibling',
         );
         self::assertFalse(
-            $onlyVariants['has_default_fixture'],
+            $onlyVariants['has_default_variant'],
             'no bare styleguide.twig sibling exists in only-variants/',
         );
         self::assertSame(
@@ -518,7 +518,7 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
-    public function parse_all_surfaces_a_variants_only_component_with_the_correct_has_default_fixture_flag(): void
+    public function parse_all_surfaces_a_variants_only_component_with_the_correct_has_default_variant_flag(): void
     {
         $parser = new ComponentParser($this->fixturesPath);
         $components = $parser->parseAll('component');
@@ -526,7 +526,7 @@ final class ComponentParserTest extends TestCase
 
         self::assertNotFalse($onlyVariants, 'a variants-only component must appear in parseAll(), not be filtered out');
         self::assertTrue($onlyVariants['has_styleguide']);
-        self::assertFalse($onlyVariants['has_default_fixture']);
+        self::assertFalse($onlyVariants['has_default_variant']);
         self::assertSame(['first', 'second'], array_column($onlyVariants['variants'], 'id'));
     }
 }
