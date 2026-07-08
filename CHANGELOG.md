@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`styleguide.data.yaml` sidecar + `styleguide_data()` Twig function.** A component/page/doc directory may now ship a pure-YAML `styleguide.data.yaml` sidecar, read via the new `styleguide_data()` Twig function — resolves (no-arg) to the sidecar of the CURRENTLY rendering fixture, or (explicit `styleguide_data('<slug>')`) to a sibling slug within the same kind. Solves a real gap: Twig's `{% include %}` can't export variables back to the caller, so several `styleguide.<variant>.twig` siblings sharing bulky demo data had no clean way to share it short of duplicating the data or an `{% extends %}`-based "data template" trick (still valid as an escape hatch for expression-heavy demos that can't be plain YAML). Any `{ placeholder: {...} }` node anywhere in the tree — at any depth — is recursively resolved into the exact shape `placeholder()` itself returns; `src:`/`url:` string values are recursively rebased onto `templateUrl`/`homeUrl` (same rules as `resolveAssetUrl()`). Missing sidecar → `RuntimeException` naming the expected path; malformed YAML → Symfony's `ParseException` propagates unchanged (same uncaught contract as `styleguide.yaml` itself). Never collides with variant-sibling discovery (`.yaml` vs. the `.twig`-only glob). Discovered while wiring `mairateam`'s shared hero demo data. See `README.md` § *YAML sidecar data* and `docs/API.md` § `styleguide_data()`.
+
 ## [1.1.2] - 2026-07-08
 
 ### Fixed

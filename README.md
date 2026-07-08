@@ -652,6 +652,97 @@ most `component_picture`-style helpers already expect:
 See `docs/API.md` § Twig functions for the full option list (`grain`,
 `vignette`, `alt`).
 
+### YAML sidecar data — `styleguide.data.yaml`
+
+Twig's `{% include %}` can't export variables back to the caller — `{% set %}`
+inside an include is include-local. That's a real limitation once several
+`styleguide.<variant>.twig` siblings ([File-convention variants](#file-convention-variants)
+above) want to share the same bulky demo data: there's no clean way to
+`{% include %}` a "data partial" and have its variables land in the including
+template's scope. Projects have worked around this with partials that own
+both the data AND the component call (duplicated per variant), or
+`{% extends %}`-based "data template" tricks — both add template machinery
+around what is really just data.
+
+A component/page/doc directory may instead ship a `styleguide.data.yaml`
+sidecar — pure YAML, no Twig — read via the bundled `styleguide_data()` Twig
+function:
+
+```
+templates/component/hero/
+├── hero.twig
+├── styleguide.twig            # {{ component_hero(styleguide_data()) }}
+├── styleguide.secondary.twig  # {{ component_hero(styleguide_data()) }}
+└── styleguide.data.yaml       # shared demo data for both siblings
+```
+
+```yaml
+# templates/component/hero/styleguide.data.yaml
+title: "Grow your business"
+image:
+  placeholder:
+    subject: people
+    seed: 42
+    ratio: "16:9"
+cta:
+  url: /contact
+```
+
+```twig
+{# templates/component/hero/styleguide.twig #}
+{{ component_hero(styleguide_data()) }}
+```
+
+**No-arg form resolves to the CURRENT fixture's own sidecar** — whichever
+component/page/doc directory is rendering picks up its own
+`styleguide.data.yaml`, no path/id to keep in sync. An optional explicit
+`styleguide_data('<slug>')` swaps the slug within the same kind, for a page
+fixture that wants to reuse a sibling component's demo data instead of
+duplicating it.
+
+**Integrated placeholder support.** Anywhere in the YAML tree, a mapping
+shaped like:
+
+```yaml
+image:
+  placeholder:
+    subject: people
+    seed: 42
+    ratio: "16:9"
+```
+
+is recursively detected and resolved into the exact same value shape the
+Twig `placeholder()` function itself returns — after resolution, `image` in
+the returned array looks exactly as if you had written
+`placeholder({subject: 'people', seed: 42, ratio: '16:9'})` inline in a
+`.twig` fixture. This works at any depth (inside a list of items, several
+levels deep) — see `docs/API.md` § `styleguide_data()` for the exact
+detection rule.
+
+**Path rebasing.** Any `src:` string value in the tree is rebased onto the
+consumer's asset base (`twig_context.templateUrl`) — same rule
+`resolveAssetUrl()` already applies to `iframe.css`/`styleguide.logo[*].src`.
+Any `url:` string value is rebased onto `twig_context.homeUrl` when that key
+is present in the render context; otherwise it's left unchanged. Absolute
+values (a URI scheme, `/`, `//`, `data:`) always pass through untouched —
+see `docs/API.md` § `styleguide_data()` for the full table.
+
+**Missing sidecar → loud failure.** A no-arg `styleguide_data()` call with no
+matching `styleguide.data.yaml` on disk throws a `RuntimeException` naming
+the expected absolute path — fixtures are dev-time only, so failing loudly
+here (instead of silently returning `[]`) surfaces a typo/missing file
+immediately. Malformed YAML propagates Symfony's own `ParseException`
+unchanged — the same (uncaught) contract `styleguide.yaml` itself already
+has.
+
+**Escape hatch — Twig "data templates" for expression-heavy demos.** The
+YAML sidecar is the DEFAULT approach for flat demo data, but it can't express
+Twig logic — chained `|resizer` calls, computed values, loops. For those
+cases, a Twig-based "data template" (an `{% extends %}` sibling that sets
+variables a child block reads) remains valid; this feature doesn't remove or
+restrict that pattern, it just gives the common flat-data case a much
+simpler home.
+
 ---
 
 ## File layout (after install)
