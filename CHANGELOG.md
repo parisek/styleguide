@@ -8,6 +8,22 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Malformed metadata YAML now surfaces in `GET /styleguide/api/health` instead of silently
+  dropping the component from the catalogue.** `ComponentParser::parseTwigComment()` throws
+  `ParseException` on invalid YAML (previously degraded to `false`); the existing resilience
+  paths in `parse()`/`parseAll()` catch it and record a `getWarnings()` entry, so the walk
+  continues and the broken file is named. Variant sibling annotations keep the old
+  fall-back-silently behaviour (caught at the `discoverVariants()` call-site). Real-world
+  trigger: an unquoted `{ padding-top: 0 }` in a field description made two sloneek
+  components vanish with no trace. Behavioural note for direct `parseTwigComment()`
+  consumers: wrap in `try/catch (ParseException)` if you relied on the `false` return.
+- **`styleguide lint` reports `metadata-yaml-invalid` (Error) for malformed metadata YAML** instead
+  of crashing on the propagated `ParseException` — distinct from `unindexed` (no metadata comment
+  at all), because the author DID write metadata and the component is guaranteed missing from the
+  catalogue.
+
 ## [1.2.0] - 2026-07-09
 
 ### Added

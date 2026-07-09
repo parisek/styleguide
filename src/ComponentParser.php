@@ -260,20 +260,26 @@ class ComponentParser
     /**
      * Extract YAML metadata from the first {# ... #} comment in a Twig file.
      *
-     * @return array<string,mixed>|false
+     * Malformed YAML THROWS ParseException instead of degrading to `false`
+     * (changed after a real-world case where an unquoted `{ padding-top: 0 }`
+     * in a field description silently dropped the component from the
+     * catalogue with no health trace). Both catalogue call-sites — parse()
+     * and parseAll() — already wrap this in their \Throwable resilience
+     * path, so the exception lands in getWarnings() / GET /styleguide/api/health
+     * and the walk continues. Callers that WANT the old degrade-to-false
+     * behaviour (variant sibling annotations) catch it explicitly.
+     *
+     * @return array<string,mixed>|false false = no comment / not a YAML map
+     * @throws ParseException on malformed YAML inside the comment
      */
     public function parseTwigComment(string $content): array|false
     {
         $content = str_replace("\r", "\n", $content);
 
         if (preg_match("/{#\s*(.*?)\s*#}/s", $content, $match) && $match[1]) {
-            try {
-                $yaml = str_replace("\t", '    ', $match[1]);
-                $parsed = Yaml::parse($yaml);
-                return is_array($parsed) ? $parsed : false;
-            } catch (ParseException) {
-                return false;
-            }
+            $yaml = str_replace("\t", '    ', $match[1]);
+            $parsed = Yaml::parse($yaml);
+            return is_array($parsed) ? $parsed : false;
         }
 
         return false;
@@ -301,9 +307,9 @@ class ComponentParser
      * phantom variant) — that check happens before any of the above, on the
      * glob result, not on the YAML map.
      *
-     * A missing or malformed sibling annotation is NOT an error: parseTwigComment()
-     * already degrades absence/malformed YAML to `false` without throwing,
-     * so this method falls straight through to the map (or the id) exactly
+     * A missing or malformed sibling annotation is NOT an error: absence
+     * degrades to `false` and malformed YAML is caught right here at the
+     * call-site, so this method falls straight through to the map (or the id) exactly
      * as if the sibling carried no comment at all — one broken variant
      * annotation must never kill the whole catalogue walk (same resilience
      * contract as parse()/parseAll(), just without a getWarnings() entry:
@@ -328,7 +334,13 @@ class ComponentParser
             }
             $id = $m[1];
             [$mapTitle, $mapDescription] = self::normaliseVariantEntry($id, $entries[$id] ?? null);
-            $annotation = $this->parseTwigComment((string) file_get_contents($file));
+            try {
+                $annotation = $this->parseTwigComment((string) file_get_contents($file));
+            } catch (ParseException) {
+                // per-FIELD fallback within an otherwise-successful variant —
+                // see the method docblock; deliberately NOT a getWarnings() entry
+                $annotation = false;
+            }
             $title = is_array($annotation) && is_string($annotation['title'] ?? null)
                 ? $annotation['title']
                 : $mapTitle;

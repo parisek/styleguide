@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Cli;
 
 use Parisek\Styleguide\ComponentParser;
+use Symfony\Component\Yaml\Exception\ParseException;
 
 /**
  * Static analysis over a project's templates/ tree.
@@ -94,7 +95,10 @@ final class Linter
     }
 
     /**
-     * @return array<string, array<string,mixed>|false>  relative path => raw YAML metadata (or false when unparseable)
+     * @return array<string, array<string,mixed>|false|ParseException>  relative path => raw YAML
+     *         metadata, false when the file carries no metadata comment, or the ParseException
+     *         itself when the comment IS there but is not valid YAML — three distinct states so
+     *         lintEntry() can tell an honest partial apart from a broken catalogue entry.
      */
     private function scanFiles(string $type): array
     {
@@ -114,18 +118,39 @@ final class Linter
             }
             $content = (string) file_get_contents($file->getPathname());
             $relPath = $type . substr($file->getPathname(), strlen($dir));
-            $found[$relPath] = $this->parser->parseTwigComment($content);
+            try {
+                $found[$relPath] = $this->parser->parseTwigComment($content);
+            } catch (ParseException $e) {
+                // parseTwigComment() throws on malformed YAML since the
+                // health-warning change — for the CLI that must become a
+                // finding, not a crash (the linter exists precisely to
+                // report this class of authoring mistake).
+                $found[$relPath] = $e;
+            }
         }
         return $found;
     }
 
     /**
-     * @param array<string,mixed>|false $metadata
+     * @param array<string,mixed>|false|ParseException $metadata
      * @param array<string,true> $knownIds
      * @return list<LintFinding>
      */
-    private function lintEntry(string $relPath, array|false $metadata, array $knownIds): array
+    private function lintEntry(string $relPath, array|false|ParseException $metadata, array $knownIds): array
     {
+        if ($metadata instanceof ParseException) {
+            // Distinct from `unindexed`: the author DID write a metadata
+            // comment, it just isn't valid YAML — same failure the runtime
+            // now surfaces via /styleguide/api/health. Error (not Warning):
+            // the component is guaranteed absent from the catalogue.
+            return [new LintFinding(
+                LintSeverity::Error,
+                $relPath,
+                'metadata-yaml-invalid',
+                'Metadata comment is not valid YAML — dropped from the catalogue. ' . $metadata->getMessage(),
+            )];
+        }
+
         if ($metadata === false || !isset($metadata['name'])) {
             return [new LintFinding(
                 LintSeverity::Warning,

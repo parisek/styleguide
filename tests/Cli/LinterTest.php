@@ -29,10 +29,25 @@ final class LinterTest extends TestCase
     }
 
     #[Test]
-    public function full_fixture_tree_produces_exactly_six_findings(): void
+    public function full_fixture_tree_produces_exactly_seven_findings(): void
     {
         $findings = (new Linter($this->fixtures))->run();
-        self::assertCount(6, $findings);
+        self::assertCount(7, $findings);
+    }
+
+    #[Test]
+    public function flags_metadata_yaml_invalid_as_error_instead_of_crashing(): void
+    {
+        // Regression guard for the ParseException propagation change: the
+        // CLI must convert malformed metadata YAML into a finding, never
+        // crash mid-walk. Distinct from `unindexed` (no metadata at all).
+        $findings = (new Linter($this->fixtures))->run();
+        $invalid = $this->findingsFor($findings, 'metadata-yaml-invalid');
+
+        self::assertCount(1, $invalid);
+        self::assertSame(LintSeverity::Error, $invalid[0]->severity);
+        self::assertSame('component/yaml-broken/yaml-broken.twig', $invalid[0]->file);
+        self::assertStringContainsString('not valid YAML', $invalid[0]->message);
     }
 
     #[Test]
