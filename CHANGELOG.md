@@ -19,6 +19,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   trigger: an unquoted `{ padding-top: 0 }` in a field description made two sloneek
   components vanish with no trace. Behavioural note for direct `parseTwigComment()`
   consumers: wrap in `try/catch (ParseException)` if you relied on the `false` return.
+- **`styleguide lint` reports `metadata-yaml-invalid` (Error) for malformed metadata YAML** instead
+  of crashing on the propagated `ParseException` — distinct from `unindexed` (no metadata comment
+  at all), because the author DID write metadata and the component is guaranteed missing from the
+  catalogue.
 
 ## [1.2.0] - 2026-07-09
 

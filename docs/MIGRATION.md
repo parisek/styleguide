@@ -87,7 +87,8 @@ NOTICE  component/footer/footer.twig  No description set — sidebar tooltip and
 
 That's fine — notices don't fail CI (exit code stays `0` unless a
 `WARNING`/`ERROR` finding is present; `2` is reserved for a usage/internal
-error). Fix the warnings/errors first — unindexed templates
+error). Fix the warnings/errors first — invalid metadata YAML
+(`metadata-yaml-invalid`), unindexed templates
 (`unindexed`), dead `styleguide:` content (`dead-styleguide-content`),
 broken `usage:` refs (`broken-usage-ref`), unknown `render:` values
 (`unknown-render`) — and treat the description backfill as an incremental
