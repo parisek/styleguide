@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
+use Twig\TwigFunction;
 
 /**
  * @internal Implementation detail of `Styleguide::run()` dispatch path.
@@ -23,12 +25,376 @@ use Twig\Environment;
 final class Renderer
 {
     /**
+     * Directory + slug of the component/page/doc CURRENTLY being rendered —
+     * set by {@see renderInner()} immediately before each Twig render call,
+     * read by {@see resolveStyleguideData()} (the `styleguide_data()` Twig
+     * function implementation) at CALL time from inside the template being
+     * rendered. `null` outside an active render: before the first render, if
+     * `$templatesPath` was never configured, or AFTER a render has completed
+     * — {@see renderInner()} resets both back to `null` in a `finally` block
+     * once its Twig render call returns (or throws), so a `styleguide_data()`
+     * call reaching this class between renders never resolves a stale
+     * directory left over from whichever render happened last.
+     */
+    private ?string $currentKind = null;
+    private ?string $currentSlug = null;
+
+    /**
      * @param array<string, mixed> $context
+     * @param string|null $templatesPath
+     *   Absolute path to the project's `templates_path` (mirrors the value
+     *   passed to `Styleguide::__construct(['templates_path' => …])`).
+     *   Required for `styleguide_data()` to resolve sidecar
+     *   `styleguide.data.yaml` files on disk; `null` (the default, kept for
+     *   backward compatibility with direct `new Renderer($twig, $context)`
+     *   callers, e.g. existing unit tests) means `styleguide_data()` always
+     *   throws — see {@see resolveStyleguideData()}.
      */
     public function __construct(
         private Environment $twig,
         private array $context = [],
-    ) {}
+        private ?string $templatesPath = null,
+    ) {
+        $this->registerDataFunction();
+    }
+
+    /**
+     * Registers the `styleguide_data()` Twig function bound to THIS
+     * `Renderer` instance via closure capture, so the callable can read
+     * whichever directory is "currently rendering" ({@see $currentKind} /
+     * {@see $currentSlug}) at CALL time rather than at registration time —
+     * the seam that makes a no-arg `styleguide_data()` call inside ANY
+     * component/page/doc fixture resolve to THAT fixture's own sidecar,
+     * without needing a fresh Twig function per render.
+     *
+     * Idempotent-add pattern mirrors `Styleguide::tryAddFunction()` (not
+     * reused directly — that method is private to `Styleguide` — but the
+     * same reasoning applies here: a project that pre-registers its own
+     * `styleguide_data` Twig function, or an env whose extensions are
+     * already initialized, must not crash `Renderer` construction).
+     */
+    private function registerDataFunction(): void
+    {
+        $renderer = $this;
+        try {
+            $this->twig->addFunction(new TwigFunction(
+                'styleguide_data',
+                static fn(?string $name = null): array => $renderer->resolveStyleguideData($name),
+            ));
+        } catch (\LogicException) {
+            // Duplicate function name, or "extensions already initialized"
+            // on a shared env — swallow-and-defer, same contract as
+            // Styleguide::tryAddFunction() (see that method's doc comment
+            // for why the two cases aren't distinguished).
+        }
+    }
+
+    /**
+     * `styleguide_data()` Twig function implementation. `@internal` — only
+     * reachable via the closure registered in {@see registerDataFunction()}.
+     *
+     * Resolves ONE OF POTENTIALLY SEVERAL sidecar files sitting next to the
+     * component/page/doc CURRENTLY being rendered ({@see $currentKind} /
+     * {@see $currentSlug}, set by {@see renderInner()} immediately before the
+     * Twig render call that reaches this function):
+     *
+     *  - No argument (or `null`) → the DEFAULT set, `styleguide.data.yaml`.
+     *  - `$name` given → the NAMED set `styleguide.data-<name>.yaml`, where
+     *    `<name>` must match `^[a-z0-9-]+$` — the SAME id rule
+     *    `Router::whitelistVariant()` / `Renderer::renderInner()` already use
+     *    for `styleguide.<variant>.twig` variant ids, deliberately reused so
+     *    the two flat-suffix-naming families (variant `.twig` siblings and
+     *    named `.yaml` data sets) stay consistent.
+     *
+     * Resolution is ALWAYS scoped to the currently-rendering component's own
+     * directory — there is no cross-component/cross-slug lookup. A page or
+     * component that wants another component's demo data must duplicate it
+     * (or the styleguide.yaml/`{% extends %}` data-template escape hatch);
+     * this function intentionally never reaches outside `$currentKind` /
+     * `$currentSlug`.
+     *
+     * Two resolution steps run over the parsed YAML, in order:
+     *  1. {@see resolvePlaceholders()} — recursively replaces every
+     *     `{ placeholder: {...} }` node with the real `Placeholder::generate()`
+     *     output (the same shape the Twig `placeholder()` function itself
+     *     returns).
+     *  2. {@see resolvePaths()} — recursively rebases `src:` / `url:` string
+     *     values onto `templateUrl` / `homeUrl` (same rules as
+     *     {@see resolveAssetUrl()} already applies to iframe assets / logo
+     *     entries).
+     *
+     * @throws \InvalidArgumentException
+     *   When `$name` is the literal string `'default'` — that name is
+     *   RESERVED for the no-arg form. Rejected before any filesystem access
+     *   (including before the general `^[a-z0-9-]+$` check, though `'default'`
+     *   would also pass that regex) so a stray `styleguide.data-default.yaml`
+     *   sitting on disk is never loaded by an explicit
+     *   `styleguide_data('default')` call — the no-arg form is the only way
+     *   to reach the default set.
+     * @throws \RuntimeException
+     *   When called outside an active render (no `templates_path`
+     *   configured, or invoked before any render has run, or after a render
+     *   has already completed and cleared its context — see
+     *   {@see renderInner()}); when `$name` doesn't match `^[a-z0-9-]+$`;
+     *   when the resolved sidecar file doesn't exist on disk — in that case
+     *   the message also enumerates whatever `styleguide.data*.yaml` sets
+     *   ARE present in the directory (a typo aid), via
+     *   {@see describeAvailableDataSets()}, using a path RELATIVE to
+     *   `templates_path` (the absolute path is logged via `error_log()`
+     *   instead, so it never leaks into rendered 500-page markup); or when
+     *   the parsed YAML's top-level node is a bare scalar (a shape that
+     *   can't sensibly stand in for the "data" mapping/list the rest of this
+     *   pipeline expects). Fixtures are dev-time only, so failing loudly here
+     *   — rather than silently returning `[]` — surfaces a typo'd/missing/
+     *   malformed-shape sidecar immediately.
+     * @throws \Symfony\Component\Yaml\Exception\ParseException
+     *   Propagated UNCHANGED from `Yaml::parseFile()` on malformed YAML —
+     *   deliberately not wrapped/caught, matching the existing (also
+     *   uncaught) contract of `Styleguide::__construct()`'s own
+     *   `Yaml::parseFile($config['config_yaml'])` call for the top-level
+     *   `styleguide.yaml`. The package doesn't grow a resilience layer here
+     *   that it doesn't already have for that file. No `object`/custom-tag
+     *   flags are passed to `Yaml::parseFile()`, so `!php/object`-tagged
+     *   nodes are never instantiated into real PHP objects (they resolve to
+     *   `null`) and arbitrary custom tags (`!mytag …`) throw this same
+     *   `ParseException` rather than silently constructing anything.
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveStyleguideData(?string $name = null): array
+    {
+        if ($this->templatesPath === null || $this->currentKind === null || $this->currentSlug === null) {
+            throw new \RuntimeException(
+                'styleguide_data(): no active render context — this function can only be called '
+                . 'while rendering a component/page/doc fixture (styleguide.twig / styleguide.<variant>.twig)',
+            );
+        }
+
+        if ($name === 'default') {
+            throw new \InvalidArgumentException(
+                'styleguide_data(): "default" is a reserved data set name — '
+                . 'use styleguide_data() for the default set, not styleguide_data(\'default\')',
+            );
+        }
+
+        if ($name !== null && $name !== '' && preg_match('/^[a-z0-9-]+$/', $name) !== 1) {
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): invalid data set name "%s" — must match ^[a-z0-9-]+$ '
+                . '(same id rule as styleguide.<variant>.twig variant ids)',
+                $name,
+            ));
+        }
+
+        $dir = rtrim($this->templatesPath, '/') . '/' . $this->currentKind . '/' . $this->currentSlug;
+        $filename = ($name === null || $name === '') ? 'styleguide.data.yaml' : sprintf('styleguide.data-%s.yaml', $name);
+        $file = $dir . '/' . $filename;
+        // Path relative to templates_path — used in the exception messages
+        // below so an absolute filesystem path never reaches rendered
+        // 500-page markup; the absolute path is still logged server-side.
+        $relativeFile = $this->currentKind . '/' . $this->currentSlug . '/' . $filename;
+
+        if (!is_file($file)) {
+            error_log(sprintf('styleguide_data(): sidecar file not found: %s', $file));
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): sidecar file not found: %s (%s)',
+                $relativeFile,
+                self::describeAvailableDataSets($dir),
+            ));
+        }
+
+        $parsed = Yaml::parseFile($file);
+        if ($parsed === null) {
+            // Empty file, a bare `null`/`~` document, an empty map (`{}`),
+            // or an empty list (`[]`) — all treated as "no data" rather than
+            // an error; a component whose demo doesn't need any data yet
+            // shouldn't be forced to author a placeholder mapping.
+            $data = [];
+        } elseif (is_array($parsed)) {
+            $data = $parsed;
+        } else {
+            // A bare scalar top-level node (`"hello"`, `42`, `true`, …) can't
+            // stand in for the mapping/list this pipeline expects — fail
+            // loudly with a message naming the actual shape found, rather
+            // than silently coercing to `[]` and masking an authoring
+            // mistake (e.g. a stray unindented value at the top of the file).
+            error_log(sprintf(
+                'styleguide_data(): sidecar top-level node is not a mapping/list: %s (found %s)',
+                $file,
+                get_debug_type($parsed),
+            ));
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): expected a YAML mapping or list at the top level of %s, found a bare %s '
+                . 'value instead — sidecar files must contain a mapping or list',
+                $relativeFile,
+                get_debug_type($parsed),
+            ));
+        }
+
+        $data = self::resolvePlaceholders($data);
+        $data = $this->resolvePaths($data);
+
+        return $data;
+    }
+
+    /**
+     * Builds the "(did you mean one of: …)"-shaped fragment for the
+     * missing-sidecar `RuntimeException` message — enumerates whichever
+     * `styleguide.data*.yaml` sets actually exist in `$dir`, so a typo'd
+     * name (or a missing default when only named sets exist) points
+     * straight at what IS available instead of leaving the developer to
+     * `ls` the directory themselves.
+     */
+    private static function describeAvailableDataSets(string $dir): string
+    {
+        $sets = self::listAvailableDataSets($dir);
+
+        return $sets === []
+            ? 'no styleguide.data*.yaml files found in this directory'
+            : 'available data sets in this directory: ' . implode(', ', $sets);
+    }
+
+    /**
+     * Lists the data-set names present in `$dir`, exactly as they'd be
+     * passed to `styleguide_data()`: the bare `styleguide.data.yaml` sidecar
+     * (if present) is reported as `'default'`; each
+     * `styleguide.data-<name>.yaml` sibling is reported as `<name>`.
+     * Alphabetically sorted for deterministic, readable error messages.
+     *
+     * @return list<string>
+     */
+    private static function listAvailableDataSets(string $dir): array
+    {
+        $sets = [];
+        if (is_file($dir . '/styleguide.data.yaml')) {
+            $sets[] = 'default';
+        }
+        foreach (glob($dir . '/styleguide.data-*.yaml') ?: [] as $path) {
+            if (preg_match('/^styleguide\.data-([a-z0-9-]+)\.yaml$/', basename($path), $m) === 1) {
+                $sets[] = $m[1];
+            }
+        }
+        sort($sets);
+
+        return $sets;
+    }
+
+    /**
+     * Recursively resolves `{ placeholder: {...} }` mapping nodes anywhere in
+     * a `styleguide.data.yaml` tree into the SAME shape the Twig
+     * `placeholder()` function itself returns ({@see Placeholder::generate()}
+     * — a one-element list). So:
+     *
+     *   image:
+     *     placeholder:
+     *       subject: people
+     *       seed: 42
+     *
+     * resolves to exactly what `image: placeholder({subject: 'people', seed:
+     * 42})` would have produced inline in a `.twig` fixture.
+     *
+     * A node matches only when `placeholder` is its SOLE key — deliberately
+     * narrow so a legitimate map that happens to have a sibling key literally
+     * named `placeholder` (holding an unrelated shape) isn't misdetected.
+     * Runs top-down (checks the current node before recursing into it), so a
+     * matched node's own opts (`subject`, `seed`, …) are never themselves
+     * walked for further placeholder/path resolution — correct, since those
+     * are `Placeholder::generate()` parameters, not further data.
+     *
+     * Before calling {@see Placeholder::generate()}, `ratio:` is accepted as
+     * a YAML-only alias for `aspect:` (see {@see applyRatioAlias()}) — the
+     * README/API.md examples write `ratio: "16:9"`, but `Placeholder::
+     * generate()` itself only ever reads `aspect`. The alias is resolved
+     * HERE (the sidecar path), not inside `Placeholder::generate()` — a
+     * direct `placeholder({ratio: …})` call from a `.twig` fixture is
+     * unaffected, `ratio:` only has meaning inside a YAML sidecar.
+     */
+    private static function resolvePlaceholders(mixed $data): mixed
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+        if (count($data) === 1 && array_key_exists('placeholder', $data) && is_array($data['placeholder'])) {
+            return Placeholder::generate(self::applyRatioAlias($data['placeholder']));
+        }
+        $out = [];
+        foreach ($data as $key => $value) {
+            $out[$key] = self::resolvePlaceholders($value);
+        }
+        return $out;
+    }
+
+    /**
+     * Maps a YAML sidecar's `ratio:` key onto `Placeholder::generate()`'s
+     * own `aspect:` option before the call.
+     *
+     * `ratio:` is written `"W:H"` (colon-separated, e.g. `"16:9"`) in every
+     * README/API.md example, while `aspect:` (the option `Placeholder::
+     * generate()` actually reads) expects a `"W/H"` (slash-separated, e.g.
+     * `"3/2"`) string — so the alias also normalises the separator, not just
+     * the key name. Without that normalisation `Placeholder::
+     * resolveDimensions()`'s `explode('/', $aspect)` would never split a
+     * colon-separated value and silently fall back to a bogus 16:1-shaped
+     * ratio for an input like `"16:9"`.
+     *
+     * `aspect:`, when explicitly present alongside `ratio:`, always wins —
+     * `ratio:` is dropped either way so it never reaches `Placeholder::
+     * generate()`'s own `$opts` (and therefore never shows up in the
+     * returned image array's `_placeholderOpts` diagnostic either).
+     *
+     * @param array<string, mixed> $opts
+     * @return array<string, mixed>
+     */
+    private static function applyRatioAlias(array $opts): array
+    {
+        if (!array_key_exists('ratio', $opts)) {
+            return $opts;
+        }
+        $ratio = $opts['ratio'];
+        unset($opts['ratio']);
+
+        if (!array_key_exists('aspect', $opts) && is_string($ratio)) {
+            $opts['aspect'] = str_replace(':', '/', $ratio);
+        }
+
+        return $opts;
+    }
+
+    /**
+     * Recursively rebases `src:` / `url:` string values anywhere in a
+     * `styleguide.data.yaml` tree, mirroring the exact rules
+     * {@see resolveAssetUrl()} already applies to `iframe.css` /
+     * `project.favicon` / `styleguide.logo[*].src`:
+     *
+     *  - `src:` → rebased onto `$this->context['templateUrl']` (the
+     *    consumer's asset base). Absent/empty `templateUrl` → no-op
+     *    (standalone layout, byte-for-byte the historical behaviour).
+     *  - `url:` → rebased onto `$this->context['homeUrl']` ONLY when that
+     *    key is present in the render context as a non-empty string;
+     *    otherwise the value is left untouched (never throws).
+     *  - Absolute values (scheme incl. `data:`, `/`, `//`) always pass
+     *    through unchanged — enforced by `resolveAssetUrl()` itself.
+     */
+    private function resolvePaths(mixed $data): mixed
+    {
+        if (!is_array($data)) {
+            return $data;
+        }
+        $out = [];
+        foreach ($data as $key => $value) {
+            if ($key === 'src' && is_string($value)) {
+                $assetBase = (string) ($this->context['templateUrl'] ?? '');
+                $out[$key] = self::resolveAssetUrl($value, $assetBase);
+            } elseif ($key === 'url' && is_string($value)) {
+                $homeUrl = $this->context['homeUrl'] ?? null;
+                $out[$key] = (is_string($homeUrl) && $homeUrl !== '')
+                    ? self::resolveAssetUrl($value, $homeUrl)
+                    : $value;
+            } else {
+                $out[$key] = $this->resolvePaths($value);
+            }
+        }
+        return $out;
+    }
 
     /**
      * Render a component / page / foundations view into a full HTML
@@ -259,6 +625,16 @@ final class Renderer
      * no-variant case, same as an unknown-but-well-formed id that has no
      * matching file. Either way a deleted/renamed/mistyped variant never
      * 404s a bookmarked deep link.
+     *
+     * `$currentKind`/`$currentSlug` are reset to `null` in a `finally` block
+     * around the Twig render call — regardless of whether the render
+     * succeeds or throws — so `styleguide_data()` can never reuse a STALE
+     * "currently rendering" directory left over from a previous, already-
+     * completed render. Without this reset, a direct `styleguide_data()`
+     * invocation on the environment after `render()` has returned would
+     * silently resolve the PREVIOUS render's sidecar instead of throwing
+     * the "no active render context" `RuntimeException` a truly inactive
+     * environment should produce.
      */
     private function renderInner(string $kind, string $slug, ?string $variant = null): ?string
     {
@@ -274,7 +650,18 @@ final class Renderer
 
         foreach ($candidates as $path) {
             if ($loader->exists($path)) {
-                return $this->twig->render($path, $this->context);
+                // Bind the "currently rendering" directory for
+                // styleguide_data() BEFORE calling render() — the Twig
+                // function reads $this->currentKind/$currentSlug at CALL
+                // time from inside the template about to render.
+                $this->currentKind = $kind;
+                $this->currentSlug = $slug;
+                try {
+                    return $this->twig->render($path, $this->context);
+                } finally {
+                    $this->currentKind = null;
+                    $this->currentSlug = null;
+                }
             }
         }
 
