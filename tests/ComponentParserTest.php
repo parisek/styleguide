@@ -536,11 +536,41 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function parse_all_skips_malformed_metadata_yaml_and_records_a_warning(): void
+    {
+        // Real-world regression (sloneek, 2026-07-09): an unquoted
+        // `{ padding-top: 0 }` inside a field description made the metadata
+        // comment invalid YAML — the old degrade-to-false path dropped the
+        // component from the catalogue with NO health trace. The parse
+        // failure must now surface via getWarnings() while every healthy
+        // sibling keeps parsing.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/broken-metadata-templates');
+        $items = $parser->parseAll('component');
+
+        self::assertSame(['Healthy'], array_column($items, 'name'));
+        $warnings = $parser->getWarnings();
+        self::assertCount(1, $warnings);
+        self::assertSame('component/glitch/glitch.twig', $warnings[0]['file']);
+        self::assertNotSame('', $warnings[0]['error']);
+    }
+
+    #[Test]
+    public function parse_returns_null_and_records_a_warning_for_malformed_metadata_yaml(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/broken-metadata-templates');
+
+        self::assertNull($parser->parse('component', 'glitch'));
+        $warnings = $parser->getWarnings();
+        self::assertCount(1, $warnings);
+        self::assertSame('component/glitch/glitch.twig', $warnings[0]['file']);
+    }
+
+    #[Test]
     public function a_malformed_sibling_annotation_falls_back_silently_to_the_map_and_records_no_warning(): void
     {
         // `styleguide.broken.twig`'s own front comment is deliberately
-        // unparseable YAML (an unclosed quoted scalar). parseTwigComment()
-        // already degrades that to `false` without throwing -- discovery
+        // unparseable YAML (an unclosed quoted scalar). discoverVariants()
+        // catches the ParseException at its own call-site -- discovery
         // must fall through to the component's `variants.broken` map entry
         // exactly as if the sibling carried no comment at all, and getWarnings()
         // must stay empty: a broken variant ANNOTATION is a per-field
