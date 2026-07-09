@@ -149,7 +149,13 @@ final class StyleguideDataTest extends TestCase
 
         $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo');
 
-        $expected = Placeholder::generate(['subject' => 'portrait', 'seed' => 42, 'ratio' => '16:9']);
+        // The fixture's `image:` node is authored as `ratio: '16:9'` — the
+        // YAML-only alias (review follow-up, see the dedicated ratio-alias
+        // tests below) normalises it onto Placeholder::generate()'s own
+        // `aspect: '16/9'` option before the call, so the resolved shape
+        // matches an EQUIVALENT direct `aspect` call, not a literal `ratio`
+        // passthrough (Placeholder::generate() itself has no `ratio` option).
+        $expected = Placeholder::generate(['subject' => 'portrait', 'seed' => 42, 'aspect' => '16/9']);
         self::assertSame($expected, $data['image']);
     }
 
@@ -232,13 +238,17 @@ final class StyleguideDataTest extends TestCase
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $expectedPath = self::TEMPLATES_PATH . '/component/data-demo-missing/styleguide.data.yaml';
+        // Relative to templates_path — the absolute path never reaches the
+        // exception message (it's logged server-side via error_log()
+        // instead), so it can never leak into rendered 500-page markup.
+        $expectedRelativePath = 'component/data-demo-missing/styleguide.data.yaml';
 
         try {
             self::callStyleguideData($renderer, $twig, 'component', 'data-demo-missing');
             self::fail('Expected a RuntimeException.');
         } catch (\RuntimeException $e) {
-            self::assertStringContainsString($expectedPath, $e->getMessage());
+            self::assertStringContainsString($expectedRelativePath, $e->getMessage());
+            self::assertStringNotContainsString(self::TEMPLATES_PATH, $e->getMessage());
             // data-demo-missing has NO styleguide.data*.yaml files at all —
             // the enumeration fragment says so explicitly rather than
             // listing an empty set.
@@ -395,13 +405,14 @@ final class StyleguideDataTest extends TestCase
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $expectedPath = self::TEMPLATES_PATH . '/component/data-demo-sets/styleguide.data-nonexistent.yaml';
+        $expectedRelativePath = 'component/data-demo-sets/styleguide.data-nonexistent.yaml';
 
         try {
             self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'nonexistent');
             self::fail('Expected a RuntimeException.');
         } catch (\RuntimeException $e) {
-            self::assertStringContainsString($expectedPath, $e->getMessage());
+            self::assertStringContainsString($expectedRelativePath, $e->getMessage());
+            self::assertStringNotContainsString(self::TEMPLATES_PATH, $e->getMessage());
             // data-demo-sets ships default + hero + gallery — all three must
             // be enumerated as a typo aid, alphabetically sorted.
             self::assertStringContainsString('default, gallery, hero', $e->getMessage());
@@ -417,18 +428,263 @@ final class StyleguideDataTest extends TestCase
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $expectedPath = self::TEMPLATES_PATH . '/component/data-demo-only-named/styleguide.data.yaml';
+        $expectedRelativePath = 'component/data-demo-only-named/styleguide.data.yaml';
 
         try {
             self::callStyleguideData($renderer, $twig, 'component', 'data-demo-only-named');
             self::fail('Expected a RuntimeException.');
         } catch (\RuntimeException $e) {
-            self::assertStringContainsString($expectedPath, $e->getMessage());
+            self::assertStringContainsString($expectedRelativePath, $e->getMessage());
+            self::assertStringNotContainsString(self::TEMPLATES_PATH, $e->getMessage());
             self::assertStringContainsString('available data sets in this directory: alt', $e->getMessage());
         }
 
         // The named set itself still resolves fine.
         $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-only-named', 'alt');
         self::assertSame('Alt Set', $data['title']);
+    }
+
+    // ─── Review follow-up: reserved "default" set name ─────────────────────
+
+    #[Test]
+    public function rejects_the_reserved_default_set_name_before_touching_the_filesystem(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('use styleguide_data() for the default set');
+
+        // data-demo-default-reserved ships a stray styleguide.data-default.yaml
+        // sidecar (see fixture) — proves rejection happens BEFORE any
+        // filesystem access, not merely "the file happens to be missing".
+        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-default-reserved', 'default');
+    }
+
+    #[Test]
+    public function a_stray_styleguide_data_default_yaml_on_disk_is_never_loaded(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        // The no-arg call resolves styleguide.data.yaml ONLY — the sibling
+        // styleguide.data-default.yaml (a name that could never legitimately
+        // be reached via styleguide_data('default'), which is rejected
+        // above) must never be the one that gets loaded.
+        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-default-reserved');
+        self::assertSame('Default Sidecar', $data['title']);
+
+        // And the explicit 'default' name is rejected outright, never
+        // silently falling through to load the file anyway.
+        try {
+            self::callStyleguideData($renderer, $twig, 'component', 'data-demo-default-reserved', 'default');
+            self::fail('Expected an InvalidArgumentException.');
+        } catch (\InvalidArgumentException $e) {
+            self::assertStringContainsString('reserved', $e->getMessage());
+        }
+    }
+
+    // ─── Review follow-up: "ratio" as a YAML-only alias for "aspect" ───────
+
+    #[Test]
+    public function ratio_alias_in_yaml_placeholder_produces_the_same_output_as_aspect(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        // data-demo's image is authored as `placeholder: {subject: portrait,
+        // seed: 42, ratio: '16:9'}` — the colon-separated "16:9" must
+        // normalise onto Placeholder::generate()'s own slash-separated
+        // "aspect" option ("16/9") and produce byte-identical output.
+        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo');
+
+        $expected = Placeholder::generate(['subject' => 'portrait', 'seed' => 42, 'aspect' => '16/9']);
+        self::assertSame($expected, $data['image']);
+    }
+
+    #[Test]
+    public function explicit_aspect_wins_over_ratio_when_both_are_present(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-ratio-conflict');
+
+        $expected = Placeholder::generate(['subject' => 'abstract', 'seed' => 7, 'aspect' => '1/1']);
+        self::assertSame($expected, $data['image']);
+    }
+
+    // ─── Review follow-up: root-relative path rebasing is a contract, not a bug ─
+
+    #[Test]
+    public function root_relative_src_and_url_are_rebased_not_passed_through(): void
+    {
+        // Pins the documented (and CORRECT) behaviour: "/dist/foo.png" and
+        // "/contact" are root-relative, NOT scheme'd/protocol-relative/data:,
+        // so Renderer::resolveAssetUrl() rebases them onto templateUrl /
+        // homeUrl exactly like a bare-relative path would. Only a URI
+        // scheme (incl. data:), "//", or "#" pass through untouched.
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [
+            'templateUrl' => '/wp-content/themes/acme/static',
+            'homeUrl' => '/en',
+        ], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo');
+
+        self::assertSame('/wp-content/themes/acme/static/dist/foo.png', $data['asset']['src']);
+        self::assertSame('/en/contact', $data['link']['url']);
+    }
+
+    // ─── Review follow-up: context lifecycle (cleared after render) ────────
+
+    #[Test]
+    public function styleguide_data_throws_after_a_completed_render_instead_of_reusing_stale_context(): void
+    {
+        $renderer = $this->newRenderer();
+
+        $html = $renderer->render('component', 'data-demo', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'en');
+        self::assertStringContainsString('Demo Title', self::extractSgData($html)['title']);
+
+        // Reach the SAME renderer's registered styleguide_data callable via
+        // reflection on its OWN Twig environment, without re-seeding
+        // currentKind/currentSlug — render() must have already reset them
+        // to null in renderInner()'s finally block.
+        $ref = new \ReflectionClass($renderer);
+        $rendererTwig = $ref->getProperty('twig')->getValue($renderer);
+        $callable = $rendererTwig->getFunction('styleguide_data')?->getCallable();
+        self::assertIsCallable($callable);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('no active render context');
+
+        $callable();
+    }
+
+    // ─── Review follow-up: edge-case YAML shapes ────────────────────────────
+
+    #[Test]
+    public function empty_sidecar_file_resolves_to_an_empty_array(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        self::assertSame([], self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-empty'));
+    }
+
+    #[Test]
+    public function null_document_sidecar_resolves_to_an_empty_array(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        self::assertSame([], self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-null'));
+    }
+
+    #[Test]
+    public function empty_map_sidecar_resolves_to_an_empty_array(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        self::assertSame([], self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-empty-map'));
+    }
+
+    #[Test]
+    public function empty_list_sidecar_resolves_to_an_empty_array(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        self::assertSame([], self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-empty-list'));
+    }
+
+    #[Test]
+    public function bare_scalar_top_level_sidecar_throws_a_clear_runtime_exception(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        try {
+            self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-scalar');
+            self::fail('Expected a RuntimeException.');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('expected a YAML mapping or list', $e->getMessage());
+            self::assertStringContainsString('bare string', $e->getMessage());
+        }
+    }
+
+    // ─── Review follow-up: traversal-shaped set names rejected ──────────────
+
+    #[Test]
+    public function rejects_parent_directory_traversal_shaped_set_names(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid data set name');
+
+        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', '../x');
+    }
+
+    #[Test]
+    public function rejects_a_set_name_containing_a_path_separator(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid data set name');
+
+        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'a/b');
+    }
+
+    #[Test]
+    public function rejects_a_url_encoded_traversal_shaped_set_name(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid data set name');
+
+        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', '%2e%2e');
+    }
+
+    // ─── Review follow-up: custom YAML tags / serialized objects are inert ──
+
+    #[Test]
+    public function custom_yaml_tags_throw_a_parse_exception_rather_than_being_instantiated(): void
+    {
+        // Yaml::parseFile() is called with no PARSE_CUSTOM_TAGS /
+        // PARSE_OBJECT flags anywhere in the resolution path — an arbitrary
+        // custom tag is therefore a hard parse error, matching plain
+        // symfony/yaml behaviour with no flags enabled.
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(ParseException::class);
+
+        self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-custom-tag');
+    }
+
+    #[Test]
+    public function php_object_tagged_values_resolve_to_null_never_a_real_object(): void
+    {
+        // `!php/object` is a symfony/yaml built-in tag name, but without the
+        // Yaml::PARSE_OBJECT flag (never passed here) it resolves to `null`
+        // rather than throwing OR instantiating a real PHP object — pinning
+        // that no object ever gets constructed from sidecar YAML.
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'component', 'data-demo-edge-php-object');
+
+        self::assertArrayHasKey('payload', $data);
+        self::assertNull($data['payload']);
     }
 }

@@ -674,6 +674,8 @@ directory next to the variant `.twig` siblings (no subdirectory):
 | `styleguide.data.yaml` | `styleguide_data()` — no argument, the DEFAULT set |
 | `styleguide.data-<name>.yaml` | `styleguide_data('<name>')` — a NAMED set. `<name>` matches `[a-z0-9-]+`, the same id rule `styleguide.<variant>.twig` variant ids already use |
 
+`default` is a **reserved** set name — `styleguide_data('default')` throws an `InvalidArgumentException` before ever touching the filesystem, pointing you at the no-arg call instead. The default set only has one door in: `styleguide_data()`. A stray `styleguide.data-default.yaml` file sitting in a component directory is therefore always dead weight — it can never be reached by name, and the no-arg form never reads it either (it only ever reads the bare `styleguide.data.yaml`).
+
 ```
 templates/component/hero/
 ├── hero.twig
@@ -742,18 +744,33 @@ image:
 is recursively detected and resolved into the exact same value shape the
 Twig `placeholder()` function itself returns — after resolution, `image` in
 the returned array looks exactly as if you had written
-`placeholder({subject: 'people', seed: 42, ratio: '16:9'})` inline in a
+`placeholder({subject: 'people', seed: 42, aspect: '16/9'})` inline in a
 `.twig` fixture. This works at any depth (inside a list of items, several
 levels deep) — see `docs/API.md` § `styleguide_data()` for the exact
 detection rule.
+
+**`ratio:` — a YAML-only alias for `aspect:`.** `Placeholder::generate()`
+itself only has an `aspect:` option (slash-separated, `"W/H"`, e.g. `"3/2"`),
+but a `placeholder:` node inside a `styleguide.data*.yaml` sidecar also
+accepts the friendlier `ratio:` key (colon-separated, `"W:H"`, e.g. `"16:9"`)
+— resolved into `aspect:` before the call, converting the separator along the
+way (`"16:9"` → `"16/9"`). If both `ratio:` and `aspect:` are present on the
+same node, the explicit `aspect:` wins and `ratio:` is dropped. This alias is
+**sidecar-only** — a `placeholder({ratio: '16:9'})` call written directly in
+a `.twig` fixture is unaffected; only YAML-authored data gets the alias.
 
 **Path rebasing.** Any `src:` string value in the tree is rebased onto the
 consumer's asset base (`twig_context.templateUrl`) — same rule
 `resolveAssetUrl()` already applies to `iframe.css`/`styleguide.logo[*].src`.
 Any `url:` string value is rebased onto `twig_context.homeUrl` when that key
-is present in the render context; otherwise it's left unchanged. Absolute
-values (a URI scheme, `/`, `//`, `data:`) always pass through untouched —
-see `docs/API.md` § `styleguide_data()` for the full table.
+is present in the render context; otherwise it's left unchanged. A
+**root-relative** path (`/dist/foo.png`) IS rebased, exactly like a
+bare-relative one (`dist/foo.png`) — it is NOT treated as "absolute" for this
+purpose. Only a URI scheme (incl. `data:`), a protocol-relative URL (`//…`),
+or an in-page anchor (`#…`) pass through untouched — see `docs/API.md` §
+`styleguide_data()` for the full table. `src:`/`url:` are reserved,
+always-rebased keys by design — any node using them for demo image/link data
+gets this treatment regardless of surrounding shape.
 
 **Malformed YAML** propagates Symfony's own `ParseException` unchanged — the
 same (uncaught) contract `styleguide.yaml` itself already has; the package
