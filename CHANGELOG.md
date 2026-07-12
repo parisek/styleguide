@@ -31,6 +31,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- **Foundations interactivity no longer requires the consumer to ship Alpine (#79).**
+  `templates/foundations.twig` drops all Alpine directives; swatch switching, copy-to-clipboard
+  and the contrast-matrix toggle now live in a package-shipped, dependency-free
+  `dist/foundations.[hash].js`, injected for foundations renders exactly like the existing
+  foundations CSS bundle. The hero server-renders the default swatch, so the no-JS view shows
+  real data. Consumer component demos inside the iframe are unaffected — they keep using
+  whatever the consumer bundles.
+
 - **`|resizer` now emits tuple-declared variants for real fixture images too, not only
   `placeholder()` fakes** ([#70](https://github.com/parisek/styleguide/issues/70)). Every tuple
   becomes an entry reusing the ORIGINAL `src` (no image pipeline — the browser downloads one
