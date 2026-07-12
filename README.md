@@ -171,6 +171,10 @@ favicon:
   manifest: "/images/touch/site.webmanifest"
   theme_color: "#18181B"
 
+# Open Graph image (#74) — single optional string key. See "OG image audit"
+# below for what it drives.
+og_image: "/images/og-image.png"
+
 colors:
   primary:                       # Tailwind-style scale — shades: map
     name: "Primary"
@@ -195,6 +199,18 @@ Every swatch also carries `contrast_white`/`contrast_black` WCAG contrast ratios
 ### Favicon audit
 
 When the `favicon:` block above is present, Foundations gains a `#favicon` section showing the favicon rendered in simulated contexts — a browser tab (light and dark), an iOS home-screen icon, and an Android/PWA maskable icon — followed by a server-side audit checklist covering each configured asset: file existence, real pixel dimensions against the expected size (`png_96` 96×96, `apple_touch` 180×180), parsed ICO contents, manifest JSON validity with per-icon existence checks, and the `theme_color` swatch. All checks run server-side against `static_path` (`src/FaviconAudit.php`) — nothing is verified client-side, and every configured path is containment-checked to stay under `static_path` before being read. Checklist labels are overridable via optional `labels.favicon*` keys (e.g. `labels.favicon`, `labels.favicon_png_96`, …), all with English defaults — no yaml changes are required to adopt the section beyond the `favicon:` block itself.
+
+### OG image audit
+
+Foundations always renders an `#og-image` section, whether or not `og_image:` is set. Once
+configured, it renders the file as share-card mockups on the three platforms that matter most —
+Facebook/LinkedIn (1.91:1 crop), X/Twitter summary_large_image (2:1 crop), and a Slack unfurl —
+followed by a compact server-side audit: existence, real pixel dimensions against the ≥ 1200×630
+recommendation, aspect ratio vs. the 1.91:1 Open Graph convention, and file size against
+platform limits (warn > 1 MB, error > 8 MB — Facebook's hard cap). When `og_image:` is absent,
+the section shows an empty-state prompt instead of vanishing, since every project is expected to
+ship one. Checklist labels are overridable via optional `labels.og_*` keys, all with English
+defaults.
 
 ```yaml
 typography:
