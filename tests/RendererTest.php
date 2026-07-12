@@ -111,6 +111,42 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function foundations_render_injects_the_package_foundations_js_module_when_url_present(): void
+    {
+        // Mirrors the existing foundations_css_url injection: when
+        // Styleguide::resolveFoundationsJsUrl() finds a built
+        // dist/foundations.<hash>.js, dispatchRender() forwards it as
+        // `foundations_js_url`, and render-cell.twig must emit the matching
+        // <script type="module"> tag (#79) — the foundations iframe must not
+        // depend on the consumer bundling any JS framework.
+        $html = $this->rendererWithBase('')->render('foundations', '', [
+            'foundations_js_url' => '/styleguide/assets/foundations.ABCD1234.js',
+            'styleguide' => [],
+        ], 'cs');
+
+        self::assertStringContainsString(
+            '<script type="module" src="/styleguide/assets/foundations.ABCD1234.js"></script>',
+            $html,
+        );
+    }
+
+    #[Test]
+    public function component_render_never_injects_the_foundations_js_module(): void
+    {
+        // dispatchRender() only ever sets `foundations_js_url` on the
+        // `foundations` branch — component/page/doc renders never receive
+        // the config key, so render-cell.twig's `{% if foundations_js_url %}`
+        // guard must keep the script tag out of every other render kind.
+        $html = $this->renderer->render('component', 'sample', [
+            'project' => ['name' => 'TestProject'],
+            'iframe' => [],
+        ], 'cs');
+
+        self::assertStringNotContainsString('foundations', $html);
+        self::assertStringNotContainsString('<script type="module" src="', $html);
+    }
+
+    #[Test]
     public function doc_body_never_receives_the_consumer_global_iframe_body_class(): void
     {
         // Mirrors foundations_body_never_receives_consumer_iframe_body_class:

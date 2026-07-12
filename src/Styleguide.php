@@ -1218,6 +1218,10 @@ final class Styleguide
             if ($cssUrl !== null) {
                 $config['foundations_css_url'] = $cssUrl;
             }
+            $jsUrl = $this->resolveFoundationsJsUrl();
+            if ($jsUrl !== null) {
+                $config['foundations_js_url'] = $jsUrl;
+            }
             // Foundations consumes the normalized palette shape (legacy
             // `shades:` map and free-form `swatches:` list both accepted —
             // see ColorPalettes). Only the foundations render is remapped;
@@ -1266,6 +1270,36 @@ final class Styleguide
             usort($matches, static fn(string $a, string $b): int => (int) filemtime($b) <=> (int) filemtime($a));
             error_log(sprintf(
                 '[parisek/styleguide] multiple dist/foundations.*.css found (%s) — using newest: %s',
+                implode(', ', array_map('basename', $matches)),
+                basename($matches[0]),
+            ));
+        }
+        return '/styleguide/assets/' . basename($matches[0]);
+    }
+
+    /**
+     * Locate the hashed dist/foundations.*.js file produced by the package's
+     * Vite build. Returns the public URL under /styleguide/assets/, or null
+     * when the bundle is missing (e.g. consumer hasn't run npm install/build
+     * after pulling a package version that introduced this file).
+     */
+    private function resolveFoundationsJsUrl(): ?string
+    {
+        $matches = glob($this->distRoot . '/foundations.*.js');
+        if ($matches === false || count($matches) === 0) {
+            return null;
+        }
+        if (count($matches) > 1) {
+            // A stale hashed file from a previous build that `emptyOutDir`
+            // should have removed (interrupted build, manual file copy, a
+            // consumer vendoring dist/ oddly). Pick the newest by mtime so a
+            // rebuild's fresh JS wins over debris instead of depending on
+            // glob()'s filesystem-order — and leave a breadcrumb, since
+            // silently serving a stale bundle is a confusing bug to chase
+            // without one.
+            usort($matches, static fn(string $a, string $b): int => (int) filemtime($b) <=> (int) filemtime($a));
+            error_log(sprintf(
+                '[parisek/styleguide] multiple dist/foundations.*.js found (%s) — using newest: %s',
                 implode(', ', array_map('basename', $matches)),
                 basename($matches[0]),
             ));

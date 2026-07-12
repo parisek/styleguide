@@ -240,6 +240,13 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "brand-red"                        "foundations colors: pre-existing flat palette rendering still works"
 assert_body_not_contains "/styleguide/render/foundations/index" "<b>evil" "foundations colors: hostile swatch name never reaches the body unescaped"
 
+# Package-shipped vanilla foundations.js (#79) — injected alongside
+# foundations.css for the foundations render only; see render-cell.twig.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    'type="module" src="'                     "foundations render injects the package foundations JS module" \
+    '/styleguide/assets/foundations.'         "foundations render js module url is hashed under the foundations. prefix" \
+    '.js"></script>'                          "foundations render js module url ends in .js"
+
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
 HASHED_JS=$(curl -sk "$BASE/styleguide/" | grep -oE '/styleguide/assets/styleguide\.[A-Za-z0-9_-]+\.js' | head -1 || true)

@@ -56,6 +56,9 @@
 	   would otherwise be absent. Loaded after iframe.css so consumer overrides
 	   still win on shared classes. #}
 	{% if foundations_css_url %}<link rel="stylesheet" href="{{ foundations_css_url|e }}">{% endif %}
+	{# Package-shipped vanilla interactivity for the foundations route — the
+	   iframe must not depend on the consumer bundling a JS framework (#79). #}
+	{% if foundations_js_url %}<script type="module" src="{{ foundations_js_url|e }}"></script>{% endif %}
 	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
 	{% if iframe.js %}<script type="module" src="{{ iframe.js|cachebust|e }}"></script>{% endif %}
 </head>
