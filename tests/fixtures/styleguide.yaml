@@ -46,5 +46,6 @@ colors:
       - { name: red, hex: '#E63946', css_variable: brand-red }
       - { name: cream, hex: '#F1FAEE' }
       - { name: navy, hex: '#1D3557' }
+      - { name: "robin's egg", hex: '#9EDDDF' }
 
 labels: { colors: "Colors", click_to_copy: "Click to copy", copied: "Copied!", click_swatch: "Click a swatch" }

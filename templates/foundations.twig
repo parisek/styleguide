@@ -57,7 +57,7 @@
 			copiedColor: null,
 			colors: {
 				{% for palette in styleguide.colors %}
-				'{{ palette.key }}': {{ palette.swatches|filter(s => s.key == palette.default)|first|json_encode }}{{ not loop.last ? ',' : '' }}
+				{{ palette.key|json_encode }}: {{ palette.swatches|filter(s => s.key == palette.default)|first|json_encode }}{{ not loop.last ? ',' : '' }}
 				{% endfor %}
 			},
 			copyColor(hex, label) {
@@ -91,20 +91,20 @@
 					<div{{ color_card_attrs }}>
 						<div
 							class="group relative h-32 cursor-pointer duration-300 transition-colors"
-							:style="'background-color: ' + colors['{{ palette.key }}'].bg"
-							@click="copyColor(colors['{{ palette.key }}'].hex, colors['{{ palette.key }}'].label)"
+							:style="'background-color: ' + colors[{{ palette.key|json_encode }}].bg"
+							@click="copyColor(colors[{{ palette.key|json_encode }}].hex, colors[{{ palette.key|json_encode }}].label)"
 						>
 							<div
 								class="flex absolute inset-0 justify-between items-center p-5 duration-300 transition-colors"
-								:class="colors['{{ palette.key }}'].light ? 'text-zinc-900' : 'text-white'"
+								:class="colors[{{ palette.key|json_encode }}].light ? 'text-zinc-900' : 'text-white'"
 							>
 								<div>
 									<p class="opacity-70 font-semibold text-xs uppercase tracking-wider">{{ palette.name }}</p>
-									<p class="mt-1 font-bold text-2xl" x-text="colors['{{ palette.key }}'].label"></p>
+									<p class="mt-1 font-bold text-2xl" x-text="colors[{{ palette.key|json_encode }}].label"></p>
 								</div>
 								<div class="text-right">
-									<p class="opacity-90 font-mono text-sm" x-text="colors['{{ palette.key }}'].hex"></p>
-									<p class="opacity-60 font-mono text-xs" x-text="colors['{{ palette.key }}'].oklch"></p>
+									<p class="opacity-90 font-mono text-sm" x-text="colors[{{ palette.key|json_encode }}].hex"></p>
+									<p class="opacity-60 font-mono text-xs" x-text="colors[{{ palette.key|json_encode }}].oklch"></p>
 									<p class="mt-1 opacity-60 font-mono text-xs">{{ styleguide.labels.click_swatch }}</p>
 								</div>
 							</div>
@@ -113,10 +113,10 @@
 									'flex absolute inset-0 justify-center items-center',
 									'opacity-0 group-hover:opacity-100 bg-black/20 transition-opacity',
 								],
-								':class': "copiedColor === colors['#{palette.key}'].label ? 'opacity-100' : ''",
+								':class': "copiedColor === colors[#{palette.key|json_encode}].label ? 'opacity-100' : ''",
 							}) %}
 							<div{{ copy_overlay_attrs }}>
-								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === colors['{{ palette.key }}'].label ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
+								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === colors[{{ palette.key|json_encode }}].label ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
 							</div>
 						</div>
 						<div class="p-4">
@@ -132,13 +132,13 @@
 												'aspect-square relative group-hover/swatch:z-10 rounded-md',
 												'group-hover/swatch:shadow-lg duration-200 transition-all group-hover/swatch:scale-110',
 											],
-											':class': "colors['#{palette.key}'].key === '#{swatch.key}' ? 'ring-2 ring-zinc-950' : ''",
+											':class': "colors[#{palette.key|json_encode}].key === #{swatch.key|json_encode} ? 'ring-2 ring-zinc-950' : ''",
 											style: "background-color: #{swatch.bg};",
 										}) %}
 										<div{{ swatch_attrs }}></div>
 										<p
 											class="mt-2 font-mono text-[10px] text-zinc-500 group-hover/swatch:text-zinc-900 text-center truncate transition-colors"
-											:class="colors['{{ palette.key }}'].key === '{{ swatch.key }}' ? 'font-bold text-zinc-900' : ''"
+											:class="colors[{{ palette.key|json_encode }}].key === {{ swatch.key|json_encode }} ? 'font-bold text-zinc-900' : ''"
 										>{{ swatch.key }}</p>
 										{% set swatch_tooltip_attrs = create_attribute({
 											class: [

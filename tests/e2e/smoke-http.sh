@@ -215,7 +215,9 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "#FE4942"                    "foundations colors: legacy palette hex reaches the markup" \
     "brand-red"                  "foundations colors: flat palette css_variable label renders" \
     "cream"                      "foundations colors: flat palette bare-name swatch renders" \
-    "#1D3557"                    "foundations colors: flat palette hex reaches the markup"
+    "#1D3557"                    "foundations colors: flat palette hex reaches the markup" \
+    "robin&#039;s egg"           "foundations colors: apostrophe swatch name survives HTML escaping" \
+    "#9EDDDF"                    "foundations colors: apostrophe swatch hex reaches the markup"
 
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
