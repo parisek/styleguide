@@ -143,4 +143,20 @@ final class ColorUtil
     {
         return $l > self::LIGHT_THRESHOLD_OKLCH;
     }
+
+    /**
+     * WCAG 2.x contrast ratio between two colors: (Lmax + 0.05) / (Lmin + 0.05).
+     * Symmetric; 1.0 (identical) … 21.0 (black on white). Null when either
+     * hex is unparseable. Unrounded — presentation layers round for display.
+     */
+    public static function contrastRatio(string $hexA, string $hexB): ?float
+    {
+        $la = self::relativeLuminance($hexA);
+        $lb = self::relativeLuminance($hexB);
+        if ($la === null || $lb === null) {
+            return null;
+        }
+
+        return (max($la, $lb) + 0.05) / (min($la, $lb) + 0.05);
+    }
 }
