@@ -53,7 +53,11 @@ typography:
     - name: 'Bold<script>alert(5)</script>'
       class: font-bold
       value: '700'
-  body_sample: 'The quick brown fox jumps over the lazy dog.'
+  # Hostile suffix (#78) — body_sample is piped through |e|typography like
+  # heading.label above, but had no regression coverage of its own. Legitimate
+  # text is kept intact so NBSP/widow-prevention behavior on the plain
+  # sentence stays covered by the same fixture value.
+  body_sample: 'The quick brown fox jumps over the lazy dog. <img src=x onerror=alert(2)>End'
 
 # Both palette shapes the overview normalizer accepts — the e2e smoke
 # asserts foundations renders them side by side.

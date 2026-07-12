@@ -267,6 +267,16 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "Headings&lt;script&gt;alert(3)&lt;/script&gt;"       "foundations typography: hostile font usage tag renders HTML-escaped" \
     "Heading&lt;script&gt;alert(x)&lt;/script&gt;"        "foundations typography: hostile heading label renders HTML-escaped (pre-escaped before |typography)" \
     "Bold&lt;script&gt;alert(5)&lt;/script&gt;"           "foundations typography: hostile weight name renders HTML-escaped"
+
+# body_sample (#78 review) — same |e|typography path as heading.label above,
+# but had no hostile-payload coverage of its own. The digit inside the payload
+# is intentionally left in (unlike heading.label, which avoids digits) so this
+# also pins the |typography number-wrap interaction: the emitted form wraps
+# the lone digit in <span class="numbers">…</span> *after* HTML-escaping —
+# confirmed by curling the fixture render directly rather than guessed.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    'lazy dog. &lt;img src=x onerror=alert(<span class="numbers">2</span>)&gt;End' "foundations typography: hostile body_sample renders HTML-escaped (including the |typography number-wrap span)"
+assert_body_not_contains "/styleguide/render/foundations/index" "onerror=alert(2)" "foundations typography: hostile body_sample never reaches the body as raw unescaped markup"
 # Raw-payload checks target the exact hostile string per fixture entry (not a
 # bare `<script>` substring) — the page legitimately emits real `<script>`
 # tags (foundations.js module, standalone-bar reveal script), so a blanket
