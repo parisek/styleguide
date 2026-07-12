@@ -327,20 +327,43 @@ assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(1
 assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(17)'             "foundations typography: hostile weight.class never breaks out of the sample class attribute"
 assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(18)</script>"     "foundations typography: hostile weight.value never reaches the body as a live <script> tag"
 
-# Favicon audit section (#73) — server-side FaviconAudit::run() drives a
-# `#favicon` section: three mockup contexts + an audit checklist table.
-# Needles below were curled off a live `php -S` render of the fixture
-# (tests/fixtures/styleguide.yaml's `favicon:` block, which mirrors
+# Favicon audit section (#73, #73 follow-up owner feedback) — server-side
+# FaviconAudit::run() drives: compact browser-tab + iOS home-screen mockups
+# embedded in the logo card's FAVICON slot (#logo section), and a collapsed-
+# by-default audit checklist under `#favicon` (Android/PWA mockup card was
+# dropped per owner feedback; `maskable_icon` still feeds the manifest
+# sub-rows below). Needles were curled off a live `php -S` render of the
+# fixture (tests/fixtures/styleguide.yaml's `favicon:` block, which mirrors
 # FaviconAuditTest::happyPathConfig() 1:1) rather than guessed.
 assert_body_contains_all "/styleguide/render/foundations/index" \
     'id="favicon"'                                          "foundations favicon: section renders" \
+    'data-sg-toggle="favicon-audit-table"'                   "foundations favicon: audit checklist toggle button targets the table id" \
+    'id="favicon-audit-table"'                               "foundations favicon: audit table container carries the toggle target id" \
     'data-favicon-entry="png_96" data-favicon-status="ok"'   "foundations favicon: png_96 checklist row status ok" \
     '96×96</td>'                                             "foundations favicon: png_96 checklist row shows the real 96×96 dimensions" \
     'data-favicon-entry="apple_touch" data-favicon-status="warning"' "foundations favicon: apple_touch checklist row status warning (real fixture asset is 120×120, expected 180×180)" \
     'expected 180×180, got 120×120'                          "foundations favicon: apple_touch note carries the real emitted expected-vs-actual text" \
     'data-favicon-manifest-icon-exists="false"'               "foundations favicon: manifest sub-row flags the declared-but-missing-on-disk 512 icon" \
     '512x512'                                                 "foundations favicon: manifest sub-row for the missing 512 icon shows its declared size" \
-    '&#x2F;images&#x2F;touch&#x2F;favicon.svg'                "foundations favicon: browser-tab mockup img src is the audit's tab_icon, html_attr-escaped"
+    '&#x2F;images&#x2F;touch&#x2F;favicon.svg'                "foundations logo: FAVICON slot's browser-tab mockup img src is the audit's tab_icon, html_attr-escaped" \
+    'SG Fixture'                                              "foundations logo: FAVICON slot's iOS tile label reads the manifest's short_name (site.webmanifest)"
+
+# Audit checklist table starts hidden — collapsed-by-default (owner
+# feedback), expanded client-side by the generic [data-sg-toggle] handler
+# in frontend/foundations.js. Asserted as raw HTML around the id since
+# assert_body_contains_all only does substring matches, not attribute-order-
+# independent parsing.
+assert_body_contains "/styleguide/render/foundations/index" \
+    'id="favicon-audit-table" class="overflow-hidden overflow-x-auto border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white" hidden' \
+    "foundations favicon: audit table renders with the hidden attribute (collapsed by default)"
+
+# Android/PWA maskable mockup card was dropped from the standalone #favicon
+# section (#73 follow-up) — its default label text and the distinctive
+# circular-mask wrapper class must not linger in the rendered markup.
+assert_body_not_contains "/styleguide/render/foundations/index" \
+    'Android / PWA (maskable)' "foundations favicon: dropped Android/PWA mockup card's default label never reaches the body"
+assert_body_not_contains "/styleguide/render/foundations/index" \
+    'ring-1 ring-zinc-300' "foundations favicon: dropped Android/PWA mockup card's circular-mask wrapper class never reaches the body"
 
 # Open Graph image section (#74) — server-side OgImageAudit::run() drives
 # an always-rendered `#og-image` section: three share-card mockups

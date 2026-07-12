@@ -65,17 +65,29 @@ function initPalette(root, card) {
 	hero?.addEventListener('click', () => { if (active) copy(active); });
 }
 
+/**
+ * Generic expand/collapse: every `[data-sg-toggle="<id>"]` button shows/hides
+ * the element with that `id`, rotating the button's own `<svg>` chevron in
+ * step. Powers both the contrast matrix and the favicon audit checklist —
+ * one handler, no per-section wiring.
+ */
+function initToggles() {
+	for (const toggle of document.querySelectorAll('[data-sg-toggle]')) {
+		const target = document.getElementById(toggle.dataset.sgToggle);
+		if (!target) continue;
+		toggle.addEventListener('click', () => {
+			const open = target.toggleAttribute('hidden') === false;
+			toggle.querySelector('svg')?.classList.toggle('rotate-90', open);
+		});
+	}
+}
+
 function init() {
+	initToggles();
+
 	const root = document.querySelector('[data-sg-colors]');
 	if (!root) return;
 	for (const card of root.querySelectorAll('[data-palette]')) initPalette(root, card);
-
-	const toggle = root.querySelector('[data-matrix-toggle]');
-	const matrix = root.querySelector('[data-matrix]');
-	toggle?.addEventListener('click', () => {
-		const open = matrix.toggleAttribute('hidden') === false;
-		toggle.querySelector('svg')?.classList.toggle('rotate-90', open);
-	});
 }
 
 document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', init) : init();
