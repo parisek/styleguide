@@ -9,3 +9,6 @@
 /frontend/playwright-report/
 /frontend/blob-report/
 /docs/superpowers/
+
+# Local git worktrees (superpowers isolation)
+.worktrees/

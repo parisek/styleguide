@@ -162,7 +162,7 @@ logo:
   favicon: { src: "/images/touch/favicon.svg", alt: "Favicon", label: "Favicon" }
 
 colors:
-  primary:
+  primary:                       # Tailwind-style scale — shades: map
     name: "Primary"
     css_variable: "primary"
     default: 500
@@ -170,7 +170,17 @@ colors:
       50:  { hex: "#FFEAEA", oklch: "oklch(95.6% 0.022 17.54)" }
       # ...
       950: { hex: "#1F0000", oklch: "oklch(15.32% 0.059 31.48)" }
+  brand:                         # No scale? Free list of named swatches
+    name: "Brand"
+    default: red                 # optional — falls back to the first swatch
+    swatches:
+      - { name: red, hex: "#E63946", css_variable: brand-red }  # css_variable optional
+      - { name: cream, hex: "#F1FAEE" }
+```
 
+Text lightness on each swatch is derived from OKLCH lightness (provided or computed from the hex), falling back to WCAG relative luminance of the hex when the OKLCH value can't be parsed; `hex` is required per swatch — entries without a parseable hex are skipped. `oklch` is optional and is computed from `hex` when omitted.
+
+```yaml
 typography:
   fonts:
     - name: "Poppins"

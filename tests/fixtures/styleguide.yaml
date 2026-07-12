@@ -28,3 +28,24 @@ logo:
     label: Logo
     background: light
   favicon:
+
+# Both palette shapes the overview normalizer accepts — the e2e smoke
+# asserts foundations renders them side by side.
+colors:
+  primary:
+    name: Primary
+    css_variable: primary
+    default: 500
+    shades:
+      100: { hex: '#FEDBDA', oklch: 'oklch(92.33% 0.039 19.83)' }
+      500: { hex: '#FE4942', oklch: 'oklch(66.78% 0.219 27.17)' }
+      900: { hex: '#410200', oklch: 'oklch(24.04% 0.095 30.36)' }
+  brand:
+    name: Brand (flat)
+    swatches:
+      - { name: red, hex: '#E63946', css_variable: brand-red }
+      - { name: cream, hex: '#F1FAEE' }
+      - { name: navy, hex: '#1D3557' }
+      - { name: "robin's egg", hex: '#9EDDDF' }
+
+labels: { colors: "Colors", click_to_copy: "Click to copy", copied: "Copied!", click_swatch: "Click a swatch" }

@@ -56,27 +56,18 @@
 		<section id="colors" class="mb-12" x-data="{
 			copiedColor: null,
 			colors: {
-				{% for key, palette in styleguide.colors %}
-				'{{ key }}': {
-					active: '{{ palette.default }}',
-					hex: '{{ palette.shades[palette.default].hex }}',
-					oklch: '{{ palette.shades[palette.default].oklch }}'
-				}{{ not loop.last ? ',' : '' }}
+				{% for palette in styleguide.colors %}
+				{{ palette.key|json_encode|e('html_attr') }}: {{ palette.swatches|filter(s => s.key == palette.default)|first|json_encode|e('html_attr') }}{{ not loop.last ? ',' : '' }}
 				{% endfor %}
 			},
-			isLight(shade) {
-				return ['50', '100', '200', '300'].includes(shade);
-			},
-			copyColor(hex, key) {
+			copyColor(hex, label) {
 				navigator.clipboard.writeText(hex);
-				this.copiedColor = key;
+				this.copiedColor = label;
 				setTimeout(() => this.copiedColor = null, 2000);
 			},
-			setColor(palette, shade, hex, oklch) {
-				this.colors[palette].active = shade;
-				this.colors[palette].hex = hex;
-				this.colors[palette].oklch = oklch;
-				this.copyColor(hex, palette + '-' + shade);
+			setColor(paletteKey, swatch) {
+				this.colors[paletteKey] = swatch;
+				this.copyColor(swatch.hex, swatch.label);
 			}
 		}">
 			<div class="flex gap-3 items-center mb-6">
@@ -89,7 +80,7 @@
 			</div>
 
 			<div class="flex flex-col lg:flex-row lg:flex-wrap xl:flex-nowrap gap-6">
-				{% for key, palette in styleguide.colors %}
+				{% for palette in styleguide.colors %}
 					{% set color_card_attrs = create_attribute({
 						class: [
 							'overflow-hidden flex-1 min-w-0',
@@ -100,20 +91,20 @@
 					<div{{ color_card_attrs }}>
 						<div
 							class="group relative h-32 cursor-pointer duration-300 transition-colors"
-							:style="'background-color: var(--color-{{ palette.css_variable }}-' + colors['{{ key }}'].active + ')'"
-							@click="copyColor(colors['{{ key }}'].hex, '{{ palette.css_variable }}-' + colors['{{ key }}'].active)"
+							:style="'background-color: ' + colors[{{ palette.key|json_encode|e('html_attr') }}].bg"
+							@click="copyColor(colors[{{ palette.key|json_encode|e('html_attr') }}].hex, colors[{{ palette.key|json_encode|e('html_attr') }}].label)"
 						>
 							<div
 								class="flex absolute inset-0 justify-between items-center p-5 duration-300 transition-colors"
-								:class="isLight(colors['{{ key }}'].active) ? 'text-zinc-900' : 'text-white'"
+								:class="colors[{{ palette.key|json_encode|e('html_attr') }}].light ? 'text-zinc-900' : 'text-white'"
 							>
 								<div>
 									<p class="opacity-70 font-semibold text-xs uppercase tracking-wider">{{ palette.name }}</p>
-									<p class="mt-1 font-bold text-2xl" x-text="'{{ palette.css_variable }}-' + colors['{{ key }}'].active"></p>
+									<p class="mt-1 font-bold text-2xl" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].label"></p>
 								</div>
 								<div class="text-right">
-									<p class="opacity-90 font-mono text-sm" x-text="colors['{{ key }}'].hex"></p>
-									<p class="opacity-60 font-mono text-xs" x-text="colors['{{ key }}'].oklch"></p>
+									<p class="opacity-90 font-mono text-sm" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].hex"></p>
+									<p class="opacity-60 font-mono text-xs" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].oklch"></p>
 									<p class="mt-1 opacity-60 font-mono text-xs">{{ styleguide.labels.click_swatch }}</p>
 								</div>
 							</div>
@@ -122,33 +113,33 @@
 									'flex absolute inset-0 justify-center items-center',
 									'opacity-0 group-hover:opacity-100 bg-black/20 transition-opacity',
 								],
-								':class': "copiedColor === '#{palette.css_variable}-' + colors['#{key}'].active ? 'opacity-100' : ''",
+								':class': "copiedColor === colors[#{palette.key|json_encode}].label ? 'opacity-100' : ''",
 							}) %}
 							<div{{ copy_overlay_attrs }}>
-								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === '{{ palette.css_variable }}-' + colors['{{ key }}'].active ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
+								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === colors[{{ palette.key|json_encode|e('html_attr') }}].label ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
 							</div>
 						</div>
 						<div class="p-4">
-							<div class="flex gap-1">
-								{% for shade, color in palette.shades %}
+							<div class="flex flex-wrap gap-1">
+								{% for swatch in palette.swatches %}
 									<button
 										type="button"
-										class="group/swatch relative flex-1"
-										@click="setColor('{{ key }}', '{{ shade }}', '{{ color.hex }}', '{{ color.oklch }}')"
+										class="group/swatch relative flex-1 min-w-8 max-w-16"
+										@click="setColor({{ palette.key|json_encode|e('html_attr') }}, {{ swatch|json_encode|e('html_attr') }})"
 									>
 										{% set swatch_attrs = create_attribute({
 											class: [
 												'aspect-square relative group-hover/swatch:z-10 rounded-md',
 												'group-hover/swatch:shadow-lg duration-200 transition-all group-hover/swatch:scale-110',
 											],
-											':class': "colors['#{key}'].active === '#{shade}' ? 'ring-2 ring-zinc-950' : ''",
-											style: "background-color: var(--color-#{palette.css_variable}-#{shade});",
+											':class': "colors[#{palette.key|json_encode}].key === #{swatch.key|json_encode} ? 'ring-2 ring-zinc-950' : ''",
+											style: "background-color: #{swatch.bg};",
 										}) %}
 										<div{{ swatch_attrs }}></div>
 										<p
-											class="mt-2 font-mono text-[10px] text-zinc-500 group-hover/swatch:text-zinc-900 text-center transition-colors"
-											:class="colors['{{ key }}'].active === '{{ shade }}' ? 'font-bold text-zinc-900' : ''"
-										>{{ shade }}</p>
+											class="mt-2 font-mono text-[10px] text-zinc-500 group-hover/swatch:text-zinc-900 text-center truncate transition-colors"
+											:class="colors[{{ palette.key|json_encode|e('html_attr') }}].key === {{ swatch.key|json_encode|e('html_attr') }} ? 'font-bold text-zinc-900' : ''"
+										>{{ swatch.key }}</p>
 										{% set swatch_tooltip_attrs = create_attribute({
 											class: [
 												'absolute bottom-full left-1/2 z-20 -translate-x-1/2',
@@ -158,7 +149,7 @@
 											],
 										}) %}
 										<div{{ swatch_tooltip_attrs }}>
-											<span x-text="copiedColor === '{{ palette.css_variable }}-{{ shade }}' ? '{{ styleguide.labels.copied }}' : '{{ color.hex }}'"></span>
+											<span x-text="copiedColor === {{ swatch.label|json_encode|e('html_attr') }} ? '{{ styleguide.labels.copied }}' : {{ swatch.hex|json_encode|e('html_attr') }}"></span>
 										</div>
 									</button>
 								{% endfor %}
