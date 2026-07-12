@@ -212,4 +212,52 @@ final class ColorPalettesTest extends TestCase
         self::assertTrue($swatch['aa_white']);
         self::assertFalse($swatch['aa_black']);
     }
+
+    public function testContrastMatrixAppendsWhiteAndBlackAndGradesCells(): void
+    {
+        $palettes = ColorPalettes::normalize([
+            'primary' => ['shades' => [500 => ['hex' => '#FE4942']]],
+        ]);
+        $matrix = ColorPalettes::contrastMatrix($palettes);
+
+        self::assertSame(['primary-500', 'White', 'Black'], array_column($matrix['colors'], 'label'));
+        self::assertSame('#FFFFFF', $matrix['colors'][1]['hex']);
+        self::assertSame('#FFFFFF', $matrix['colors'][1]['bg']);
+
+        self::assertCount(3, $matrix['cells']);
+        self::assertCount(3, $matrix['cells'][0]);
+
+        $diagonal = $matrix['cells'][0][0];
+        self::assertEqualsWithDelta(1.0, $diagonal['ratio'], 0.001);
+        self::assertSame('fail', $diagonal['level']);
+
+        $whiteOnBlack = $matrix['cells'][1][2];
+        self::assertEqualsWithDelta(21.0, $whiteOnBlack['ratio'], 0.001);
+        self::assertSame('aaa', $whiteOnBlack['level']);
+
+        $redOnWhite = $matrix['cells'][0][1];
+        self::assertEqualsWithDelta(3.36, $redOnWhite['ratio'], 0.01);
+        self::assertSame('aa-large', $redOnWhite['level']);
+    }
+
+    public function testContrastMatrixLevels(): void
+    {
+        $palettes = ColorPalettes::normalize([
+            'x' => ['shades' => [
+                600 => ['hex' => '#646476'],  // vs white ≈ 4.9 → aa
+                900 => ['hex' => '#19191E'],  // vs white ≈ 17+ → aaa
+            ]],
+        ]);
+        $matrix = ColorPalettes::contrastMatrix($palettes);
+        $labels = array_column($matrix['colors'], 'label');
+        $white = array_search('White', $labels, true);
+
+        self::assertSame('aa', $matrix['cells'][0][$white]['level']);
+        self::assertSame('aaa', $matrix['cells'][1][$white]['level']);
+    }
+
+    public function testContrastMatrixEmptyInput(): void
+    {
+        self::assertSame(['colors' => [], 'cells' => []], ColorPalettes::contrastMatrix([]));
+    }
 }

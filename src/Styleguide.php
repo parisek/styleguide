@@ -1223,8 +1223,10 @@ final class Styleguide
             // see ColorPalettes). Only the foundations render is remapped;
             // component/page/doc renders keep the raw yaml `colors` so
             // consumer templates reading styleguide.colors are untouched.
+            $normalizedColors = ColorPalettes::normalize($this->yamlConfig['colors'] ?? null);
             $config['styleguide'] = array_merge($this->yamlConfig, [
-                'colors' => ColorPalettes::normalize($this->yamlConfig['colors'] ?? null),
+                'colors' => $normalizedColors,
+                'colors_contrast' => ColorPalettes::contrastMatrix($normalizedColors),
             ]);
         }
 

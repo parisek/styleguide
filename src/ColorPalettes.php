@@ -183,4 +183,55 @@ final class ColorPalettes
             'aa_black'       => $contrastBlack >= 4.5,
         ];
     }
+
+    /**
+     * Full pair-contrast grid for the foundations matrix: every swatch across
+     * all palettes plus White and Black. cells[row][col] grades text color
+     * `row` on background `col` — ratio is symmetric, the orientation only
+     * matters for the rendered preview.
+     *
+     * Levels: aaa >= 7.0, aa >= 4.5, aa-large >= 3.0 (large-text AA), fail.
+     * Empty palette list yields ['colors' => [], 'cells' => []] so the
+     * template's `if colors_contrast.colors` guard hides the section.
+     *
+     * @param list<array{key: string, name: string, default: string, swatches: list<array<string, mixed>>}> $palettes
+     *
+     * @return array{colors: list<array{label: string, hex: string, bg: string}>, cells: list<list<array{ratio: float, level: string}>>}
+     */
+    public static function contrastMatrix(array $palettes): array
+    {
+        $colors = [];
+        foreach ($palettes as $palette) {
+            foreach ($palette['swatches'] as $swatch) {
+                $colors[] = ['label' => (string) $swatch['label'], 'hex' => (string) $swatch['hex'], 'bg' => (string) $swatch['bg']];
+            }
+        }
+        if ($colors === []) {
+            return ['colors' => [], 'cells' => []];
+        }
+        $colors[] = ['label' => 'White', 'hex' => '#FFFFFF', 'bg' => '#FFFFFF'];
+        $colors[] = ['label' => 'Black', 'hex' => '#000000', 'bg' => '#000000'];
+
+        $cells = [];
+        foreach ($colors as $row) {
+            $rowCells = [];
+            foreach ($colors as $col) {
+                $ratio = round((float) ColorUtil::contrastRatio($row['hex'], $col['hex']), 2);
+                $rowCells[] = ['ratio' => $ratio, 'level' => self::gradeContrast($ratio)];
+            }
+            $cells[] = $rowCells;
+        }
+
+        return ['colors' => $colors, 'cells' => $cells];
+    }
+
+    private static function gradeContrast(float $ratio): string
+    {
+        return match (true) {
+            $ratio >= 7.0 => 'aaa',
+            $ratio >= 4.5 => 'aa',
+            $ratio >= 3.0 => 'aa-large',
+            default => 'fail',
+        };
+    }
 }
