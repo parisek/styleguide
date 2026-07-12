@@ -161,6 +161,16 @@ logo:
   main: { src: "/images/logo.svg", alt: "Logo", label: "Hlavní logo", background: "light" }
   favicon: { src: "/images/touch/favicon.svg", alt: "Favicon", label: "Favicon" }
 
+# Favicon audit block (#73) — all keys optional; missing block hides the
+# whole #favicon section. See "Favicon audit" below for what each key drives.
+favicon:
+  svg: "/images/touch/favicon.svg"
+  png_96: "/images/touch/favicon-96x96.png"
+  ico: "/images/touch/favicon.ico"
+  apple_touch: "/images/touch/apple-touch-icon.png"
+  manifest: "/images/touch/site.webmanifest"
+  theme_color: "#18181B"
+
 colors:
   primary:                       # Tailwind-style scale — shades: map
     name: "Primary"
@@ -181,6 +191,10 @@ colors:
 Text lightness on each swatch is derived from OKLCH lightness (provided or computed from the hex), falling back to WCAG relative luminance of the hex when the OKLCH value can't be parsed; `hex` is required per swatch — entries without a parseable hex are skipped. `oklch` is optional and is computed from `hex` when omitted.
 
 Every swatch also carries `contrast_white`/`contrast_black` WCAG contrast ratios against the hex, plus `aa_white`/`aa_black` pass/fail verdicts against the AA threshold (4.5:1) — all computed server-side, no yaml input required. Foundations renders dot badges on each swatch tile for a quick read, and an expandable full contrast matrix grading every color × color pair (all palettes plus white and black) with AAA / AA / AA-large / fail verdicts; its heading and legend copy come from the optional `labels.contrast_matrix` / `labels.contrast_matrix_legend` keys, both with English defaults.
+
+### Favicon audit
+
+When the `favicon:` block above is present, Foundations gains a `#favicon` section showing the favicon rendered in simulated contexts — a browser tab (light and dark), an iOS home-screen icon, and an Android/PWA maskable icon — followed by a server-side audit checklist covering each configured asset: file existence, real pixel dimensions against the expected size (`png_96` 96×96, `apple_touch` 180×180), parsed ICO contents, manifest JSON validity with per-icon existence checks, and the `theme_color` swatch. All checks run server-side against `static_path` (`src/FaviconAudit.php`) — nothing is verified client-side, and every configured path is containment-checked to stay under `static_path` before being read. Checklist labels are overridable via optional `labels.favicon*` keys (e.g. `labels.favicon`, `labels.favicon_png_96`, …), all with English defaults — no yaml changes are required to adopt the section beyond the `favicon:` block itself.
 
 ```yaml
 typography:

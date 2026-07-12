@@ -327,6 +327,21 @@ assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(1
 assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(17)'             "foundations typography: hostile weight.class never breaks out of the sample class attribute"
 assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(18)</script>"     "foundations typography: hostile weight.value never reaches the body as a live <script> tag"
 
+# Favicon audit section (#73) — server-side FaviconAudit::run() drives a
+# `#favicon` section: three mockup contexts + an audit checklist table.
+# Needles below were curled off a live `php -S` render of the fixture
+# (tests/fixtures/styleguide.yaml's `favicon:` block, which mirrors
+# FaviconAuditTest::happyPathConfig() 1:1) rather than guessed.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    'id="favicon"'                                          "foundations favicon: section renders" \
+    'data-favicon-entry="png_96" data-favicon-status="ok"'   "foundations favicon: png_96 checklist row status ok" \
+    '96×96</td>'                                             "foundations favicon: png_96 checklist row shows the real 96×96 dimensions" \
+    'data-favicon-entry="apple_touch" data-favicon-status="warning"' "foundations favicon: apple_touch checklist row status warning (real fixture asset is 120×120, expected 180×180)" \
+    'expected 180×180, got 120×120'                          "foundations favicon: apple_touch note carries the real emitted expected-vs-actual text" \
+    'data-favicon-manifest-icon-exists="false"'               "foundations favicon: manifest sub-row flags the declared-but-missing-on-disk 512 icon" \
+    '512x512'                                                 "foundations favicon: manifest sub-row for the missing 512 icon shows its declared size" \
+    '&#x2F;images&#x2F;touch&#x2F;favicon.svg'                "foundations favicon: browser-tab mockup img src is the audit's tab_icon, html_attr-escaped"
+
 # Package-shipped vanilla foundations.js (#79) — injected alongside
 # foundations.css for the foundations render only; see render-cell.twig.
 assert_body_contains_all "/styleguide/render/foundations/index" \
