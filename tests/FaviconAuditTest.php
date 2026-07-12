@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Tests;
 
 use Parisek\Styleguide\FaviconAudit;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -674,6 +675,94 @@ final class FaviconAuditTest extends TestCase
         self::assertNull($result['maskable_icon']);
 
         $this->rrmdir($dir);
+    }
+
+    public function testBareSchemeUrlYamlConfiguredPathIsRejectedDataUri(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => 'data:image/svg+xml;base64,x',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertStringContainsString('external URLs are not allowed', $entry['note']);
+    }
+
+    public function testBareSchemeUrlYamlConfiguredPathIsRejectedJavascriptUri(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => 'javascript:alert(1)',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertStringContainsString('external URLs are not allowed', $entry['note']);
+    }
+
+    public function testBareSchemeUrlManifestSrcIsRejectedDataUriAndNotDirJoined(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/data-uri.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => 'data:image/png;base64,x', 'sizes' => '192x192', 'purpose' => 'maskable'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/data-uri.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertFalse($result['manifest']['icons'][0]['exists']);
+        self::assertSame('data:image/png;base64,x', $result['manifest']['icons'][0]['src']);
+        $joined = implode(' | ', $result['manifest']['notes']);
+        self::assertStringContainsString('external URLs are not allowed', $joined);
+        self::assertNull($result['maskable_icon']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testRootRelativePathIsStillAcceptedAsNonExternal(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => self::TOUCH . '/favicon.svg',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertSame('ok', $entry['status']);
+        self::assertTrue($entry['exists']);
+    }
+
+    #[DataProvider('nonExternalPathProvider')]
+    public function testNonExternalPathsAreNotFlaggedByIsExternalUrl(string $path): void
+    {
+        // isExternalUrl() only gates the scheme-prefixed shape; whether a
+        // relative/root-relative path additionally resolves or escapes the
+        // static root is a separate concern covered elsewhere
+        // (resolvePath()/pathEscapesRoot()). Reflection keeps this test
+        // scoped to that one method instead of coupling to concatenation
+        // details of the full resolveEntry() pipeline.
+        $method = new \ReflectionMethod(FaviconAudit::class, 'isExternalUrl');
+
+        self::assertFalse($method->invoke(null, $path));
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function nonExternalPathProvider(): array
+    {
+        return [
+            'current-dir relative' => ['./icon.png'],
+            'parent relative' => ['../icons/x.png'],
+            'root relative' => ['/images/x.png'],
+        ];
     }
 
     public function testIcoOffsetPlusSizeExceedingFileLengthFailsGracefully(): void

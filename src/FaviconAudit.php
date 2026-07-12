@@ -148,15 +148,21 @@ final class FaviconAudit
     }
 
     /**
-     * True for protocol-relative (`//host/...`) or absolute-scheme
-     * (`https://...`, `data:...`) URLs — anything that would make the
-     * audit (or the template that renders `tab_icon`/`touch_icon`/
-     * `maskable_icon` into an `<img src>`) fetch or reference a resource
-     * outside `$staticPath`.
+     * True for protocol-relative (`//host/...`), absolute-scheme
+     * (`https://...`), or bare-scheme (`data:...`, `javascript:...`) URIs —
+     * anything carrying a scheme prefix, with or without the `//` authority
+     * marker. Root-relative (`/x`) and relative (`x/y`, `./x`, `../x`)
+     * paths carry no scheme and stay accepted. Without the bare-scheme
+     * half of this check, a `data:` URI would fall through as a
+     * filesystem path — misreported as merely "missing" (yaml key) or
+     * dir-joined into a mangled string (manifest `src`) instead of
+     * rejected outright — anything that would make the audit (or the
+     * template that renders `tab_icon`/`touch_icon`/`maskable_icon` into
+     * an `<img src>`) fetch or reference a resource outside `$staticPath`.
      */
     private static function isExternalUrl(string $path): bool
     {
-        return str_starts_with($path, '//') || preg_match('#^[a-z][a-z0-9+.-]*://#i', $path) === 1;
+        return preg_match('#^(?://|[a-z][a-z0-9+.-]*:)#i', $path) === 1;
     }
 
     /**
