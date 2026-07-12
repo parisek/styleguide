@@ -57,7 +57,7 @@
 			copiedColor: null,
 			colors: {
 				{% for palette in styleguide.colors %}
-				{{ palette.key|json_encode }}: {{ palette.swatches|filter(s => s.key == palette.default)|first|json_encode }}{{ not loop.last ? ',' : '' }}
+				{{ palette.key|json_encode|e('html_attr') }}: {{ palette.swatches|filter(s => s.key == palette.default)|first|json_encode|e('html_attr') }}{{ not loop.last ? ',' : '' }}
 				{% endfor %}
 			},
 			copyColor(hex, label) {
@@ -91,20 +91,20 @@
 					<div{{ color_card_attrs }}>
 						<div
 							class="group relative h-32 cursor-pointer duration-300 transition-colors"
-							:style="'background-color: ' + colors[{{ palette.key|json_encode }}].bg"
-							@click="copyColor(colors[{{ palette.key|json_encode }}].hex, colors[{{ palette.key|json_encode }}].label)"
+							:style="'background-color: ' + colors[{{ palette.key|json_encode|e('html_attr') }}].bg"
+							@click="copyColor(colors[{{ palette.key|json_encode|e('html_attr') }}].hex, colors[{{ palette.key|json_encode|e('html_attr') }}].label)"
 						>
 							<div
 								class="flex absolute inset-0 justify-between items-center p-5 duration-300 transition-colors"
-								:class="colors[{{ palette.key|json_encode }}].light ? 'text-zinc-900' : 'text-white'"
+								:class="colors[{{ palette.key|json_encode|e('html_attr') }}].light ? 'text-zinc-900' : 'text-white'"
 							>
 								<div>
 									<p class="opacity-70 font-semibold text-xs uppercase tracking-wider">{{ palette.name }}</p>
-									<p class="mt-1 font-bold text-2xl" x-text="colors[{{ palette.key|json_encode }}].label"></p>
+									<p class="mt-1 font-bold text-2xl" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].label"></p>
 								</div>
 								<div class="text-right">
-									<p class="opacity-90 font-mono text-sm" x-text="colors[{{ palette.key|json_encode }}].hex"></p>
-									<p class="opacity-60 font-mono text-xs" x-text="colors[{{ palette.key|json_encode }}].oklch"></p>
+									<p class="opacity-90 font-mono text-sm" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].hex"></p>
+									<p class="opacity-60 font-mono text-xs" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].oklch"></p>
 									<p class="mt-1 opacity-60 font-mono text-xs">{{ styleguide.labels.click_swatch }}</p>
 								</div>
 							</div>
@@ -116,7 +116,7 @@
 								':class': "copiedColor === colors[#{palette.key|json_encode}].label ? 'opacity-100' : ''",
 							}) %}
 							<div{{ copy_overlay_attrs }}>
-								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === colors[{{ palette.key|json_encode }}].label ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
+								<span class="px-3 py-1.5 rounded-full bg-black/40 font-medium text-sm text-white" x-text="copiedColor === colors[{{ palette.key|json_encode|e('html_attr') }}].label ? '{{ styleguide.labels.copied }}' : '{{ styleguide.labels.click_to_copy }}'"></span>
 							</div>
 						</div>
 						<div class="p-4">
@@ -125,7 +125,7 @@
 									<button
 										type="button"
 										class="group/swatch relative flex-1 min-w-8 max-w-16"
-										@click='setColor({{ palette.key|json_encode }}, {{ swatch|json_encode }})'
+										@click="setColor({{ palette.key|json_encode|e('html_attr') }}, {{ swatch|json_encode|e('html_attr') }})"
 									>
 										{% set swatch_attrs = create_attribute({
 											class: [
@@ -138,7 +138,7 @@
 										<div{{ swatch_attrs }}></div>
 										<p
 											class="mt-2 font-mono text-[10px] text-zinc-500 group-hover/swatch:text-zinc-900 text-center truncate transition-colors"
-											:class="colors[{{ palette.key|json_encode }}].key === {{ swatch.key|json_encode }} ? 'font-bold text-zinc-900' : ''"
+											:class="colors[{{ palette.key|json_encode|e('html_attr') }}].key === {{ swatch.key|json_encode|e('html_attr') }} ? 'font-bold text-zinc-900' : ''"
 										>{{ swatch.key }}</p>
 										{% set swatch_tooltip_attrs = create_attribute({
 											class: [
