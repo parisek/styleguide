@@ -19,7 +19,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   markup adapts to small palettes (capped swatch tiles, wrapping strip, truncating labels).
   All swatch data is `html_attr`-escaped into the Alpine attributes in `foundations.twig`
   (autoescape is off in this package), so free-form swatch names carrying apostrophes or
-  quotes render safely.
+  quotes render safely. OKLCH values are computed from the hex when the yaml omits them and
+  are the preferred lightness basis.
 
 ### Changed
 

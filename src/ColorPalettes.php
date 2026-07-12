@@ -32,6 +32,15 @@ namespace Parisek\Styleguide;
  * Both normalize to one canonical list shape (see normalize() return doc).
  * Swatches without a parseable hex are skipped — resilience over failure,
  * consistent with ComponentParser's handling of broken metadata.
+ *
+ * `oklch` is optional per swatch/shade: when the yaml provides one it's
+ * displayed verbatim (even if malformed — the author's string is never
+ * rewritten), otherwise it's computed from `hex` via
+ * {@see ColorUtil::hexToOklch()} so a value is always present. The `light`
+ * flag prefers OKLCH lightness (author-provided or computed) over the older
+ * WCAG hex-luminance heuristic; it only falls back to the hex heuristic
+ * when the final `oklch` string can't be parsed for a lightness value
+ * (e.g. a hand-typed typo in the yaml).
  */
 final class ColorPalettes
 {
@@ -144,13 +153,25 @@ final class ColorPalettes
             $hex = '#' . $hex[1] . $hex[1] . $hex[2] . $hex[2] . $hex[3] . $hex[3];
         }
 
+        // OKLCH is always available: the yaml's own value wins verbatim
+        // (displayed as-is, even if malformed — see the `light` fallback
+        // below), otherwise it's computed from the now-validated hex.
+        $oklch = $oklch !== '' ? $oklch : (string) ColorUtil::hexToOklch($hex);
+
+        // `light` prefers OKLCH lightness (author-provided or computed)
+        // since OKLCH is the display basis; only a malformed provided
+        // string (oklchLightness() returns null) falls back to the
+        // WCAG hex-luminance heuristic.
+        $lightness = ColorUtil::oklchLightness($oklch);
+        $light = $lightness !== null ? ColorUtil::isLightOklch($lightness) : ColorUtil::isLight($hex);
+
         return [
             'key'   => $key,
             'hex'   => $hex,
             'oklch' => $oklch,
             'label' => $cssVariable !== '' ? $cssVariable : $key,
             'bg'    => $cssVariable !== '' ? sprintf('var(--color-%s, %s)', $cssVariable, $hex) : $hex,
-            'light' => ColorUtil::isLight($hex),
+            'light' => $light,
         ];
     }
 }

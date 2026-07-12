@@ -40,8 +40,29 @@ final class ColorPalettesTest extends TestCase
         self::assertTrue($mid['light']);
 
         $dark = $palette['swatches'][2];
-        self::assertSame('', $dark['oklch']);
+        // #410200 has no yaml oklch — computed from hex (Björn Ottosson's
+        // sRGB → OKLab → OKLCH reference matrices; see ColorUtilTest).
+        self::assertSame('oklch(23.81% 0.094 30.39)', $dark['oklch']);
         self::assertFalse($dark['light']);
+    }
+
+    public function testMalformedProvidedOklchFallsBackToHexLightnessButDisplaysVerbatim(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'swatches' => [
+                    ['name' => 'oops', 'hex' => '#FE4942', 'oklch' => 'oklch(broken)'],
+                ],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        // Author's string is displayed as-is — never rewritten — even
+        // though it can't be parsed for a lightness value.
+        self::assertSame('oklch(broken)', $swatch['oklch']);
+        // oklchLightness() can't parse it → falls back to hex-based
+        // WCAG luminance, same as the pre-OKLCH behaviour (#FE4942 is light).
+        self::assertTrue($swatch['light']);
     }
 
     public function testDefaultFallsBackToFirstSwatchWhenMissingOrUnknown(): void

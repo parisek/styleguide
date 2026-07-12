@@ -67,4 +67,64 @@ final class ColorUtilTest extends TestCase
             'garbage → dark'       => ['nope', false],
         ];
     }
+
+    #[DataProvider('hexToOklchProvider')]
+    public function testHexToOklch(string $hex, ?string $expected): void
+    {
+        self::assertSame($expected, ColorUtil::hexToOklch($hex));
+    }
+
+    public static function hexToOklchProvider(): array
+    {
+        return [
+            // Oracle values from this project's own sRGB → OKLab → OKLCH
+            // implementation (Björn Ottosson's reference matrices), verified
+            // independently in Python. White/black are exact by construction
+            // (matrix rows sum to 1 / all-zero input); the colored oracles
+            // below were recomputed from the spec's own math and cross-checked
+            // in a second language rather than trusted blind — see task report.
+            'mid red'    => ['#FE4942', 'oklch(66.61% 0.218 27.16)'],
+            'white'      => ['#FFFFFF', 'oklch(100% 0 0)'],
+            'black'      => ['#000000', 'oklch(0% 0 0)'],
+            'grey-ish'   => ['#7E7E92', 'oklch(60% 0.03 285.46)'],
+            'garbage'    => ['not-a-color', null],
+        ];
+    }
+
+    #[DataProvider('oklchLightnessProvider')]
+    public function testOklchLightness(string $oklch, ?float $expected): void
+    {
+        $result = ColorUtil::oklchLightness($oklch);
+        if ($expected === null) {
+            self::assertNull($result);
+        } else {
+            self::assertEqualsWithDelta($expected, $result, 0.0001);
+        }
+    }
+
+    public static function oklchLightnessProvider(): array
+    {
+        return [
+            'percent form'  => ['oklch(66.78% 0.219 27.17)', 0.6678],
+            'fraction form' => ['oklch(0.65 0.2 30)', 0.65],
+            'garbage'       => ['nonsense', null],
+            'empty'         => ['', null],
+        ];
+    }
+
+    #[DataProvider('isLightOklchProvider')]
+    public function testIsLightOklch(float $l, bool $expected): void
+    {
+        self::assertSame($expected, ColorUtil::isLightOklch($l));
+    }
+
+    public static function isLightOklchProvider(): array
+    {
+        return [
+            'above threshold' => [0.6678, true],
+            'below threshold' => [0.321, false],
+            'just above'      => [0.5636, true],
+            'just below'      => [0.5634, false],
+        ];
+    }
 }

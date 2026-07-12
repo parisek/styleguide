@@ -178,7 +178,7 @@ colors:
       - { name: cream, hex: "#F1FAEE" }
 ```
 
-Text lightness on each swatch is computed from the hex (WCAG relative luminance), and `hex` is required per swatch — entries without a parseable hex are skipped.
+Text lightness on each swatch is derived from OKLCH lightness (provided or computed from the hex), falling back to WCAG relative luminance of the hex when the OKLCH value can't be parsed; `hex` is required per swatch — entries without a parseable hex are skipped. `oklch` is optional and is computed from `hex` when omitted.
 
 ```yaml
 typography:
