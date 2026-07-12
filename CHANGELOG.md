@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-12
+
 ### Added
 
 - **Flexible color model (#71).** `colors:` palettes accept a free `swatches:` list
@@ -273,7 +275,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/parisek/styleguide/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/parisek/styleguide/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/parisek/styleguide/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/parisek/styleguide/compare/v1.1.0...v1.1.1
