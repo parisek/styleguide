@@ -16,6 +16,7 @@ function initPalette(root, card) {
 		contrast: card.querySelector('[data-hero-contrast]'),
 	};
 	const feedback = card.querySelector('[data-copy-feedback]');
+	const overlay = card.querySelector('[data-copy-overlay]');
 	const labels = { copied: root.dataset.labelCopied, copy: root.dataset.labelCopy };
 	let active = null;
 	let resetTimer = null;
@@ -27,8 +28,12 @@ function initPalette(root, card) {
 		navigator.clipboard?.writeText(swatch.hex);
 		if (!feedback) return;
 		feedback.textContent = labels.copied;
+		overlay?.classList.add('opacity-100');
 		clearTimeout(resetTimer);
-		resetTimer = setTimeout(() => { feedback.textContent = labels.copy; }, COPY_RESET_MS);
+		resetTimer = setTimeout(() => {
+			feedback.textContent = labels.copy;
+			overlay?.classList.remove('opacity-100');
+		}, COPY_RESET_MS);
 	};
 
 	const render = (swatch, button) => {
