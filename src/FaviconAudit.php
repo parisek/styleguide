@@ -40,6 +40,8 @@ final class FaviconAudit
 
     private const PATH_ESCAPES_NOTE = 'path escapes the static root';
 
+    private const EXTERNAL_URL_NOTE = 'external URLs are not allowed';
+
     /**
      * @param array<string, mixed> $favicon
      *
@@ -107,6 +109,10 @@ final class FaviconAudit
             return ['configured' => false, 'path' => '', 'exists' => false, 'absolute' => null, 'status' => 'unconfigured', 'note' => ''];
         }
 
+        if (self::isExternalUrl($path)) {
+            return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::EXTERNAL_URL_NOTE];
+        }
+
         if (self::pathEscapesRoot($staticPath, $path)) {
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::PATH_ESCAPES_NOTE];
         }
@@ -134,11 +140,23 @@ final class FaviconAudit
         }
 
         $real = realpath($staticPath . $path);
-        if ($real === false || !self::isContained($real, $realStatic)) {
+        if ($real === false || !self::isContained($real, $realStatic) || !is_file($real) || !is_readable($real)) {
             return null;
         }
 
         return $real;
+    }
+
+    /**
+     * True for protocol-relative (`//host/...`) or absolute-scheme
+     * (`https://...`, `data:...`) URLs — anything that would make the
+     * audit (or the template that renders `tab_icon`/`touch_icon`/
+     * `maskable_icon` into an `<img src>`) fetch or reference a resource
+     * outside `$staticPath`.
+     */
+    private static function isExternalUrl(string $path): bool
+    {
+        return str_starts_with($path, '//') || preg_match('#^[a-z][a-z0-9+.-]*://#i', $path) === 1;
     }
 
     /**
@@ -293,10 +311,13 @@ final class FaviconAudit
 
     /**
      * Parses an ICO's directory: bytes 0-1 reserved=0, 2-3 type=1, 4-5
-     * count; per 16-byte entry byte0=width (0→256), byte1=height (0→256).
-     * Returns a list of "W×H" strings, or null when the header doesn't
-     * match a valid ICO container (garbage bytes, wrong signature, or a
-     * header/directory truncated shorter than it claims).
+     * count; per 16-byte entry byte0=width (0→256), byte1=height (0→256),
+     * bytes8-11=dwBytesInRes, bytes12-15=dwImageOffset (both DWORD,
+     * little-endian). Returns a list of "W×H" strings, or null when the
+     * header doesn't match a valid ICO container (garbage bytes, wrong
+     * signature, a header/directory truncated shorter than it claims, or
+     * any entry's `dwImageOffset + dwBytesInRes` pointing past the end of
+     * `$data` — a truncated/malformed image payload).
      *
      * @return list<string>|null
      */
@@ -313,13 +334,20 @@ final class FaviconAudit
 
         $count = $header['count'];
         $sizes = [];
+        $dataLength = strlen($data);
 
         for ($i = 0; $i < $count; $i++) {
             $offset = 6 + $i * 16;
-            if (strlen($data) < $offset + 16) {
+            if ($dataLength < $offset + 16) {
                 return null;
             }
             $entry = substr($data, $offset, 16);
+
+            $imageData = unpack('VbytesInRes/VimageOffset', substr($entry, 8, 8));
+            if ($imageData === false || $imageData['imageOffset'] + $imageData['bytesInRes'] > $dataLength) {
+                return null;
+            }
+
             $width = ord($entry[0]);
             $height = ord($entry[1]);
             $width = $width === 0 ? 256 : $width;
@@ -405,19 +433,35 @@ final class FaviconAudit
                 $sizes = (string) ($rawIcon['sizes'] ?? '');
                 $purpose = (string) ($rawIcon['purpose'] ?? '');
 
-                $iconRelative = str_starts_with($src, '/')
-                    ? $src
-                    : rtrim($manifestDir, '/') . '/' . $src;
-
-                if (self::pathEscapesRoot($staticPath, $iconRelative)) {
+                if (self::isExternalUrl($src)) {
+                    // Never normalize/resolve an external URL against the
+                    // static root — output it verbatim (it's never
+                    // selected as an icon since exists stays false; the
+                    // template only ever prints it escaped).
                     $iconExists = false;
-                    $notes[] = "icon '{$src}' escapes the static root";
+                    $iconOutputSrc = $src;
+                    $notes[] = "icon '{$src}': " . self::EXTERNAL_URL_NOTE;
                 } else {
-                    $iconExists = self::resolvePath($staticPath, $iconRelative) !== null;
+                    // Output src is the web path normalized against the
+                    // manifest's own directory — callers (the styleguide
+                    // template) render this verbatim into an `<img src>`
+                    // for the maskable-icon mockup, so a manifest-relative
+                    // src like `icon-192.png` must not leak through
+                    // unresolved.
+                    $iconOutputSrc = str_starts_with($src, '/')
+                        ? $src
+                        : rtrim($manifestDir, '/') . '/' . $src;
+
+                    if (self::pathEscapesRoot($staticPath, $iconOutputSrc)) {
+                        $iconExists = false;
+                        $notes[] = "icon '{$src}' escapes the static root";
+                    } else {
+                        $iconExists = self::resolvePath($staticPath, $iconOutputSrc) !== null;
+                    }
                 }
 
                 $icons[] = [
-                    'src' => $src,
+                    'src' => $iconOutputSrc,
                     'sizes' => $sizes,
                     'purpose' => $purpose,
                     'exists' => $iconExists,

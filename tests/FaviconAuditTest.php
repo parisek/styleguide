@@ -556,6 +556,181 @@ final class FaviconAuditTest extends TestCase
         $this->rrmdir($dir);
     }
 
+    public function testManifestIconRelativeSrcIsNormalizedAgainstManifestDir(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        copy(self::STATIC_PATH . self::TOUCH . '/web-app-manifest-192x192.png', $dir . self::TOUCH . '/icon-192.png');
+        file_put_contents(
+            $dir . self::TOUCH . '/relative.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => 'icon-192.png', 'sizes' => '192x192', 'purpose' => 'maskable'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/relative.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        $icon = $result['manifest']['icons'][0];
+        self::assertSame(self::TOUCH . '/icon-192.png', $icon['src']);
+        self::assertTrue($icon['exists']);
+        // The rendered maskable-icon <img> src must be the normalized web
+        // path too, not the raw manifest-relative string.
+        self::assertSame(self::TOUCH . '/icon-192.png', $result['maskable_icon']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testManifestIconAbsoluteSrcStaysAsIs(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, $this->happyPathConfig());
+
+        self::assertNotNull($result['manifest']);
+        $bySrc = [];
+        foreach ($result['manifest']['icons'] as $icon) {
+            $bySrc[$icon['src']] = $icon;
+        }
+
+        self::assertArrayHasKey(self::TOUCH . '/web-app-manifest-192x192.png', $bySrc);
+    }
+
+    public function testExternalUrlYamlConfiguredPathIsRejectedProtocolRelative(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => '//evil.test/favicon.svg',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertStringContainsString('external URLs are not allowed', $entry['note']);
+    }
+
+    public function testExternalUrlYamlConfiguredPathIsRejectedAbsoluteScheme(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => 'https://evil.test/x.png',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertStringContainsString('external URLs are not allowed', $entry['note']);
+    }
+
+    public function testExternalUrlManifestSrcIsRejectedProtocolRelative(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/external.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => '//evil.test/favicon.svg', 'sizes' => '192x192', 'purpose' => 'maskable'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/external.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertFalse($result['manifest']['icons'][0]['exists']);
+        $joined = implode(' | ', $result['manifest']['notes']);
+        self::assertStringContainsString('external URLs are not allowed', $joined);
+        self::assertNull($result['maskable_icon']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testExternalUrlManifestSrcIsRejectedAbsoluteScheme(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/external-scheme.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => 'https://evil.test/x.png', 'sizes' => '192x192', 'purpose' => 'maskable'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/external-scheme.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertFalse($result['manifest']['icons'][0]['exists']);
+        $joined = implode(' | ', $result['manifest']['notes']);
+        self::assertStringContainsString('external URLs are not allowed', $joined);
+        self::assertNull($result['maskable_icon']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testIcoOffsetPlusSizeExceedingFileLengthFailsGracefully(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        // Valid 6-byte header + one 16-byte directory entry (22 bytes
+        // total), but dwBytesInRes (bytes 8-11) + dwImageOffset (bytes
+        // 12-15) claims image data far beyond the actual 22-byte file.
+        $entry = pack('C4', 32, 32, 0, 0) . pack('v2', 1, 32) . pack('V2', 1_000_000, 22);
+        $ico = pack('v3', 0, 1, 1) . $entry;
+        file_put_contents($dir . self::TOUCH . '/oob.ico', $ico);
+
+        $result = FaviconAudit::run($dir, [
+            'ico' => self::TOUCH . '/oob.ico',
+        ]);
+        $entry = $this->entriesByKey($result)['ico'];
+
+        self::assertSame('error', $entry['status']);
+        self::assertNotSame('', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testIcoOffsetPlusSizeExactlyMatchingFileLengthIsOk(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        // dwBytesInRes=0 + dwImageOffset=22 exactly equals the 22-byte
+        // file length — boundary case, must still be treated as valid.
+        $entry = pack('C4', 32, 32, 0, 0) . pack('v2', 1, 32) . pack('V2', 0, 22);
+        $ico = pack('v3', 0, 1, 1) . $entry;
+        file_put_contents($dir . self::TOUCH . '/exact.ico', $ico);
+
+        $result = FaviconAudit::run($dir, [
+            'ico' => self::TOUCH . '/exact.ico',
+        ]);
+        $entry = $this->entriesByKey($result)['ico'];
+
+        self::assertSame('ok', $entry['status']);
+        self::assertStringContainsString('32×32', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testResolvePathRejectsDirectoryAsNotExisting(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => self::TOUCH,
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('missing', $entry['status']);
+    }
+
     /** @param array<string, mixed> $result */
     private function entriesByKey(array $result): array
     {
