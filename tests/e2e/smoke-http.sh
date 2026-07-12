@@ -69,11 +69,25 @@ assert_header() {
 # this assertion intermittently fail on a *different* needle each run. A
 # genuinely-absent needle still fails, just after exhausting the retries; a
 # truncated response recovers on the next fetch.
+#
+# body_has: needle checks MUST NOT be written as `printf '%s' "$body" | grep -q`
+# pipelines. This suite runs under `set -o pipefail`, and GNU grep -q exits the
+# moment it matches — once a body outgrows the 64 KiB pipe buffer (the
+# foundations page did when the contrast matrix landed), printf catches SIGPIPE
+# mid-write, pipefail flags the pipeline as failed, and a PRESENT needle reads
+# as missing. macOS/BSD grep drains stdin before exiting, which is why the bug
+# only fired on Linux/CI. A herestring has no pipeline, so no SIGPIPE surface.
+body_has() {
+    local body="$1" needle="$2"
+    grep -q -F "$needle" <<< "$body"
+}
+
 assert_body_contains() {
     local url="$1" needle="$2" desc="$3"
-    local attempt max=5
+    local body attempt max=5
     for (( attempt=1; attempt<=max; attempt++ )); do
-        if curl -sk "$BASE$url" | grep -q -F "$needle"; then
+        body=$(curl -sk "$BASE$url") || body=""
+        if body_has "$body" "$needle"; then
             ok "$desc ${DIM}[body contains $needle]${NC}"
             return
         fi
@@ -98,7 +112,7 @@ assert_body_not_contains() {
     done
     if [ -z "$body" ]; then
         ko "$desc: '$url' returned an empty body after $max attempts — cannot assert absence"
-    elif printf '%s' "$body" | grep -q -F "$needle"; then
+    elif body_has "$body" "$needle"; then
         ko "$desc: '$url' body unexpectedly contains '$needle'"
     else
         ok "$desc ${DIM}[body lacks $needle]${NC}"
@@ -123,13 +137,13 @@ assert_body_contains_all() {
         body=$(curl -sk "$BASE$url") || body=""
         all=1
         for (( i=0; i<${#pairs[@]}; i+=2 )); do
-            printf '%s' "$body" | grep -q -F "${pairs[i]}" || { all=0; break; }
+            body_has "$body" "${pairs[i]}" || { all=0; break; }
         done
         [ "$all" -eq 1 ] && break
         sleep 0.2
     done
     for (( i=0; i<${#pairs[@]}; i+=2 )); do
-        if printf '%s' "$body" | grep -q -F "${pairs[i]}"; then
+        if body_has "$body" "${pairs[i]}"; then
             ok "${pairs[i+1]} ${DIM}[body contains ${pairs[i]}]${NC}"
         else
             ko "${pairs[i+1]}: '$url' body missing '${pairs[i]}'"
