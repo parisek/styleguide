@@ -222,6 +222,14 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "setColor(&quot;brand&quot;, &#x7B;&quot;key&quot;" "foundations colors: swatch click handler survives html_attr escaping" \
     "oklch&#x28;61.22&#x25;&#x20;0.208&#x20;22.24&#x29;" "foundations colors: oklch computed from hex when yaml omits it"
 
+# Contrast layer (#72) — swatch AA badges, tooltip ratios, expandable matrix.
+# Fixture oracle: #FE4942 (primary-500) → white text 3.36 (fail AA), black 6.25 (AA).
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    'data-contrast="W 3.36 B 6.25"'   "foundations contrast: primary-500 swatch carries both text ratios" \
+    "contrast-matrix"                  "foundations contrast: matrix section renders" \
+    'data-ratio="21"'                  "foundations contrast: white-on-black matrix cell grades 21" \
+    "AAA"                              "foundations contrast: AAA verdict label appears in the matrix"
+
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
 HASHED_JS=$(curl -sk "$BASE/styleguide/" | grep -oE '/styleguide/assets/styleguide\.[A-Za-z0-9_-]+\.js' | head -1 || true)
