@@ -10,6 +10,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- **`|resizer` now emits tuple-declared variants for real fixture images too, not only
+  `placeholder()` fakes** ([#70](https://github.com/parisek/styleguide/issues/70)). Every tuple
+  becomes an entry reusing the ORIGINAL `src` (no image pipeline — the browser downloads one
+  file) with the tuple's declared `width`/`height`/`media`, so the styleguide `<picture>` DOM
+  mirrors the multi-source markup the CMS resizer emits in production — what DOM-structural
+  checks (tailwind-base's `picture.contract.js` sharpness contract) assert against. With
+  real-content fixtures (the `picture.md` "prefer real content" default) previously passing
+  through untouched, the contract silently skipped exactly the fixtures projects prefer.
+  Missing tuple axes derive from the fixture's `width`/`height` metadata; without metadata the
+  provided axis is kept and the other omitted (never invented). `.gif` fixtures pass through
+  whole — parity with timber-kit `Resizer::$skip_animated` (animation can't be cheaply proven
+  from a URL, and flattening an animated preview is the dangerous direction). Verified against
+  a real consumer (pm-a): 220 visual baselines unchanged, behavior picture-contract coverage
+  grew from 16 to 26 renders with no failures.
+
 - **Malformed metadata YAML now surfaces in `GET /styleguide/api/health` instead of silently
   dropping the component from the catalogue.** `ComponentParser::parseTwigComment()` throws
   `ParseException` on invalid YAML (previously degraded to `false`); the existing resilience

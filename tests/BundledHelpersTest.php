@@ -398,6 +398,68 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function resizer_emits_tuple_declared_variants_for_real_images(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        // Real fixture image (no _placeholderOpts): every variant reuses the
+        // ORIGINAL src (no styleguide image pipeline) but carries the
+        // tuple's declared dimensions + media, mirroring the CMS resizer's
+        // production markup (issue #70). Height derives from the source
+        // aspect (1600 / 1200 = 4:3) when the tuple leaves it empty.
+        $tpl = $twig->createTemplate(
+            "{% set src = [{ src: '/images/styleguide/demo.avif', type: 'image/avif', width: 1600, height: 1200, alt: 'Demo' }] %}"
+            . "{% set out = src|resizer(['1440', '', '1280'], ['960', '720', '1024', 'crop'], ['600', '', '']) %}"
+            . '{{ out|length }}'
+            . '|{{ out[0].src }}|{{ out[0].width }}x{{ out[0].height }}|{{ out[0].media }}'
+            . '|{{ out[1].width }}x{{ out[1].height }}|{{ out[1].media }}'
+            . '|{{ out[2].width }}x{{ out[2].height }}|{{ out[2].media is defined ? out[2].media : "none" }}'
+            . '|{{ out[2].src == out[0].src ? "same-src" : "diverged" }}|{{ out[0].alt }}',
+        );
+
+        self::assertSame(
+            '3|/images/styleguide/demo.avif|1440x1080|(min-width: 1280px)'
+            . '|960x720|(min-width: 1024px)|600x450|none|same-src|Demo',
+            $tpl->render(),
+        );
+    }
+
+    #[Test]
+    public function resizer_real_image_without_metadata_keeps_provided_axes_only(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        // No width/height on the fixture entry (legacy upload, SVG) → no
+        // aspect to derive from, so the missing tuple axis stays absent
+        // instead of being invented.
+        $tpl = $twig->createTemplate(
+            "{% set src = [{ src: '/img/legacy.jpg', type: 'image/jpeg' }] %}"
+            . "{% set out = src|resizer(['1440', '', '1280'], ['600', '', '']) %}"
+            . '{{ out|length }}|{{ out[0].width }}|{{ out[0].height is defined ? "has-h" : "no-h" }}|{{ out[0].media }}|{{ out[1].width }}',
+        );
+
+        self::assertSame('2|1440|no-h|(min-width: 1280px)|600', $tpl->render());
+    }
+
+    #[Test]
+    public function resizer_passes_gif_fixtures_through_whole(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+
+        // Animated-GIF parity with timber-kit Resizer::$skip_animated: the
+        // styleguide can't cheaply prove animation from a URL, so every
+        // .gif fixture passes through untouched — an animated one then
+        // renders exactly like production (original in <img>, no <source>).
+        $tpl = $twig->createTemplate(
+            "{% set src = [{ src: '/img/anim.gif', type: 'image/gif', width: 840, height: 560 }] %}"
+            . "{% set out = src|resizer(['960', '720', '1280', 'crop'], ['480', '360', '', 'crop']) %}"
+            . '{{ out|length }}|{{ out[0].src }}|{{ out[0].width }}|{{ out[0].media is defined ? "has-media" : "no-media" }}',
+        );
+
+        self::assertSame('1|/img/anim.gif|840|no-media', $tpl->render());
+    }
+
+    #[Test]
     public function registers_typography_translation_helpers(): void
     {
         $twig = self::twigOf(self::newStyleguide());
