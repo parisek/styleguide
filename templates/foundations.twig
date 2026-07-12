@@ -52,6 +52,203 @@
 		</section>
 	{% endif %}
 
+	{% if styleguide.favicon and styleguide.favicon_audit %}
+		{% set favicon_audit = styleguide.favicon_audit %}
+		{% set favicon_status_classes = {
+			ok: 'bg-emerald-50 text-emerald-700',
+			warning: 'bg-amber-50 text-amber-700',
+			error: 'bg-red-50 text-red-700',
+			missing: 'bg-red-50 text-red-700',
+			unconfigured: 'bg-zinc-100 text-zinc-400',
+		} %}
+		{% set favicon_status_glyphs = {
+			ok: '✓',
+			warning: '!',
+			error: '✗',
+			missing: '✗',
+			unconfigured: '–',
+		} %}
+		<section id="favicon" class="mb-12">
+			<div class="flex gap-3 items-center mb-6">
+				<div class="flex justify-center items-center w-8 h-8 rounded-lg bg-zinc-200 text-zinc-600">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+					</svg>
+				</div>
+				<h2 class="font-bold text-lg text-zinc-900">{{ styleguide.labels.favicon|default('Favicon')|e }}</h2>
+			</div>
+
+			{# Three simulated contexts — pure divs/img, no external assets. Each falls back to a
+			   dashed empty-state tile (matching the styleguide's placeholder() idiom) when the
+			   audit couldn't resolve a usable icon for that context. #}
+			<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+				<div class="overflow-hidden p-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.favicon_browser_tab|default('Browser tab')|e }}</p>
+					<div class="flex flex-col gap-2">
+						{% for tab_theme in ['light', 'dark'] %}
+							{% set tab_bar_attrs = create_attribute({
+								class: [
+									'flex gap-2 items-center px-3 py-2 rounded-t-lg text-xs',
+									tab_theme == 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-700',
+								],
+								'data-favicon-tab': tab_theme,
+							}) %}
+							<div{{ tab_bar_attrs }}>
+								{% if favicon_audit.tab_icon %}
+									{# twig-cs-fixer-disable-next-line PlainImg — mockup tab-bar favicon sourced from the server-side audit, not a CMS image #}
+									<img src="{{ favicon_audit.tab_icon|e('html_attr') }}" alt="" width="16" height="16" class="w-4 h-4 shrink-0">
+								{% else %}
+									<span class="w-4 h-4 rounded-sm border border-dashed border-zinc-400 shrink-0"></span>
+								{% endif %}
+								<span class="flex-1 truncate">{{ styleguide.project.name|default('')|e }}</span>
+								<span class="opacity-60">×</span>
+							</div>
+						{% endfor %}
+					</div>
+				</div>
+
+				<div class="overflow-hidden p-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.favicon_ios|default('iOS home screen')|e }}</p>
+					<div class="flex flex-col gap-2 items-center p-6 rounded-lg bg-gradient-to-br from-zinc-100 to-zinc-200">
+						{% if favicon_audit.touch_icon %}
+							{# twig-cs-fixer-disable-next-line PlainImg — mockup iOS touch-icon sourced from the server-side audit, not a CMS image #}
+							<img src="{{ favicon_audit.touch_icon|e('html_attr') }}" alt="" width="80" height="80" class="w-20 h-20 rounded-[22%] shadow">
+						{% else %}
+							<div class="flex justify-center items-center px-2 w-20 h-20 text-[10px] text-center text-zinc-400 rounded-[22%] border-2 border-dashed border-zinc-400">{{ styleguide.labels.favicon_ios_empty|default('No apple-touch-icon configured')|e }}</div>
+						{% endif %}
+						<span class="max-w-full text-xs text-zinc-700 truncate">{{ styleguide.project.name|default('')|e }}</span>
+					</div>
+				</div>
+
+				<div class="overflow-hidden p-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+					<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.favicon_android|default('Android / PWA (maskable)')|e }}</p>
+					<div class="flex justify-center items-center p-6 rounded-lg bg-gradient-to-br from-zinc-100 to-zinc-200">
+						{% if favicon_audit.maskable_icon %}
+							<span class="overflow-hidden w-20 h-20 rounded-full ring-1 ring-zinc-300">
+								{# twig-cs-fixer-disable-next-line PlainImg — mockup Android/PWA maskable icon sourced from the server-side audit, not a CMS image #}
+								<img src="{{ favicon_audit.maskable_icon|e('html_attr') }}" alt="" width="80" height="80" class="object-cover w-full h-full">
+							</span>
+						{% else %}
+							<div class="flex justify-center items-center px-2 w-20 h-20 text-[10px] text-center text-zinc-400 rounded-full border-2 border-dashed border-zinc-400">{{ styleguide.labels.favicon_android_empty|default('No maskable icon in manifest')|e }}</div>
+						{% endif %}
+					</div>
+				</div>
+			</div>
+
+			{# Server-side audit checklist — one row per fixed-order entry, then manifest icon
+			   sub-rows / notes, then a theme_color row. Every value here is a consumer string
+			   (yaml-configured path, note text) and goes through the same |e / html_attr
+			   discipline as the rest of this template. #}
+			<div class="overflow-hidden overflow-x-auto border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+				<table class="w-full text-sm">
+					<thead>
+						<tr class="text-xs tracking-wider text-left text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-100">
+							<th class="px-4 py-2">{{ styleguide.labels.favicon_col_asset|default('Asset')|e }}</th>
+							<th class="px-4 py-2">{{ styleguide.labels.favicon_col_path|default('Path')|e }}</th>
+							<th class="px-4 py-2">{{ styleguide.labels.favicon_col_expected|default('Expected')|e }}</th>
+							<th class="px-4 py-2">{{ styleguide.labels.favicon_col_actual|default('Actual')|e }}</th>
+							<th class="px-4 py-2">{{ styleguide.labels.favicon_col_status|default('Status')|e }}</th>
+							<th class="px-4 py-2">{{ styleguide.labels.favicon_col_note|default('Note')|e }}</th>
+						</tr>
+					</thead>
+					<tbody>
+						{% for entry in favicon_audit.entries %}
+							{% set favicon_row_attrs = create_attribute({
+								class: [
+									'border-b border-zinc-50 last:border-b-0',
+									entry.status == 'unconfigured' ? 'opacity-60' : '',
+								],
+								'data-favicon-entry': entry.key,
+								'data-favicon-status': entry.status,
+							}) %}
+							<tr{{ favicon_row_attrs }}>
+								<td class="px-4 py-2 font-medium text-zinc-800">{{ entry.label|e }}</td>
+								<td class="px-4 py-2 font-mono text-xs text-zinc-500">
+									{% if entry.configured %}
+										<code>{{ entry.path|e }}</code>
+									{% else %}
+										<span class="text-zinc-300">{{ styleguide.labels.favicon_not_configured|default('not configured')|e }}</span>
+									{% endif %}
+								</td>
+								<td class="px-4 py-2 font-mono text-xs text-zinc-500">{{ entry.expected|e }}</td>
+								<td class="px-4 py-2 font-mono text-xs text-zinc-500">{% if entry.width is not null and entry.height is not null %}{{ entry.width }}×{{ entry.height }}{% endif %}</td>
+								<td class="px-4 py-2">
+									{% set favicon_badge_attrs = create_attribute({
+										class: [
+											'inline-flex gap-1 items-center px-2 py-0.5 rounded-full text-xs font-semibold',
+											favicon_status_classes[entry.status]|default('bg-zinc-100 text-zinc-400'),
+										],
+									}) %}
+									<span{{ favicon_badge_attrs }}>{{ favicon_status_glyphs[entry.status]|default('?') }} {{ (styleguide.labels['favicon_status_' ~ entry.status]|default(entry.status))|e }}</span>
+								</td>
+								<td class="px-4 py-2 text-xs text-zinc-500">{{ entry.note|e }}</td>
+							</tr>
+						{% endfor %}
+
+						{% if favicon_audit.manifest %}
+							{% for icon in favicon_audit.manifest.icons %}
+								{% set favicon_icon_row_attrs = create_attribute({
+									class: 'border-b border-zinc-50 last:border-b-0 bg-zinc-50/50',
+									'data-favicon-manifest-icon': icon.src,
+									'data-favicon-manifest-icon-exists': icon.exists ? 'true' : 'false',
+								}) %}
+								<tr{{ favicon_icon_row_attrs }}>
+									<td class="px-4 py-2 pl-8 text-xs text-zinc-500">{{ styleguide.labels.favicon_manifest_icon|default('Manifest icon')|e }} <span class="text-zinc-400">({{ icon.purpose|e }})</span></td>
+									<td class="px-4 py-2 font-mono text-xs text-zinc-500"><code>{{ icon.src|e }}</code></td>
+									<td class="px-4 py-2 font-mono text-xs text-zinc-500">{{ icon.sizes|e }}</td>
+									<td class="px-4 py-2"></td>
+									<td class="px-4 py-2">
+										{% set favicon_icon_badge_attrs = create_attribute({
+											class: [
+												'inline-flex gap-1 items-center px-2 py-0.5 rounded-full text-xs font-semibold',
+												icon.exists ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700',
+											],
+										}) %}
+										<span{{ favicon_icon_badge_attrs }}>{% if icon.exists %}✓ {{ styleguide.labels.favicon_status_ok|default('ok')|e }}{% else %}✗ {{ styleguide.labels.favicon_status_missing|default('missing')|e }}{% endif %}</span>
+									</td>
+									<td class="px-4 py-2 text-xs text-zinc-500"></td>
+								</tr>
+							{% endfor %}
+							{% for manifest_note in favicon_audit.manifest.notes %}
+								<tr class="border-b border-zinc-50 last:border-b-0">
+									<td class="px-4 py-2 pl-8 text-xs text-amber-700" colspan="6">! {{ manifest_note|e }}</td>
+								</tr>
+							{% endfor %}
+						{% endif %}
+
+						<tr class="border-b border-zinc-50 last:border-b-0">
+							<td class="px-4 py-2 font-medium text-zinc-800">{{ styleguide.labels.favicon_theme_color|default('Theme color')|e }}</td>
+							<td class="px-4 py-2" colspan="3">
+								{% if favicon_audit.theme_color.configured and favicon_audit.theme_color.valid %}
+									{% set favicon_swatch_attrs = create_attribute({
+										class: 'block w-4 h-4 rounded border border-zinc-200',
+										style: "background-color: #{favicon_audit.theme_color.value};",
+									}) %}
+									<span class="inline-flex gap-2 items-center">
+										<span{{ favicon_swatch_attrs }}></span>
+										<span class="font-mono text-xs text-zinc-600">{{ favicon_audit.theme_color.value|e }}</span>
+									</span>
+								{% else %}
+									<span class="text-xs text-zinc-300">{{ styleguide.labels.favicon_not_configured|default('not configured')|e }}</span>
+								{% endif %}
+							</td>
+							<td class="px-4 py-2">
+								{% if favicon_audit.theme_color.configured and not favicon_audit.theme_color.valid %}
+									<span class="inline-flex gap-1 items-center px-2 py-0.5 text-xs font-semibold text-red-700 bg-red-50 rounded-full">✗ {{ styleguide.labels.favicon_status_error|default('error')|e }}</span>
+								{% elseif favicon_audit.theme_color.configured %}
+									<span class="inline-flex gap-1 items-center px-2 py-0.5 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-full">✓ {{ styleguide.labels.favicon_status_ok|default('ok')|e }}</span>
+								{% else %}
+									<span class="inline-flex gap-1 items-center px-2 py-0.5 text-xs font-semibold text-zinc-400 bg-zinc-100 rounded-full">– {{ styleguide.labels.favicon_status_unconfigured|default('unconfigured')|e }}</span>
+								{% endif %}
+							</td>
+							<td class="px-4 py-2 text-xs text-zinc-500">{% if favicon_audit.theme_color.configured and not favicon_audit.theme_color.valid %}{{ styleguide.labels.favicon_theme_color_invalid|default('invalid hex value')|e }}{% endif %}</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+		</section>
+	{% endif %}
+
 	{% if styleguide.colors %}
 		{% set colors_section_attrs = create_attribute({
 			id: 'colors',

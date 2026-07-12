@@ -1231,6 +1231,16 @@ final class Styleguide
             $config['styleguide'] = array_merge($this->yamlConfig, [
                 'colors' => $normalizedColors,
                 'colors_contrast' => ColorPalettes::contrastMatrix($normalizedColors),
+                // Server-side favicon audit (#73) — existence, real pixel
+                // dimensions, manifest validation. Null when the yaml block
+                // is absent entirely (FaviconAudit::run() still returns its
+                // full shape with every entry 'unconfigured'/null, but the
+                // template gates the whole section on `styleguide.favicon`
+                // being present, matching every other optional section here).
+                'favicon_audit' => FaviconAudit::run(
+                    (string) ($this->config['static_path'] ?? ''),
+                    (array) ($this->yamlConfig['favicon'] ?? []),
+                ),
             ]);
         }
 
