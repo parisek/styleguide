@@ -188,4 +188,28 @@ final class ColorPalettesTest extends TestCase
 
         self::assertSame(['only'], array_column($result[0]['swatches'], 'key'));
     }
+
+    public function testSwatchCarriesTextContrastData(): void
+    {
+        $result = ColorPalettes::normalize([
+            'primary' => ['shades' => [500 => ['hex' => '#FE4942']]],
+        ]);
+        $swatch = $result[0]['swatches'][0];
+
+        self::assertEqualsWithDelta(3.36, $swatch['contrast_white'], 0.01);
+        self::assertEqualsWithDelta(6.25, $swatch['contrast_black'], 0.01);
+        self::assertFalse($swatch['aa_white']);
+        self::assertTrue($swatch['aa_black']);
+    }
+
+    public function testDarkSwatchPassesWhiteFailsBlack(): void
+    {
+        $result = ColorPalettes::normalize([
+            'x' => ['shades' => [900 => ['hex' => '#19191E']]],
+        ]);
+        $swatch = $result[0]['swatches'][0];
+
+        self::assertTrue($swatch['aa_white']);
+        self::assertFalse($swatch['aa_black']);
+    }
 }

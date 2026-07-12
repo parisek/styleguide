@@ -49,7 +49,7 @@ final class ColorPalettes
      *     key: string,
      *     name: string,
      *     default: string,
-     *     swatches: list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool}>
+     *     swatches: list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool, contrast_white: float, contrast_black: float, aa_white: bool, aa_black: bool}>
      * }>
      */
     public static function normalize(mixed $colors): array
@@ -89,7 +89,7 @@ final class ColorPalettes
     /**
      * @param array<mixed> $palette
      *
-     * @return list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool}>
+     * @return list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool, contrast_white: float, contrast_black: float, aa_white: bool, aa_black: bool}>
      */
     private static function normalizeSwatches(string $paletteKey, array $palette): array
     {
@@ -140,7 +140,7 @@ final class ColorPalettes
     }
 
     /**
-     * @return array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool}|null
+     * @return array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool, contrast_white: float, contrast_black: float, aa_white: bool, aa_black: bool}|null
      */
     private static function buildSwatch(string $key, string $hex, string $oklch, string $cssVariable): ?array
     {
@@ -165,13 +165,22 @@ final class ColorPalettes
         $lightness = ColorUtil::oklchLightness($oklch);
         $light = $lightness !== null ? ColorUtil::isLightOklch($lightness) : ColorUtil::isLight($hex);
 
+        // (float) cast is safe: parseHex() already validated $hex above, so
+        // contrastRatio() cannot return null here.
+        $contrastWhite = round((float) ColorUtil::contrastRatio($hex, '#FFFFFF'), 2);
+        $contrastBlack = round((float) ColorUtil::contrastRatio($hex, '#000000'), 2);
+
         return [
-            'key'   => $key,
-            'hex'   => $hex,
-            'oklch' => $oklch,
-            'label' => $cssVariable !== '' ? $cssVariable : $key,
-            'bg'    => $cssVariable !== '' ? sprintf('var(--color-%s, %s)', $cssVariable, $hex) : $hex,
-            'light' => $light,
+            'key'            => $key,
+            'hex'            => $hex,
+            'oklch'          => $oklch,
+            'label'          => $cssVariable !== '' ? $cssVariable : $key,
+            'bg'             => $cssVariable !== '' ? sprintf('var(--color-%s, %s)', $cssVariable, $hex) : $hex,
+            'light'          => $light,
+            'contrast_white' => $contrastWhite,
+            'contrast_black' => $contrastBlack,
+            'aa_white'       => $contrastWhite >= 4.5,
+            'aa_black'       => $contrastBlack >= 4.5,
         ];
     }
 }
