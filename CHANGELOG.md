@@ -8,6 +8,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Flexible color model (#71).** `colors:` palettes accept a free `swatches:` list
+  (named colors, optional per-swatch `css_variable`) alongside the existing Tailwind-style
+  `shades:` map — projects without a 50–950 scale finally render a sane overview. Both
+  shapes normalize through the new `ColorPalettes`/`ColorUtil` layer; swatch text color
+  (light/dark) is now computed from the hex via WCAG relative luminance instead of the
+  hardcoded shade-name list, so dark 100s and light 700s stop guessing wrong. Foundations
+  markup adapts to small palettes (capped swatch tiles, wrapping strip, truncating labels).
+  All swatch data is `html_attr`-escaped into the Alpine attributes in `foundations.twig`
+  (autoescape is off in this package), so free-form swatch names carrying apostrophes or
+  quotes render safely.
+
 ### Changed
 
 - **Malformed metadata YAML now surfaces in `GET /styleguide/api/health` instead of silently
