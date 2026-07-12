@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Tests;
 
 use Parisek\Styleguide\FaviconAudit;
+use Parisek\Styleguide\PathGuard;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -744,15 +745,14 @@ final class FaviconAuditTest extends TestCase
     #[DataProvider('nonExternalPathProvider')]
     public function testNonExternalPathsAreNotFlaggedByIsExternalUrl(string $path): void
     {
-        // isExternalUrl() only gates the scheme-prefixed shape; whether a
-        // relative/root-relative path additionally resolves or escapes the
-        // static root is a separate concern covered elsewhere
-        // (resolvePath()/pathEscapesRoot()). Reflection keeps this test
-        // scoped to that one method instead of coupling to concatenation
-        // details of the full resolveEntry() pipeline.
-        $method = new \ReflectionMethod(FaviconAudit::class, 'isExternalUrl');
-
-        self::assertFalse($method->invoke(null, $path));
+        // PathGuard::isExternalUrl() only gates the scheme-prefixed shape;
+        // whether a relative/root-relative path additionally resolves or
+        // escapes the static root is a separate concern covered elsewhere
+        // (resolvePath()/pathEscapesRoot()). This test stays scoped to
+        // that one method instead of coupling to concatenation details of
+        // the full resolveEntry() pipeline. Method lives on PathGuard
+        // (shared with OgImageAudit, #74) since #73's original promotion.
+        self::assertFalse(PathGuard::isExternalUrl($path));
     }
 
     /** @return array<string, array{0: string}> */
