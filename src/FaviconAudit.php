@@ -29,7 +29,7 @@ namespace Parisek\Styleguide;
  *
  * @phpstan-type FaviconEntry array{key: string, label: string, configured: bool, path: string, exists: bool, width: int|null, height: int|null, expected: string, status: string, note: string}
  * @phpstan-type FaviconManifestIcon array{src: string, sizes: string, purpose: string, exists: bool}
- * @phpstan-type FaviconManifest array{valid: bool, icons: list<FaviconManifestIcon>, notes: list<string>}
+ * @phpstan-type FaviconManifest array{valid: bool, icons: list<FaviconManifestIcon>, notes: list<string>, app_name: string|null}
  * @phpstan-type FaviconThemeColor array{configured: bool, valid: bool, value: string|null}
  * @phpstan-type ResolvedEntry array{configured: bool, path: string, exists: bool, absolute: string|null, status: string, note: string}
  */
@@ -350,6 +350,7 @@ final class FaviconAudit
                 'valid' => false,
                 'icons' => [],
                 'notes' => [],
+                'app_name' => null,
             ];
         }
 
@@ -424,7 +425,34 @@ final class FaviconAudit
             'valid' => true,
             'icons' => $icons,
             'notes' => $notes,
+            'app_name' => self::manifestAppName($decoded),
         ];
+    }
+
+    /**
+     * Home-screen tile label source (#73 follow-up) — manifest `short_name`
+     * wins (that's what installed-PWA home screens actually render under
+     * the icon), falling back to `name`, else null when neither is a
+     * non-empty string. Non-string values (number, bool, array) are
+     * treated as absent rather than coerced.
+     *
+     * @param array<string, mixed> $decoded
+     */
+    private static function manifestAppName(array $decoded): ?string
+    {
+        foreach (['short_name', 'name'] as $key) {
+            $value = $decoded[$key] ?? null;
+            if (!is_string($value)) {
+                continue;
+            }
+
+            $trimmed = trim($value);
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        return null;
     }
 
     /**

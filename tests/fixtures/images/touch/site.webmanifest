@@ -1,6 +1,6 @@
 {
-    "name": "Styleguide Fixture",
-    "short_name": "Fixture",
+    "name": "Styleguide Fixture PWA",
+    "short_name": "SG Fixture",
     "icons": [
         {
             "src": "/images/touch/web-app-manifest-192x192.png",

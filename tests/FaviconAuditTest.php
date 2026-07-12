@@ -228,6 +228,76 @@ final class FaviconAuditTest extends TestCase
         $this->rrmdir($dir);
     }
 
+    public function testManifestAppNamePrefersShortName(): void
+    {
+        // Fixture manifest (site.webmanifest) carries both keys — short_name
+        // "SG Fixture" must win over the longer "name" (#73 follow-up: this
+        // is what the iOS home-screen tile mockup label reads from).
+        $result = FaviconAudit::run(self::STATIC_PATH, $this->happyPathConfig());
+
+        self::assertNotNull($result['manifest']);
+        self::assertSame('SG Fixture', $result['manifest']['app_name']);
+    }
+
+    public function testManifestAppNameFallsBackToName(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/name-only.webmanifest',
+            json_encode(['name' => 'Only The Long Name']),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/name-only.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertSame('Only The Long Name', $result['manifest']['app_name']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testManifestAppNameNullWhenNeitherKeyPresent(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/no-name.webmanifest',
+            json_encode(['icons' => []]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/no-name.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertNull($result['manifest']['app_name']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testManifestAppNameNullWhenValuesAreNonString(): void
+    {
+        // A `short_name`/`name` that isn't a string (number here) must not
+        // be coerced into a label — treated exactly like absent.
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/non-string-name.webmanifest',
+            json_encode(['short_name' => 42, 'name' => false]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/non-string-name.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertNull($result['manifest']['app_name']);
+
+        $this->rrmdir($dir);
+    }
+
     public function testThemeColorInvalidHexIsConfiguredButInvalid(): void
     {
         $result = FaviconAudit::run(self::STATIC_PATH, [
