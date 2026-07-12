@@ -29,6 +29,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   the #71 normalization layer; zero yaml changes needed (new `labels.contrast_matrix*`
   keys are optional with English defaults).
 
+- **Favicon audit section (#73).** Foundations gains a `#favicon` section: the favicon
+  rendered in simulated contexts (browser tab light/dark, iOS home-screen icon, Android/PWA
+  maskable icon) plus a server-side audit checklist — file existence, real pixel dimensions
+  vs. expectations (`png_96` 96×96, `apple_touch` 180×180), parsed ICO contents, manifest
+  JSON validity with per-icon existence checks, and the `theme_color` swatch. Audited by the
+  new `FaviconAudit` class, which runs entirely server-side against `static_path`; every
+  configured path (and every manifest icon `src`) is containment-checked to stay under
+  `static_path` before any filesystem read. Checklist labels are overridable via optional
+  `labels.favicon*` keys, all with English defaults — no yaml changes are required beyond
+  the existing `favicon:` block.
+
 ### Changed
 
 - **Foundations interactivity no longer requires the consumer to ship Alpine (#79).**
