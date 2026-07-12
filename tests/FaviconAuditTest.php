@@ -226,27 +226,43 @@ final class FaviconAuditTest extends TestCase
         $this->rrmdir($dir);
     }
 
-    public function testThemeColorInvalidHexBecomesNull(): void
+    public function testThemeColorInvalidHexIsConfiguredButInvalid(): void
     {
         $result = FaviconAudit::run(self::STATIC_PATH, [
             'theme_color' => 'not-a-color',
         ]);
 
-        self::assertNull($result['theme_color']);
+        self::assertTrue($result['theme_color']['configured']);
+        self::assertFalse($result['theme_color']['valid']);
+        self::assertNull($result['theme_color']['value']);
     }
 
-    public function testThemeColorAbsentIsNull(): void
+    public function testThemeColorAbsentIsUnconfigured(): void
     {
         $result = FaviconAudit::run(self::STATIC_PATH, []);
 
-        self::assertNull($result['theme_color']);
+        self::assertFalse($result['theme_color']['configured']);
+        self::assertFalse($result['theme_color']['valid']);
+        self::assertNull($result['theme_color']['value']);
     }
 
-    public function testThemeColorValidHexIsPreserved(): void
+    public function testThemeColorValidHexIsNormalizedViaColorUtilRoundTrip(): void
     {
         $result = FaviconAudit::run(self::STATIC_PATH, $this->happyPathConfig());
 
-        self::assertSame('#18181B', $result['theme_color']);
+        self::assertTrue($result['theme_color']['configured']);
+        self::assertTrue($result['theme_color']['valid']);
+        self::assertSame('#18181B', $result['theme_color']['value']);
+    }
+
+    public function testThemeColorShorthandHexIsExpandedByRoundTrip(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'theme_color' => '#fff',
+        ]);
+
+        self::assertTrue($result['theme_color']['valid']);
+        self::assertSame('#FFFFFF', $result['theme_color']['value']);
     }
 
     public function testTabIconPrefersSvgOverPng96(): void
@@ -322,6 +338,222 @@ final class FaviconAuditTest extends TestCase
         $result = FaviconAudit::run(self::STATIC_PATH, []);
 
         self::assertNull($result['maskable_icon']);
+    }
+
+    public function testPathTraversalOutsideStaticRootIsError(): void
+    {
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => '/../../composer.json',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertSame('path escapes the static root', $entry['note']);
+    }
+
+    public function testNormalMissingFileExistsSemanticsPreserved(): void
+    {
+        // A plain missing-but-contained path must still resolve as
+        // "missing", not "error" — containment doesn't hijack the ordinary
+        // not-found path.
+        $result = FaviconAudit::run(self::STATIC_PATH, [
+            'svg' => self::TOUCH . '/does-not-exist.svg',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['configured']);
+        self::assertFalse($entry['exists']);
+        self::assertSame('missing', $entry['status']);
+    }
+
+    public function testManifestIconSrcEscapingRootIsNotExistingWithNote(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents(
+            $dir . self::TOUCH . '/escaping.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => '../../../outside-static-root.json', 'sizes' => '192x192', 'purpose' => 'maskable'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/escaping.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        self::assertFalse($result['manifest']['icons'][0]['exists']);
+        $joined = implode(' | ', $result['manifest']['notes']);
+        self::assertStringContainsString('escapes the static root', $joined);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testIcoZeroByteEntryMapsTo256(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        // reserved=0, type=1, count=1, then a single 16-byte directory
+        // entry whose width/height bytes are both 0 → spec says 256.
+        $ico = pack('vvv', 0, 1, 1) . pack('C*', 0, 0, 0, 0, 1, 0, 32, 0, 0, 0, 0, 0, 22, 0, 0, 0);
+        file_put_contents($dir . self::TOUCH . '/zero.ico', $ico);
+
+        $result = FaviconAudit::run($dir, [
+            'ico' => self::TOUCH . '/zero.ico',
+        ]);
+        $entry = $this->entriesByKey($result)['ico'];
+
+        self::assertSame('ok', $entry['status']);
+        self::assertStringContainsString('256×256', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testIcoGarbageBytesFailsGracefully(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents($dir . self::TOUCH . '/garbage.ico', 'this is not an ico file at all');
+
+        $result = FaviconAudit::run($dir, [
+            'ico' => self::TOUCH . '/garbage.ico',
+        ]);
+        $entry = $this->entriesByKey($result)['ico'];
+
+        self::assertSame('error', $entry['status']);
+        self::assertNotSame('', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testIcoTruncatedHeaderFailsGracefully(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        // Fewer than the 6 header bytes required.
+        file_put_contents($dir . self::TOUCH . '/truncated.ico', "\x00\x00\x01");
+
+        $result = FaviconAudit::run($dir, [
+            'ico' => self::TOUCH . '/truncated.ico',
+        ]);
+        $entry = $this->entriesByKey($result)['ico'];
+
+        self::assertSame('error', $entry['status']);
+        self::assertNotSame('', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testIcoTruncatedDirectoryEntryFailsGracefully(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        // Valid 6-byte header claiming 1 entry, but no directory bytes follow.
+        file_put_contents($dir . self::TOUCH . '/short-dir.ico', pack('vvv', 0, 1, 1));
+
+        $result = FaviconAudit::run($dir, [
+            'ico' => self::TOUCH . '/short-dir.ico',
+        ]);
+        $entry = $this->entriesByKey($result)['ico'];
+
+        self::assertSame('error', $entry['status']);
+        self::assertNotSame('', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testSvgWithoutSvgRootIsError(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents($dir . self::TOUCH . '/not-svg.svg', 'this is plain text, not markup');
+
+        $result = FaviconAudit::run($dir, [
+            'svg' => self::TOUCH . '/not-svg.svg',
+        ]);
+        $entry = $this->entriesByKey($result)['svg'];
+
+        self::assertTrue($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertStringContainsString('<svg', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testPngUnreadableImageIsError(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        file_put_contents($dir . self::TOUCH . '/fake.png', 'this is not a png at all');
+
+        $result = FaviconAudit::run($dir, [
+            'png_96' => self::TOUCH . '/fake.png',
+        ]);
+        $entry = $this->entriesByKey($result)['png_96'];
+
+        self::assertTrue($entry['exists']);
+        self::assertSame('error', $entry['status']);
+        self::assertSame('file is not a readable image', $entry['note']);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testHasSizeMatchesWhitespaceSeparatedTokenAnywhere(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        copy(self::STATIC_PATH . self::TOUCH . '/web-app-manifest-192x192.png', $dir . self::TOUCH . '/multi.png');
+        file_put_contents(
+            $dir . self::TOUCH . '/multi-size.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => self::TOUCH . '/multi.png', 'sizes' => '96x96 192x192', 'purpose' => 'any'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/multi-size.webmanifest',
+        ]);
+
+        self::assertNotNull($result['manifest']);
+        // "no 192×192 icon" must NOT be in the notes — the 192 token is
+        // present, just not the first one in the whitespace-separated list.
+        $joined = implode(' | ', $result['manifest']['notes']);
+        self::assertStringNotContainsString('no 192×192 icon', $joined);
+
+        $this->rrmdir($dir);
+    }
+
+    public function testMaskableIconTieBreakPrefers192OverLargerNonMaskable(): void
+    {
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        copy(self::STATIC_PATH . self::TOUCH . '/web-app-manifest-192x192.png', $dir . self::TOUCH . '/icon-512.png');
+        copy(self::STATIC_PATH . self::TOUCH . '/web-app-manifest-192x192.png', $dir . self::TOUCH . '/icon-192.png');
+        file_put_contents(
+            $dir . self::TOUCH . '/tiebreak.webmanifest',
+            json_encode([
+                'icons' => [
+                    ['src' => self::TOUCH . '/icon-512.png', 'sizes' => '512x512', 'purpose' => 'maskable'],
+                    ['src' => self::TOUCH . '/icon-192.png', 'sizes' => '192x192', 'purpose' => 'any'],
+                ],
+            ]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => self::TOUCH . '/tiebreak.webmanifest',
+        ]);
+
+        // No icon is both maskable AND 192 — falls back to "first existing
+        // maskable" (the 512), even though a non-maskable 192 also exists.
+        self::assertSame(self::TOUCH . '/icon-512.png', $result['maskable_icon']);
+
+        $this->rrmdir($dir);
     }
 
     /** @param array<string, mixed> $result */

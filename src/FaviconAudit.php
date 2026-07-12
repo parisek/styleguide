@@ -17,11 +17,20 @@ namespace Parisek\Styleguide;
  * best icon for each of the three mockup contexts (browser tab, iOS home
  * screen, Android/PWA maskable).
  *
+ * Every filesystem read (`is_file`/`getimagesize`/`file_get_contents`) is
+ * routed through {@see self::resolvePath()}, which enforces that the
+ * resolved real path stays under `$staticPath` — a yaml-configured path or
+ * manifest icon `src` containing `../` cannot walk the audit outside the
+ * static root.
+ *
  * Pure, static, no I/O beyond reading the files it's told about — no network,
  * no image decoding beyond header bytes.
  *
  * @phpstan-type FaviconEntry array{key: string, label: string, configured: bool, path: string, exists: bool, width: int|null, height: int|null, expected: string, status: string, note: string}
- * @phpstan-type FaviconManifest array{valid: bool, icons: list<array{src: string, sizes: string, purpose: string, exists: bool}>, notes: list<string>}
+ * @phpstan-type FaviconManifestIcon array{src: string, sizes: string, purpose: string, exists: bool}
+ * @phpstan-type FaviconManifest array{valid: bool, icons: list<FaviconManifestIcon>, notes: list<string>}
+ * @phpstan-type FaviconThemeColor array{configured: bool, valid: bool, value: string|null}
+ * @phpstan-type ResolvedEntry array{configured: bool, path: string, exists: bool, absolute: string|null, status: string, note: string}
  */
 final class FaviconAudit
 {
@@ -29,13 +38,15 @@ final class FaviconAudit
 
     private const APPLE_TOUCH_EXPECTED = 180;
 
+    private const PATH_ESCAPES_NOTE = 'path escapes the static root';
+
     /**
      * @param array<string, mixed> $favicon
      *
      * @return array{
      *   entries: list<FaviconEntry>,
      *   manifest: FaviconManifest|null,
-     *   theme_color: string|null,
+     *   theme_color: FaviconThemeColor,
      *   tab_icon: string|null,
      *   touch_icon: string|null,
      *   maskable_icon: string|null,
@@ -79,38 +90,113 @@ final class FaviconAudit
     }
 
     /**
+     * Resolves a yaml-configured `$key` into its containment-checked state:
+     * unconfigured, escaping the static root, missing on disk, or resolved
+     * to a real, contained absolute path. Shared prelude for every entry
+     * auditor below — each adds its own format-specific checks on top of
+     * `status === 'ok'`.
+     *
+     * @param array<string, mixed> $favicon
+     *
+     * @return ResolvedEntry
+     */
+    private static function resolveEntry(string $staticPath, array $favicon, string $key): array
+    {
+        $path = self::stringConfig($favicon, $key);
+        if ($path === null) {
+            return ['configured' => false, 'path' => '', 'exists' => false, 'absolute' => null, 'status' => 'unconfigured', 'note' => ''];
+        }
+
+        if (self::pathEscapesRoot($staticPath, $path)) {
+            return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::PATH_ESCAPES_NOTE];
+        }
+
+        $absolute = self::resolvePath($staticPath, $path);
+        if ($absolute === null) {
+            return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'missing', 'note' => ''];
+        }
+
+        return ['configured' => true, 'path' => $path, 'exists' => true, 'absolute' => $absolute, 'status' => 'ok', 'note' => ''];
+    }
+
+    /**
+     * Resolves `$staticPath . $path` to its canonical real path, requiring
+     * the result to stay under `$staticPath`. Returns null when the target
+     * doesn't exist, isn't readable, or resolves outside the static root —
+     * callers that need to distinguish "missing" from "escapes" call
+     * {@see self::pathEscapesRoot()} first.
+     */
+    private static function resolvePath(string $staticPath, string $path): ?string
+    {
+        $realStatic = realpath($staticPath);
+        if ($realStatic === false) {
+            return null;
+        }
+
+        $real = realpath($staticPath . $path);
+        if ($real === false || !self::isContained($real, $realStatic)) {
+            return null;
+        }
+
+        return $real;
+    }
+
+    /**
+     * True when `$staticPath . $path`, once resolved, lands outside
+     * `$staticPath` — checked independent of the target's existence: when
+     * the target itself doesn't exist yet, containment is resolved against
+     * the nearest existing ancestor directory instead (mirrors how
+     * `realpath()` needs an existing node to resolve `..` segments).
+     */
+    private static function pathEscapesRoot(string $staticPath, string $path): bool
+    {
+        $realStatic = realpath($staticPath);
+        if ($realStatic === false) {
+            return false;
+        }
+
+        $candidate = $staticPath . $path;
+        $real = realpath($candidate);
+        if ($real === false) {
+            $real = realpath(dirname($candidate));
+            if ($real === false) {
+                return false;
+            }
+        }
+
+        return !self::isContained($real, $realStatic);
+    }
+
+    private static function isContained(string $real, string $realStatic): bool
+    {
+        return $real === $realStatic || str_starts_with($real, $realStatic . DIRECTORY_SEPARATOR);
+    }
+
+    /**
      * @param array<string, mixed> $favicon
      *
      * @return FaviconEntry
      */
     private static function auditSvg(string $staticPath, array $favicon): array
     {
-        $path = self::stringConfig($favicon, 'svg');
-        $configured = $path !== null;
-        $absolute = $configured ? $staticPath . $path : null;
-        $exists = $configured && $absolute !== null && is_file($absolute);
+        $resolved = self::resolveEntry($staticPath, $favicon, 'svg');
+        $status = $resolved['status'];
+        $note = $resolved['note'];
 
-        $status = 'unconfigured';
-        $note = '';
-
-        if ($configured && !$exists) {
-            $status = 'missing';
-        } elseif ($configured && $exists) {
-            $contents = (string) file_get_contents($absolute);
+        if ($status === 'ok') {
+            $contents = (string) file_get_contents((string) $resolved['absolute']);
             if (stripos($contents, '<svg') === false) {
                 $status = 'error';
                 $note = 'file does not contain an <svg> root element';
-            } else {
-                $status = 'ok';
             }
         }
 
         return [
             'key' => 'svg',
             'label' => 'SVG',
-            'configured' => $configured,
-            'path' => $path ?? '',
-            'exists' => $exists,
+            'configured' => $resolved['configured'],
+            'path' => $resolved['path'],
+            'exists' => $resolved['exists'],
             'width' => null,
             'height' => null,
             'expected' => '',
@@ -132,21 +218,15 @@ final class FaviconAudit
         int $expectedWidth,
         int $expectedHeight,
     ): array {
-        $path = self::stringConfig($favicon, $key);
-        $configured = $path !== null;
-        $absolute = $configured ? $staticPath . $path : null;
-        $exists = $configured && $absolute !== null && is_file($absolute);
+        $resolved = self::resolveEntry($staticPath, $favicon, $key);
         $expected = "{$expectedWidth}×{$expectedHeight}";
-
+        $status = $resolved['status'];
+        $note = $resolved['note'];
         $width = null;
         $height = null;
-        $status = 'unconfigured';
-        $note = '';
 
-        if ($configured && !$exists) {
-            $status = 'missing';
-        } elseif ($configured && $exists) {
-            $size = @getimagesize($absolute);
+        if ($status === 'ok') {
+            $size = @getimagesize((string) $resolved['absolute']);
             if ($size === false) {
                 $status = 'error';
                 $note = 'file is not a readable image';
@@ -165,9 +245,9 @@ final class FaviconAudit
         return [
             'key' => $key,
             'label' => $label,
-            'configured' => $configured,
-            'path' => $path ?? '',
-            'exists' => $exists,
+            'configured' => $resolved['configured'],
+            'path' => $resolved['path'],
+            'exists' => $resolved['exists'],
             'width' => $width,
             'height' => $height,
             'expected' => $expected,
@@ -183,23 +263,16 @@ final class FaviconAudit
      */
     private static function auditIco(string $staticPath, array $favicon): array
     {
-        $path = self::stringConfig($favicon, 'ico');
-        $configured = $path !== null;
-        $absolute = $configured ? $staticPath . $path : null;
-        $exists = $configured && $absolute !== null && is_file($absolute);
+        $resolved = self::resolveEntry($staticPath, $favicon, 'ico');
+        $status = $resolved['status'];
+        $note = $resolved['note'];
 
-        $status = 'unconfigured';
-        $note = '';
-
-        if ($configured && !$exists) {
-            $status = 'missing';
-        } elseif ($configured && $exists) {
-            $sizes = self::parseIcoSizes((string) file_get_contents($absolute));
+        if ($status === 'ok') {
+            $sizes = self::parseIcoSizes((string) file_get_contents((string) $resolved['absolute']));
             if ($sizes === null || $sizes === []) {
                 $status = 'error';
                 $note = 'file is not a parseable ICO';
             } else {
-                $status = 'ok';
                 $note = implode(', ', $sizes);
             }
         }
@@ -207,9 +280,9 @@ final class FaviconAudit
         return [
             'key' => 'ico',
             'label' => 'ICO',
-            'configured' => $configured,
-            'path' => $path ?? '',
-            'exists' => $exists,
+            'configured' => $resolved['configured'],
+            'path' => $resolved['path'],
+            'exists' => $resolved['exists'],
             'width' => null,
             'height' => null,
             'expected' => '',
@@ -222,7 +295,8 @@ final class FaviconAudit
      * Parses an ICO's directory: bytes 0-1 reserved=0, 2-3 type=1, 4-5
      * count; per 16-byte entry byte0=width (0→256), byte1=height (0→256).
      * Returns a list of "W×H" strings, or null when the header doesn't
-     * match a valid ICO container.
+     * match a valid ICO container (garbage bytes, wrong signature, or a
+     * header/directory truncated shorter than it claims).
      *
      * @return list<string>|null
      */
@@ -263,32 +337,24 @@ final class FaviconAudit
      */
     private static function auditManifestEntry(string $staticPath, array $favicon): array
     {
-        $path = self::stringConfig($favicon, 'manifest');
-        $configured = $path !== null;
-        $absolute = $configured ? $staticPath . $path : null;
-        $exists = $configured && $absolute !== null && is_file($absolute);
+        $resolved = self::resolveEntry($staticPath, $favicon, 'manifest');
+        $status = $resolved['status'];
+        $note = $resolved['note'];
 
-        $status = 'unconfigured';
-        $note = '';
-
-        if ($configured && !$exists) {
-            $status = 'missing';
-        } elseif ($configured && $exists) {
-            $decoded = json_decode((string) file_get_contents($absolute), true);
+        if ($status === 'ok') {
+            $decoded = json_decode((string) file_get_contents((string) $resolved['absolute']), true);
             if (!is_array($decoded)) {
                 $status = 'error';
                 $note = 'file is not valid JSON';
-            } else {
-                $status = 'ok';
             }
         }
 
         return [
             'key' => 'manifest',
             'label' => 'Web App Manifest',
-            'configured' => $configured,
-            'path' => $path ?? '',
-            'exists' => $exists,
+            'configured' => $resolved['configured'],
+            'path' => $resolved['path'],
+            'exists' => $resolved['exists'],
             'width' => null,
             'height' => null,
             'expected' => '',
@@ -305,12 +371,12 @@ final class FaviconAudit
     private static function auditManifest(string $staticPath, array $favicon): ?array
     {
         $path = self::stringConfig($favicon, 'manifest');
-        if ($path === null) {
+        if ($path === null || self::pathEscapesRoot($staticPath, $path)) {
             return null;
         }
 
-        $absolute = $staticPath . $path;
-        if (!is_file($absolute)) {
+        $absolute = self::resolvePath($staticPath, $path);
+        if ($absolute === null) {
             return null;
         }
 
@@ -328,6 +394,7 @@ final class FaviconAudit
         $icons = [];
         $sizesSeen = [];
         $hasMaskable = false;
+        $notes = [];
 
         if (is_array($rawIcons)) {
             foreach ($rawIcons as $rawIcon) {
@@ -338,10 +405,16 @@ final class FaviconAudit
                 $sizes = (string) ($rawIcon['sizes'] ?? '');
                 $purpose = (string) ($rawIcon['purpose'] ?? '');
 
-                $iconAbsolute = str_starts_with($src, '/')
-                    ? $staticPath . $src
-                    : $staticPath . rtrim($manifestDir, '/') . '/' . $src;
-                $iconExists = is_file($iconAbsolute);
+                $iconRelative = str_starts_with($src, '/')
+                    ? $src
+                    : rtrim($manifestDir, '/') . '/' . $src;
+
+                if (self::pathEscapesRoot($staticPath, $iconRelative)) {
+                    $iconExists = false;
+                    $notes[] = "icon '{$src}' escapes the static root";
+                } else {
+                    $iconExists = self::resolvePath($staticPath, $iconRelative) !== null;
+                }
 
                 $icons[] = [
                     'src' => $src,
@@ -357,7 +430,6 @@ final class FaviconAudit
             }
         }
 
-        $notes = [];
         if (!self::hasSize($sizesSeen, 192)) {
             $notes[] = 'no 192×192 icon';
         }
@@ -375,27 +447,53 @@ final class FaviconAudit
         ];
     }
 
-    /** @param list<string> $sizesSeen */
+    /**
+     * True when any whitespace-separated token in `$sizesSeen` equals
+     * `{$dimension}x{$dimension}` (case-insensitive — spec allows both
+     * `x` and `X` as the separator letter), e.g. `"96x96 192x192"`
+     * satisfies dimension 192 even though it isn't the first token.
+     *
+     * @param list<string> $sizesSeen
+     */
     private static function hasSize(array $sizesSeen, int $dimension): bool
     {
+        $needle = "{$dimension}x{$dimension}";
+
         foreach ($sizesSeen as $sizes) {
-            if (str_starts_with($sizes, "{$dimension}x{$dimension}")) {
-                return true;
+            $tokens = preg_split('/\s+/', trim($sizes));
+            if ($tokens === false) {
+                continue;
+            }
+            foreach ($tokens as $token) {
+                if ($token !== '' && strcasecmp($token, $needle) === 0) {
+                    return true;
+                }
             }
         }
 
         return false;
     }
 
-    /** @param array<string, mixed> $favicon */
-    private static function auditThemeColor(array $favicon): ?string
+    /**
+     * @param array<string, mixed> $favicon
+     *
+     * @return FaviconThemeColor
+     */
+    private static function auditThemeColor(array $favicon): array
     {
         $themeColor = self::stringConfig($favicon, 'theme_color');
         if ($themeColor === null) {
-            return null;
+            return ['configured' => false, 'valid' => false, 'value' => null];
         }
 
-        return ColorUtil::parseHex($themeColor) === null ? null : $themeColor;
+        $rgb = ColorUtil::parseHex($themeColor);
+        if ($rgb === null) {
+            return ['configured' => true, 'valid' => false, 'value' => null];
+        }
+
+        $normalized = sprintf('#%02X%02X%02X', $rgb[0], $rgb[1], $rgb[2]);
+
+        return ['configured' => true, 'valid' => true, 'value' => $normalized];
     }
 
     /**
@@ -415,12 +513,23 @@ final class FaviconAudit
     }
 
     /**
-     * @param array{icons: list<array{src: string, purpose: string, exists: bool}>}|null $manifest
+     * Deterministic preference among existing manifest icons: an icon that
+     * is both maskable and declares 192×192 wins outright; failing that,
+     * the first existing maskable icon; failing that, the first existing
+     * icon of any purpose; failing that, null.
+     *
+     * @param FaviconManifest|null $manifest
      */
     private static function resolveMaskableIcon(?array $manifest): ?string
     {
         if ($manifest === null) {
             return null;
+        }
+
+        foreach ($manifest['icons'] as $icon) {
+            if ($icon['exists'] && stripos($icon['purpose'], 'maskable') !== false && self::hasSize([$icon['sizes']], 192)) {
+                return $icon['src'];
+            }
         }
 
         foreach ($manifest['icons'] as $icon) {
