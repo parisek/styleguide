@@ -342,6 +342,28 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     '512x512'                                                 "foundations favicon: manifest sub-row for the missing 512 icon shows its declared size" \
     '&#x2F;images&#x2F;touch&#x2F;favicon.svg'                "foundations favicon: browser-tab mockup img src is the audit's tab_icon, html_attr-escaped"
 
+# Open Graph image section (#74) — server-side OgImageAudit::run() drives
+# an always-rendered `#og-image` section: three share-card mockups
+# (Facebook/LinkedIn, X/Twitter, Slack) + a compact audit summary row.
+# Needles below were curled off a live `php -S` render of the fixture
+# (tests/fixtures/styleguide.yaml's `og_image:` key, pointing at the real
+# 1200×630 tests/fixtures/images/og-image.png — mirrors OgImageAuditTest's
+# happy-path fixture 1:1) rather than guessed.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    'id="og-image" class="mb-12" data-og-status="ok"'        "foundations og-image: section renders and is gated on data-og-status, not a truthiness heuristic" \
+    'data-og-card="facebook"'                                 "foundations og-image: Facebook/LinkedIn card renders" \
+    'data-og-card="x"'                                        "foundations og-image: X/Twitter card renders" \
+    'data-og-card="slack"'                                    "foundations og-image: Slack unfurl card renders" \
+    '&#x2F;images&#x2F;og-image.png'                          "foundations og-image: card img src is the audit's resolved path, html_attr-escaped" \
+    '1200×630'                                                "foundations og-image: audit summary row shows the real 1200×630 dimensions" \
+    '3.1 KB'                                                  "foundations og-image: audit summary row shows the real file size" \
+    'bg-emerald-50 text-emerald-700">✓ ok'                    "foundations og-image: audit summary row status badge is ok (fixture is a valid 1200×630 og-image.png)"
+# Hostile project.name (already covered generically above, pinned again
+# here since it lands in the FB-card title AND the Slack-card title — two
+# independent template call sites, both must stay escaped).
+assert_body_contains "/styleguide/render/foundations/index" \
+    'Styleguide Fixture&lt;img src=x onerror=alert(7)&gt;'    "foundations og-image: hostile project.name reaches the FB/Slack card titles HTML-escaped"
+
 # Package-shipped vanilla foundations.js (#79) — injected alongside
 # foundations.css for the foundations render only; see render-cell.twig.
 assert_body_contains_all "/styleguide/render/foundations/index" \
