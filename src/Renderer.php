@@ -408,6 +408,7 @@ final class Renderer
      *   render?:string,
      *   body_class?:string,
      *   foundations_css_url?:string,
+     *   foundations_js_url?:string,
      *   variant?:string,
      * } $config
      *   Resolved configuration from styleguide.yaml (project + iframe sections
@@ -514,6 +515,7 @@ final class Renderer
             ],
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,
+            'foundations_js_url' => $config['foundations_js_url'] ?? null,
         ]);
     }
 

@@ -245,6 +245,8 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 
 \* Same whitelist/fallback rules as the render-endpoint row above (`^[a-z0-9-]+$`, unknown/removed values fall back to the default rather than 404ing); `Router::synthesizeEmbeddedRoute()` forwards the SPA-shell's `?variant=` across the iframe-embed swap so the preview and the deep link agree.
 
+`foundations` renders auto-inject the package's own `dist/foundations.[hash].css` — a dedicated Tailwind bundle scanning `foundations.twig`, since the consumer's `iframe.css` only scans its own templates — served from `/styleguide/assets/` alongside `iframe.css`. The package also ships `dist/foundations.[hash].js` (vanilla, framework-free) injected the same way, so foundations interactivity never depends on the consumer's `iframe.js` stack.
+
 ---
 
 ## API

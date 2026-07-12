@@ -69,11 +69,25 @@ assert_header() {
 # this assertion intermittently fail on a *different* needle each run. A
 # genuinely-absent needle still fails, just after exhausting the retries; a
 # truncated response recovers on the next fetch.
+#
+# body_has: needle checks MUST NOT be written as `printf '%s' "$body" | grep -q`
+# pipelines. This suite runs under `set -o pipefail`, and GNU grep -q exits the
+# moment it matches — once a body outgrows the 64 KiB pipe buffer (the
+# foundations page did when the contrast matrix landed), printf catches SIGPIPE
+# mid-write, pipefail flags the pipeline as failed, and a PRESENT needle reads
+# as missing. macOS/BSD grep drains stdin before exiting, which is why the bug
+# only fired on Linux/CI. A herestring has no pipeline, so no SIGPIPE surface.
+body_has() {
+    local body="$1" needle="$2"
+    grep -q -F "$needle" <<< "$body"
+}
+
 assert_body_contains() {
     local url="$1" needle="$2" desc="$3"
-    local attempt max=5
+    local body attempt max=5
     for (( attempt=1; attempt<=max; attempt++ )); do
-        if curl -sk "$BASE$url" | grep -q -F "$needle"; then
+        body=$(curl -sk "$BASE$url") || body=""
+        if body_has "$body" "$needle"; then
             ok "$desc ${DIM}[body contains $needle]${NC}"
             return
         fi
@@ -98,7 +112,7 @@ assert_body_not_contains() {
     done
     if [ -z "$body" ]; then
         ko "$desc: '$url' returned an empty body after $max attempts — cannot assert absence"
-    elif printf '%s' "$body" | grep -q -F "$needle"; then
+    elif body_has "$body" "$needle"; then
         ko "$desc: '$url' body unexpectedly contains '$needle'"
     else
         ok "$desc ${DIM}[body lacks $needle]${NC}"
@@ -123,13 +137,13 @@ assert_body_contains_all() {
         body=$(curl -sk "$BASE$url") || body=""
         all=1
         for (( i=0; i<${#pairs[@]}; i+=2 )); do
-            printf '%s' "$body" | grep -q -F "${pairs[i]}" || { all=0; break; }
+            body_has "$body" "${pairs[i]}" || { all=0; break; }
         done
         [ "$all" -eq 1 ] && break
         sleep 0.2
     done
     for (( i=0; i<${#pairs[@]}; i+=2 )); do
-        if printf '%s' "$body" | grep -q -F "${pairs[i]}"; then
+        if body_has "$body" "${pairs[i]}"; then
             ok "${pairs[i+1]} ${DIM}[body contains ${pairs[i]}]${NC}"
         else
             ko "${pairs[i+1]}: '$url' body missing '${pairs[i]}'"
@@ -218,8 +232,8 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "#1D3557"                    "foundations colors: flat palette hex reaches the markup" \
     "robin&#039;s egg"           "foundations colors: apostrophe swatch name survives HTML escaping" \
     "#9EDDDF"                    "foundations colors: apostrophe swatch hex reaches the markup" \
-    "&quot;primary&quot;: &#x7B;&quot;key&quot;" "foundations colors: x-data JSON is html_attr-escaped (attribute not truncated)" \
-    "setColor(&quot;brand&quot;, &#x7B;&quot;key&quot;" "foundations colors: swatch click handler survives html_attr escaping" \
+    "data-hero-label>primary-500" "foundations colors: hero SSRs the default swatch label (vanilla contract, #79)" \
+    'data-swatch="&#x7B;&quot;key&quot;&#x3A;&quot;red&quot;' "foundations colors: swatch payload is html_attr-escaped JSON (attribute not truncated)" \
     "oklch&#x28;61.22&#x25;&#x20;0.208&#x20;22.24&#x29;" "foundations colors: oklch computed from hex when yaml omits it"
 
 # Contrast layer (#72) — swatch AA badges, tooltip ratios, expandable matrix.
@@ -239,6 +253,13 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "&lt;b&gt;evil&quot;name&lt;/b&gt;" "foundations colors: hostile swatch name renders HTML-escaped in the matrix row header" \
     "brand-red"                        "foundations colors: pre-existing flat palette rendering still works"
 assert_body_not_contains "/styleguide/render/foundations/index" "<b>evil" "foundations colors: hostile swatch name never reaches the body unescaped"
+
+# Package-shipped vanilla foundations.js (#79) — injected alongside
+# foundations.css for the foundations render only; see render-cell.twig.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    'type="module" src="'                     "foundations render injects the package foundations JS module" \
+    '/styleguide/assets/foundations.'         "foundations render js module url is hashed under the foundations. prefix" \
+    '.js"></script>'                          "foundations render js module url ends in .js"
 
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).

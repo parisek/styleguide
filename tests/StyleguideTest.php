@@ -71,6 +71,45 @@ final class StyleguideTest extends TestCase
     }
 
     #[Test]
+    public function resolve_foundations_js_url_prefers_newest_when_multiple_match(): void
+    {
+        $sg = $this->newStyleguide();
+
+        $dir = sys_get_temp_dir() . '/styleguide-foundations-js-' . uniqid();
+        mkdir($dir);
+        file_put_contents($dir . '/foundations.OLDHASH1.js', 'old');
+        touch($dir . '/foundations.OLDHASH1.js', time() - 100);
+        file_put_contents($dir . '/foundations.NEWHASH2.js', 'new');
+        touch($dir . '/foundations.NEWHASH2.js', time());
+
+        (new \ReflectionProperty(Styleguide::class, 'distRoot'))->setValue($sg, $dir);
+
+        $method = new \ReflectionMethod(Styleguide::class, 'resolveFoundationsJsUrl');
+        $url = $method->invoke($sg);
+
+        self::assertSame('/styleguide/assets/foundations.NEWHASH2.js', $url);
+
+        unlink($dir . '/foundations.OLDHASH1.js');
+        unlink($dir . '/foundations.NEWHASH2.js');
+        rmdir($dir);
+    }
+
+    #[Test]
+    public function resolve_foundations_js_url_returns_null_when_no_match(): void
+    {
+        $sg = $this->newStyleguide();
+        $dir = sys_get_temp_dir() . '/styleguide-foundations-js-empty-' . uniqid();
+        mkdir($dir);
+
+        (new \ReflectionProperty(Styleguide::class, 'distRoot'))->setValue($sg, $dir);
+        $method = new \ReflectionMethod(Styleguide::class, 'resolveFoundationsJsUrl');
+
+        self::assertNull($method->invoke($sg));
+
+        rmdir($dir);
+    }
+
+    #[Test]
     public function auth_callable_returning_false_yields_403_before_any_dispatch(): void
     {
         $sg = $this->newStyleguide([
