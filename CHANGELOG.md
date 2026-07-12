@@ -40,6 +40,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `labels.favicon*` keys, all with English defaults — no yaml changes are required beyond
   the existing `favicon:` block.
 
+- **OG image audit section (#74).** Foundations gains an `#og-image` section: the optional
+  `og_image:` yaml key renders as share-card mockups — Facebook/LinkedIn (1.91:1 crop),
+  X/Twitter summary_large_image (2:1 crop), and a Slack unfurl — plus a compact server-side
+  audit checklist covering existence, real pixel dimensions vs. the ≥ 1200×630 recommendation,
+  aspect ratio vs. the 1.91:1 convention, and file size against platform limits (warn > 1 MB,
+  error > 8 MB). Audited by the new `OgImageAudit` class, which shares the containment-hardened
+  `PathGuard` helper with `FaviconAudit` (#73) rather than duplicating its scheme-URI rejection
+  and realpath-under-`static_path` checks. The section always renders — an empty-state prompt
+  covers the unconfigured case, since an OG image is expected on every project. Checklist
+  labels are overridable via optional `labels.og_*` keys, all with English defaults.
+
 ### Changed
 
 - **Foundations interactivity no longer requires the consumer to ship Alpine (#79).**

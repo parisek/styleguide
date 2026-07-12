@@ -18,10 +18,11 @@ namespace Parisek\Styleguide;
  * screen, Android/PWA maskable).
  *
  * Every filesystem read (`is_file`/`getimagesize`/`file_get_contents`) is
- * routed through {@see self::resolvePath()}, which enforces that the
+ * routed through {@see PathGuard::resolvePath()}, which enforces that the
  * resolved real path stays under `$staticPath` — a yaml-configured path or
  * manifest icon `src` containing `../` cannot walk the audit outside the
- * static root.
+ * static root. The containment/scheme-rejection logic itself lives in
+ * {@see PathGuard} (shared with {@see OgImageAudit}, #74).
  *
  * Pure, static, no I/O beyond reading the files it's told about — no network,
  * no image decoding beyond header bytes.
@@ -109,91 +110,20 @@ final class FaviconAudit
             return ['configured' => false, 'path' => '', 'exists' => false, 'absolute' => null, 'status' => 'unconfigured', 'note' => ''];
         }
 
-        if (self::isExternalUrl($path)) {
+        if (PathGuard::isExternalUrl($path)) {
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::EXTERNAL_URL_NOTE];
         }
 
-        if (self::pathEscapesRoot($staticPath, $path)) {
+        if (PathGuard::pathEscapesRoot($staticPath, $path)) {
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::PATH_ESCAPES_NOTE];
         }
 
-        $absolute = self::resolvePath($staticPath, $path);
+        $absolute = PathGuard::resolvePath($staticPath, $path);
         if ($absolute === null) {
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'missing', 'note' => ''];
         }
 
         return ['configured' => true, 'path' => $path, 'exists' => true, 'absolute' => $absolute, 'status' => 'ok', 'note' => ''];
-    }
-
-    /**
-     * Resolves `$staticPath . $path` to its canonical real path, requiring
-     * the result to stay under `$staticPath`. Returns null when the target
-     * doesn't exist, isn't readable, or resolves outside the static root —
-     * callers that need to distinguish "missing" from "escapes" call
-     * {@see self::pathEscapesRoot()} first.
-     */
-    private static function resolvePath(string $staticPath, string $path): ?string
-    {
-        $realStatic = realpath($staticPath);
-        if ($realStatic === false) {
-            return null;
-        }
-
-        $real = realpath($staticPath . $path);
-        if ($real === false || !self::isContained($real, $realStatic) || !is_file($real) || !is_readable($real)) {
-            return null;
-        }
-
-        return $real;
-    }
-
-    /**
-     * True for protocol-relative (`//host/...`), absolute-scheme
-     * (`https://...`), or bare-scheme (`data:...`, `javascript:...`) URIs —
-     * anything carrying a scheme prefix, with or without the `//` authority
-     * marker. Root-relative (`/x`) and relative (`x/y`, `./x`, `../x`)
-     * paths carry no scheme and stay accepted. Without the bare-scheme
-     * half of this check, a `data:` URI would fall through as a
-     * filesystem path — misreported as merely "missing" (yaml key) or
-     * dir-joined into a mangled string (manifest `src`) instead of
-     * rejected outright — anything that would make the audit (or the
-     * template that renders `tab_icon`/`touch_icon`/`maskable_icon` into
-     * an `<img src>`) fetch or reference a resource outside `$staticPath`.
-     */
-    private static function isExternalUrl(string $path): bool
-    {
-        return preg_match('#^(?://|[a-z][a-z0-9+.-]*:)#i', $path) === 1;
-    }
-
-    /**
-     * True when `$staticPath . $path`, once resolved, lands outside
-     * `$staticPath` — checked independent of the target's existence: when
-     * the target itself doesn't exist yet, containment is resolved against
-     * the nearest existing ancestor directory instead (mirrors how
-     * `realpath()` needs an existing node to resolve `..` segments).
-     */
-    private static function pathEscapesRoot(string $staticPath, string $path): bool
-    {
-        $realStatic = realpath($staticPath);
-        if ($realStatic === false) {
-            return false;
-        }
-
-        $candidate = $staticPath . $path;
-        $real = realpath($candidate);
-        if ($real === false) {
-            $real = realpath(dirname($candidate));
-            if ($real === false) {
-                return false;
-            }
-        }
-
-        return !self::isContained($real, $realStatic);
-    }
-
-    private static function isContained(string $real, string $realStatic): bool
-    {
-        return $real === $realStatic || str_starts_with($real, $realStatic . DIRECTORY_SEPARATOR);
     }
 
     /**
@@ -405,11 +335,11 @@ final class FaviconAudit
     private static function auditManifest(string $staticPath, array $favicon): ?array
     {
         $path = self::stringConfig($favicon, 'manifest');
-        if ($path === null || self::pathEscapesRoot($staticPath, $path)) {
+        if ($path === null || PathGuard::pathEscapesRoot($staticPath, $path)) {
             return null;
         }
 
-        $absolute = self::resolvePath($staticPath, $path);
+        $absolute = PathGuard::resolvePath($staticPath, $path);
         if ($absolute === null) {
             return null;
         }
@@ -439,7 +369,7 @@ final class FaviconAudit
                 $sizes = (string) ($rawIcon['sizes'] ?? '');
                 $purpose = (string) ($rawIcon['purpose'] ?? '');
 
-                if (self::isExternalUrl($src)) {
+                if (PathGuard::isExternalUrl($src)) {
                     // Never normalize/resolve an external URL against the
                     // static root — output it verbatim (it's never
                     // selected as an icon since exists stays false; the
@@ -458,11 +388,11 @@ final class FaviconAudit
                         ? $src
                         : rtrim($manifestDir, '/') . '/' . $src;
 
-                    if (self::pathEscapesRoot($staticPath, $iconOutputSrc)) {
+                    if (PathGuard::pathEscapesRoot($staticPath, $iconOutputSrc)) {
                         $iconExists = false;
                         $notes[] = "icon '{$src}' escapes the static root";
                     } else {
-                        $iconExists = self::resolvePath($staticPath, $iconOutputSrc) !== null;
+                        $iconExists = PathGuard::resolvePath($staticPath, $iconOutputSrc) !== null;
                     }
                 }
 

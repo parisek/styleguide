@@ -109,6 +109,12 @@ favicon:
   manifest: /images/touch/site.webmanifest
   theme_color: '#18181B'
 
+# Open Graph image audit fixture (#74) — mirrors OgImageAuditTest's fixed
+# fixture asset (tests/fixtures/images/og-image.png, a real 1200×630 PNG)
+# so the e2e render exercises the exact same status/notes shape the unit
+# suite already pins: configured, exists, 1200×630, status ok, no notes.
+og_image: /images/og-image.png
+
 labels:
   {
     colors: "Colors",

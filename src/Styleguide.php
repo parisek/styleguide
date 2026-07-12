@@ -1241,6 +1241,17 @@ final class Styleguide
                     (string) ($this->config['static_path'] ?? ''),
                     (array) ($this->yamlConfig['favicon'] ?? []),
                 ),
+                // Server-side Open Graph image audit (#74) — existence,
+                // real pixel dimensions, aspect ratio, file size. Unlike
+                // favicon_audit, this one is *not* gated on the yaml key
+                // being present — the template's `#og-image` section
+                // always renders (empty-state prompt when unconfigured),
+                // since an OG image is expected on every project and
+                // must not silently vanish from the audit surface.
+                'og_image_audit' => OgImageAudit::run(
+                    (string) ($this->config['static_path'] ?? ''),
+                    $this->yamlConfig['og_image'] ?? null,
+                ),
             ]);
         }
 

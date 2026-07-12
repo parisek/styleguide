@@ -709,6 +709,43 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function og_image_section_renders_the_empty_state_when_unconfigured(): void
+    {
+        // (#74) `og_image_audit` is always present (dispatchRender runs
+        // OgImageAudit::run() unconditionally), but when the consumer's
+        // yaml carries no `og_image:` key, `configured` is false — the
+        // section must render the dashed empty-state prompt (its default
+        // label text) instead of any of the three share-card mockups.
+        $html = $this->rendererWithBase('')->render('foundations', '', [
+            'styleguide' => [
+                'og_image_audit' => [
+                    'configured' => false,
+                    'path' => '',
+                    'exists' => false,
+                    'width' => null,
+                    'height' => null,
+                    'filesize' => null,
+                    'status' => 'unconfigured',
+                    'notes' => [],
+                ],
+            ],
+        ], 'cs');
+
+        // create_attribute() entity-encodes quotes in this bare test env
+        // (no html_safe marking outside the real boot path — same quirk
+        // asserted by escapes_special_characters_in_page_wrapper_class
+        // above), so the id attribute round-trips as `&quot;`-delimited.
+        self::assertStringContainsString('id=&quot;og-image&quot;', $html);
+        self::assertStringContainsString(
+            'No og_image configured — add one so shared links get a real preview image.',
+            $html,
+        );
+        // No other section's config key is set, so an <img> anywhere in the
+        // render can only have come from the (wrongly rendered) og mockup.
+        self::assertStringNotContainsString('<img', $html);
+    }
+
+    #[Test]
     public function renders_named_variant_when_it_exists(): void
     {
         $html = $this->renderer->render('component', 'multi', [
