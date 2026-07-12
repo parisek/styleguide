@@ -13,6 +13,15 @@
 		</div>
 	{% endif %}
 
+	{# Server-side favicon audit (#73) — always present with every entry
+	   'unconfigured'/null when the `favicon:` yaml block is absent (see
+	   Styleguide::dispatchRender). Hoisted above the logo section so its
+	   `tab_icon`/`touch_icon`/`manifest.app_name` can drive the compact
+	   mockups embedded in the logo card's FAVICON slot below (#73
+	   follow-up — owner feedback: mockups belong next to the logo, not in
+	   a separate three-card row). #}
+	{% set favicon_audit = styleguide.favicon_audit %}
+
 	{% if styleguide.logo %}
 		<section id="logo" class="mb-12">
 			<div class="flex gap-3 items-center mb-6">
@@ -34,16 +43,53 @@
 							],
 						}) %}
 						<div{{ logo_item_attrs }}>
-							<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ logo.label|e }}</p>
+							<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ (key == 'favicon' ? logo.label|default(styleguide.labels.favicon|default('Favicon')) : logo.label)|e }}</p>
 							{% set logo_bg_attrs = create_attribute({
 								class: [
 									'flex items-center justify-center rounded-lg p-8 min-h-32 flex-1',
 									logo.background == 'dark' ? 'bg-zinc-900' : 'bg-white',
 								],
 							}) %}
+							{% set favicon_slot_has_mockups = key == 'favicon' and styleguide.favicon and (favicon_audit.tab_icon or favicon_audit.touch_icon) %}
 							<div{{ logo_bg_attrs }}>
-								{# twig-cs-fixer-disable-next-line PlainImg — static brand-logo asset from styleguide.yaml; component_picture would force a CMS-shape image array for a build-time SVG/PNG that has no resizing pipeline #}
-								<img src="{{ logo.src|e('html_attr') }}" class="{{ (logo.size|default('w-full max-w-48 h-auto'))|e('html_attr') }}" alt="{{ logo.alt|e('html_attr') }}">
+								{% if favicon_slot_has_mockups %}
+									{# Compact browser-tab + iOS home-screen mockups replace the plain
+									   favicon swatch (#73 follow-up) — visual economy is the point of
+									   the owner feedback, so these are deliberately smaller than the
+									   standalone cards the old #favicon section used to render. #}
+									<div class="flex flex-col gap-3 items-center w-full">
+										<div class="flex flex-col gap-1.5 w-full max-w-40">
+											{% for tab_theme in ['light', 'dark'] %}
+												{% set tab_bar_attrs = create_attribute({
+													class: [
+														'flex gap-1.5 items-center px-2 py-1 rounded text-[10px]',
+														tab_theme == 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-white text-zinc-700 border border-zinc-200',
+													],
+													'data-favicon-tab': tab_theme,
+												}) %}
+												<div{{ tab_bar_attrs }}>
+													{% if favicon_audit.tab_icon %}
+														{# twig-cs-fixer-disable-next-line PlainImg — mockup tab-bar favicon sourced from the server-side audit, not a CMS image #}
+														<img src="{{ favicon_audit.tab_icon|e('html_attr') }}" alt="" width="12" height="12" class="w-3 h-3 shrink-0">
+													{% else %}
+														<span class="w-3 h-3 rounded-sm border border-dashed border-zinc-400 shrink-0"></span>
+													{% endif %}
+													<span class="flex-1 truncate">{{ styleguide.project.name|default('')|e }}</span>
+												</div>
+											{% endfor %}
+										</div>
+										{% if favicon_audit.touch_icon %}
+											{# twig-cs-fixer-disable-next-line PlainImg — mockup iOS touch-icon sourced from the server-side audit, not a CMS image #}
+											<img src="{{ favicon_audit.touch_icon|e('html_attr') }}" alt="" width="40" height="40" class="w-10 h-10 rounded-[22%] shadow">
+										{% else %}
+											<div class="flex justify-center items-center px-1 w-10 h-10 text-[8px] text-center text-zinc-400 rounded-[22%] border-2 border-dashed border-zinc-400">{{ styleguide.labels.favicon_ios_empty|default('No apple-touch-icon configured')|e }}</div>
+										{% endif %}
+										<span class="max-w-full text-[10px] text-zinc-500 truncate">{{ favicon_audit.manifest.app_name|default(styleguide.project.name)|e }}</span>
+									</div>
+								{% else %}
+									{# twig-cs-fixer-disable-next-line PlainImg — static brand-logo asset from styleguide.yaml; component_picture would force a CMS-shape image array for a build-time SVG/PNG that has no resizing pipeline #}
+									<img src="{{ logo.src|e('html_attr') }}" class="{{ (logo.size|default('w-full max-w-48 h-auto'))|e('html_attr') }}" alt="{{ logo.alt|e('html_attr') }}">
+								{% endif %}
 							</div>
 						</div>
 					{% endfor %}
@@ -53,7 +99,6 @@
 	{% endif %}
 
 	{% if styleguide.favicon and styleguide.favicon_audit %}
-		{% set favicon_audit = styleguide.favicon_audit %}
 		{% set favicon_status_classes = {
 			ok: 'bg-emerald-50 text-emerald-700',
 			warning: 'bg-amber-50 text-amber-700',
@@ -78,68 +123,30 @@
 				<h2 class="font-bold text-lg text-zinc-900">{{ styleguide.labels.favicon|default('Favicon')|e }}</h2>
 			</div>
 
-			{# Three simulated contexts — pure divs/img, no external assets. Each falls back to a
-			   dashed empty-state tile (matching the styleguide's placeholder() idiom) when the
-			   audit couldn't resolve a usable icon for that context. #}
-			<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-				<div class="overflow-hidden p-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
-					<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.favicon_browser_tab|default('Browser tab')|e }}</p>
-					<div class="flex flex-col gap-2">
-						{% for tab_theme in ['light', 'dark'] %}
-							{% set tab_bar_attrs = create_attribute({
-								class: [
-									'flex gap-2 items-center px-3 py-2 rounded-t-lg text-xs',
-									tab_theme == 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-700',
-								],
-								'data-favicon-tab': tab_theme,
-							}) %}
-							<div{{ tab_bar_attrs }}>
-								{% if favicon_audit.tab_icon %}
-									{# twig-cs-fixer-disable-next-line PlainImg — mockup tab-bar favicon sourced from the server-side audit, not a CMS image #}
-									<img src="{{ favicon_audit.tab_icon|e('html_attr') }}" alt="" width="16" height="16" class="w-4 h-4 shrink-0">
-								{% else %}
-									<span class="w-4 h-4 rounded-sm border border-dashed border-zinc-400 shrink-0"></span>
-								{% endif %}
-								<span class="flex-1 truncate">{{ styleguide.project.name|default('')|e }}</span>
-								<span class="opacity-60">×</span>
-							</div>
-						{% endfor %}
-					</div>
-				</div>
+			{# Browser-tab + iOS mockups moved into the logo card's FAVICON slot
+			   above (#73 follow-up — owner feedback); the Android/PWA maskable
+			   mockup card was dropped outright. `maskable_icon` stays part of the
+			   FaviconAudit contract (the manifest sub-rows below still audit it),
+			   it's just no longer rendered as a standalone mockup. #}
 
-				<div class="overflow-hidden p-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
-					<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.favicon_ios|default('iOS home screen')|e }}</p>
-					<div class="flex flex-col gap-2 items-center p-6 rounded-lg bg-gradient-to-br from-zinc-100 to-zinc-200">
-						{% if favicon_audit.touch_icon %}
-							{# twig-cs-fixer-disable-next-line PlainImg — mockup iOS touch-icon sourced from the server-side audit, not a CMS image #}
-							<img src="{{ favicon_audit.touch_icon|e('html_attr') }}" alt="" width="80" height="80" class="w-20 h-20 rounded-[22%] shadow">
-						{% else %}
-							<div class="flex justify-center items-center px-2 w-20 h-20 text-[10px] text-center text-zinc-400 rounded-[22%] border-2 border-dashed border-zinc-400">{{ styleguide.labels.favicon_ios_empty|default('No apple-touch-icon configured')|e }}</div>
-						{% endif %}
-						<span class="max-w-full text-xs text-zinc-700 truncate">{{ styleguide.project.name|default('')|e }}</span>
-					</div>
-				</div>
-
-				<div class="overflow-hidden p-6 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
-					<p class="mb-4 font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ styleguide.labels.favicon_android|default('Android / PWA (maskable)')|e }}</p>
-					<div class="flex justify-center items-center p-6 rounded-lg bg-gradient-to-br from-zinc-100 to-zinc-200">
-						{% if favicon_audit.maskable_icon %}
-							<span class="overflow-hidden w-20 h-20 rounded-full ring-1 ring-zinc-300">
-								{# twig-cs-fixer-disable-next-line PlainImg — mockup Android/PWA maskable icon sourced from the server-side audit, not a CMS image #}
-								<img src="{{ favicon_audit.maskable_icon|e('html_attr') }}" alt="" width="80" height="80" class="object-cover w-full h-full">
-							</span>
-						{% else %}
-							<div class="flex justify-center items-center px-2 w-20 h-20 text-[10px] text-center text-zinc-400 rounded-full border-2 border-dashed border-zinc-400">{{ styleguide.labels.favicon_android_empty|default('No maskable icon in manifest')|e }}</div>
-						{% endif %}
-					</div>
-				</div>
-			</div>
-
-			{# Server-side audit checklist — one row per fixed-order entry, then manifest icon
-			   sub-rows / notes, then a theme_color row. Every value here is a consumer string
-			   (yaml-configured path, note text) and goes through the same |e / html_attr
-			   discipline as the rest of this template. #}
-			<div class="overflow-hidden overflow-x-auto border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+			{# Audit checklist — collapsed by default via the same generic
+			   [data-sg-toggle] pattern the contrast matrix uses (see
+			   frontend/foundations.js). One row per fixed-order entry, then
+			   manifest icon sub-rows / notes, then a theme_color row. Every
+			   value here is a consumer string (yaml-configured path, note
+			   text) and goes through the same |e / html_attr discipline as
+			   the rest of this template. #}
+			<button
+				type="button"
+				class="flex gap-2 items-center mb-4 font-semibold text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
+				data-sg-toggle="favicon-audit-table"
+			>
+				<svg class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+				</svg>
+				{{ styleguide.labels.favicon_audit|default('Favicon audit')|e }}
+			</button>
+			<div id="favicon-audit-table" class="overflow-hidden overflow-x-auto border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white" hidden>
 				<table class="w-full text-sm">
 					<thead>
 						<tr class="text-xs tracking-wider text-left text-zinc-500 uppercase bg-zinc-50 border-b border-zinc-100">
@@ -504,14 +511,14 @@
 					<button
 						type="button"
 						class="flex gap-2 items-center font-semibold text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
-						data-matrix-toggle
+						data-sg-toggle="contrast-matrix-table"
 					>
 						<svg class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
 						</svg>
 						{{ styleguide.labels.contrast_matrix|default('Contrast matrix (WCAG)')|e }}
 					</button>
-					<div class="overflow-x-auto mt-4" data-matrix hidden>
+					<div id="contrast-matrix-table" class="overflow-x-auto mt-4" hidden>
 						<table class="border-separate border-spacing-1">
 							<thead>
 								<tr>
