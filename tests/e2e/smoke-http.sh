@@ -218,8 +218,8 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "#1D3557"                    "foundations colors: flat palette hex reaches the markup" \
     "robin&#039;s egg"           "foundations colors: apostrophe swatch name survives HTML escaping" \
     "#9EDDDF"                    "foundations colors: apostrophe swatch hex reaches the markup" \
-    "&quot;primary&quot;: &#x7B;&quot;key&quot;" "foundations colors: x-data JSON is html_attr-escaped (attribute not truncated)" \
-    "setColor(&quot;brand&quot;, &#x7B;&quot;key&quot;" "foundations colors: swatch click handler survives html_attr escaping" \
+    "data-hero-label>primary-500" "foundations colors: hero SSRs the default swatch label (vanilla contract, #79)" \
+    'data-swatch="&#x7B;&quot;key&quot;&#x3A;&quot;red&quot;' "foundations colors: swatch payload is html_attr-escaped JSON (attribute not truncated)" \
     "oklch&#x28;61.22&#x25;&#x20;0.208&#x20;22.24&#x29;" "foundations colors: oklch computed from hex when yaml omits it"
 
 # Contrast layer (#72) — swatch AA badges, tooltip ratios, expandable matrix.
