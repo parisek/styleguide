@@ -125,9 +125,14 @@ final class SpaConfigTest extends TestCase
         $config = json_decode($m[1], true, flags: JSON_THROW_ON_ERROR);
 
         self::assertSame('cs', $config['locale']);
-        self::assertSame('Styleguide Fixture', $config['projectName']);
+        // project.name in the shared fixture carries a hostile suffix (#78
+        // review — see tests/fixtures/styleguide.yaml) to pin foundations.twig's
+        // escaping of styleguide.project.name; the SPA #sg-config JSON path
+        // exercised here is a separate code path (JSON_HEX_TAG-encoded, not
+        // HTML-escaped) so the literal value still round-trips verbatim.
+        self::assertSame('Styleguide Fixture<img src=x onerror=alert(7)>', $config['projectName']);
         self::assertArrayHasKey('favicon', $config);
-        self::assertSame('Styleguide — Styleguide Fixture', $config['title']);
+        self::assertSame('Styleguide — Styleguide Fixture<img src=x onerror=alert(7)>', $config['title']);
     }
 
     #[Test]

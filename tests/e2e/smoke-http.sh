@@ -268,6 +268,29 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "Heading&lt;script&gt;alert(x)&lt;/script&gt;"        "foundations typography: hostile heading label renders HTML-escaped (pre-escaped before |typography)" \
     "Bold&lt;script&gt;alert(5)&lt;/script&gt;"           "foundations typography: hostile weight name renders HTML-escaped"
 
+# Escaping sweep extension (#78 review) — the coverage above missed several
+# escaped-interpolation contexts in foundations.twig: project.name/description
+# (header, plain `|e` text nodes), logo.src/alt/size (attribute contexts,
+# `|e('html_attr')`), font.type/alphabet and heading.tag/desc and weight.value
+# (plain `|e` text nodes), heading.size and weight.class (attribute contexts).
+# Every escaped form below was curled off a live `php -S` render of this same
+# fixture rather than guessed — html_attr encodes far more aggressively than a
+# hand-written entity guess would (e.g. spaces become `&#x20;`, `=` becomes
+# `&#x3D;`, parens become `&#x28;`/`&#x29;`).
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    "Styleguide Fixture&lt;img src=x onerror=alert(7)&gt;" "foundations header: hostile project.name renders HTML-escaped" \
+    "Fixture project&lt;script&gt;alert(8)&lt;/script&gt;" "foundations header: hostile project.description renders HTML-escaped" \
+    "&#x2F;images&#x2F;logo.svg&quot;&#x20;onerror&#x3D;&quot;alert&#x28;9&#x29;"   "foundations logo: hostile src is html_attr-escaped (no attribute breakout)" \
+    "Logo&quot;&#x20;onerror&#x3D;&quot;alert&#x28;10&#x29;"                        "foundations logo: hostile alt is html_attr-escaped (no attribute breakout)" \
+    "w-full&#x20;max-w-48&#x20;h-auto&quot;&#x20;onerror&#x3D;&quot;alert&#x28;11&#x29;" "foundations logo: hostile size is html_attr-escaped into the img class list (no attribute breakout)" \
+    "Display&lt;script&gt;alert(12)&lt;/script&gt;"       "foundations typography: hostile font.type renders HTML-escaped" \
+    "0123456789&lt;script&gt;alert(13)&lt;/script&gt;"    "foundations typography: hostile font.alphabet renders HTML-escaped" \
+    "h1&lt;script&gt;alert(14)&lt;/script&gt;"             "foundations typography: hostile heading.tag renders HTML-escaped" \
+    "text-4xl&quot;&#x20;onerror&#x3D;&quot;alert&#x28;15&#x29;"                    "foundations typography: hostile heading.size is html_attr-escaped into the label class (no attribute breakout)" \
+    "36px / 700&lt;script&gt;alert(16)&lt;/script&gt;"    "foundations typography: hostile heading.desc renders HTML-escaped" \
+    "font-bold&quot;&#x20;onerror&#x3D;&quot;alert&#x28;17&#x29;"                    "foundations typography: hostile weight.class is html_attr-escaped into the sample class (no attribute breakout)" \
+    "700&lt;script&gt;alert(18)&lt;/script&gt;"            "foundations typography: hostile weight.value renders HTML-escaped"
+
 # body_sample (#78 review) — same |e|typography path as heading.label above,
 # but had no hostile-payload coverage of its own. The digit inside the payload
 # is intentionally left in (unlike heading.label, which avoids digits) so this
@@ -288,6 +311,21 @@ assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(x
 assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(5)</script>" "foundations typography: hostile weight name never reaches the body as a live <script> tag"
 assert_body_not_contains "/styleguide/render/foundations/index" "<img src=x onerror=" "foundations typography: hostile font name never reaches the body unescaped"
 assert_body_not_contains "/styleguide/render/foundations/index" '"onmouseover=alert' "foundations typography: font url quote never breaks out of the href attribute"
+
+# Raw-payload checks for the extended sweep above (#78 review) — same
+# exact-string-per-fixture-entry discipline as the block above it.
+assert_body_not_contains "/styleguide/render/foundations/index" "<img src=x onerror=alert(7)>" "foundations header: hostile project.name never reaches the body unescaped"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(8)</script>"     "foundations header: hostile project.description never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(9)'              "foundations logo: hostile src never breaks out of the src attribute"
+assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(10)'             "foundations logo: hostile alt never breaks out of the alt attribute"
+assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(11)'             "foundations logo: hostile size never breaks out of the img class attribute"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(12)</script>"     "foundations typography: hostile font.type never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(13)</script>"     "foundations typography: hostile font.alphabet never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(14)</script>"     "foundations typography: hostile heading.tag never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(15)'             "foundations typography: hostile heading.size never breaks out of the label class attribute"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(16)</script>"     "foundations typography: hostile heading.desc never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(17)'             "foundations typography: hostile weight.class never breaks out of the sample class attribute"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(18)</script>"     "foundations typography: hostile weight.value never reaches the body as a live <script> tag"
 
 # Package-shipped vanilla foundations.js (#79) — injected alongside
 # foundations.css for the foundations render only; see render-cell.twig.
