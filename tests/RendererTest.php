@@ -682,7 +682,14 @@ final class RendererTest extends TestCase
             ],
         ], 'cs');
 
-        self::assertStringContainsString('src="' . $base . '/images/logo.svg"', $html);
+        // (#78) `logo.src` is a consumer-yaml value rendered into an `src`
+        // attribute, so foundations.twig now pipes it through `|e('html_attr')`
+        // — Twig's html_attr escaper (Symfony's OWASP-style strategy) also
+        // encodes `/` as `&#x2F;`, which browsers decode back to `/` inside an
+        // attribute value, so the rebased path still resolves correctly; the
+        // assertion below matches the escaped literal actually emitted.
+        $expectedSrc = str_replace('/', '&#x2F;', $base . '/images/logo.svg');
+        self::assertStringContainsString('src="' . $expectedSrc . '"', $html);
     }
 
     #[Test]

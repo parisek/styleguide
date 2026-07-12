@@ -25,9 +25,35 @@ logo:
   main:
     src: /images/logo.svg
     alt: Logo
-    label: Logo
+    # Hostile label (#78) — must reach the markup HTML-escaped, never raw.
+    label: 'Logo<script>alert(1)</script>'
     background: light
   favicon:
+
+# Hostile typography fixture (#78) — exercises the logo/typography sections
+# that PR #77 left un-escaped (autoescape is off in the package's own Twig
+# scope). Every consumer-controlled string here carries an XSS-shaped payload
+# so smoke-http.sh can assert it's neutralised.
+typography:
+  fonts:
+    - name: 'Evil<img src=x onerror=alert(1)>Font'
+      type: Display
+      url: 'https://example.com/font.css?v=1"onmouseover=alert(2)'
+      usage: ['Headings<script>alert(3)</script>']
+      alphabet: 'ABCDEFGabcdefg 0123456789'
+  headings:
+    - tag: h1
+      size: text-4xl
+      # No digits in the payload — heading.label is piped through |typography,
+      # whose default number-wrap setting would split e.g. "alert(4)" into
+      # "alert(<span class=…>4</span>)" and make a substring assertion brittle.
+      label: 'Heading<script>alert(x)</script>'
+      desc: '36px / 700'
+  weights:
+    - name: 'Bold<script>alert(5)</script>'
+      class: font-bold
+      value: '700'
+  body_sample: 'The quick brown fox jumps over the lazy dog.'
 
 # Both palette shapes the overview normalizer accepts — the e2e smoke
 # asserts foundations renders them side by side.
@@ -49,4 +75,13 @@ colors:
       - { name: "robin's egg", hex: '#9EDDDF' }
       - { name: '<b>evil"name</b>', hex: '#AABBCC' }
 
-labels: { colors: "Colors", click_to_copy: "Click to copy", copied: "Copied!", click_swatch: "Click a swatch" }
+labels:
+  {
+    colors: "Colors",
+    click_to_copy: "Click to copy",
+    copied: "Copied!",
+    click_swatch: "Click a swatch",
+    logo: "Logo",
+    # Hostile label (#78) — labels.* outside #colors were previously unescaped.
+    typography: 'Typography<script>alert(6)</script>',
+  }

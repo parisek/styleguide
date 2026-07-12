@@ -254,6 +254,31 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     "brand-red"                        "foundations colors: pre-existing flat palette rendering still works"
 assert_body_not_contains "/styleguide/render/foundations/index" "<b>evil" "foundations colors: hostile swatch name never reaches the body unescaped"
 
+# Escaping sweep (#78) — the logo and typography sections of foundations.twig
+# still interpolated consumer yaml raw (same class of bug as the #72-review
+# finding above, just in a different section). Every hostile value below must
+# reach the body only in its escaped form; the raw HTML/JS-shaped payload
+# must never appear unescaped.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    "Logo&lt;script&gt;alert(1)&lt;/script&gt;"          "foundations logo: hostile label renders HTML-escaped" \
+    "Typography&lt;script&gt;alert(6)&lt;/script&gt;"    "foundations typography: hostile section label (labels.* outside #colors) renders HTML-escaped" \
+    "Evil&lt;img src=x onerror=alert(1)&gt;Font"          "foundations typography: hostile font name renders HTML-escaped" \
+    "font.css&#x3F;v&#x3D;1&quot;onmouseover&#x3D;alert&#x28;2&#x29;" "foundations typography: font url with an embedded quote is html_attr-escaped (no attribute breakout)" \
+    "Headings&lt;script&gt;alert(3)&lt;/script&gt;"       "foundations typography: hostile font usage tag renders HTML-escaped" \
+    "Heading&lt;script&gt;alert(x)&lt;/script&gt;"        "foundations typography: hostile heading label renders HTML-escaped (pre-escaped before |typography)" \
+    "Bold&lt;script&gt;alert(5)&lt;/script&gt;"           "foundations typography: hostile weight name renders HTML-escaped"
+# Raw-payload checks target the exact hostile string per fixture entry (not a
+# bare `<script>` substring) — the page legitimately emits real `<script>`
+# tags (foundations.js module, standalone-bar reveal script), so a blanket
+# "body lacks <script>" assertion would false-positive against those.
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(1)</script>" "foundations logo: hostile label never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(6)</script>" "foundations typography: hostile section label never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(3)</script>" "foundations typography: hostile font usage tag never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(x)</script>" "foundations typography: hostile heading label never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(5)</script>" "foundations typography: hostile weight name never reaches the body as a live <script> tag"
+assert_body_not_contains "/styleguide/render/foundations/index" "<img src=x onerror=" "foundations typography: hostile font name never reaches the body unescaped"
+assert_body_not_contains "/styleguide/render/foundations/index" '"onmouseover=alert' "foundations typography: font url quote never breaks out of the href attribute"
+
 # Package-shipped vanilla foundations.js (#79) — injected alongside
 # foundations.css for the foundations render only; see render-cell.twig.
 assert_body_contains_all "/styleguide/render/foundations/index" \
