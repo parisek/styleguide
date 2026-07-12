@@ -208,6 +208,15 @@ assert_body_contains  "/styleguide/render/doc/sample-doc" "Fixture body." "rende
 # Contrast with the component render assertion above, which DOES carry it.
 assert_body_not_contains "/styleguide/render/doc/sample-doc" "bg-consumer-global" "render doc skips the consumer's global body_class"
 
+# Flexible color model (#71) — legacy scale palette and flat named palette
+# both survive normalization and render on foundations.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    "primary-500"                "foundations colors: legacy shades palette renders css-variable label" \
+    "#FE4942"                    "foundations colors: legacy palette hex reaches the markup" \
+    "brand-red"                  "foundations colors: flat palette css_variable label renders" \
+    "cream"                      "foundations colors: flat palette bare-name swatch renders" \
+    "#1D3557"                    "foundations colors: flat palette hex reaches the markup"
+
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
 HASHED_JS=$(curl -sk "$BASE/styleguide/" | grep -oE '/styleguide/assets/styleguide\.[A-Za-z0-9_-]+\.js' | head -1 || true)
