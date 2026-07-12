@@ -1171,6 +1171,14 @@ final class Styleguide
             if ($cssUrl !== null) {
                 $config['foundations_css_url'] = $cssUrl;
             }
+            // Foundations consumes the normalized palette shape (legacy
+            // `shades:` map and free-form `swatches:` list both accepted —
+            // see ColorPalettes). Only the foundations render is remapped;
+            // component/page/doc renders keep the raw yaml `colors` so
+            // consumer templates reading styleguide.colors are untouched.
+            $config['styleguide'] = array_merge($this->yamlConfig, [
+                'colors' => ColorPalettes::normalize($this->yamlConfig['colors'] ?? null),
+            ]);
         }
 
         header('Content-Type: text/html; charset=utf-8');
