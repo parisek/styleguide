@@ -95,4 +95,76 @@ final class ColorPalettesTest extends TestCase
         self::assertSame('brand-500', $result[0]['swatches'][0]['label']);
         self::assertSame('var(--color-brand-500, #123456)', $result[0]['swatches'][0]['bg']);
     }
+
+    public function testNamedSwatchesListNormalizes(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'name'     => 'Brand',
+                'swatches' => [
+                    ['name' => 'red', 'hex' => '#E63946', 'css_variable' => 'brand-red'],
+                    ['name' => 'cream', 'hex' => '#F1FAEE'],
+                    ['name' => 'navy', 'hex' => '#1D3557', 'oklch' => 'oklch(32.1% 0.078 258.4)'],
+                ],
+            ],
+        ]);
+
+        $palette = $result[0];
+        self::assertSame(['red', 'cream', 'navy'], array_column($palette['swatches'], 'key'));
+        self::assertSame('red', $palette['default']); // first swatch — no default: given
+
+        $red = $palette['swatches'][0];
+        self::assertSame('brand-red', $red['label']);
+        self::assertSame('var(--color-brand-red, #E63946)', $red['bg']);
+
+        $cream = $palette['swatches'][1];
+        self::assertSame('cream', $cream['label']);     // no css_variable → bare name
+        self::assertSame('#F1FAEE', $cream['bg']);      // no css_variable → plain hex background
+        self::assertTrue($cream['light']);
+
+        self::assertSame('oklch(32.1% 0.078 258.4)', $palette['swatches'][2]['oklch']);
+        self::assertFalse($palette['swatches'][2]['light']);
+    }
+
+    public function testNamedSwatchDefaultByName(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'default'  => 'cream',
+                'swatches' => [
+                    ['name' => 'red', 'hex' => '#E63946'],
+                    ['name' => 'cream', 'hex' => '#F1FAEE'],
+                ],
+            ],
+        ]);
+
+        self::assertSame('cream', $result[0]['default']);
+    }
+
+    public function testNamedSwatchWithoutNameOrHexIsSkipped(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'swatches' => [
+                    ['hex' => '#E63946'],                  // no name
+                    ['name' => 'ghost'],                   // no hex
+                    ['name' => 'ok', 'hex' => '#123456'],
+                ],
+            ],
+        ]);
+
+        self::assertSame(['ok'], array_column($result[0]['swatches'], 'key'));
+    }
+
+    public function testSwatchesWinsOverShadesWhenBothPresent(): void
+    {
+        $result = ColorPalettes::normalize([
+            'mixed' => [
+                'shades'   => [500 => ['hex' => '#111111']],
+                'swatches' => [['name' => 'only', 'hex' => '#222222']],
+            ],
+        ]);
+
+        self::assertSame(['only'], array_column($result[0]['swatches'], 'key'));
+    }
 }

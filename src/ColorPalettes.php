@@ -86,6 +86,29 @@ final class ColorPalettes
     {
         $swatches = [];
 
+        if (isset($palette['swatches']) && is_array($palette['swatches'])) {
+            foreach ($palette['swatches'] as $color) {
+                if (!is_array($color)) {
+                    continue;
+                }
+                $name = (string) ($color['name'] ?? '');
+                if ($name === '') {
+                    continue;
+                }
+                $swatch = self::buildSwatch(
+                    key: $name,
+                    hex: (string) ($color['hex'] ?? ''),
+                    oklch: (string) ($color['oklch'] ?? ''),
+                    cssVariable: (string) ($color['css_variable'] ?? ''),
+                );
+                if ($swatch !== null) {
+                    $swatches[] = $swatch;
+                }
+            }
+
+            return $swatches;
+        }
+
         if (isset($palette['shades']) && is_array($palette['shades'])) {
             $prefix = (string) ($palette['css_variable'] ?? $paletteKey);
             foreach ($palette['shades'] as $shade => $color) {
