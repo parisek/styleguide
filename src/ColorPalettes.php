@@ -41,6 +41,16 @@ namespace Parisek\Styleguide;
  * WCAG hex-luminance heuristic; it only falls back to the hex heuristic
  * when the final `oklch` string can't be parsed for a lightness value
  * (e.g. a hand-typed typo in the yaml).
+ *
+ * `css_variable` (both the per-swatch `swatches:` shape and the composed
+ * `<prefix>-<shade>` of the legacy `shades:` shape) is validated against
+ * `^[A-Za-z0-9_-]+$` in {@see self::buildSwatch()} before it's interpolated
+ * into the `bg` CSS value (`var(--color-<var>, <hex>)`, rendered into an
+ * inline `style` attribute by foundations.twig). This isn't cosmetic: an
+ * unvalidated value could break out of the `var()` call with `;`/`)` and
+ * inject arbitrary CSS declarations. A value that fails the check is
+ * treated as absent — the swatch still renders, just with a plain-hex `bg`
+ * and a key-based `label`.
  */
 final class ColorPalettes
 {
@@ -148,6 +158,20 @@ final class ColorPalettes
         if ($rgb === null) {
             return null;
         }
+
+        // `cssVariable` is interpolated verbatim into an inline `style="…"`
+        // attribute (`var(--color-<var>, <hex>)` — see `bg` below), so a yaml
+        // author (or anything that can influence styleguide.yaml) could break
+        // out of the `var()` call with `;`/`)` and inject arbitrary CSS
+        // declarations. Restrict it to the character set CSS custom-property
+        // names actually need; anything else is treated as absent, which
+        // degrades gracefully to a plain-hex background and a key-based
+        // label. Runs after the legacy `<prefix>-<shade>` composition (see
+        // caller), so it validates the final string either shape produces.
+        if ($cssVariable !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $cssVariable) !== 1) {
+            $cssVariable = '';
+        }
+
         $hex = '#' . strtoupper(ltrim(trim($hex), '#'));
         if (strlen($hex) === 4) { // #RGB → #RRGGBB so copy-to-clipboard is canonical
             $hex = '#' . $hex[1] . $hex[1] . $hex[2] . $hex[2] . $hex[3] . $hex[3];

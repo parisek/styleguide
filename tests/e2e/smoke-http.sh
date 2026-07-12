@@ -230,6 +230,16 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     'data-ratio="21"'                  "foundations contrast: white-on-black matrix cell grades 21" \
     ">AAA<"                             "foundations contrast: AAA verdict label appears in the matrix"
 
+# Escaping regression (#72 review) — a swatch name carrying HTML/JS-hostile
+# characters must reach the matrix row header only in its escaped form; the
+# raw markup must never appear unescaped (XSS via a consumer-controlled yaml
+# string rendered into a text node). Pre-existing rendering (regular swatch
+# names) must keep working alongside it.
+assert_body_contains_all "/styleguide/render/foundations/index" \
+    "&lt;b&gt;evil&quot;name&lt;/b&gt;" "foundations colors: hostile swatch name renders HTML-escaped in the matrix row header" \
+    "brand-red"                        "foundations colors: pre-existing flat palette rendering still works"
+assert_body_not_contains "/styleguide/render/foundations/index" "<b>evil" "foundations colors: hostile swatch name never reaches the body unescaped"
+
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
 HASHED_JS=$(curl -sk "$BASE/styleguide/" | grep -oE '/styleguide/assets/styleguide\.[A-Za-z0-9_-]+\.js' | head -1 || true)

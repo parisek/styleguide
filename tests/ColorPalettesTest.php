@@ -260,4 +260,54 @@ final class ColorPalettesTest extends TestCase
     {
         self::assertSame(['colors' => [], 'cells' => []], ColorPalettes::contrastMatrix([]));
     }
+
+    public function testMaliciousCssVariableIsRejectedOnNamedSwatchShape(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'swatches' => [
+                    ['name' => 'evil', 'hex' => '#E63946', 'css_variable' => 'x;background:url(//evil)'],
+                ],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        // Invalid css_variable is treated as absent: bg falls back to the
+        // plain hex (no `var(...)` wrapper for the injected string to hide
+        // in) and label falls back to the swatch key.
+        self::assertSame('#E63946', $swatch['bg']);
+        self::assertSame('evil', $swatch['label']);
+    }
+
+    public function testMaliciousCssVariableIsRejectedOnLegacyShadesShape(): void
+    {
+        // Legacy shape composes `<prefix>-<shade>` before it reaches
+        // buildSwatch() — the malicious payload must be caught in the
+        // composed string too, not just the raw per-swatch input.
+        $result = ColorPalettes::normalize([
+            'primary' => [
+                'css_variable' => 'x;background:url(//evil)',
+                'shades'       => [500 => ['hex' => '#FE4942']],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        self::assertSame('#FE4942', $swatch['bg']);
+        self::assertSame('500', $swatch['label']);
+    }
+
+    public function testValidCssVariableStillPasses(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'swatches' => [
+                    ['name' => 'red', 'hex' => '#E63946', 'css_variable' => 'brand-red'],
+                ],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        self::assertSame('var(--color-brand-red, #E63946)', $swatch['bg']);
+        self::assertSame('brand-red', $swatch['label']);
+    }
 }
