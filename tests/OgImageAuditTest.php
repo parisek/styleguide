@@ -89,6 +89,25 @@ final class OgImageAuditTest extends TestCase
         self::assertSame([], $result['notes']);
     }
 
+    public function testRelativePathWithoutLeadingSlashResolvesAndNormalizes(): void
+    {
+        // (#74 review) `PathGuard::resolvePath()` used to concatenate
+        // `$staticPath . $path` verbatim — a yaml value with no leading
+        // slash (`og_image: images/og-image.png`, the natural way an
+        // editor would write it) produced `.../fixturesimages/og-image.png`
+        // and was misreported as missing. The join must tolerate either
+        // form, and the rendered `path` must always come back root-relative
+        // regardless of how the yaml value was written.
+        $result = OgImageAudit::run(self::STATIC_PATH, 'images/og-image.png');
+
+        self::assertTrue($result['configured']);
+        self::assertTrue($result['exists']);
+        self::assertSame('/images/og-image.png', $result['path']);
+        self::assertSame(1200, $result['width']);
+        self::assertSame(630, $result['height']);
+        self::assertSame('ok', $result['status']);
+    }
+
     public function testSmallButOverMinimumIsWarningWithNote(): void
     {
         $dir = $this->makeTempDir();

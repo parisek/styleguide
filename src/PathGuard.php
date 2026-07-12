@@ -36,7 +36,7 @@ final class PathGuard
             return null;
         }
 
-        $real = realpath($staticPath . $path);
+        $real = realpath(self::joinPath($staticPath, $path));
         if ($real === false || !self::isContained($real, $realStatic) || !is_file($real) || !is_readable($real)) {
             return null;
         }
@@ -76,7 +76,7 @@ final class PathGuard
             return false;
         }
 
-        $candidate = $staticPath . $path;
+        $candidate = self::joinPath($staticPath, $path);
         $real = realpath($candidate);
         if ($real === false) {
             $real = realpath(dirname($candidate));
@@ -86,6 +86,35 @@ final class PathGuard
         }
 
         return !self::isContained($real, $realStatic);
+    }
+
+    /**
+     * Joins `$staticPath` and `$path` with exactly one `/` separator,
+     * regardless of whether either side already carries one. Both
+     * {@see self::resolvePath()} and {@see self::pathEscapesRoot()} used to
+     * concatenate the two strings verbatim (`$staticPath . $path`) — a
+     * yaml-configured value with no leading slash (`og_image:
+     * images/og-image.png`, the natural way to write it) silently glued
+     * onto the static path with zero separators (`.../staticimages/...`),
+     * so the file was misreported as missing instead of resolved.
+     */
+    private static function joinPath(string $staticPath, string $path): string
+    {
+        return rtrim($staticPath, '/') . '/' . ltrim($path, '/');
+    }
+
+    /**
+     * Normalizes a yaml-configured path into a root-relative web path
+     * (leading `/`, regardless of whether the yaml value carried one) —
+     * the only shape that's safe to render verbatim into an `<img src>` /
+     * `<link href>`. Callers apply this only to paths already proven
+     * internal (not {@see self::isExternalUrl()}, not {@see
+     * self::pathEscapesRoot()}) — normalizing an external URL or a
+     * scheme-prefixed value would corrupt it.
+     */
+    public static function toWebPath(string $path): string
+    {
+        return '/' . ltrim($path, '/');
     }
 
     private static function isContained(string $real, string $realStatic): bool

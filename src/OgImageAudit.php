@@ -89,6 +89,12 @@ final class OgImageAudit
             return self::result(true, $path, false, null, null, null, 'error', [self::PATH_ESCAPES_NOTE]);
         }
 
+        // Proven internal and contained past this point — normalize to a
+        // root-relative web path (leading `/`) so the template can render
+        // `path` verbatim into an `<img src>` regardless of how the yaml
+        // value was written (`og_image: images/x.png` vs `/images/x.png`).
+        $path = PathGuard::toWebPath($path);
+
         $absolute = PathGuard::resolvePath($staticPath, $path);
         if ($absolute === null) {
             return self::result(true, $path, false, null, null, null, 'missing', []);
