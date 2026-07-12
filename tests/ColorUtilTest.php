@@ -127,4 +127,38 @@ final class ColorUtilTest extends TestCase
             'just below'      => [0.5634, false],
         ];
     }
+
+    public function testContrastRatioWhiteBlackIsTwentyOne(): void
+    {
+        self::assertEqualsWithDelta(21.0, ColorUtil::contrastRatio('#FFFFFF', '#000000'), 0.001);
+    }
+
+    public function testContrastRatioIsSymmetric(): void
+    {
+        self::assertSame(
+            ColorUtil::contrastRatio('#FE4942', '#FFFFFF'),
+            ColorUtil::contrastRatio('#FFFFFF', '#FE4942'),
+        );
+    }
+
+    public function testContrastRatioSameColorIsOne(): void
+    {
+        self::assertEqualsWithDelta(1.0, ColorUtil::contrastRatio('#7E7E92', '#7E7E92'), 0.001);
+    }
+
+    public function testContrastRatioMidRedOnWhite(): void
+    {
+        // L(#FE4942) ≈ 0.2623 (exact ColorUtil::relativeLuminance() value) →
+        // (1.0 + 0.05) / (0.2623 + 0.05) ≈ 3.36. The brief's worked comment
+        // used the rounded 0.267 approximation from the OKLCH test fixture,
+        // which put the derived ratio (3.31) outside a sane delta of the
+        // actual value — corrected here against the real computation.
+        self::assertEqualsWithDelta(3.36, ColorUtil::contrastRatio('#FE4942', '#FFFFFF'), 0.01);
+    }
+
+    public function testContrastRatioGarbageIsNull(): void
+    {
+        self::assertNull(ColorUtil::contrastRatio('nope', '#FFFFFF'));
+        self::assertNull(ColorUtil::contrastRatio('#FFFFFF', ''));
+    }
 }

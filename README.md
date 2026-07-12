@@ -180,6 +180,8 @@ colors:
 
 Text lightness on each swatch is derived from OKLCH lightness (provided or computed from the hex), falling back to WCAG relative luminance of the hex when the OKLCH value can't be parsed; `hex` is required per swatch — entries without a parseable hex are skipped. `oklch` is optional and is computed from `hex` when omitted.
 
+Every swatch also carries `contrast_white`/`contrast_black` WCAG contrast ratios against the hex, plus `aa_white`/`aa_black` pass/fail verdicts against the AA threshold (4.5:1) — all computed server-side, no yaml input required. Foundations renders dot badges on each swatch tile for a quick read, and an expandable full contrast matrix grading every color × color pair (all palettes plus white and black) with AAA / AA / AA-large / fail verdicts; its heading and legend copy come from the optional `labels.contrast_matrix` / `labels.contrast_matrix_legend` keys, both with English defaults.
+
 ```yaml
 typography:
   fonts:

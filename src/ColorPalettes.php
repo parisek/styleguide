@@ -41,6 +41,16 @@ namespace Parisek\Styleguide;
  * WCAG hex-luminance heuristic; it only falls back to the hex heuristic
  * when the final `oklch` string can't be parsed for a lightness value
  * (e.g. a hand-typed typo in the yaml).
+ *
+ * `css_variable` (both the per-swatch `swatches:` shape and the composed
+ * `<prefix>-<shade>` of the legacy `shades:` shape) is validated against
+ * `^[A-Za-z0-9_-]+$` in {@see self::buildSwatch()} before it's interpolated
+ * into the `bg` CSS value (`var(--color-<var>, <hex>)`, rendered into an
+ * inline `style` attribute by foundations.twig). This isn't cosmetic: an
+ * unvalidated value could break out of the `var()` call with `;`/`)` and
+ * inject arbitrary CSS declarations. A value that fails the check is
+ * treated as absent — the swatch still renders, just with a plain-hex `bg`
+ * and a key-based `label`.
  */
 final class ColorPalettes
 {
@@ -49,7 +59,7 @@ final class ColorPalettes
      *     key: string,
      *     name: string,
      *     default: string,
-     *     swatches: list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool}>
+     *     swatches: list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool, contrast_white: float, contrast_black: float, aa_white: bool, aa_black: bool}>
      * }>
      */
     public static function normalize(mixed $colors): array
@@ -89,7 +99,7 @@ final class ColorPalettes
     /**
      * @param array<mixed> $palette
      *
-     * @return list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool}>
+     * @return list<array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool, contrast_white: float, contrast_black: float, aa_white: bool, aa_black: bool}>
      */
     private static function normalizeSwatches(string $paletteKey, array $palette): array
     {
@@ -140,7 +150,7 @@ final class ColorPalettes
     }
 
     /**
-     * @return array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool}|null
+     * @return array{key: string, hex: string, oklch: string, label: string, bg: string, light: bool, contrast_white: float, contrast_black: float, aa_white: bool, aa_black: bool}|null
      */
     private static function buildSwatch(string $key, string $hex, string $oklch, string $cssVariable): ?array
     {
@@ -148,6 +158,20 @@ final class ColorPalettes
         if ($rgb === null) {
             return null;
         }
+
+        // `cssVariable` is interpolated verbatim into an inline `style="…"`
+        // attribute (`var(--color-<var>, <hex>)` — see `bg` below), so a yaml
+        // author (or anything that can influence styleguide.yaml) could break
+        // out of the `var()` call with `;`/`)` and inject arbitrary CSS
+        // declarations. Restrict it to the character set CSS custom-property
+        // names actually need; anything else is treated as absent, which
+        // degrades gracefully to a plain-hex background and a key-based
+        // label. Runs after the legacy `<prefix>-<shade>` composition (see
+        // caller), so it validates the final string either shape produces.
+        if ($cssVariable !== '' && preg_match('/^[A-Za-z0-9_-]+$/', $cssVariable) !== 1) {
+            $cssVariable = '';
+        }
+
         $hex = '#' . strtoupper(ltrim(trim($hex), '#'));
         if (strlen($hex) === 4) { // #RGB → #RRGGBB so copy-to-clipboard is canonical
             $hex = '#' . $hex[1] . $hex[1] . $hex[2] . $hex[2] . $hex[3] . $hex[3];
@@ -165,13 +189,73 @@ final class ColorPalettes
         $lightness = ColorUtil::oklchLightness($oklch);
         $light = $lightness !== null ? ColorUtil::isLightOklch($lightness) : ColorUtil::isLight($hex);
 
+        // (float) cast is safe: parseHex() already validated $hex above, so
+        // contrastRatio() cannot return null here.
+        $contrastWhite = round((float) ColorUtil::contrastRatio($hex, '#FFFFFF'), 2);
+        $contrastBlack = round((float) ColorUtil::contrastRatio($hex, '#000000'), 2);
+
         return [
-            'key'   => $key,
-            'hex'   => $hex,
-            'oklch' => $oklch,
-            'label' => $cssVariable !== '' ? $cssVariable : $key,
-            'bg'    => $cssVariable !== '' ? sprintf('var(--color-%s, %s)', $cssVariable, $hex) : $hex,
-            'light' => $light,
+            'key'            => $key,
+            'hex'            => $hex,
+            'oklch'          => $oklch,
+            'label'          => $cssVariable !== '' ? $cssVariable : $key,
+            'bg'             => $cssVariable !== '' ? sprintf('var(--color-%s, %s)', $cssVariable, $hex) : $hex,
+            'light'          => $light,
+            'contrast_white' => $contrastWhite,
+            'contrast_black' => $contrastBlack,
+            'aa_white'       => $contrastWhite >= 4.5,
+            'aa_black'       => $contrastBlack >= 4.5,
         ];
+    }
+
+    /**
+     * Full pair-contrast grid for the foundations matrix: every swatch across
+     * all palettes plus White and Black. cells[row][col] grades text color
+     * `row` on background `col` — ratio is symmetric, the orientation only
+     * matters for the rendered preview.
+     *
+     * Levels: aaa >= 7.0, aa >= 4.5, aa-large >= 3.0 (large-text AA), fail.
+     * Empty palette list yields ['colors' => [], 'cells' => []] so the
+     * template's `if colors_contrast.colors` guard hides the section.
+     *
+     * @param list<array{key: string, name: string, default: string, swatches: list<array<string, mixed>>}> $palettes
+     *
+     * @return array{colors: list<array{label: string, hex: string, bg: string}>, cells: list<list<array{ratio: float, level: string}>>}
+     */
+    public static function contrastMatrix(array $palettes): array
+    {
+        $colors = [];
+        foreach ($palettes as $palette) {
+            foreach ($palette['swatches'] as $swatch) {
+                $colors[] = ['label' => (string) $swatch['label'], 'hex' => (string) $swatch['hex'], 'bg' => (string) $swatch['bg']];
+            }
+        }
+        if ($colors === []) {
+            return ['colors' => [], 'cells' => []];
+        }
+        $colors[] = ['label' => 'White', 'hex' => '#FFFFFF', 'bg' => '#FFFFFF'];
+        $colors[] = ['label' => 'Black', 'hex' => '#000000', 'bg' => '#000000'];
+
+        $cells = [];
+        foreach ($colors as $row) {
+            $rowCells = [];
+            foreach ($colors as $col) {
+                $ratio = round((float) ColorUtil::contrastRatio($row['hex'], $col['hex']), 2);
+                $rowCells[] = ['ratio' => $ratio, 'level' => self::gradeContrast($ratio)];
+            }
+            $cells[] = $rowCells;
+        }
+
+        return ['colors' => $colors, 'cells' => $cells];
+    }
+
+    private static function gradeContrast(float $ratio): string
+    {
+        return match (true) {
+            $ratio >= 7.0 => 'aaa',
+            $ratio >= 4.5 => 'aa',
+            $ratio >= 3.0 => 'aa-large',
+            default => 'fail',
+        };
     }
 }

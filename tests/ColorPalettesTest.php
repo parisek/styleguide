@@ -188,4 +188,126 @@ final class ColorPalettesTest extends TestCase
 
         self::assertSame(['only'], array_column($result[0]['swatches'], 'key'));
     }
+
+    public function testSwatchCarriesTextContrastData(): void
+    {
+        $result = ColorPalettes::normalize([
+            'primary' => ['shades' => [500 => ['hex' => '#FE4942']]],
+        ]);
+        $swatch = $result[0]['swatches'][0];
+
+        self::assertEqualsWithDelta(3.36, $swatch['contrast_white'], 0.01);
+        self::assertEqualsWithDelta(6.25, $swatch['contrast_black'], 0.01);
+        self::assertFalse($swatch['aa_white']);
+        self::assertTrue($swatch['aa_black']);
+    }
+
+    public function testDarkSwatchPassesWhiteFailsBlack(): void
+    {
+        $result = ColorPalettes::normalize([
+            'x' => ['shades' => [900 => ['hex' => '#19191E']]],
+        ]);
+        $swatch = $result[0]['swatches'][0];
+
+        self::assertTrue($swatch['aa_white']);
+        self::assertFalse($swatch['aa_black']);
+    }
+
+    public function testContrastMatrixAppendsWhiteAndBlackAndGradesCells(): void
+    {
+        $palettes = ColorPalettes::normalize([
+            'primary' => ['shades' => [500 => ['hex' => '#FE4942']]],
+        ]);
+        $matrix = ColorPalettes::contrastMatrix($palettes);
+
+        self::assertSame(['primary-500', 'White', 'Black'], array_column($matrix['colors'], 'label'));
+        self::assertSame('#FFFFFF', $matrix['colors'][1]['hex']);
+        self::assertSame('#FFFFFF', $matrix['colors'][1]['bg']);
+
+        self::assertCount(3, $matrix['cells']);
+        self::assertCount(3, $matrix['cells'][0]);
+
+        $diagonal = $matrix['cells'][0][0];
+        self::assertEqualsWithDelta(1.0, $diagonal['ratio'], 0.001);
+        self::assertSame('fail', $diagonal['level']);
+
+        $whiteOnBlack = $matrix['cells'][1][2];
+        self::assertEqualsWithDelta(21.0, $whiteOnBlack['ratio'], 0.001);
+        self::assertSame('aaa', $whiteOnBlack['level']);
+
+        $redOnWhite = $matrix['cells'][0][1];
+        self::assertEqualsWithDelta(3.36, $redOnWhite['ratio'], 0.01);
+        self::assertSame('aa-large', $redOnWhite['level']);
+    }
+
+    public function testContrastMatrixLevels(): void
+    {
+        $palettes = ColorPalettes::normalize([
+            'x' => ['shades' => [
+                600 => ['hex' => '#646476'],  // vs white ≈ 4.9 → aa
+                900 => ['hex' => '#19191E'],  // vs white ≈ 17+ → aaa
+            ]],
+        ]);
+        $matrix = ColorPalettes::contrastMatrix($palettes);
+        $labels = array_column($matrix['colors'], 'label');
+        $white = array_search('White', $labels, true);
+
+        self::assertSame('aa', $matrix['cells'][0][$white]['level']);
+        self::assertSame('aaa', $matrix['cells'][1][$white]['level']);
+    }
+
+    public function testContrastMatrixEmptyInput(): void
+    {
+        self::assertSame(['colors' => [], 'cells' => []], ColorPalettes::contrastMatrix([]));
+    }
+
+    public function testMaliciousCssVariableIsRejectedOnNamedSwatchShape(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'swatches' => [
+                    ['name' => 'evil', 'hex' => '#E63946', 'css_variable' => 'x;background:url(//evil)'],
+                ],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        // Invalid css_variable is treated as absent: bg falls back to the
+        // plain hex (no `var(...)` wrapper for the injected string to hide
+        // in) and label falls back to the swatch key.
+        self::assertSame('#E63946', $swatch['bg']);
+        self::assertSame('evil', $swatch['label']);
+    }
+
+    public function testMaliciousCssVariableIsRejectedOnLegacyShadesShape(): void
+    {
+        // Legacy shape composes `<prefix>-<shade>` before it reaches
+        // buildSwatch() — the malicious payload must be caught in the
+        // composed string too, not just the raw per-swatch input.
+        $result = ColorPalettes::normalize([
+            'primary' => [
+                'css_variable' => 'x;background:url(//evil)',
+                'shades'       => [500 => ['hex' => '#FE4942']],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        self::assertSame('#FE4942', $swatch['bg']);
+        self::assertSame('500', $swatch['label']);
+    }
+
+    public function testValidCssVariableStillPasses(): void
+    {
+        $result = ColorPalettes::normalize([
+            'brand' => [
+                'swatches' => [
+                    ['name' => 'red', 'hex' => '#E63946', 'css_variable' => 'brand-red'],
+                ],
+            ],
+        ]);
+
+        $swatch = $result[0]['swatches'][0];
+        self::assertSame('var(--color-brand-red, #E63946)', $swatch['bg']);
+        self::assertSame('brand-red', $swatch['label']);
+    }
 }
