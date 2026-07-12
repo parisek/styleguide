@@ -55,6 +55,7 @@
 	{% if styleguide.colors %}
 		<section id="colors" class="mb-12" x-data="{
 			copiedColor: null,
+			matrixOpen: false,
 			colors: {
 				{% for palette in styleguide.colors %}
 				{{ palette.key|json_encode|e('html_attr') }}: {{ palette.swatches|filter(s => s.key == palette.default)|first|json_encode|e('html_attr') }}{{ not loop.last ? ',' : '' }}
@@ -105,6 +106,7 @@
 								<div class="text-right">
 									<p class="opacity-90 font-mono text-sm" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].hex"></p>
 									<p class="opacity-60 font-mono text-xs" x-text="colors[{{ palette.key|json_encode|e('html_attr') }}].oklch"></p>
+									<p class="opacity-75 font-mono text-xs" x-text="'W ' + colors[{{ palette.key|json_encode|e('html_attr') }}].contrast_white + (colors[{{ palette.key|json_encode|e('html_attr') }}].aa_white ? ' AA' : '') + ' · B ' + colors[{{ palette.key|json_encode|e('html_attr') }}].contrast_black + (colors[{{ palette.key|json_encode|e('html_attr') }}].aa_black ? ' AA' : '')"></p>
 									<p class="mt-1 opacity-60 font-mono text-xs">{{ styleguide.labels.click_swatch }}</p>
 								</div>
 							</div>
@@ -135,7 +137,12 @@
 											':class': "colors[#{palette.key|json_encode}].key === #{swatch.key|json_encode} ? 'ring-2 ring-zinc-950' : ''",
 											style: "background-color: #{swatch.bg};",
 										}) %}
-										<div{{ swatch_attrs }}></div>
+										<div{{ swatch_attrs }}>
+											<span class="flex absolute right-0.5 bottom-0.5 gap-0.5">
+												{% if swatch.aa_white %}<span class="w-1.5 h-1.5 rounded-full bg-white shadow-sm" title="AA white"></span>{% endif %}
+												{% if swatch.aa_black %}<span class="w-1.5 h-1.5 rounded-full bg-black shadow-sm" title="AA black"></span>{% endif %}
+											</span>
+										</div>
 										<p
 											class="mt-2 font-mono text-[10px] text-zinc-500 group-hover/swatch:text-zinc-900 text-center truncate transition-colors"
 											:class="colors[{{ palette.key|json_encode|e('html_attr') }}].key === {{ swatch.key|json_encode|e('html_attr') }} ? 'font-bold text-zinc-900' : ''"
@@ -148,8 +155,9 @@
 												'bg-zinc-900 font-mono text-[10px] text-white whitespace-nowrap pointer-events-none',
 											],
 										}) %}
-										<div{{ swatch_tooltip_attrs }}>
+										<div{{ swatch_tooltip_attrs }} data-contrast="W {{ swatch.contrast_white }} B {{ swatch.contrast_black }}">
 											<span x-text="copiedColor === {{ swatch.label|json_encode|e('html_attr') }} ? '{{ styleguide.labels.copied }}' : {{ swatch.hex|json_encode|e('html_attr') }}"></span>
+											<span class="block opacity-70">W {{ swatch.contrast_white }}{{ swatch.aa_white ? ' AA' : '' }} · B {{ swatch.contrast_black }}{{ swatch.aa_black ? ' AA' : '' }}</span>
 										</div>
 									</button>
 								{% endfor %}
@@ -158,6 +166,65 @@
 					</div>
 				{% endfor %}
 			</div>
+
+			{% if styleguide.colors_contrast.colors %}
+				<div id="contrast-matrix" class="mt-8">
+					<button
+						type="button"
+						class="flex gap-2 items-center font-semibold text-sm text-zinc-600 hover:text-zinc-900 transition-colors"
+						@click="matrixOpen = !matrixOpen"
+					>
+						<svg class="w-4 h-4 transition-transform" :class="matrixOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+							<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+						</svg>
+						{{ styleguide.labels.contrast_matrix|default('Contrast matrix (WCAG)') }}
+					</button>
+					<div class="overflow-x-auto mt-4" x-show="matrixOpen" x-cloak>
+						<table class="border-separate border-spacing-1">
+							<thead>
+								<tr>
+									<th class="sticky left-0 z-10 bg-zinc-50"></th>
+									{% for color in styleguide.colors_contrast.colors %}
+										<th class="p-1">
+											<span class="block mx-auto w-6 h-6 rounded border border-zinc-200" style="background-color: {{ color.bg }};" title="{{ color.label }}"></span>
+										</th>
+									{% endfor %}
+								</tr>
+							</thead>
+							<tbody>
+								{% for row in styleguide.colors_contrast.colors %}
+									{% set row_index = loop.index0 %}
+									<tr>
+										<th class="sticky left-0 z-10 py-1 pr-2 bg-zinc-50 text-left">
+											<span class="flex gap-2 items-center">
+												<span class="shrink-0 w-4 h-4 rounded border border-zinc-200" style="background-color: {{ row.bg }};"></span>
+												<span class="font-mono font-medium text-[10px] text-zinc-600 whitespace-nowrap">{{ row.label }}</span>
+											</span>
+										</th>
+										{% for cell in styleguide.colors_contrast.cells[row_index] %}
+											{% set col = styleguide.colors_contrast.colors[loop.index0] %}
+											{% set cell_attrs = create_attribute({
+												class: [
+													'px-1.5 py-1 min-w-14 rounded text-center align-middle',
+													cell.level == 'fail' ? 'opacity-40' : '',
+												],
+												style: "background-color: #{col.bg}; color: #{row.hex};",
+												'data-ratio': cell.ratio,
+												title: "#{row.label} on #{col.label}: #{cell.ratio}",
+											}) %}
+											<td{{ cell_attrs }}>
+												<span class="block font-mono font-semibold text-[10px]">{{ cell.ratio }}</span>
+												<span class="block font-mono text-[9px] uppercase opacity-80">{{ cell.level == 'aa-large' ? 'AA18' : (cell.level == 'fail' ? '×' : cell.level|upper) }}</span>
+											</td>
+										{% endfor %}
+									</tr>
+								{% endfor %}
+							</tbody>
+						</table>
+						<p class="mt-2 font-mono text-[10px] text-zinc-500">{{ styleguide.labels.contrast_matrix_legend|default('AAA ≥ 7 · AA ≥ 4.5 · AA18 (large text) ≥ 3 · × below 3. Cell = row color as text on column color.') }}</p>
+					</div>
+				</div>
+			{% endif %}
 		</section>
 	{% endif %}
 

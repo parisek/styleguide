@@ -228,7 +228,7 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
     'data-contrast="W 3.36 B 6.25"'   "foundations contrast: primary-500 swatch carries both text ratios" \
     "contrast-matrix"                  "foundations contrast: matrix section renders" \
     'data-ratio="21"'                  "foundations contrast: white-on-black matrix cell grades 21" \
-    "AAA"                              "foundations contrast: AAA verdict label appears in the matrix"
+    ">AAA<"                             "foundations contrast: AAA verdict label appears in the matrix"
 
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
