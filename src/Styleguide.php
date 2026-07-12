@@ -797,12 +797,27 @@ final class Styleguide
     }
 
     /**
-     * `<picture>` source-set builder. Reads `_placeholderOpts` from the input
-     * (set only by `placeholder()`) — without it the filter passes images
-     * through untouched, so real CMS-rendered images aren't accidentally
-     * regenerated as SVG fakes. Each requested size becomes one `<source>`
-     * with a `min-width` media query, except the last which is the bare
-     * fallback consumed as `<img>`.
+     * `<picture>` source-set builder. Each requested size becomes one
+     * `<source>` with a `min-width` media query, except the last which is
+     * the bare fallback consumed as `<img>`.
+     *
+     * Two input kinds, one output shape (issue #70):
+     *  - `placeholder()` fixtures (marked by `_placeholderOpts`) — each
+     *    variant re-generates the SVG at the tuple's exact dimensions, so
+     *    it's trivial to see which source the browser chose.
+     *  - Real fixture images — each variant reuses the ORIGINAL `src`
+     *    (the styleguide has no image pipeline and doesn't need one) but
+     *    carries the tuple's declared `width`/`height`/`media`. The DOM
+     *    then mirrors the multi-source markup the CMS resizer emits in
+     *    production, which is what DOM-structural checks (tailwind-base
+     *    `picture.contract.js`) assert against.
+     *
+     * Animated-GIF parity: production (timber-kit `Resizer::$skip_animated`)
+     * returns animated sources untouched — re-encoding would flatten them
+     * to frame 0. The styleguide can't cheaply prove animation (src is a
+     * URL, not a readable path), so ANY `.gif` fixture passes through
+     * whole. A static GIF fixture loses nothing real (same file either
+     * way), and an animated one renders exactly like production.
      */
     private static function resizerFilter(mixed $value, mixed ...$sizes): mixed
     {
@@ -818,15 +833,26 @@ final class Styleguide
         }
         $base = $value[0];
         $baseOpts = $base['_placeholderOpts'] ?? null;
-        if (!$baseOpts) {
-            return $value;
-        }
         $baseW = (float) ($base['width'] ?? 0);
         $baseH = (float) ($base['height'] ?? 0);
-        if ($baseW <= 0 || $baseH <= 0) {
-            return $value;
+        if ($baseOpts) {
+            // Placeholder regeneration needs a concrete aspect to derive a
+            // missing tuple axis from — placeholder() always provides both.
+            if ($baseW <= 0 || $baseH <= 0) {
+                return $value;
+            }
+        } else {
+            // Real image. Animated-GIF passthrough parity — see docblock.
+            $src = (string) ($base['src'] ?? '');
+            $type = (string) ($base['type'] ?? '');
+            if ($type === 'image/gif' || preg_match('/\.gif(\?|#|$)/i', $src) === 1) {
+                return $value;
+            }
         }
-        $aspect = $baseW / $baseH;
+        // Real images without usable width/height metadata (legacy fixtures,
+        // SVG) keep a null aspect: variants are then emitted with only the
+        // tuple axes that were explicitly provided, never derived.
+        $aspect = ($baseW > 0 && $baseH > 0) ? $baseW / $baseH : null;
 
         // Pre-filter the requested sizes to valid (positive, numeric) tuples
         // so the cascade below can trust `count - 1` to mark the fallback.
@@ -844,10 +870,13 @@ final class Styleguide
             if (($w === null || $w <= 0) && ($h === null || $h <= 0)) {
                 continue;
             }
-            if ($h === null || $h <= 0) {
+            // Derive the missing axis from the source aspect when known;
+            // with no aspect (real image without metadata) keep it null and
+            // emit the variant with the provided axis only.
+            if (($h === null || $h <= 0) && $aspect !== null) {
                 $h = (int) round($w / $aspect);
             }
-            if ($w === null || $w <= 0) {
+            if (($w === null || $w <= 0) && $aspect !== null) {
                 $w = (int) round($h * $aspect);
             }
             $valid[] = [$w, $h, $minW];
@@ -859,16 +888,34 @@ final class Styleguide
         $lastIdx = count($valid) - 1;
         $entries = [];
         foreach ($valid as $i => [$w, $h, $minW]) {
-            // Re-call placeholder() at the variant's dimensions so each
-            // <source> renders an SVG sized exactly to the breakpoint —
-            // makes it trivial to see which source the browser chose.
-            $opts = $baseOpts;
-            $opts['width'] = $w;
-            $opts['height'] = $h;
-            $opts['label'] = true;
-            unset($opts['aspect']);
-            $variant = Placeholder::generate($opts)[0];
-            unset($variant['_placeholderOpts']);
+            if ($baseOpts) {
+                // Re-call placeholder() at the variant's dimensions so each
+                // <source> renders an SVG sized exactly to the breakpoint —
+                // makes it trivial to see which source the browser chose.
+                $opts = $baseOpts;
+                $opts['width'] = $w;
+                $opts['height'] = $h;
+                $opts['label'] = true;
+                unset($opts['aspect']);
+                $variant = Placeholder::generate($opts)[0];
+                unset($variant['_placeholderOpts']);
+            } else {
+                // Real image: same src for every variant, only the declared
+                // dimensions differ — the browser downloads one file, the
+                // DOM mirrors production's per-tuple <source> structure.
+                $variant = $base;
+                unset($variant['media']);
+                if ($w !== null && $w > 0) {
+                    $variant['width'] = $w;
+                } else {
+                    unset($variant['width']);
+                }
+                if ($h !== null && $h > 0) {
+                    $variant['height'] = $h;
+                } else {
+                    unset($variant['height']);
+                }
+            }
             if ($minW !== '' && is_numeric($minW) && $i < $lastIdx) {
                 $variant['media'] = sprintf('(min-width: %dpx)', (int) $minW);
             }
