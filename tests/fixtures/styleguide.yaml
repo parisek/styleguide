@@ -96,6 +96,19 @@ colors:
       - { name: "robin's egg", hex: '#9EDDDF' }
       - { name: '<b>evil"name</b>', hex: '#AABBCC' }
 
+# Favicon audit fixture (#73) — mirrors FaviconAuditTest's happyPathConfig()
+# 1:1 so the e2e render exercises the exact same entries/status/note shapes
+# the unit suite already pins: png_96 ok (96×96), apple_touch WARNING
+# (declares 180×180, fixture asset is really 120×120), manifest with one
+# existing 192 maskable icon + one declared-but-missing-on-disk 512 icon.
+favicon:
+  svg: /images/touch/favicon.svg
+  png_96: /images/touch/favicon-96x96.png
+  ico: /images/touch/favicon.ico
+  apple_touch: /images/touch/apple-touch-icon.png
+  manifest: /images/touch/site.webmanifest
+  theme_color: '#18181B'
+
 labels:
   {
     colors: "Colors",
