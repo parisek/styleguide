@@ -22,6 +22,13 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   quotes render safely. OKLCH values are computed from the hex when the yaml omits them and
   are the preferred lightness basis.
 
+- **Contrast / a11y layer (#72).** Every swatch on the overview now grades white/black
+  text against WCAG AA (4.5:1) — dot badges on the tile, exact ratios in the tooltip and
+  hero — and an expandable matrix grades every color × color pair (all palettes + white +
+  black) with AAA / AA / AA-large / fail verdicts. Computed server-side from the hex via
+  the #71 normalization layer; zero yaml changes needed (new `labels.contrast_matrix*`
+  keys are optional with English defaults).
+
 ### Changed
 
 - **`|resizer` now emits tuple-declared variants for real fixture images too, not only
