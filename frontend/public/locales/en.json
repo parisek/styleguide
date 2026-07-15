@@ -87,6 +87,8 @@
         "toggle": "Toggle theme"
     },
     "health": {
-        "warnings_title": "Some templates failed to parse — click to log details to the console"
+        "warnings_title": "Some templates failed to parse — click for details",
+        "dialog_title": "Templates that failed to parse",
+        "dialog_close": "Close"
     }
 }

@@ -87,6 +87,8 @@
         "toggle": "Přepnout vzhled"
     },
     "health": {
-        "warnings_title": "Některé šablony se nepodařilo zpracovat — kliknutím zobrazíte podrobnosti v konzoli"
+        "warnings_title": "Některé šablony se nepodařilo zpracovat — kliknutím zobrazíte podrobnosti",
+        "dialog_title": "Šablony, které se nepodařilo zpracovat",
+        "dialog_close": "Zavřít"
     }
 }
