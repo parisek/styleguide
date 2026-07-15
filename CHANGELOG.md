@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-15
+
 ### Added
 
 - **Standalone icon catalog page (#87).** New optional `icons:` yaml block (groups of
