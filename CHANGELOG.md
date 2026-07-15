@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Sidebar respects authored `weight:` order.** `buildTree` (prefix grouping) re-sorted
+  every section alphabetically client-side, silently discarding the server's weight-sorted
+  order — a `weight: 1` homepage rendered after "404". Nodes now keep the incoming API order
+  (weight, cs-collation name tiebreak); groups sit where their first member appears and group
+  children keep authored order too. Default-weight sections look unchanged — the server
+  tiebreak already produced the alphabetical order.
+
 ### Changed
 
 - **HealthWarningBadge opens a native `<dialog>` (#89).** Clicking the parser-warnings badge

@@ -18,7 +18,8 @@ describe('buildTree', () => {
         expect(tree).toHaveLength(1);
         expect(tree[0].type).toBe('group');
         expect(tree[0].label).toBe('Widget');
-        expect(tree[0].children.map((c) => c.leaf)).toEqual(['One', 'Three', 'Two']);
+        // Children keep the incoming (server/weight) order — no client re-sort.
+        expect(tree[0].children.map((c) => c.leaf)).toEqual(['One', 'Two', 'Three']);
     });
 
     it('keeps a below-threshold (2-member) prefix cluster flat with full names', () => {
@@ -37,7 +38,10 @@ describe('buildTree', () => {
         expect(tree).toEqual([{ type: 'item', item: list[0], sortKey: 'Gizmo' }]);
     });
 
-    it('sorts group and item nodes together by label/name using cs collation', () => {
+    it('preserves the incoming (server weight) order — a group sits where its first member appeared', () => {
+        // The API already sorts by front-comment `weight` with a cs-collation
+        // name tiebreak; re-sorting client-side would discard authored
+        // weights (a weight-1 homepage rendered after "404").
         const list = [
             { id: 'z-item', name: 'Zebra' },
             { id: 'w1', name: 'Widget - one' },
@@ -46,7 +50,7 @@ describe('buildTree', () => {
             { id: 'a-item', name: 'Alfa' },
         ];
         const tree = buildTree(list);
-        expect(tree.map((n) => n.sortKey)).toEqual(['Alfa', 'Widget', 'Zebra']);
+        expect(tree.map((n) => n.sortKey)).toEqual(['Zebra', 'Widget', 'Alfa']);
     });
 
     it('falls back to id-keyed bucketing for items with no name', () => {
