@@ -15,6 +15,7 @@ function makeRouter() {
             { path: '/component/:slug', name: 'component', component: { template: '<div/>' } },
             { path: '/overview', name: 'overview', component: { template: '<div/>' } },
             { path: '/foundations', name: 'foundations', component: { template: '<div/>' } },
+            { path: '/icons', name: 'icons', component: { template: '<div/>' } },
         ],
     });
 }
@@ -48,7 +49,7 @@ async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
     catalog.pages = [{ id: 'homepage', name: 'Homepage', has_styleguide: true }];
     catalog.docs = [];
     catalog.loading = false;
-    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
     const router = makeRouter();
     await router.push(initialPath);
@@ -179,6 +180,23 @@ describe('Sidebar', () => {
         expect(overviewLink.classes()).toContain('text-red-700');
     });
 
+    // Standalone icon catalog (#87): the nav entry is gated on the
+    // server-side yaml-shape check injected as sg-config `hasIcons`, so
+    // projects without an icons: block never render a dead menu item.
+    it('hides the Icons nav item when sg-config carries no hasIcons flag', async () => {
+        const { wrapper } = await mountSidebar();
+        expect(wrapper.findAll('a').find((a) => a.text() === 'Icons')).toBeUndefined();
+    });
+
+    it('shows the Icons nav item when hasIcons is true and marks it active on /icons', async () => {
+        stubSgConfig({ hasIcons: true });
+        const { wrapper } = await mountSidebar('/icons');
+        const iconsLink = wrapper.findAll('a').find((a) => a.text() === 'Icons');
+        expect(iconsLink).toBeDefined();
+        expect(iconsLink.classes()).toContain('bg-red-600/10');
+        expect(iconsLink.classes()).toContain('text-red-700');
+    });
+
     // Regression test for the real page-load timing: main.js calls
     // `catalog.init()` (async fetch) WITHOUT awaiting it before `app.mount()`,
     // so Sidebar.vue's very first render always sees an empty catalog and the
@@ -198,7 +216,7 @@ describe('Sidebar', () => {
         catalog.pages = [];
         catalog.docs = [];
         catalog.loading = true;
-        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
         const router = makeRouter();
         await router.push('/foundations');

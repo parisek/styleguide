@@ -166,8 +166,8 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
     // variant" (the default tile / the historical no-?variant= URL shape).
     function buildIframeSrc(variantIdOverride) {
         let src;
-        if (type.value === 'foundations') {
-            src = '/styleguide/render/foundations/index';
+        if (type.value === 'foundations' || type.value === 'icons') {
+            src = `/styleguide/render/${type.value}/index`;
         } else if (!slug.value || !['component', 'page', 'doc'].includes(type.value)) {
             return null;
         } else {
@@ -221,6 +221,7 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
     // responsive:false entries are excluded exactly as before.
     const previewActionsVisible = computed(() => !!iframeSrc.value
         && type.value !== 'foundations'
+        && type.value !== 'icons'
         && type.value !== 'overview'
         && currentItem.value?.responsive !== false);
 

@@ -44,7 +44,23 @@ final class RouterTest extends TestCase
         // /foundations renders the logo/colors/typography page in the iframe
         // (renamed from /overview in the slug swap).
         self::assertSame(['type' => 'foundations'], Router::parse('/styleguide/foundations'));
+        // /icons renders the standalone icon catalog in the iframe (#87).
+        self::assertSame(['type' => 'icons'], Router::parse('/styleguide/icons'));
         self::assertSame(['type' => 'fields'], Router::parse('/styleguide/fields'));
+    }
+
+    #[Test]
+    public function synthesize_embedded_swaps_icons_with_index_slug(): void
+    {
+        // Same sectionless-route contract as foundations (#87): no slug in
+        // the SPA route, 'index' synthesized for the render dispatch shape.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'icons', 'slug' => 'index', 'theme' => 'light'],
+            Router::synthesizeEmbeddedRoute(
+                ['type' => 'icons'],
+                'iframe',
+            ),
+        );
     }
 
     #[Test]

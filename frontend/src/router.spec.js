@@ -14,6 +14,7 @@ describe('router deep links', () => {
         ['/doc/sample-doc', 'doc'],
         ['/overview', 'overview'],
         ['/foundations', 'foundations'],
+        ['/icons', 'icons'],
         ['/fields', 'fields'],
         ['/nonexistent/garbage/path', 'not-found-fallback'],
     ])('resolves %s to the %s route', async (path, expectedName) => {

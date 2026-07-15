@@ -99,8 +99,8 @@ final class Router
             return self::withExplicitVariantIfPresent($route, $queryString);
         }
 
-        // /styleguide/overview, /styleguide/foundations, /styleguide/fields
-        if (in_array($parts[0], ['overview', 'foundations', 'fields'], true)) {
+        // /styleguide/overview, /styleguide/foundations, /styleguide/icons, /styleguide/fields
+        if (in_array($parts[0], ['overview', 'foundations', 'icons', 'fields'], true)) {
             return self::withExplicitThemeIfPresent(['type' => $parts[0]], $queryString);
         }
 
@@ -251,7 +251,7 @@ final class Router
         if ($secFetchDest !== 'iframe') {
             return $route;
         }
-        if (!in_array($route['type'] ?? null, ['component', 'page', 'doc', 'foundations'], true)) {
+        if (!in_array($route['type'] ?? null, ['component', 'page', 'doc', 'foundations', 'icons'], true)) {
             return $route;
         }
         $synthesized = [

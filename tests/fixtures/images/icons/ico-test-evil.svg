@@ -1,0 +1,2 @@
+<?xml version="1.0"?>
+<!-- sneaky --><svg{{ attribute }} xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 24 24" fill="currentColor" onload="alert(1)" ONMOUSEOVER="alert(4)"><script>alert(2)</script><style>@import url(https://evil.example/a.css);</style><a href="&#x6a;avascript:alert(3)"><path d="M4 12h16"/></a><a xlink:href=" javascript:alert(5)"><path d="M4 6h16"/></a><use href="#safe-ref" style="filter:url(https://evil.example/f.svg#x)"/><foreignObject><p>hi</p></foreignObject></svg>

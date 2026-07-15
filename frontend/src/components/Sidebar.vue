@@ -211,6 +211,14 @@ function supportedLocales() {
                             <span>{{ i18n.t('nav.foundations') }}</span>
                         </a>
                     </li>
+                    <!-- Standalone icon catalog (#87) — gated on the server-side
+                         yaml-shape check (sg-config hasIcons) so projects without
+                         an icons: block don't get a dead menu entry. -->
+                    <li v-if="config.hasIcons">
+                        <a href="#" @click.prevent="select('icons', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('icons', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                            <span>{{ i18n.t('nav.icons') }}</span>
+                        </a>
+                    </li>
                     <li>
                         <a href="#" @click.prevent="select('overview', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('overview', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.overview') }}</span>

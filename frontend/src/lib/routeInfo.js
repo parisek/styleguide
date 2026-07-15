@@ -7,6 +7,7 @@ export function routeInfo(route) {
         return { type: name, slug: route.params.slug ?? null };
     }
     if (name === 'overview') return { type: 'overview', slug: null };
+    if (name === 'icons') return { type: 'icons', slug: null };
     if (name === 'fields') return { type: 'fields', slug: null };
     // 'foundations', 'landing' (bare "/"), and 'not-found-fallback' (any
     // unmatched path) all render the foundations view with the URL left

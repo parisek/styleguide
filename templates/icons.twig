@@ -1,0 +1,74 @@
+{# vendor/parisek/styleguide — standalone icon catalog page (#87).
+   Rendered inside the iframe by Renderer when kind=icons; a first-level
+   DOKUMENTACE sidebar entry, sibling of Foundations/Overview. Reads
+   `styleguide.icons_catalog` (built server-side by IconsCatalog from the
+   consumer's yaml `icons:` block — the only `|raw` echo on this page, the
+   markup is pre-sanitized there). Deliberately just the overview: grouped
+   tiles, no macro/usage explanations. `multi`-colored icons (brand marks
+   with own fills) are badged instead of tinted; missing files render a
+   loud dashed state so a stale yaml entry stays visible. #}
+<div class="px-4 py-6 md:px-6 md:py-8 lg:px-8">
+	<div class="flex gap-3 items-center mb-10">
+		<h1 class="font-bold text-2xl sm:text-3xl lg:text-4xl text-zinc-900 tracking-tight">{{ styleguide.labels.icons|default('Icons')|e }}</h1>
+		{% if styleguide.icons_catalog %}
+			<span class="inline-flex items-center px-2.5 py-1 rounded-md bg-zinc-100 font-mono font-semibold text-xs text-zinc-600">{{ styleguide.icons_catalog.total }}</span>
+		{% endif %}
+	</div>
+
+	{% if styleguide.icons_catalog %}
+		{% for group in styleguide.icons_catalog.groups %}
+			<div class="overflow-hidden mb-6 last:mb-0 border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white">
+				<div class="flex gap-3 items-center p-4 md:p-6 border-b border-zinc-100 bg-white">
+					<p class="font-semibold text-xs text-zinc-500 uppercase tracking-wider">{{ group.label|e }}</p>
+					<span class="font-mono text-xs text-zinc-400">{{ group.items|length }}</span>
+				</div>
+				{# Tile separators are per-tile right/bottom borders; the grid's
+				   -mr-px/-mb-px pulls the outermost borders under the card's
+				   overflow-hidden edge, so partially-filled rows stay white
+				   instead of exposing a filler background. #}
+				<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 -mr-px -mb-px">
+					{% for icon in group.items %}
+						{# create_attribute is called inline in the tag (not via
+						   {% set %}) so its safe-marked output survives a consumer
+						   env that opts back into autoescape: 'html'. #}
+						<div{{ create_attribute({
+							class: 'group/icon relative flex flex-col gap-3 items-center p-5 border-r border-b border-zinc-100 bg-white hover:bg-zinc-50 transition-colors',
+							'data-icon': icon.name,
+							'data-icon-color': icon.color,
+							title: icon.label|default(icon.name),
+						}) }}>
+							{% if icon.color == 'multi' %}
+								<span class="absolute top-2 right-2 inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 font-mono text-[9px] text-amber-700 uppercase tracking-wider">{{ styleguide.labels.icons_multi|default('multi')|e }}</span>
+							{% endif %}
+							{% if icon.svg %}
+								<span class="flex justify-center items-center w-10 h-14 text-zinc-800 [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-10">{{ icon.svg|raw }}</span>
+							{% else %}
+								{# Missing/unreadable file — loud dashed state so a stale
+								   yaml entry is visible instead of a silent gap. #}
+								<span class="flex justify-center items-center w-10 h-14">
+									<span class="w-8 h-8 rounded border-2 border-dashed border-red-300"></span>
+								</span>
+							{% endif %}
+							<span class="flex flex-col gap-0.5 items-center min-w-0 max-w-full text-center">
+								<span class="max-w-full font-mono text-[10px] text-zinc-600 group-hover/icon:text-zinc-900 truncate transition-colors">{{ icon.name|e }}</span>
+								{% if icon.label %}
+									<span class="max-w-full text-[10px] text-zinc-400 truncate">{{ icon.label|e }}</span>
+								{% endif %}
+								{% if not icon.exists %}
+									<span class="inline-flex items-center px-1.5 py-0.5 rounded-full bg-red-50 font-semibold text-[9px] text-red-700 uppercase">{{ styleguide.labels.icons_missing|default('missing')|e }}</span>
+								{% endif %}
+							</span>
+						</div>
+					{% endfor %}
+				</div>
+			</div>
+		{% endfor %}
+	{% else %}
+		{# Empty state — reachable only via a direct URL on a project without
+		   an `icons:` block (the sidebar entry itself is gated on hasIcons). #}
+		<div class="flex flex-col gap-2 items-center p-10 text-center rounded-xl border-2 border-dashed border-zinc-300">
+			<p class="font-semibold text-sm text-zinc-600">{{ styleguide.labels.icons_empty|default('No icons: block configured in styleguide.yaml.')|e }}</p>
+			<p class="font-mono text-xs text-zinc-400">icons: { groups: [ { key: base, items: [ { name: base-arrow, file: /images/icons/ico-base-arrow.svg } ] } ] }</p>
+		</div>
+	{% endif %}
+</div>

@@ -36,6 +36,13 @@ describe('useViewportPreset', () => {
         expect(vp.iframeSrc.value).toBe('/styleguide/render/foundations/index');
     });
 
+    it('iframeSrc uses the fixed icons/index path for the standalone icon catalog', () => {
+        const type = ref('icons');
+        const slug = ref(null);
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/icons/index');
+    });
+
     it('iframeSrc appends ?theme=dark when the iframe theme toggle is dark', () => {
         const type = ref('component');
         const slug = ref('hero');
