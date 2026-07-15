@@ -8,6 +8,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **HealthWarningBadge opens a native `<dialog>` (#89).** Clicking the parser-warnings badge
+  now lists every warning (file + message) in a modal — the previous console.warn-only click
+  read as a dead button. Esc/backdrop/close-button dismissal comes from the native element;
+  `console.warn` stays as a debugging side channel. New `health.dialog_title`/`dialog_close`
+  i18n keys (cs/en); `health.warnings_title` no longer mentions the console.
+
 ## [1.4.0] - 2026-07-15
 
 ### Added
