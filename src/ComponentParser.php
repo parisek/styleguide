@@ -159,7 +159,7 @@ class ComponentParser
 
         try {
             $content = (string) file_get_contents($file);
-            $metadata = $this->parseTwigComment($content);
+            $metadata = $this->readComponentMetadata($dir, $id, $content);
 
             if (!$metadata || !isset($metadata['name'])) {
                 return null;
@@ -215,15 +215,15 @@ class ComponentParser
             }
 
             $content = (string) file_get_contents($file->getPathname());
+            $id = $file->getBasename('.twig');
 
             try {
-                $metadata = $this->parseTwigComment($content);
+                $metadata = $this->readComponentMetadata($file->getPath(), $id, $content);
 
                 if (!$metadata || !isset($metadata['name'])) {
                     continue;
                 }
 
-                $id = $file->getBasename('.twig');
                 $hasDefaultFixture = file_exists($file->getPath() . '/styleguide.twig');
                 $variants = $this->discoverVariants($file->getPath(), $metadata);
                 $hasStyleguide = $hasDefaultFixture
@@ -283,6 +283,52 @@ class ComponentParser
         }
 
         return false;
+    }
+
+    /**
+     * Resolve a component/page/doc's metadata source: PRIORITY to a sibling
+     * `<id>.yaml` definition file when present and valid, falling back to
+     * the existing `{# ... #}` twig-comment convention otherwise.
+     *
+     * Transitional (tailwind-base is introducing `<id>.yaml` as the future
+     * canonical definition — see ADR 0007 / portadesign/tailwind-base#279):
+     * twig-comment parsing is NOT being removed, just deprioritised. The
+     * `<id>.yaml` root carries the same metadata keys (`name`/`usage`/
+     * `category`/`render`/`web`/`asana`/`figma`/`drupal`/`description`/
+     * `weight`/`responsive`) plus `fields:`/`wp:` — a strict superset of what
+     * `parseTwigComment()` returns, so passing it straight through here is
+     * safe: `normaliseMetadata()` only ever reads the keys it knows about.
+     *
+     * A malformed `<id>.yaml` (parse error, or a non-map YAML document) is
+     * NOT a hard failure — mirrors `parseTwigComment()`'s own false-return
+     * contract for bad/absent input — it silently falls back to the twig
+     * comment instead of throwing, so one broken definition file degrades
+     * to pre-existing behaviour rather than tripping the caller's
+     * \Throwable resilience path (and thus the catalogue-wide warning log)
+     * for a file that isn't even the twig template itself.
+     *
+     * @return array<string,mixed>|false false = neither source produced a
+     *                                    usable metadata map
+     * @throws ParseException on malformed YAML inside the twig comment
+     *                        fallback (same contract as parseTwigComment())
+     */
+    private function readComponentMetadata(string $dir, string $id, string $twigContent): array|false
+    {
+        $yamlFile = $dir . '/' . $id . '.yaml';
+
+        if (file_exists($yamlFile)) {
+            try {
+                $parsed = Yaml::parseFile($yamlFile);
+                if (is_array($parsed)) {
+                    return $parsed;
+                }
+            } catch (\Throwable) {
+                // Malformed <id>.yaml — fall through to the twig comment
+                // rather than fatally skipping the component.
+            }
+        }
+
+        return $this->parseTwigComment($twigContent);
     }
 
     /**

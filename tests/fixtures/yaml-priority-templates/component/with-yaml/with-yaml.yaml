@@ -1,0 +1,9 @@
+name: "From YAML Definition"
+description: "YAML file description — must win over the twig comment"
+category: "YAML Category"
+weight: 12
+fields:
+  title:
+    type: string
+wp:
+  block: true
