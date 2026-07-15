@@ -9,3 +9,4 @@
    foundations route is rendered, so component/page iframes still load only
    the consumer's stylesheet. */
 @source "../templates/foundations.twig";
+@source "../templates/icons.twig";

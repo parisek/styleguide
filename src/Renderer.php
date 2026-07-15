@@ -425,7 +425,7 @@ final class Renderer
      */
     public function render(string $kind, string $slug, array $config, string $langcode = 'en', string $theme = 'light'): string
     {
-        if (!in_array($kind, ['component', 'page', 'doc', 'foundations'], true)) {
+        if (!in_array($kind, ['component', 'page', 'doc', 'foundations', 'icons'], true)) {
             return $this->render404($kind, $slug, $config);
         }
 
@@ -604,6 +604,9 @@ final class Renderer
                 is_string($config['variant'] ?? null) ? $config['variant'] : null,
             ),
             'foundations' => $this->twig->render('foundations.twig', [
+                'styleguide' => $config['styleguide'] ?? [],
+            ] + $this->context),
+            'icons' => $this->twig->render('icons.twig', [
                 'styleguide' => $config['styleguide'] ?? [],
             ] + $this->context),
             default => null,

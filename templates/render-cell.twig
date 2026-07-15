@@ -50,11 +50,11 @@
 	   e.g. a Tailwind bundle plus a legacy stylesheet during a migration. #}
 	{% for url in iframe.css|default([]) %}<link rel="stylesheet" href="{{ url|cachebust|e }}">
 	{% endfor %}
-	{# Package-shipped Tailwind bundle for the foundations route. The consumer's
-	   iframe.css scans its own templates/ but not vendor/, so utility classes
-	   used only by templates/foundations.twig (h-32, max-w-48, prose-*, …)
-	   would otherwise be absent. Loaded after iframe.css so consumer overrides
-	   still win on shared classes. #}
+	{# Package-shipped Tailwind bundle for the foundations + icons routes. The
+	   consumer's iframe.css scans its own templates/ but not vendor/, so
+	   utility classes used only by templates/foundations.twig / icons.twig
+	   (h-32, max-w-48, prose-*, …) would otherwise be absent. Loaded after
+	   iframe.css so consumer overrides still win on shared classes. #}
 	{% if foundations_css_url %}<link rel="stylesheet" href="{{ foundations_css_url|e }}">{% endif %}
 	{# Package-shipped vanilla interactivity for the foundations route — the
 	   iframe must not depend on the consumer bundling a JS framework (#79). #}
@@ -80,15 +80,15 @@
    opt-in by the author, not a site-wide bleed, so it stays honored as
    the escape hatch for a doc that genuinely wants a non-default body
    class. #}
-{% set body_class = kind == 'foundations'
+{% set body_class = kind in ['foundations', 'icons']
 	? ''
 	: (kind == 'doc' ? component.body_class|default('') : [iframe.body_class|default(''), component.body_class|default('')]) %}
 <body{{ create_attribute({ class: body_class }) }}>
 	{# Tiny standalone-mode navbar — hidden in iframe (the default render target),
 	   revealed by the inline script when the document is the top-level window so
 	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
-	{# Foundations is a sectionless route (`/styleguide/foundations`); component/page carry a slug. #}
-	{% set sg_url = kind == 'foundations' ? '/styleguide/foundations' : '/styleguide/' ~ kind ~ '/' ~ slug %}
+	{# Foundations/icons are sectionless routes (`/styleguide/foundations`, `/styleguide/icons`); component/page carry a slug. #}
+	{% set sg_url = kind in ['foundations', 'icons'] ? '/styleguide/' ~ kind : '/styleguide/' ~ kind ~ '/' ~ slug %}
 	{# Default to `display:none` (NOT the `hidden` HTML attribute) because the bar's
 	   own inline `display:flex` would otherwise win the CSS cascade over the user-
 	   agent `[hidden] { display: none }` rule (UA rules have lower specificity than

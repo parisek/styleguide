@@ -133,6 +133,9 @@ final class SpaConfigTest extends TestCase
         self::assertSame('Styleguide Fixture<img src=x onerror=alert(7)>', $config['projectName']);
         self::assertArrayHasKey('favicon', $config);
         self::assertSame('Styleguide — Styleguide Fixture<img src=x onerror=alert(7)>', $config['title']);
+        // Sidebar icons-entry gate (#87) — the shared fixture yaml carries no
+        // `icons:` block, so the flag must be present and false.
+        self::assertFalse($config['hasIcons']);
     }
 
     #[Test]

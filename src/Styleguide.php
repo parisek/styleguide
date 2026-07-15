@@ -1129,6 +1129,10 @@ final class Styleguide
             'favicon' => $favicon,
             'title' => sprintf('Styleguide — %s', $projectName),
             'baseUrl' => '/styleguide',
+            // Gates the sidebar "Icons" entry (#87) — a yaml-shape check
+            // only (not IconsCatalog::build(), which reads every icon file
+            // from disk; too heavy for every SPA shell load).
+            'hasIcons' => !empty($this->yamlConfig['icons']['groups']),
         ];
         $configJson = json_encode(
             $config,
@@ -1251,6 +1255,28 @@ final class Styleguide
                 'og_image_audit' => OgImageAudit::run(
                     (string) ($this->config['static_path'] ?? ''),
                     $this->yamlConfig['og_image'] ?? null,
+                ),
+            ]);
+        } elseif ($route['kind'] === 'icons') {
+            // Standalone icon-catalog page (#87) — a first-level DOKUMENTACE
+            // entry, sibling of foundations. Shares the package-shipped
+            // foundations CSS bundle (frontend/foundations.css @source-scans
+            // templates/icons.twig too), so no separate bundle is needed.
+            $config['component_name'] = (string) (
+                ((array) ($this->yamlConfig['labels'] ?? []))['icons'] ?? 'Icons'
+            );
+            $cssUrl = $this->resolveFoundationsCssUrl();
+            if ($cssUrl !== null) {
+                $config['foundations_css_url'] = $cssUrl;
+            }
+            $config['styleguide'] = array_merge($this->yamlConfig, [
+                // Server-side icon catalog — inline-ready sanitized SVG
+                // markup per yaml `icons:` entry. Null when the block is
+                // absent/empty; the template renders its empty state then
+                // (the sidebar entry itself is gated on `hasIcons`).
+                'icons_catalog' => IconsCatalog::build(
+                    (string) ($this->config['static_path'] ?? ''),
+                    $this->yamlConfig['icons'] ?? null,
                 ),
             ]);
         }

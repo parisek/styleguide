@@ -118,7 +118,7 @@ export const useUiStore = defineStore('ui', {
             this.sidebarOpen = !this.sidebarOpen;
         },
         setRoute(type, slug = null) {
-            if (['component', 'page', 'doc', 'foundations'].includes(type)) {
+            if (['component', 'page', 'doc', 'foundations', 'icons'].includes(type)) {
                 this.isPreviewLoading = true;
             }
             this.routeType = type;

@@ -27,6 +27,10 @@ const routes = [
     { path: '/doc/:slug', name: 'doc', component: PreviewView },
     { path: '/overview', name: 'overview', component: OverviewView },
     { path: '/foundations', name: 'foundations', component: FoundationsView },
+    // Standalone icon catalog (#87) — same full-bleed iframe view as
+    // foundations; the iframe src derives from the route type in
+    // useViewportPreset's buildIframeSrc().
+    { path: '/icons', name: 'icons', component: FoundationsView },
     // Dead-but-preserved: /fields used to be a top-level route; fields are
     // now an inline per-component drawer (see FieldsDrawer.vue, Task 9).
     // PreviewView renders PreviewPane's existing "no iframe src" empty

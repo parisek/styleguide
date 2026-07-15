@@ -111,6 +111,65 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function icons_body_never_receives_consumer_iframe_body_class(): void
+    {
+        // Same exemption as foundations (#87) — icons.twig is a package-owned
+        // zinc-on-white page; consumer body classes must not bleed onto it.
+        $html = $this->rendererWithBase('')->render('icons', 'index', [
+            'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
+            'styleguide' => [],
+        ], 'cs');
+
+        self::assertStringContainsString('<body>', $html);
+        self::assertStringNotContainsString('<body class', $html);
+    }
+
+    #[Test]
+    public function icons_render_emits_grouped_tiles_from_the_catalog(): void
+    {
+        // The catalog shape is produced server-side by IconsCatalog::build()
+        // (unit-tested separately) — this pins the template contract: group
+        // label + per-tile data-icon attributes + the inline SVG markup,
+        // and the multi badge only on multi-colored entries.
+        $html = $this->rendererWithBase('')->render('icons', 'index', [
+            'styleguide' => [
+                'icons_catalog' => [
+                    'total' => 2,
+                    'groups' => [
+                        [
+                            'key' => 'base',
+                            'label' => 'Base icons',
+                            'items' => [
+                                ['name' => 'base-arrow', 'label' => 'Arrow', 'file' => '/images/icons/ico-base-arrow.svg', 'color' => 'mono', 'exists' => true, 'svg' => '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 12h16"/></svg>'],
+                                ['name' => 'brand-mark', 'label' => null, 'file' => '/images/icons/ico-brand-mark.svg', 'color' => 'multi', 'exists' => true, 'svg' => '<svg viewBox="0 0 24 24"><path fill="#f00" d="M4 12h16"/></svg>'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], 'cs');
+
+        self::assertStringContainsString('Base icons', $html);
+        self::assertStringContainsString('data-icon="base-arrow"', $html);
+        self::assertStringContainsString('<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 12h16"/></svg>', $html);
+        self::assertStringContainsString('data-icon-color="multi"', $html);
+        // The default multi badge label renders exactly once (one multi entry).
+        self::assertSame(1, substr_count($html, '>multi</span>'));
+    }
+
+    #[Test]
+    public function icons_render_falls_back_to_the_empty_state_without_a_catalog(): void
+    {
+        // Reachable only by direct URL on a project without an `icons:`
+        // block (the sidebar entry is gated on sg-config hasIcons).
+        $html = $this->rendererWithBase('')->render('icons', 'index', [
+            'styleguide' => [],
+        ], 'cs');
+
+        self::assertStringContainsString('No icons: block configured', $html);
+    }
+
+    #[Test]
     public function foundations_render_injects_the_package_foundations_js_module_when_url_present(): void
     {
         // Mirrors the existing foundations_css_url injection: when
