@@ -599,4 +599,62 @@ final class ComponentParserTest extends TestCase
         self::assertFalse($onlyVariants['has_default_variant']);
         self::assertSame(['first', 'second'], array_column($onlyVariants['variants'], 'id'));
     }
+
+    #[Test]
+    public function a_sibling_yaml_definition_wins_over_the_twig_comment(): void
+    {
+        // Transitional feature (tailwind-base ADR 0007): a component's own
+        // <id>.yaml, when present in the same directory as <id>.twig, is
+        // read in PRIORITY — its metadata must win even though the twig
+        // file also carries a (deliberately different) front-comment.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/yaml-priority-templates');
+        $withYaml = $parser->parse('component', 'with-yaml');
+
+        self::assertNotNull($withYaml);
+        self::assertSame('From YAML Definition', $withYaml['name']);
+        self::assertSame('YAML file description — must win over the twig comment', $withYaml['description']);
+        self::assertSame('YAML Category', $withYaml['category']);
+        self::assertSame(12, $withYaml['weight']);
+    }
+
+    #[Test]
+    public function a_sibling_yaml_definition_wins_via_parse_all_too(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/yaml-priority-templates');
+        $components = $parser->parseAll('component');
+        $withYaml = current(array_filter($components, static fn(array $c): bool => $c['id'] === 'with-yaml'));
+
+        self::assertNotFalse($withYaml);
+        self::assertSame('From YAML Definition', $withYaml['name']);
+        self::assertSame('YAML Category', $withYaml['category']);
+    }
+
+    #[Test]
+    public function metadata_falls_back_to_the_twig_comment_when_no_sibling_yaml_exists(): void
+    {
+        // Unchanged pre-feature behaviour: with no <id>.yaml sibling on
+        // disk, metadata still comes from the twig front-comment.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/yaml-priority-templates');
+        $twigOnly = $parser->parse('component', 'twig-only');
+
+        self::assertNotNull($twigOnly);
+        self::assertSame('Twig Only', $twigOnly['name']);
+        self::assertSame('No sibling YAML definition exists — metadata comes from this comment', $twigOnly['description']);
+        self::assertSame(40, $twigOnly['weight']);
+    }
+
+    #[Test]
+    public function a_malformed_sibling_yaml_falls_back_to_the_twig_comment(): void
+    {
+        // A broken <id>.yaml must not fatal or drop the component from the
+        // catalogue — it degrades gracefully to the twig comment, exactly
+        // as if no <id>.yaml existed at all.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/yaml-priority-templates');
+        $brokenYaml = $parser->parse('component', 'broken-yaml');
+
+        self::assertNotNull($brokenYaml);
+        self::assertSame('Fallback From Broken Yaml', $brokenYaml['name']);
+        self::assertSame(60, $brokenYaml['weight']);
+        self::assertSame([], $parser->getWarnings(), 'a malformed <id>.yaml must not surface as a catalogue warning — it is a silent fallback');
+    }
 }
