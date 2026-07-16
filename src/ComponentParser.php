@@ -526,7 +526,18 @@ class ComponentParser
     {
         $result = FieldsNormalizer::normalize($fields);
         foreach ($result['warnings'] as $warning) {
-            $this->warnings[] = ['file' => $type . '/' . $id, 'error' => $warning];
+            $entry = ['file' => $type . '/' . $id, 'error' => $warning];
+            // Idempotent within one request/instance, same rationale as
+            // recordWarning() — a caller that parses the same file twice
+            // (e.g. parse() then parseAll()) must not accumulate duplicate
+            // entries. Deduped by the full (file, error) pair rather than
+            // file alone: unlike recordWarning() (one \Throwable per file,
+            // parsing aborts on the first), a single file can legitimately
+            // carry several DISTINCT malformed-field warnings and all of
+            // them are real, wanted diagnostics.
+            if (!in_array($entry, $this->warnings, true)) {
+                $this->warnings[] = $entry;
+            }
         }
         return $result['fields'];
     }

@@ -259,7 +259,7 @@ type Field = {
   web: string;
   weight: number;        // int, default 50
   usage: string[];       // normalised from the YAML comma-separated `usage:` string (or an already-array YAML value) by ComponentParser::normaliseUsage() — see § PHP API
-  fields: Field[];        // canonical ordered list — see § Fields canonicalisation
+  fields: Field[];       // canonical ordered list — see § Fields canonicalisation
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
   body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`; ALWAYS false for /api/docs entries regardless of YAML — see § Component YAML metadata
@@ -295,7 +295,7 @@ Flat list of every component / page that exposes a `fields:` map. Only component
 {
   component_id: string;
   component_name: string;
-  fields: Field[];        // canonical ordered list — see § Fields canonicalisation, Field type above
+  fields: Field[]; // canonical ordered list — see § Fields canonicalisation, Field type above
 }
 ```
 

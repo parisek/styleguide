@@ -66,8 +66,9 @@ final class ComponentParserTest extends TestCase
         // RendererTest, but its YAML metadata is valid so ComponentParser,
         // which never renders the body, picks it up like any other
         // component). Defkit Card is also weight 50 (no explicit weight) —
-        // it sorts before With fields because directory scan order breaks
-        // the weight tie alphabetically (defkit-card < with-fields).
+        // parseAll() breaks weight ties with an explicit Collator('cs')/strcmp
+        // sort on `name` (see parseAll()'s usort()), and "Defkit Card" sorts
+        // before "With fields" alphabetically.
         self::assertSame(
             ['Another', 'Sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
             array_column($components, 'name'),
@@ -686,5 +687,31 @@ final class ComponentParserTest extends TestCase
         self::assertSame('Title', $fields[0]['label']);       // title → label
         self::assertTrue($fields[0]['required']);
         self::assertSame('Label', $fields[1]['children'][0]['label']);
+    }
+
+    #[Test]
+    public function a_malformed_field_entry_is_skipped_and_recorded_as_a_warning(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/broken-fields-templates');
+        $meta = $parser->parse('component', 'broken-fields');
+
+        self::assertNotNull($meta);
+        // "bad" is a scalar, not a map — FieldsNormalizer skips it and keeps "ok".
+        self::assertSame(['ok'], array_column($meta['fields'], 'key'));
+        self::assertSame(
+            [['file' => 'component/broken-fields', 'error' => 'field "bad": definition is not a map — skipped']],
+            $parser->getWarnings(),
+        );
+    }
+
+    #[Test]
+    public function field_warnings_do_not_duplicate_across_repeated_parse_calls(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/broken-fields-templates');
+
+        $parser->parse('component', 'broken-fields');
+        $parser->parse('component', 'broken-fields');
+
+        self::assertCount(1, $parser->getWarnings());
     }
 }
