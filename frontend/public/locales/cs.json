@@ -78,7 +78,8 @@
     },
     "fields": {
         "required": "Povinné pole",
-        "requiredLegend": "= Povinné pole"
+        "requiredLegend": "= Povinné pole",
+        "detail": "Detail pole"
     },
     "theme": {
         "light": "Světlé téma",

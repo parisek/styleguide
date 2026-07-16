@@ -78,7 +78,8 @@
     },
     "fields": {
         "required": "Required field",
-        "requiredLegend": "= Required field"
+        "requiredLegend": "= Required field",
+        "detail": "Field detail"
     },
     "theme": {
         "light": "Light theme",
