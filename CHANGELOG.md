@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`/fields` cross-component overview, revived (#95).** Lists every component that declares a
+  `fields:` block, flattened the same way as the per-component `FieldsDrawer`, filterable by
+  field key/label/type or component name. Each heading links to
+  `/component/<id>?fields=1`, deep-linking straight into that component's drawer. The sidebar
+  nav entry (`nav.fields`) only appears when at least one component declares fields
+  (`catalog.hasFields`).
+
 ### Changed
 
 - **`fields` on `/api/components`, `/api/pages`, `/api/docs`, `/api/fields` is now a canonical
