@@ -109,4 +109,30 @@ describe('FieldsDrawer', () => {
         const wrapper = mount(FieldsDrawer, { props: { fields: FIELDS }, global: { plugins: [router] }, attachTo: document.body });
         expect(wrapper.find('table').isVisible()).toBe(true);
     });
+
+    it('collapses again after navigating to a route without ?fields=1', async () => {
+        // Regression: the drawer instance persists across slug-only
+        // navigations (App.vue renders it outside RouterView without
+        // :key), so a stale `open` ref from a deep link used to leak
+        // into every subsequently visited component.
+        const router = makeRouter();
+        await router.push('/component/sample?fields=1');
+        const wrapper = mount(FieldsDrawer, { props: { fields: FIELDS }, global: { plugins: [router] }, attachTo: document.body });
+        expect(wrapper.find('table').isVisible()).toBe(true);
+
+        await router.push('/component/other');
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('table').isVisible()).toBe(false);
+    });
+
+    it('re-opens when navigating to another route with ?fields=1', async () => {
+        const router = makeRouter();
+        await router.push('/component/sample');
+        const wrapper = mount(FieldsDrawer, { props: { fields: FIELDS }, global: { plugins: [router] }, attachTo: document.body });
+        expect(wrapper.find('table').isVisible()).toBe(false);
+
+        await router.push('/component/other?fields=1');
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('table').isVisible()).toBe(true);
+    });
 });

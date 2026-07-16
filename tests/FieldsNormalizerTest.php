@@ -93,11 +93,36 @@ final class FieldsNormalizerTest extends TestCase
     }
 
     #[Test]
-    public function non_array_input_yields_empty_result(): void
+    public function absent_or_empty_fields_yield_a_silent_empty_result(): void
     {
         self::assertSame(['fields' => [], 'warnings' => []], FieldsNormalizer::normalize(null));
-        self::assertSame(['fields' => [], 'warnings' => []], FieldsNormalizer::normalize('x'));
         self::assertSame(['fields' => [], 'warnings' => []], FieldsNormalizer::normalize([]));
+    }
+
+    #[Test]
+    public function non_array_top_level_fields_value_warns_instead_of_silently_dropping(): void
+    {
+        // ADR-0002: "never silently dropped" — garbage on the top-level
+        // `fields:` key (e.g. a scalar YAML typo) must surface a warning,
+        // not just vanish into an empty list like an absent key does.
+        $result = FieldsNormalizer::normalize('x');
+
+        self::assertSame([], $result['fields']);
+        self::assertSame(['fields: value is not a map — skipped'], $result['warnings']);
+    }
+
+    #[Test]
+    public function non_array_nested_fields_value_warns_but_the_parent_field_survives(): void
+    {
+        $result = FieldsNormalizer::normalize([
+            'items' => ['type' => 'repeater', 'label' => 'Items', 'fields' => 'oops'],
+        ]);
+
+        self::assertCount(1, $result['fields']);
+        $field = $result['fields'][0];
+        self::assertSame('Items', $field['label']);
+        self::assertSame([], $field['children']);
+        self::assertSame(['field "items": nested fields value is not a map — skipped'], $result['warnings']);
     }
 
     #[Test]

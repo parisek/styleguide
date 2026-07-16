@@ -28,8 +28,19 @@ final class FieldsNormalizer
      */
     public static function normalize(mixed $fields, string $pathPrefix = ''): array
     {
-        if (!is_array($fields) || $fields === []) {
+        if ($fields === null || $fields === []) {
             return ['fields' => [], 'warnings' => []];
+        }
+
+        if (!is_array($fields)) {
+            // ADR-0002 "never silently dropped": garbage on a `fields:` key
+            // (top-level or nested) must surface a warning, unlike an
+            // absent/empty key above which is legitimately silent.
+            $message = $pathPrefix === ''
+                ? 'fields: value is not a map — skipped'
+                : sprintf('field "%s": nested fields value is not a map — skipped', $pathPrefix);
+
+            return ['fields' => [], 'warnings' => [$message]];
         }
 
         $out = [];

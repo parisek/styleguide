@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useI18nStore } from '../stores/i18n.js';
 import { flattenFieldsTree } from '../lib/fieldsTree.js';
@@ -15,6 +15,15 @@ const route = useRoute();
 // ?fields=1 deep link (FieldsView click-through) opens the drawer on load;
 // otherwise default collapsed, matching legacy `x-data="{ open: false }"`.
 const open = ref('fields' in route.query);
+
+// App.vue renders this component outside <RouterView> without a :key, so
+// the same instance survives slug-only navigations. Without this watcher a
+// ?fields=1 deep link would leave `open` stuck true for every subsequently
+// visited component; re-deriving it from the route on every navigation
+// keeps the deep link one-shot.
+watch(() => [route.params.slug, route.name], () => {
+    open.value = 'fields' in route.query;
+});
 
 const tree = computed(() => flattenFieldsTree(props.fields));
 </script>
