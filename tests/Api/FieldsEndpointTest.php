@@ -40,14 +40,14 @@ final class FieldsEndpointTest extends TestCase
     }
 
     #[Test]
-    public function handle_never_includes_pages_even_when_a_page_declares_fields(): void
+    public function handle_returns_component_ids_only_no_page_ids(): void
     {
         // /api/fields aggregates templates_path/component/ only (docs/API.md
         // § GET /styleguide/api/fields) — a page's fields are exposed
         // per-item on /api/pages instead, never surfaced here. The shared
         // fixture root's only page fixture (`landing`) carries no `fields:`
-        // metadata, so assert against the full returned id set: no page id
-        // is present at all.
+        // metadata, so this asserts the weaker invariant the fixtures can
+        // support: the returned id set contains component ids exclusively.
         $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');
         $endpoint = new FieldsEndpoint($parser);
 
