@@ -17,6 +17,13 @@ final class FieldsNormalizer
     private const CORE_KEYS = ['label', 'title', 'type', 'description', 'required', 'fields'];
 
     /**
+     * Output-only structural keys. An authored field named e.g. `key` (ACF
+     * exports a `key` attribute) or `children` would otherwise clobber the
+     * canonical `key`/`children` computed below during verbatim pass-through.
+     */
+    private const RESERVED_OUTPUT_KEYS = ['key', 'children'];
+
+    /**
      * @return array{fields: list<array<string,mixed>>, warnings: list<string>}
      */
     public static function normalize(mixed $fields, string $pathPrefix = ''): array
@@ -56,8 +63,9 @@ final class FieldsNormalizer
                 'children' => $children,
             ];
             foreach ($def as $k => $v) {
-                if (!in_array((string) $k, self::CORE_KEYS, true)) {
-                    $field[(string) $k] = $v;
+                $k = (string) $k;
+                if (!in_array($k, self::CORE_KEYS, true) && !in_array($k, self::RESERVED_OUTPUT_KEYS, true)) {
+                    $field[$k] = $v;
                 }
             }
             $out[] = $field;

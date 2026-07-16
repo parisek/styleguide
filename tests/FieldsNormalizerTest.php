@@ -99,4 +99,15 @@ final class FieldsNormalizerTest extends TestCase
         self::assertSame(['fields' => [], 'warnings' => []], FieldsNormalizer::normalize('x'));
         self::assertSame(['fields' => [], 'warnings' => []], FieldsNormalizer::normalize([]));
     }
+
+    #[Test]
+    public function authored_key_and_children_keys_cannot_clobber_canonical_structure(): void
+    {
+        $result = FieldsNormalizer::normalize([
+            'related' => ['type' => 'reference', 'label' => 'X', 'key' => 'field_acf_residual', 'children' => 'junk'],
+        ]);
+
+        self::assertSame('related', $result['fields'][0]['key']);
+        self::assertNull($result['fields'][0]['children']);
+    }
 }
