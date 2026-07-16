@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import Sidebar from './Sidebar.vue';
+import { GENERIC_FAVICON } from '../lib/documentChrome.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
@@ -171,6 +172,14 @@ describe('Sidebar', () => {
         expect(favicon.attributes('src')).toBe('/f.svg');
         expect(favicon.attributes('alt')).toBe('Acme');
         expect(wrapper.find('#sg-project-name').text()).toBe('Acme');
+    });
+
+    it('swaps the header favicon to the generic glyph when the image fails to load', async () => {
+        stubSgConfig({ projectName: 'Acme', favicon: '/broken.svg' });
+        const { wrapper } = await mountSidebar();
+        const favicon = wrapper.find('#sg-favicon');
+        await favicon.trigger('error');
+        expect(favicon.attributes('src')).toBe(GENERIC_FAVICON);
     });
 
     it('marks the Overview nav item active when on /overview', async () => {

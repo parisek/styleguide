@@ -9,6 +9,17 @@ test.describe('Styleguide SPA', () => {
         await expect(page.getByText('Přehled')).toBeVisible();
     });
 
+    test('browser-tab favicon link is populated from the configured project.favicon', async ({ page }) => {
+        // Producer/consumer integration guard: SpaConfigTest (PHP) proves
+        // `favicon` lands in the #sg-config payload and documentChrome.spec.js
+        // (Vitest) proves applyDocumentChrome() consumes it — but both passed
+        // while the <link> stayed empty for 10 releases after the Vue rewrite
+        // dropped the server-side tag patch without a client-side consumer.
+        // Only a real-browser assert catches a missing wiring like that.
+        await page.goto('/styleguide/');
+        await expect(page.locator('#sg-favicon-tag')).toHaveAttribute('href', '/images/favicon.svg');
+    });
+
     test('sidebar navigation updates the URL and the iframe src', async ({ page }) => {
         // Replaces smoke-browser.sh section 2 (navigation). Uses the "Sample
         // Doc" DOCS-section link rather than a component link simply because

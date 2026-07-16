@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readSpaConfig, seedTitle } from './config.js';
+import { readSpaConfig } from './config.js';
 
 beforeEach(() => {
     document.body.innerHTML = '';
@@ -46,22 +46,5 @@ describe('readSpaConfig', () => {
     });
 });
 
-describe('seedTitle', () => {
-    it('sets document.title from config.title', () => {
-        document.title = 'placeholder';
-        seedTitle({ title: 'Styleguide — Acme' });
-        expect(document.title).toBe('Styleguide — Acme');
-    });
-
-    it('leaves document.title untouched when config has no title', () => {
-        document.title = 'placeholder';
-        seedTitle({});
-        expect(document.title).toBe('placeholder');
-    });
-
-    it('leaves document.title untouched for a non-string title', () => {
-        document.title = 'placeholder';
-        seedTitle({ title: null });
-        expect(document.title).toBe('placeholder');
-    });
-});
+// seedTitle() moved into lib/documentChrome.js applyDocumentChrome() —
+// its behaviour cases live in documentChrome.spec.js ("title seed").
