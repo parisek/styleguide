@@ -227,6 +227,18 @@ describe('Sidebar', () => {
         expect(fieldsLink.classes()).toContain('text-red-700');
     });
 
+    // hasFields must agree with FieldsView's own group filter
+    // (has_styleguide !== false) — otherwise the nav entry can point at a
+    // view with nothing to show, if the only fields-bearing component is
+    // itself hidden from the styleguide.
+    it('hides the Fields nav item when the only component with fields has has_styleguide: false', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.items.push({ id: 'hidden-fields', name: 'Hidden Fields', category: 'Block', has_styleguide: false, fields: [{ key: 'title', type: 'text' }] });
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('a').find((a) => a.text() === 'Fields')).toBeUndefined();
+    });
+
     // Regression test for the real page-load timing: main.js calls
     // `catalog.init()` (async fetch) WITHOUT awaiting it before `app.mount()`,
     // so Sidebar.vue's very first render always sees an empty catalog and the
