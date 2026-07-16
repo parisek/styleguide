@@ -167,6 +167,7 @@ When a change adds, renames, removes, or alters the default of any of the follow
 | A `Styleguide` constructor config key | `docs/API.md` (§ PHP API) **and** `README.md` § Bootstrap |
 | Any consumer-visible behaviour | `CHANGELOG.md` `[Unreleased]` (+ `README.md` if it changes how consumers wire things) |
 | An `@api`-marked surface | re-confirm the breaking / non-breaking note in `docs/API.md` still holds |
+| An architectural decision (API contract shape, doctrine choice, boundary) | add an ADR in `docs/adr/` (see `docs/adr/README.md`) |
 
 Internal-only work (refactors, test tooling, static-analysis fixes) needs no doc change beyond an optional `CHANGELOG.md` note. When unsure whether a surface is public, check the `@api` / `@internal` markers in `src/` and the SemVer tables in `docs/API.md`.
 
