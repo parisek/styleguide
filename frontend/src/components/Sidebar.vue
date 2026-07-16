@@ -225,6 +225,16 @@ function supportedLocales() {
                             <span>{{ i18n.t('nav.icons') }}</span>
                         </a>
                     </li>
+                    <!-- Cross-component fields overview (#95) — gated on live
+                         catalogue data (catalog.hasFields) rather than a
+                         server-injected config flag like Icons above, since
+                         "any component declares fields" is only known once
+                         the components API response has landed. -->
+                    <li v-if="catalog.hasFields">
+                        <a href="#" @click.prevent="select('fields', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('fields', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                            <span>{{ i18n.t('nav.fields') }}</span>
+                        </a>
+                    </li>
                     <li>
                         <a href="#" @click.prevent="select('overview', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('overview', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.overview') }}</span>

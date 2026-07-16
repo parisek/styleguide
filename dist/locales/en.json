@@ -78,7 +78,11 @@
     },
     "fields": {
         "required": "Required field",
-        "requiredLegend": "= Required field"
+        "requiredLegend": "= Required field",
+        "detail": "Field detail",
+        "overviewTitle": "Fields overview",
+        "filterPlaceholder": "Filter fields…",
+        "empty": "No fields match the filter."
     },
     "theme": {
         "light": "Light theme",

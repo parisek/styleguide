@@ -18,6 +18,15 @@ export const useCatalogStore = defineStore('catalog', {
     getters: {
         docEntries: (state) => state.docs,
         pagesTree: (state) => buildTree(state.pages.filter((p) => p.has_styleguide !== false)),
+        // Gates the /fields nav entry (Sidebar.vue) and FieldsView's own
+        // empty state — mirrors the config.hasIcons pattern but is derived
+        // from live catalogue data instead of a server-injected flag, since
+        // "does any component declare fields" isn't known until the
+        // components API response lands. has_styleguide !== false must
+        // match FieldsView's own groups filter, or the nav entry can point
+        // at a view with nothing to show (only fields-bearing component is
+        // itself hidden from the styleguide).
+        hasFields: (state) => state.items.some((c) => Array.isArray(c.fields) && c.fields.length > 0 && c.has_styleguide !== false),
     },
     actions: {
         async init() {

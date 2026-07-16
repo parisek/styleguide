@@ -1,0 +1,6 @@
+name: "Broken Fields Yaml"
+category: "Test"
+fields:
+  ok:
+    label: "Ok"
+  bad: "not a map"

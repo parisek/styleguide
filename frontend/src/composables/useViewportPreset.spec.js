@@ -405,11 +405,13 @@ describe('useViewportPreset', () => {
         expect(vp.descriptionBarText.value).toBe('');
     });
 
-    it('fieldsTree/fieldsCount reflect the current item\'s YAML fields map', () => {
+    // Canonical Field[] list (docs/API.md § Fields; ADR-0002) — /api/components
+    // and /api/fields now emit fields as a list, not a map keyed by field name.
+    it('fieldsTree/fieldsCount reflect the current item\'s canonical fields list', () => {
         const type = ref('component');
         const slug = ref('hero');
         const catalog = useCatalogStore();
-        catalog.items = [{ id: 'hero', name: 'Hero', fields: { title: { type: 'text' } } }];
+        catalog.items = [{ id: 'hero', name: 'Hero', fields: [{ key: 'title', type: 'text' }] }];
         const vp = useViewportPreset({ type, slug });
         expect(vp.fieldsCount.value).toBe(1);
         expect(vp.fieldsTree.value[0].key).toBe('title');

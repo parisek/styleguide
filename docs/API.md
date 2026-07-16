@@ -233,6 +233,29 @@ The SPA chrome (and any external tooling) consumes these. Response shapes are st
 Returns array of all components, one object per. Object shape:
 
 ```ts
+type Field = {
+    key: string;          // YAML map key
+    label: string;        // definition-kit `label`; legacy annotation `title` maps here
+    type: string;         // abstract (text/richtext/media/link/reference/group/repeater/…) or legacy type, verbatim; '' when absent
+    description: string;  // '' when absent
+    required: boolean;    // false when absent
+    children: Field[] | null;   // nested `fields:` submap, same shape
+    [authoredKey: string]: unknown;
+    // OPEN CONTRACT (ADR-0002): every other authored key — mcp, wp,
+    // translatable, options, visible_when, kind, shape, of, constraints
+    // (maxlength/min/max/step/accept), placeholder, add_label, and any
+    // future definition-kit key — passes through verbatim. Consumers MUST
+    // tolerate unknown keys.
+    //
+    // RESERVED, NOT open-contract: an authored `key:` or `children:` value
+    // is dropped by normalisation, not passed through — those two names
+    // are reserved for the canonical `key`/`children` output fields above.
+    // The common real-world case is ACF `key` residue (ACF field groups
+    // carry their own internal `key: field_...` per field) leaking into a
+    // `fields:` map; without this, it would silently overwrite the
+    // canonical `key` a consumer relies on for lookups.
+};
+
 {
   id: string;            // dir/file basename
   name: string;          // from YAML
@@ -244,7 +267,7 @@ Returns array of all components, one object per. Object shape:
   web: string;
   weight: number;        // int, default 50
   usage: string[];       // normalised from the YAML comma-separated `usage:` string (or an already-array YAML value) by ComponentParser::normaliseUsage() — see § PHP API
-  fields: object;        // recursive map mirroring YAML
+  fields: Field[];       // canonical ordered list — see § Fields canonicalisation
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
   body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`; ALWAYS false for /api/docs entries regardless of YAML — see § Component YAML metadata
@@ -258,6 +281,10 @@ Field order is **not** part of the contract. Adding new fields is non-breaking. 
 
 `/api/pages` and `/api/docs` inherit the identical additive `variants` and `has_default_variant` fields (already true by construction — same `normaliseMetadata()`).
 
+### § Fields canonicalisation
+
+A `fields:` map is authored via one of two doctrines — a legacy twig-annotation map (`title` for the label) or a sibling `<id>.yaml` definition-kit map (`label`) — and `ComponentParser` normalises both into the same canonical `Field[]` list shown above (`FieldsNormalizer`, ADR-0002). A malformed entry (not a map, or missing both `label` and `title`) is skipped rather than failing the whole component; the skip is recorded as a warning surfaced via `getWarnings()` and `GET /styleguide/api/health`.
+
 ### `GET /styleguide/api/pages`
 
 Same shape as `/api/components` but reads from `templates_path/page/` and the `has_styleguide` field is interpreted accordingly. Pages may carry a `usage:` value indicating which components they use.
@@ -270,13 +297,13 @@ Two fields are special-cased for this endpoint: `responsive` is always `false` (
 
 ### `GET /styleguide/api/fields`
 
-Flat list of every component / page that exposes a `fields:` map. Only components are aggregated — pages and docs are not included in `/api/fields`. Object shape:
+Flat list of every component that exposes a `fields:` map. Only components (`templates_path/component/`) are aggregated — `/api/fields` never includes pages or docs, even when they carry their own `fields:` map. A page's or doc's fields are still exposed, just per-item on its own `/api/pages` / `/api/docs` entry (see § `GET /styleguide/api/components` for the `Field[]` shape). Object shape:
 
 ```ts
 {
   component_id: string;
   component_name: string;
-  fields: object;
+  fields: Field[]; // canonical ordered list — see § Fields canonicalisation, Field type above
 }
 ```
 

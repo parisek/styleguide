@@ -46,6 +46,8 @@ function syncTitle() {
         label = i18n.t('nav.overview');
     } else if (route.name === 'foundations' || route.name === 'landing') {
         label = i18n.t('nav.foundations');
+    } else if (route.name === 'fields') {
+        label = i18n.t('nav.fields');
     } else if (route.params.slug) {
         const item = catalog.find(route.name, route.params.slug);
         label = item?.name ?? route.params.slug;

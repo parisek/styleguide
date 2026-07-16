@@ -4,6 +4,7 @@ import { routeInfo } from './lib/routeInfo.js';
 import PreviewView from './views/PreviewView.vue';
 import OverviewView from './views/OverviewView.vue';
 import FoundationsView from './views/FoundationsView.vue';
+import FieldsView from './views/FieldsView.vue';
 
 // Route table mirrors frontend/router.js's regex exactly:
 //   ^/styleguide(?:\/(component|page|doc|overview|foundations|fields)(?:\/(.+?))?\/?$
@@ -31,11 +32,12 @@ const routes = [
     // foundations; the iframe src derives from the route type in
     // useViewportPreset's buildIframeSrc().
     { path: '/icons', name: 'icons', component: FoundationsView },
-    // Dead-but-preserved: /fields used to be a top-level route; fields are
-    // now an inline per-component drawer (see FieldsDrawer.vue, Task 9).
-    // PreviewView renders PreviewPane's existing "no iframe src" empty
-    // state for type 'fields' — identical to today's dead route.
-    { path: '/fields', name: 'fields', component: PreviewView },
+    // Cross-component fields overview (#95): lists every component that
+    // declares a `fields:` block, flattened via the same flattenFieldsTree()
+    // FieldsDrawer uses per-component. Gated in Sidebar.vue on
+    // catalog.hasFields so projects with no fields-bearing components never
+    // see a dead menu entry.
+    { path: '/fields', name: 'fields', component: FieldsView },
     // Any unmatched path falls back to the landing/foundations view, same
     // as the legacy parse()'s `if (!m) return { type: 'landing', slug: null }`.
     { path: '/:pathMatch(.*)*', name: 'not-found-fallback', component: FoundationsView },

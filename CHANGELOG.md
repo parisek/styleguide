@@ -8,6 +8,28 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Fields overview + canonical fields API (#95, ADR-0002).** Both field-definition doctrines
+  (legacy twig-annotation `title`, definition-kit sibling `<id>.yaml` `label`) normalise
+  server-side into one canonical, ordered fields list; every other authored key (`mcp`, `wp:`,
+  `visible_when`, constraints, …) passes through the API verbatim — open contract, see
+  `docs/API.md` § Fields. New sidebar entry **Fields** (`/fields`, shown when any component
+  declares fields via `catalog.hasFields`): global searchable overview — filterable by field
+  key/label/type or component name — with click-through to the component
+  (`/component/<id>?fields=1` opens the drawer). `FieldsDrawer`/`FieldsTable` render labels from
+  both doctrines and expand per-row verbatim detail. Malformed field entries are skipped rather
+  than failing the whole component, surfacing instead as a warning via `GET /styleguide/api/health`.
+
+### Changed
+
+- **`/api/components` + `/api/fields`: `fields` is now the canonical list** (was: raw YAML map
+  pass-through), same on `/api/pages`/`/api/docs` — the same `Field[]` shape
+  (`{ key, label, type, description, required, children, ...verbatim }`) via the new
+  `FieldsNormalizer` (ADR-0002). Consumers reading the raw map shape must switch to the
+  documented `Field` type; unknown authored keys still pass through verbatim. See `docs/API.md`
+  § Fields canonicalisation.
+
 ## [1.5.1] - 2026-07-16
 
 ### Fixed
