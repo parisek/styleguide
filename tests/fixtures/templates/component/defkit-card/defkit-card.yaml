@@ -1,5 +1,6 @@
 name: Defkit Card
 category: Block
+styleguide: true
 fields:
   title:
     type: text

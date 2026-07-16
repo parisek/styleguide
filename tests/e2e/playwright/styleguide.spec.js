@@ -293,4 +293,29 @@ test.describe('Styleguide SPA', () => {
         const frame = page.frameLocator('iframe').first();
         await expect(frame.locator('#sg-standalone-bar')).toBeHidden();
     });
+
+    test('/fields lists definition-kit fields and clicks through to the component with the drawer open', async ({ page }) => {
+        await page.goto('/styleguide/fields');
+        // canonical label rendered from the sibling defkit-card.yaml
+        await expect(page.getByText('Nadpis')).toBeVisible();
+        // filter narrows to the media field
+        await page.getByTestId('fields-filter').fill('media');
+        await expect(page.getByText('Obrázek')).toBeVisible();
+        await expect(page.getByText('Nadpis')).not.toBeVisible();
+        await page.getByTestId('fields-filter').fill('');
+        // click-through: component heading → preview with drawer expanded.
+        // Scoped to <main> because the fixture is now sidebar-listed too
+        // (has_styleguide: true, needed for the /fields + sidebar tests
+        // below to see it at all) -- an unscoped getByRole('link', { name:
+        // 'Defkit Card' }) matches both the sidebar entry and the overview
+        // heading link, a strict-mode violation.
+        await page.locator('main').getByRole('link', { name: 'Defkit Card' }).click();
+        await expect(page).toHaveURL(/\/styleguide\/component\/defkit-card\?fields=1$/);
+        await expect(page.getByRole('cell', { name: 'Nadpis' })).toBeVisible(); // drawer already open
+    });
+
+    test('sidebar shows the Fields entry when the catalog declares fields', async ({ page }) => {
+        await page.goto('/styleguide/');
+        await expect(page.getByRole('link', { name: 'Pole' })).toBeVisible();
+    });
 });
