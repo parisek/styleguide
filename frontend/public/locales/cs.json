@@ -79,7 +79,10 @@
     "fields": {
         "required": "Povinné pole",
         "requiredLegend": "= Povinné pole",
-        "detail": "Detail pole"
+        "detail": "Detail pole",
+        "overviewTitle": "Přehled polí",
+        "filterPlaceholder": "Filtrovat pole…",
+        "empty": "Žádná pole neodpovídají filtru."
     },
     "theme": {
         "light": "Světlé téma",

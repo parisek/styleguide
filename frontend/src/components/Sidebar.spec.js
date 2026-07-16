@@ -17,6 +17,7 @@ function makeRouter() {
             { path: '/overview', name: 'overview', component: { template: '<div/>' } },
             { path: '/foundations', name: 'foundations', component: { template: '<div/>' } },
             { path: '/icons', name: 'icons', component: { template: '<div/>' } },
+            { path: '/fields', name: 'fields', component: { template: '<div/>' } },
         ],
     });
 }
@@ -50,7 +51,7 @@ async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
     catalog.pages = [{ id: 'homepage', name: 'Homepage', has_styleguide: true }];
     catalog.docs = [];
     catalog.loading = false;
-    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
     const router = makeRouter();
     await router.push(initialPath);
@@ -206,6 +207,26 @@ describe('Sidebar', () => {
         expect(iconsLink.classes()).toContain('text-red-700');
     });
 
+    // Cross-component fields overview (#95): unlike Icons above, this entry
+    // is gated on live catalogue data (catalog.hasFields), not a
+    // server-injected config flag, since "any component declares fields"
+    // is only knowable once the components API response has landed.
+    it('hides the Fields nav item when no catalog item declares fields', async () => {
+        const { wrapper } = await mountSidebar();
+        expect(wrapper.findAll('a').find((a) => a.text() === 'Fields')).toBeUndefined();
+    });
+
+    it('shows the Fields nav item when a component has fields and marks it active on /fields', async () => {
+        const { wrapper } = await mountSidebar('/fields');
+        const catalog = useCatalogStore();
+        catalog.items.push({ id: 'has-fields', name: 'Has Fields', category: 'Block', has_styleguide: true, fields: [{ key: 'title', type: 'text' }] });
+        await wrapper.vm.$nextTick();
+        const fieldsLink = wrapper.findAll('a').find((a) => a.text() === 'Fields');
+        expect(fieldsLink).toBeDefined();
+        expect(fieldsLink.classes()).toContain('bg-red-600/10');
+        expect(fieldsLink.classes()).toContain('text-red-700');
+    });
+
     // Regression test for the real page-load timing: main.js calls
     // `catalog.init()` (async fetch) WITHOUT awaiting it before `app.mount()`,
     // so Sidebar.vue's very first render always sees an empty catalog and the
@@ -225,7 +246,7 @@ describe('Sidebar', () => {
         catalog.pages = [];
         catalog.docs = [];
         catalog.loading = true;
-        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
         const router = makeRouter();
         await router.push('/foundations');

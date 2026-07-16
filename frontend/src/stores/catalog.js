@@ -18,6 +18,12 @@ export const useCatalogStore = defineStore('catalog', {
     getters: {
         docEntries: (state) => state.docs,
         pagesTree: (state) => buildTree(state.pages.filter((p) => p.has_styleguide !== false)),
+        // Gates the /fields nav entry (Sidebar.vue) and FieldsView's own
+        // empty state — mirrors the config.hasIcons pattern but is derived
+        // from live catalogue data instead of a server-injected flag, since
+        // "does any component declare fields" isn't known until the
+        // components API response lands.
+        hasFields: (state) => state.items.some((c) => Array.isArray(c.fields) && c.fields.length > 0),
     },
     actions: {
         async init() {
