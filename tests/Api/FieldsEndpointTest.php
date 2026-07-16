@@ -40,6 +40,29 @@ final class FieldsEndpointTest extends TestCase
     }
 
     #[Test]
+    public function handle_never_includes_pages_even_when_a_page_declares_fields(): void
+    {
+        // /api/fields aggregates templates_path/component/ only (docs/API.md
+        // § GET /styleguide/api/fields) — a page's fields are exposed
+        // per-item on /api/pages instead, never surfaced here. The shared
+        // fixture root's only page fixture (`landing`) carries no `fields:`
+        // metadata, so assert against the full returned id set: no page id
+        // is present at all.
+        $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');
+        $endpoint = new FieldsEndpoint($parser);
+
+        ob_start();
+        $endpoint->handle();
+        $output = ob_get_clean();
+
+        $data = json_decode((string) $output, true);
+        self::assertIsArray($data);
+
+        $ids = array_column($data, 'component_id');
+        self::assertNotContains('landing', $ids, '/api/fields must never include a page id, even if the page declared fields');
+    }
+
+    #[Test]
     public function fields_carry_the_canonical_normalised_shape(): void
     {
         $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');

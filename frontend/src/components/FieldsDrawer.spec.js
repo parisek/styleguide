@@ -135,4 +135,43 @@ describe('FieldsDrawer', () => {
         await wrapper.vm.$nextTick();
         expect(wrapper.find('table').isVisible()).toBe(true);
     });
+
+    it('does NOT open when the route query is ?fields=0', async () => {
+        // Regression: `'fields' in route.query` is true for ANY value of the
+        // key, including '0' — only the literal '1' should open the drawer.
+        const router = makeRouter();
+        await router.push('/component/sample?fields=0');
+        const wrapper = mount(FieldsDrawer, { props: { fields: FIELDS }, global: { plugins: [router] }, attachTo: document.body });
+        expect(wrapper.find('table').isVisible()).toBe(false);
+    });
+
+    it('collapses on a same-slug query-only navigation away from ?fields=1', async () => {
+        // Regression: the watcher only tracked [route.params.slug, route.name],
+        // so back/forward between /component/foo?fields=1 and /component/foo
+        // (same slug, query-only change) never re-derived `open`.
+        const router = makeRouter();
+        await router.push('/component/sample?fields=1');
+        const wrapper = mount(FieldsDrawer, { props: { fields: FIELDS }, global: { plugins: [router] }, attachTo: document.body });
+        expect(wrapper.find('table').isVisible()).toBe(true);
+
+        await router.push('/component/sample');
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('table').isVisible()).toBe(false);
+    });
+
+    it('keeps a manual toggle open across an unrelated re-render (no navigation)', async () => {
+        // The watcher must only override `open` on actual navigation, not
+        // clobber a manual toggle click.
+        const router = makeRouter();
+        await router.push('/component/sample');
+        const wrapper = mount(FieldsDrawer, { props: { fields: FIELDS }, global: { plugins: [router] }, attachTo: document.body });
+        expect(wrapper.find('table').isVisible()).toBe(false);
+
+        await wrapper.find('button').trigger('click');
+        expect(wrapper.find('table').isVisible()).toBe(true);
+
+        await wrapper.setProps({ fields: FIELDS });
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('table').isVisible()).toBe(true);
+    });
 });

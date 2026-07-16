@@ -14,15 +14,21 @@ const route = useRoute();
 
 // ?fields=1 deep link (FieldsView click-through) opens the drawer on load;
 // otherwise default collapsed, matching legacy `x-data="{ open: false }"`.
-const open = ref('fields' in route.query);
+// Strict '1' equality (not `'fields' in route.query`) — a stray `?fields=0`
+// must NOT open the drawer.
+const open = ref(route.query.fields === '1');
 
 // App.vue renders this component outside <RouterView> without a :key, so
-// the same instance survives slug-only navigations. Without this watcher a
-// ?fields=1 deep link would leave `open` stuck true for every subsequently
-// visited component; re-deriving it from the route on every navigation
-// keeps the deep link one-shot.
-watch(() => [route.params.slug, route.name], () => {
-    open.value = 'fields' in route.query;
+// the same instance survives slug-only (and query-only) navigations.
+// Watching the whole fullPath — not just [slug, name] — covers a
+// same-slug query-only navigation too (e.g. back/forward between
+// /component/foo?fields=1 and /component/foo), which a narrower watch
+// source would miss. Without this watcher a ?fields=1 deep link would
+// leave `open` stuck true for every subsequently visited route; re-deriving
+// it from the route on every navigation keeps the deep link one-shot while
+// still letting the user manually toggle `open` between navigations.
+watch(() => route.fullPath, () => {
+    open.value = route.query.fields === '1';
 });
 
 const tree = computed(() => flattenFieldsTree(props.fields));

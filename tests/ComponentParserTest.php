@@ -699,7 +699,23 @@ final class ComponentParserTest extends TestCase
         // "bad" is a scalar, not a map — FieldsNormalizer skips it and keeps "ok".
         self::assertSame(['ok'], array_column($meta['fields'], 'key'));
         self::assertSame(
-            [['file' => 'component/broken-fields', 'error' => 'field "bad": definition is not a map — skipped']],
+            [['file' => 'component/broken-fields/broken-fields.twig', 'error' => 'field "bad": definition is not a map — skipped']],
+            $parser->getWarnings(),
+        );
+    }
+
+    #[Test]
+    public function a_malformed_field_entry_sourced_from_sibling_yaml_records_the_yaml_path(): void
+    {
+        // Warning file paths must point at WHICHEVER source actually supplied
+        // the metadata — here the sibling <id>.yaml, not the (metadata-less) .twig.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/broken-fields-templates');
+        $meta = $parser->parse('component', 'broken-fields-yaml');
+
+        self::assertNotNull($meta);
+        self::assertSame(['ok'], array_column($meta['fields'], 'key'));
+        self::assertSame(
+            [['file' => 'component/broken-fields-yaml/broken-fields-yaml.yaml', 'error' => 'field "bad": definition is not a map — skipped']],
             $parser->getWarnings(),
         );
     }

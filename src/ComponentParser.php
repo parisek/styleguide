@@ -159,7 +159,7 @@ class ComponentParser
 
         try {
             $content = (string) file_get_contents($file);
-            $metadata = $this->readComponentMetadata($dir, $id, $content);
+            [$metadata, $sourceFile] = $this->readComponentMetadata($dir, $id, $file, $content);
 
             if (!$metadata || !isset($metadata['name'])) {
                 return null;
@@ -174,7 +174,15 @@ class ComponentParser
                 || isset($metadata['styleguide'])
                 || $variants !== [];
 
-            return $this->normaliseMetadata($id, $type, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
+            return $this->normaliseMetadata(
+                $id,
+                $type,
+                $metadata,
+                $hasStyleguide,
+                $hasDefaultFixture,
+                $variants,
+                $this->relativePath($sourceFile),
+            );
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
             // for the render endpoint's <title>/body_class/render metadata)
@@ -218,7 +226,12 @@ class ComponentParser
             $id = $file->getBasename('.twig');
 
             try {
-                $metadata = $this->readComponentMetadata($file->getPath(), $id, $content);
+                [$metadata, $sourceFile] = $this->readComponentMetadata(
+                    $file->getPath(),
+                    $id,
+                    $file->getPathname(),
+                    $content,
+                );
 
                 if (!$metadata || !isset($metadata['name'])) {
                     continue;
@@ -230,7 +243,15 @@ class ComponentParser
                     || isset($metadata['styleguide'])
                     || $variants !== [];
 
-                $items[] = $this->normaliseMetadata($id, $type, $metadata, $hasStyleguide, $hasDefaultFixture, $variants);
+                $items[] = $this->normaliseMetadata(
+                    $id,
+                    $type,
+                    $metadata,
+                    $hasStyleguide,
+                    $hasDefaultFixture,
+                    $variants,
+                    $this->relativePath($sourceFile),
+                );
             } catch (\Throwable $e) {
                 // One pathological template must not 500 the whole catalogue for
                 // every sibling component. Record it and keep walking; surfaced
@@ -307,12 +328,19 @@ class ComponentParser
      * \Throwable resilience path (and thus the catalogue-wide warning log)
      * for a file that isn't even the twig template itself.
      *
-     * @return array<string,mixed>|false false = neither source produced a
-     *                                    usable metadata map
+     * Also reports WHICH source actually supplied the metadata (the sibling
+     * `<id>.yaml` or the `<id>.twig` itself) as an absolute path — callers
+     * need this to attribute field-normalisation warnings to the real file
+     * an author would have to open and fix, not a synthetic `type/id` stand-in.
+     *
+     * @return array{0: array<string,mixed>|false, 1: string} [metadata, absolute source path]
+     *                                    metadata false = neither source produced a
+     *                                    usable metadata map (source path is still
+     *                                    the twig file — the only candidate left)
      * @throws ParseException on malformed YAML inside the twig comment
      *                        fallback (same contract as parseTwigComment())
      */
-    private function readComponentMetadata(string $dir, string $id, string $twigContent): array|false
+    private function readComponentMetadata(string $dir, string $id, string $twigFile, string $twigContent): array
     {
         $yamlFile = $dir . '/' . $id . '.yaml';
 
@@ -320,7 +348,7 @@ class ComponentParser
             try {
                 $parsed = Yaml::parseFile($yamlFile);
                 if (is_array($parsed)) {
-                    return $parsed;
+                    return [$parsed, $yamlFile];
                 }
             } catch (\Throwable) {
                 // Malformed <id>.yaml — fall through to the twig comment
@@ -328,7 +356,7 @@ class ComponentParser
             }
         }
 
-        return $this->parseTwigComment($twigContent);
+        return [$this->parseTwigComment($twigContent), $twigFile];
     }
 
     /**
@@ -440,6 +468,7 @@ class ComponentParser
         bool $hasStyleguide,
         bool $hasDefaultFixture,
         array $variants,
+        string $sourceFile,
     ): array {
         return [
             'id' => $id,
@@ -452,7 +481,7 @@ class ComponentParser
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
             'usage' => self::normaliseUsage($metadata['usage'] ?? null),
-            'fields' => $this->normaliseFields($id, $type, $metadata['fields'] ?? null),
+            'fields' => $this->normaliseFields($sourceFile, $metadata['fields'] ?? null),
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
@@ -522,11 +551,11 @@ class ComponentParser
      *
      * @return list<array<string,mixed>>
      */
-    private function normaliseFields(string $id, string $type, mixed $fields): array
+    private function normaliseFields(string $relativeSourceFile, mixed $fields): array
     {
         $result = FieldsNormalizer::normalize($fields);
         foreach ($result['warnings'] as $warning) {
-            $entry = ['file' => $type . '/' . $id, 'error' => $warning];
+            $entry = ['file' => $relativeSourceFile, 'error' => $warning];
             // Idempotent within one request/instance, same rationale as
             // recordWarning() — a caller that parses the same file twice
             // (e.g. parse() then parseAll()) must not accumulate duplicate

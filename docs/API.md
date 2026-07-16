@@ -246,6 +246,14 @@ type Field = {
     // (maxlength/min/max/step/accept), placeholder, add_label, and any
     // future definition-kit key — passes through verbatim. Consumers MUST
     // tolerate unknown keys.
+    //
+    // RESERVED, NOT open-contract: an authored `key:` or `children:` value
+    // is dropped by normalisation, not passed through — those two names
+    // are reserved for the canonical `key`/`children` output fields above.
+    // The common real-world case is ACF `key` residue (ACF field groups
+    // carry their own internal `key: field_...` per field) leaking into a
+    // `fields:` map; without this, it would silently overwrite the
+    // canonical `key` a consumer relies on for lookups.
 };
 
 {
@@ -289,7 +297,7 @@ Two fields are special-cased for this endpoint: `responsive` is always `false` (
 
 ### `GET /styleguide/api/fields`
 
-Flat list of every component / page that exposes a `fields:` map. Only components are aggregated — pages and docs are not included in `/api/fields`. Object shape:
+Flat list of every component that exposes a `fields:` map. Only components (`templates_path/component/`) are aggregated — `/api/fields` never includes pages or docs, even when they carry their own `fields:` map. A page's or doc's fields are still exposed, just per-item on its own `/api/pages` / `/api/docs` entry (see § `GET /styleguide/api/components` for the `Field[]` shape). Object shape:
 
 ```ts
 {
