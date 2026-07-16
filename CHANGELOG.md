@@ -8,14 +8,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
-### Fixed
+## [1.5.0] - 2026-07-15
 
-- **Sidebar respects authored `weight:` order.** `buildTree` (prefix grouping) re-sorted
-  every section alphabetically client-side, silently discarding the server's weight-sorted
-  order — a `weight: 1` homepage rendered after "404". Nodes now keep the incoming API order
-  (weight, cs-collation name tiebreak); groups sit where their first member appears and group
-  children keep authored order too. Default-weight sections look unchanged — the server
-  tiebreak already produced the alphabetical order.
+### Added
+
+- **Prefer a sibling `<id>.yaml` component definition over the twig annotation (#91).**
+  Transitional support for tailwind-base's incoming per-component canonical definition file
+  (`<id>.yaml`, sibling of `<id>.twig`). `ComponentParser` now checks for it first via a new
+  `readComponentMetadata()` helper shared by `parse()` and `parseAll()`; a malformed or missing
+  `<id>.yaml` falls back to the existing `{# … #}` twig-comment parsing, unchanged. Purely
+  opt-in and fallback-safe: a project with no `<id>.yaml` files renders exactly as before.
 
 ### Changed
 
@@ -24,6 +26,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   read as a dead button. Esc/backdrop/close-button dismissal comes from the native element;
   `console.warn` stays as a debugging side channel. New `health.dialog_title`/`dialog_close`
   i18n keys (cs/en); `health.warnings_title` no longer mentions the console.
+
+### Fixed
+
+- **Sidebar respects authored `weight:` order (#92).** `buildTree` (prefix grouping) re-sorted
+  every section alphabetically client-side, silently discarding the server's weight-sorted
+  order — a `weight: 1` homepage rendered after "404". Nodes now keep the incoming API order
+  (weight, cs-collation name tiebreak); groups sit where their first member appears and group
+  children keep authored order too. Default-weight sections look unchanged — the server
+  tiebreak already produced the alphabetical order.
 
 ## [1.4.0] - 2026-07-15
 
@@ -310,7 +321,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/parisek/styleguide/compare/v1.4.0...v1.5.0
+[1.4.0]: https://github.com/parisek/styleguide/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/parisek/styleguide/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/parisek/styleguide/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/parisek/styleguide/compare/v1.1.1...v1.1.2
