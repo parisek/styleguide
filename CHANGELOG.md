@@ -8,6 +8,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Browser-tab favicon regression since the Vue rewrite.** `<link rel="icon" id="sg-favicon-tag">`
+  shipped with an empty `href` on every SPA page: the server-side tag patch was removed when
+  `dispatchSpa()` switched to the single `#sg-config` injection, but no SPA code ever consumed
+  `config.favicon` for the link (only the sidebar `<img>` had a consumer, which is why it went
+  unnoticed). Document-level config consumption (favicon link, `data-default-locale`, title seed)
+  is now consolidated in `frontend/src/lib/documentChrome.js`, an unconfigured favicon falls back
+  to the generic glyph, and a Playwright assert guards the producer→consumer wiring end to end.
+
 ## [1.5.0] - 2026-07-15
 
 ### Added

@@ -17,6 +17,7 @@ import HealthWarningBadge from './HealthWarningBadge.vue';
 // from main.js's boot-sequencing side effects (app.mount, favicon fallback
 // wiring, title sync).
 import { readSpaConfig } from '../lib/config.js';
+import { GENERIC_FAVICON } from '../lib/documentChrome.js';
 
 const catalog = useCatalogStore();
 const ui = useUiStore();
@@ -30,6 +31,11 @@ const sections = usePersistedRef('sg-sections', {
 });
 const groups = usePersistedRef('sg-groups', {});
 const config = readSpaConfig();
+// Swapped to GENERIC_FAVICON by the <img> @error handler when the configured
+// favicon 404s / isn't a valid image — replaces the DOMContentLoaded +
+// getElementById error-listener that main.js used to wire onto an element
+// this component renders (fragile ordering across the app mount).
+const faviconSrc = ref(config.favicon);
 
 const searchInputRef = ref(null);
 
@@ -129,7 +135,7 @@ function supportedLocales() {
                      itself is a plain square img centered inside it with a safe-area
                      margin — so any icon shape sits nicely off the frame's edges. -->
                 <span class="w-8 h-8 rounded-lg bg-zinc-200 dark:bg-zinc-50 shrink-0 ring-1 ring-red-500/20 flex items-center justify-center overflow-hidden">
-                    <img v-if="config.favicon" :src="config.favicon" :alt="config.projectName" class="w-6 h-6 object-contain" id="sg-favicon">
+                    <img v-if="config.favicon" :src="faviconSrc" :alt="config.projectName" class="w-6 h-6 object-contain" id="sg-favicon" @error="faviconSrc = GENERIC_FAVICON">
                 </span>
                 <div class="min-w-0 flex-1">
                     <div class="font-bold text-sm text-zinc-900 dark:text-zinc-50 truncate" id="sg-project-name">{{ config.projectName }}</div>
