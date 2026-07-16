@@ -65,9 +65,11 @@ final class ComponentParserTest extends TestCase
         // (deliberately last — its Twig body throws, exercised by
         // RendererTest, but its YAML metadata is valid so ComponentParser,
         // which never renders the body, picks it up like any other
-        // component).
+        // component). Defkit Card is also weight 50 (no explicit weight) —
+        // it sorts before With fields because directory scan order breaks
+        // the weight tie alphabetically (defkit-card < with-fields).
         self::assertSame(
-            ['Another', 'Sample', 'Multi', 'Only Variants', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
+            ['Another', 'Sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );
@@ -656,5 +658,33 @@ final class ComponentParserTest extends TestCase
         self::assertSame('Fallback From Broken Yaml', $brokenYaml['name']);
         self::assertSame(60, $brokenYaml['weight']);
         self::assertSame([], $parser->getWarnings(), 'a malformed <id>.yaml must not surface as a catalogue warning — it is a silent fallback');
+    }
+
+    #[Test]
+    public function fields_are_canonical_for_definition_kit_yaml(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $meta = $parser->parse('component', 'defkit-card');
+
+        self::assertSame('Defkit Card', $meta['name']);
+        $fields = $meta['fields'];
+        self::assertSame('title', $fields[0]['key']);
+        self::assertSame('Nadpis', $fields[0]['label']);
+        self::assertSame(120, $fields[0]['maxlength']);                       // verbatim
+        self::assertSame(['Short punchy headline'], $fields[0]['mcp']);       // verbatim
+        self::assertSame(['allow_in_bindings' => 1], $fields[2]['wp']);       // verbatim
+        self::assertSame('Popisek', $fields[3]['children'][0]['label']);      // recursion
+    }
+
+    #[Test]
+    public function fields_are_canonical_for_old_doctrine_twig_annotation(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $meta = $parser->parse('component', 'with-fields');
+
+        $fields = $meta['fields'];
+        self::assertSame('Title', $fields[0]['label']);       // title → label
+        self::assertTrue($fields[0]['required']);
+        self::assertSame('Label', $fields[1]['children'][0]['label']);
     }
 }

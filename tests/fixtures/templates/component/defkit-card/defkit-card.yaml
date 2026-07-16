@@ -1,0 +1,28 @@
+name: Defkit Card
+category: Block
+fields:
+  title:
+    type: text
+    label: Nadpis
+    required: true
+    maxlength: 120
+    mcp:
+      - Short punchy headline
+  media:
+    type: media
+    kind: image
+    label: Obrázek
+  spacing:
+    type: select
+    label: Rozestupy
+    options:
+      default: Standardní
+      no-top: Bez horního
+    wp:
+      allow_in_bindings: 1
+  items:
+    type: repeater
+    label: Položky
+    add_label: Přidat položku
+    fields:
+      label: { type: text, label: Popisek }

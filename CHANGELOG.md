@@ -8,6 +8,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **`fields` on `/api/components`, `/api/pages`, `/api/docs`, `/api/fields` is now a canonical
+  ordered list, not a raw YAML map (#95).** `ComponentParser` normalises both authoring doctrines
+  (legacy twig-annotation `title`, definition-kit `<id>.yaml` `label`) into the same `Field[]`
+  shape (`{ key, label, type, description, required, children, ...verbatim }`) via the new
+  `FieldsNormalizer` (ADR-0002). A malformed field entry is skipped rather than failing the whole
+  component, and the skip surfaces as a warning via `GET /styleguide/api/health`. See `docs/API.md`
+  § Fields canonicalisation.
+
 ## [1.5.1] - 2026-07-16
 
 ### Fixed

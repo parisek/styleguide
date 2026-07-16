@@ -452,7 +452,7 @@ class ComponentParser
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
             'usage' => self::normaliseUsage($metadata['usage'] ?? null),
-            'fields' => $metadata['fields'] ?? [],
+            'fields' => $this->normaliseFields($id, $type, $metadata['fields'] ?? null),
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
@@ -513,6 +513,22 @@ class ComponentParser
             // discoverVariants().
             'variants' => $variants,
         ];
+    }
+
+    /**
+     * Canonical fields list (ADR-0002): both doctrines normalise to the same
+     * core keys; all other authored keys pass through verbatim. Malformed
+     * entries are skipped and surface in getWarnings() / GET /api/health.
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function normaliseFields(string $id, string $type, mixed $fields): array
+    {
+        $result = FieldsNormalizer::normalize($fields);
+        foreach ($result['warnings'] as $warning) {
+            $this->warnings[] = ['file' => $type . '/' . $id, 'error' => $warning];
+        }
+        return $result['fields'];
     }
 
     private function recordWarning(string $relativeFile, \Throwable $e): void
