@@ -33,6 +33,37 @@ final class OgImageAuditTest extends TestCase
         self::assertSame(630, $size[1]);
     }
 
+    public function testAssetBaseIsStrippedBeforeDiskLookup(): void
+    {
+        // A consumer that wrote the og_image as a full browser URL under the
+        // theme's static dir must audit identically to the short form —
+        // before the strip it read as `missing` with the file on disk.
+        $base = '/wp-content/themes/acme/static';
+
+        $result = OgImageAudit::run(self::STATIC_PATH, $base . self::IMAGES . '/og-image.png', $base);
+
+        self::assertTrue($result['configured']);
+        self::assertTrue($result['exists']);
+        self::assertSame('ok', $result['status']);
+        self::assertSame(1200, $result['width']);
+        self::assertSame(630, $result['height']);
+        // The strip is scoped to the disk lookup — `path` stays what the
+        // author wrote. The audit table echoes it, and Renderer derives the
+        // browser-facing `url` twin by rebasing it, so a stripped `path`
+        // here would both misreport the yaml and skew that derivation.
+        self::assertSame($base . self::IMAGES . '/og-image.png', $result['path']);
+    }
+
+    public function testShortPathIsUnaffectedByAnAssetBase(): void
+    {
+        $short = self::IMAGES . '/og-image.png';
+
+        self::assertSame(
+            OgImageAudit::run(self::STATIC_PATH, $short),
+            OgImageAudit::run(self::STATIC_PATH, $short, '/wp-content/themes/acme/static'),
+        );
+    }
+
     public function testUnconfiguredIsUnconfigured(): void
     {
         $result = OgImageAudit::run(self::STATIC_PATH, null);

@@ -298,6 +298,87 @@ final class FaviconAuditTest extends TestCase
         $this->rrmdir($dir);
     }
 
+    public function testAssetBaseIsStrippedBeforeDiskLookups(): void
+    {
+        // The WordPress / Drupal shape: yaml paths written as real browser
+        // URLs under the theme's static dir. They must audit exactly like
+        // the short form — the base is a web-routing concern, not a disk one.
+        $base = '/wp-content/themes/acme/static';
+        $prefixed = [];
+        foreach ($this->happyPathConfig() as $key => $value) {
+            $prefixed[$key] = $key === 'theme_color' ? $value : $base . $value;
+        }
+
+        $result = FaviconAudit::run(self::STATIC_PATH, $prefixed, $base);
+        $byKey = $this->entriesByKey($result);
+
+        self::assertTrue($byKey['svg']['exists']);
+        self::assertSame('ok', $byKey['svg']['status']);
+        self::assertSame(96, $byKey['png_96']['width']);
+        self::assertNotNull($result['manifest']);
+        self::assertTrue($result['manifest']['valid']);
+
+        // The echoed path stays exactly as authored — the audit table shows
+        // the yaml back to whoever wrote it.
+        self::assertSame($base . self::TOUCH . '/favicon.svg', $byKey['svg']['path']);
+    }
+
+    public function testManifestIconSrcCarryingTheAssetBaseStillResolves(): void
+    {
+        // A site.webmanifest is fetched by the BROWSER, so an absolute icon
+        // src is necessarily a real URL carrying the asset base. Before the
+        // strip, every such icon audited as missing while sitting on disk.
+        $base = '/wp-content/themes/acme/static';
+        $dir = sys_get_temp_dir() . '/favicon-audit-test-' . uniqid();
+        mkdir($dir . self::TOUCH, 0777, true);
+        copy(
+            self::STATIC_PATH . self::TOUCH . '/web-app-manifest-192x192.png',
+            $dir . self::TOUCH . '/web-app-manifest-192x192.png',
+        );
+        file_put_contents(
+            $dir . self::TOUCH . '/prefixed.webmanifest',
+            (string) json_encode(['icons' => [[
+                'src' => $base . self::TOUCH . '/web-app-manifest-192x192.png',
+                'sizes' => '192x192',
+                'purpose' => 'maskable',
+            ]]]),
+        );
+
+        $result = FaviconAudit::run($dir, [
+            'manifest' => $base . self::TOUCH . '/prefixed.webmanifest',
+        ], $base);
+
+        self::assertNotNull($result['manifest']);
+        self::assertTrue($result['manifest']['icons'][0]['exists']);
+        // The output src keeps the browser URL the manifest actually serves.
+        self::assertSame(
+            $base . self::TOUCH . '/web-app-manifest-192x192.png',
+            $result['manifest']['icons'][0]['src'],
+        );
+        self::assertSame(
+            $base . self::TOUCH . '/web-app-manifest-192x192.png',
+            $result['maskable_icon'],
+        );
+
+        $this->rrmdir($dir);
+    }
+
+    public function testShortPathsAreUnaffectedByAnAssetBase(): void
+    {
+        // Mixed authoring (short yaml + prefixed manifest icons) is the real
+        // downstream shape — the strip must be a no-op on the short form.
+        $result = FaviconAudit::run(
+            self::STATIC_PATH,
+            $this->happyPathConfig(),
+            '/wp-content/themes/acme/static',
+        );
+
+        self::assertSame(
+            FaviconAudit::run(self::STATIC_PATH, $this->happyPathConfig()),
+            $result,
+        );
+    }
+
     public function testThemeColorInvalidHexIsConfiguredButInvalid(): void
     {
         $result = FaviconAudit::run(self::STATIC_PATH, [
