@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-21
+
 ### Fixed
 
 - **Foundations favicon / OG-image previews 404'd on WordPress and Drupal consumers.**
