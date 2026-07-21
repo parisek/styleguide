@@ -8,6 +8,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Foundations favicon / OG-image previews 404'd on WordPress and Drupal consumers.**
+  `FaviconAudit` / `OgImageAudit` echo the docroot-agnostic `styleguide.yaml` path
+  (`/images/touch/favicon.svg`) back out, and `foundations.twig` rendered it straight
+  into the browser-tab / iOS / share-card mockup `<img src>`s — so on any consumer
+  whose static dir isn't the docroot (WordPress: `/wp-content/themes/<theme>/static`)
+  every mockup showed a broken image. The audits' browser-facing values are now rebased
+  onto `twig_context.templateUrl` via `Renderer::resolveAssetUrl()`, the same treatment
+  `iframe.css` / `project.favicon` / `styleguide.logo[*].src` already get.
+  `favicon_audit.entries[*].path` and `og_image_audit.path` are deliberately left raw —
+  the audit table prints them as a `<code>` echo of what the author wrote. The rebased
+  OG-image value lands in a new `og_image_audit.url` twin (additive; `path` unchanged).
+  Standalone consumers (empty `templateUrl`) render byte-for-byte as before.
+
 ## [1.6.0] - 2026-07-16
 
 ### Added

@@ -309,7 +309,7 @@
 							<div class="overflow-hidden w-full bg-zinc-100 aspect-[1.91/1]">
 								{% if og_audit.exists %}
 									{# twig-cs-fixer-disable-next-line PlainImg — mockup share-card image sourced from the server-side audit, not a CMS image #}
-									<img src="{{ og_audit.path|e('html_attr') }}" alt="" class="object-cover w-full h-full">
+									<img src="{{ (og_audit.url|default(og_audit.path))|e('html_attr') }}" alt="" class="object-cover w-full h-full">
 								{% else %}
 									<div class="flex justify-center items-center w-full h-full text-xs text-zinc-400">{{ styleguide.labels.og_missing|default('Image not found')|e }}</div>
 								{% endif %}
@@ -327,7 +327,7 @@
 							<div class="overflow-hidden w-full bg-zinc-100 aspect-[2/1]">
 								{% if og_audit.exists %}
 									{# twig-cs-fixer-disable-next-line PlainImg — mockup share-card image sourced from the server-side audit, not a CMS image #}
-									<img src="{{ og_audit.path|e('html_attr') }}" alt="" class="object-cover w-full h-full">
+									<img src="{{ (og_audit.url|default(og_audit.path))|e('html_attr') }}" alt="" class="object-cover w-full h-full">
 								{% else %}
 									<div class="flex justify-center items-center w-full h-full text-xs text-zinc-400">{{ styleguide.labels.og_missing|default('Image not found')|e }}</div>
 								{% endif %}
@@ -344,7 +344,7 @@
 								<div class="overflow-hidden w-32 bg-zinc-100 rounded aspect-[1.91/1]">
 									{% if og_audit.exists %}
 										{# twig-cs-fixer-disable-next-line PlainImg — mockup share-card image sourced from the server-side audit, not a CMS image #}
-										<img src="{{ og_audit.path|e('html_attr') }}" alt="" class="object-cover w-full h-full">
+										<img src="{{ (og_audit.url|default(og_audit.path))|e('html_attr') }}" alt="" class="object-cover w-full h-full">
 									{% else %}
 										<div class="flex justify-center items-center w-full h-full text-[10px] text-center text-zinc-400">{{ styleguide.labels.og_missing|default('Image not found')|e }}</div>
 									{% endif %}
