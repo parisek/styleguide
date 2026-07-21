@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.6.2] - 2026-07-21
+
 ### Fixed
 
 - **Manifest icons audited as `missing` on WordPress / Drupal consumers.** A
