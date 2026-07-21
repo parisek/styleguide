@@ -448,6 +448,9 @@ final class Renderer
                 }
             }
         }
+        if (isset($config['styleguide']) && is_array($config['styleguide'])) {
+            $config['styleguide'] = self::rebaseAuditAssets($config['styleguide'], $assetBase);
+        }
 
         try {
             $body = $this->renderBody($kind, $slug, $config);
@@ -587,6 +590,56 @@ final class Renderer
         }
         // Root-relative or bare-relative project asset — rebase onto the base.
         return $base . '/' . ltrim($url, '/');
+    }
+
+    /**
+     * Rebase the browser-facing asset paths inside `favicon_audit` /
+     * `og_image_audit` onto the consumer asset base.
+     *
+     * {@see FaviconAudit} and {@see OgImageAudit} are pure filesystem
+     * auditors — they resolve the yaml paths against `static_path` on disk
+     * and echo the *yaml* value back out. That value is docroot-agnostic by
+     * design (`/images/touch/favicon.svg`), so foundations.twig rendering it
+     * straight into `<img src>` 404s on every consumer whose static dir is
+     * not the docroot (WordPress: `/wp-content/themes/<theme>/static`).
+     * Rebasing has to happen here, where `templateUrl` is known — pushing it
+     * into the auditors would make them resolve one path for disk and a
+     * different one for the browser.
+     *
+     * Two shapes, deliberately handled differently:
+     *  - `favicon_audit.{tab_icon,touch_icon,maskable_icon}` are
+     *    browser-only (the mockup `<img>`s) — rebased in place. The
+     *    per-entry `entries[*].path` is NOT touched: the template prints it
+     *    as a `<code>` echo of what the yaml says, and rebasing it would
+     *    show the author a path they never wrote.
+     *  - `og_image_audit.path` is dual-use (both `<img src>` and a `<code>`
+     *    echo), so instead of mutating it a rebased `url` twin is added.
+     *    Always set when `path` is a non-empty string, so the template can
+     *    read `og_audit.url` unconditionally.
+     *
+     * @param array<string, mixed> $styleguide
+     *
+     * @return array<string, mixed>
+     */
+    private static function rebaseAuditAssets(array $styleguide, string $base): array
+    {
+        if (isset($styleguide['favicon_audit']) && is_array($styleguide['favicon_audit'])) {
+            foreach (['tab_icon', 'touch_icon', 'maskable_icon'] as $key) {
+                $value = $styleguide['favicon_audit'][$key] ?? null;
+                if (is_string($value) && $value !== '') {
+                    $styleguide['favicon_audit'][$key] = self::resolveAssetUrl($value, $base);
+                }
+            }
+        }
+
+        if (isset($styleguide['og_image_audit']) && is_array($styleguide['og_image_audit'])) {
+            $path = $styleguide['og_image_audit']['path'] ?? null;
+            if (is_string($path) && $path !== '') {
+                $styleguide['og_image_audit']['url'] = self::resolveAssetUrl($path, $base);
+            }
+        }
+
+        return $styleguide;
     }
 
     /**

@@ -752,6 +752,113 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function render_rebases_favicon_audit_mockup_icons_against_template_url(): void
+    {
+        // FaviconAudit echoes back the docroot-agnostic yaml path
+        // (`/images/touch/favicon.svg`); foundations.twig renders tab_icon /
+        // touch_icon straight into the tab-bar + iOS mockup <img>s, so without
+        // rebasing they 404 on every consumer whose static dir isn't the
+        // docroot. entries[*].path stays raw — it's a <code> echo of the yaml.
+        $base = '/wp-content/themes/acme/static';
+        $html = $this->rendererWithBase($base)->render('foundations', '', [
+            'styleguide' => [
+                'favicon' => ['svg' => '/images/touch/favicon.svg'],
+                // The mockups render inside the logo grid's `favicon` slot, so
+                // the entry has to exist for the tab-bar / iOS <img>s to appear.
+                'logo' => ['favicon' => ['src' => '/images/touch/favicon.svg', 'label' => 'Favicon']],
+                'favicon_audit' => [
+                    'entries' => [[
+                        'key' => 'svg',
+                        'label' => 'SVG',
+                        'configured' => true,
+                        'path' => '/images/touch/favicon.svg',
+                        'exists' => true,
+                        'status' => 'ok',
+                        'note' => '',
+                    ]],
+                    'manifest' => null,
+                    'theme_color' => null,
+                    'tab_icon' => '/images/touch/favicon.svg',
+                    'touch_icon' => '/images/touch/apple-touch-icon.png',
+                    'maskable_icon' => null,
+                ],
+            ],
+        ], 'cs');
+
+        // html_attr escaping encodes `/` as `&#x2F;` (browsers decode it back
+        // inside an attribute) — assert the literal actually emitted.
+        $esc = static fn(string $u): string => str_replace('/', '&#x2F;', $u);
+        self::assertStringContainsString('src="' . $esc($base . '/images/touch/favicon.svg') . '"', $html);
+        self::assertStringContainsString('src="' . $esc($base . '/images/touch/apple-touch-icon.png') . '"', $html);
+        // The audit table still shows the author what the yaml says.
+        self::assertStringContainsString('<code>/images/touch/favicon.svg</code>', $html);
+    }
+
+    #[Test]
+    public function render_rebases_og_image_audit_url_leaving_path_untouched(): void
+    {
+        // og_image_audit.path is dual-use — the share-card mockups need it
+        // rebased, the audit table needs the raw yaml value. The rebased twin
+        // lands in `url`; `path` must survive byte-for-byte.
+        $base = '/wp-content/themes/acme/static';
+        $html = $this->rendererWithBase($base)->render('foundations', '', [
+            'styleguide' => [
+                'og_image_audit' => [
+                    'configured' => true,
+                    'path' => '/images/og-image.png',
+                    'exists' => true,
+                    'width' => 1200,
+                    'height' => 630,
+                    'filesize' => 100_000,
+                    'status' => 'ok',
+                    'notes' => [],
+                ],
+            ],
+        ], 'cs');
+
+        $esc = static fn(string $u): string => str_replace('/', '&#x2F;', $u);
+        self::assertStringContainsString('src="' . $esc($base . '/images/og-image.png') . '"', $html);
+        self::assertStringContainsString('<code>/images/og-image.png</code>', $html);
+    }
+
+    #[Test]
+    public function render_leaves_audit_assets_untouched_without_template_url(): void
+    {
+        // Standalone (static dir IS the docroot) — the short paths are already
+        // correct, so both audits render byte-for-byte unchanged.
+        $html = $this->rendererWithBase('')->render('foundations', '', [
+            'styleguide' => [
+                'favicon' => ['svg' => '/images/touch/favicon.svg'],
+                // The mockups render inside the logo grid's `favicon` slot, so
+                // the entry has to exist for the tab-bar / iOS <img>s to appear.
+                'logo' => ['favicon' => ['src' => '/images/touch/favicon.svg', 'label' => 'Favicon']],
+                'favicon_audit' => [
+                    'entries' => [],
+                    'manifest' => null,
+                    'theme_color' => null,
+                    'tab_icon' => '/images/touch/favicon.svg',
+                    'touch_icon' => null,
+                    'maskable_icon' => null,
+                ],
+                'og_image_audit' => [
+                    'configured' => true,
+                    'path' => '/images/og-image.png',
+                    'exists' => true,
+                    'width' => 1200,
+                    'height' => 630,
+                    'filesize' => 100_000,
+                    'status' => 'ok',
+                    'notes' => [],
+                ],
+            ],
+        ], 'cs');
+
+        $esc = static fn(string $u): string => str_replace('/', '&#x2F;', $u);
+        self::assertStringContainsString('src="' . $esc('/images/touch/favicon.svg') . '"', $html);
+        self::assertStringContainsString('src="' . $esc('/images/og-image.png') . '"', $html);
+    }
+
+    #[Test]
     public function standalone_bar_favicon_has_broken_image_fallback(): void
     {
         // The standalone "← back to styleguide" bar's favicon <img> carries an
