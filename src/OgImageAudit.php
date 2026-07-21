@@ -92,12 +92,17 @@ final class OgImageAudit
             return self::result(true, $path, false, null, null, null, 'error', [self::EXTERNAL_URL_NOTE]);
         }
 
-        // Authored as a full browser URL? Strip the base back off before
-        // touching disk — otherwise the file audits as missing while
-        // sitting right there under `static_path`.
-        $path = PathGuard::stripAssetBase($path, $assetBase);
+        // Authored as a full browser URL? Strip the base back off for the
+        // filesystem side — otherwise the file audits as missing while
+        // sitting right there under `static_path`. Kept in a SEPARATE
+        // variable: the returned `path` is the value the author wrote (the
+        // audit table echoes it, and `Renderer` derives the browser-facing
+        // `url` twin from it), so mutating it here would silently rewrite
+        // the yaml back at whoever wrote it — and hand `Renderer` a value
+        // one rebase removed from what it expects.
+        $diskPath = PathGuard::stripAssetBase($path, $assetBase);
 
-        if (PathGuard::pathEscapesRoot($staticPath, $path)) {
+        if (PathGuard::pathEscapesRoot($staticPath, $diskPath)) {
             return self::result(true, $path, false, null, null, null, 'error', [self::PATH_ESCAPES_NOTE]);
         }
 
@@ -107,7 +112,7 @@ final class OgImageAudit
         // value was written (`og_image: images/x.png` vs `/images/x.png`).
         $path = PathGuard::toWebPath($path);
 
-        $absolute = PathGuard::resolvePath($staticPath, $path);
+        $absolute = PathGuard::resolvePath($staticPath, $diskPath);
         if ($absolute === null) {
             return self::result(true, $path, false, null, null, null, 'missing', []);
         }

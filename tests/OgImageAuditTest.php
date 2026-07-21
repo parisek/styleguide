@@ -47,6 +47,11 @@ final class OgImageAuditTest extends TestCase
         self::assertSame('ok', $result['status']);
         self::assertSame(1200, $result['width']);
         self::assertSame(630, $result['height']);
+        // The strip is scoped to the disk lookup — `path` stays what the
+        // author wrote. The audit table echoes it, and Renderer derives the
+        // browser-facing `url` twin by rebasing it, so a stripped `path`
+        // here would both misreport the yaml and skew that derivation.
+        self::assertSame($base . self::IMAGES . '/og-image.png', $result['path']);
     }
 
     public function testShortPathIsUnaffectedByAnAssetBase(): void
