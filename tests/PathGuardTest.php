@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Tests;
 
 use Parisek\Styleguide\PathGuard;
+use Parisek\Styleguide\Renderer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -76,5 +77,54 @@ final class PathGuardTest extends TestCase
     public function testPathEscapesRootIsTrueForTraversalWithLeadingSlash(): void
     {
         self::assertTrue(PathGuard::pathEscapesRoot(self::STATIC_PATH, '/../../composer.json'));
+    }
+
+    public function testStripAssetBaseRemovesTheBasePrefix(): void
+    {
+        $base = '/wp-content/themes/acme/static';
+
+        self::assertSame('/images/x.png', PathGuard::stripAssetBase($base . '/images/x.png', $base));
+        // A trailing slash on the base must not leave a doubled separator.
+        self::assertSame('/images/x.png', PathGuard::stripAssetBase($base . '/images/x.png', $base . '/'));
+        // The base itself degrades to the static root, never to an empty path.
+        self::assertSame('/', PathGuard::stripAssetBase($base, $base));
+    }
+
+    public function testStripAssetBaseIsANoOpWhenItDoesNotApply(): void
+    {
+        $base = '/wp-content/themes/acme/static';
+
+        // Standalone consumer — no base, nothing to strip.
+        self::assertSame('/images/x.png', PathGuard::stripAssetBase('/images/x.png', ''));
+        // Short (docroot-agnostic) and relative paths pass through.
+        self::assertSame('/images/x.png', PathGuard::stripAssetBase('/images/x.png', $base));
+        self::assertSame('images/x.png', PathGuard::stripAssetBase('images/x.png', $base));
+        // External / scheme-carrying values are never rewritten.
+        self::assertSame('https://cdn.example.com/x.png', PathGuard::stripAssetBase('https://cdn.example.com/x.png', $base));
+        self::assertSame('//cdn.example.com/x.png', PathGuard::stripAssetBase('//cdn.example.com/x.png', $base));
+        self::assertSame('data:image/png;base64,AA', PathGuard::stripAssetBase('data:image/png;base64,AA', $base));
+        self::assertSame('', PathGuard::stripAssetBase('', $base));
+    }
+
+    public function testStripAssetBaseOnlyMatchesWholePathSegments(): void
+    {
+        // `/wp-content/themes/acme/static-legacy/...` shares a string prefix
+        // with the base but is a different directory — must stay untouched.
+        $base = '/wp-content/themes/acme/static';
+
+        self::assertSame(
+            '/wp-content/themes/acme/static-legacy/images/x.png',
+            PathGuard::stripAssetBase('/wp-content/themes/acme/static-legacy/images/x.png', $base),
+        );
+    }
+
+    public function testStripAssetBaseRoundTripsWithResolveAssetUrl(): void
+    {
+        // The two are inverses: Renderer::resolveAssetUrl() puts the base on
+        // for the browser, stripAssetBase() takes it back off for the disk.
+        $base = '/wp-content/themes/acme/static';
+        $short = '/images/touch/favicon.svg';
+
+        self::assertSame($short, PathGuard::stripAssetBase(Renderer::resolveAssetUrl($short, $base), $base));
     }
 }

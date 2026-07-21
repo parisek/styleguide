@@ -1232,6 +1232,12 @@ final class Styleguide
             // component/page/doc renders keep the raw yaml `colors` so
             // consumer templates reading styleguide.colors are untouched.
             $normalizedColors = ColorPalettes::normalize($this->yamlConfig['colors'] ?? null);
+            // Both audits below resolve consumer-authored paths against
+            // `static_path` on disk. Some of those paths are necessarily
+            // real browser URLs (every `site.webmanifest` icon `src` — the
+            // browser fetches the manifest), so they carry this base and
+            // have to be stripped back before the filesystem sees them.
+            $assetBase = (string) (($this->config['twig_context']['templateUrl'] ?? '') ?: '');
             $config['styleguide'] = array_merge($this->yamlConfig, [
                 'colors' => $normalizedColors,
                 'colors_contrast' => ColorPalettes::contrastMatrix($normalizedColors),
@@ -1244,6 +1250,7 @@ final class Styleguide
                 'favicon_audit' => FaviconAudit::run(
                     (string) ($this->config['static_path'] ?? ''),
                     (array) ($this->yamlConfig['favicon'] ?? []),
+                    $assetBase,
                 ),
                 // Server-side Open Graph image audit (#74) — existence,
                 // real pixel dimensions, aspect ratio, file size. Unlike
@@ -1255,6 +1262,7 @@ final class Styleguide
                 'og_image_audit' => OgImageAudit::run(
                     (string) ($this->config['static_path'] ?? ''),
                     $this->yamlConfig['og_image'] ?? null,
+                    $assetBase,
                 ),
             ]);
         } elseif ($route['kind'] === 'icons') {

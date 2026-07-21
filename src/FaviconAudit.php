@@ -45,6 +45,13 @@ final class FaviconAudit
 
     /**
      * @param array<string, mixed> $favicon
+     * @param string $assetBase
+     *   The consumer's asset base (`twig_context.templateUrl`). Consumer
+     *   paths that carry it — always the case for `site.webmanifest` icon
+     *   `src` values, which the browser fetches and therefore must be real
+     *   URLs — are stripped back to static-root-relative before any disk
+     *   read; see {@see PathGuard::stripAssetBase()}. Empty (the default,
+     *   and the standalone consumer) makes every strip a no-op.
      *
      * @return array{
      *   entries: list<FaviconEntry>,
@@ -55,17 +62,17 @@ final class FaviconAudit
      *   maskable_icon: string|null,
      * }
      */
-    public static function run(string $staticPath, array $favicon): array
+    public static function run(string $staticPath, array $favicon, string $assetBase = ''): array
     {
         $staticPath = rtrim($staticPath, '/');
 
         /** @var list<FaviconEntry> $entries */
         $entries = [
-            self::auditSvg($staticPath, $favicon),
-            self::auditPng($staticPath, $favicon, 'png_96', 'PNG 96×96', self::PNG_96_EXPECTED, self::PNG_96_EXPECTED),
-            self::auditIco($staticPath, $favicon),
-            self::auditPng($staticPath, $favicon, 'apple_touch', 'Apple Touch Icon', self::APPLE_TOUCH_EXPECTED, self::APPLE_TOUCH_EXPECTED),
-            self::auditManifestEntry($staticPath, $favicon),
+            self::auditSvg($staticPath, $favicon, $assetBase),
+            self::auditPng($staticPath, $favicon, $assetBase, 'png_96', 'PNG 96×96', self::PNG_96_EXPECTED, self::PNG_96_EXPECTED),
+            self::auditIco($staticPath, $favicon, $assetBase),
+            self::auditPng($staticPath, $favicon, $assetBase, 'apple_touch', 'Apple Touch Icon', self::APPLE_TOUCH_EXPECTED, self::APPLE_TOUCH_EXPECTED),
+            self::auditManifestEntry($staticPath, $favicon, $assetBase),
         ];
 
         /** @var array<string, FaviconEntry> $entriesByKey */
@@ -74,7 +81,7 @@ final class FaviconAudit
             $entriesByKey[$entry['key']] = $entry;
         }
 
-        $manifest = self::auditManifest($staticPath, $favicon);
+        $manifest = self::auditManifest($staticPath, $favicon, $assetBase);
 
         $themeColor = self::auditThemeColor($favicon);
 
@@ -103,7 +110,7 @@ final class FaviconAudit
      *
      * @return ResolvedEntry
      */
-    private static function resolveEntry(string $staticPath, array $favicon, string $key): array
+    private static function resolveEntry(string $staticPath, array $favicon, string $assetBase, string $key): array
     {
         $path = self::stringConfig($favicon, $key);
         if ($path === null) {
@@ -114,11 +121,16 @@ final class FaviconAudit
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::EXTERNAL_URL_NOTE];
         }
 
-        if (PathGuard::pathEscapesRoot($staticPath, $path)) {
+        // Disk lookups run against the static-root-relative shape; the
+        // echoed `path` stays exactly as authored, since the audit table
+        // renders it back to whoever wrote the yaml.
+        $diskPath = PathGuard::stripAssetBase($path, $assetBase);
+
+        if (PathGuard::pathEscapesRoot($staticPath, $diskPath)) {
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'error', 'note' => self::PATH_ESCAPES_NOTE];
         }
 
-        $absolute = PathGuard::resolvePath($staticPath, $path);
+        $absolute = PathGuard::resolvePath($staticPath, $diskPath);
         if ($absolute === null) {
             return ['configured' => true, 'path' => $path, 'exists' => false, 'absolute' => null, 'status' => 'missing', 'note' => ''];
         }
@@ -131,9 +143,9 @@ final class FaviconAudit
      *
      * @return FaviconEntry
      */
-    private static function auditSvg(string $staticPath, array $favicon): array
+    private static function auditSvg(string $staticPath, array $favicon, string $assetBase): array
     {
-        $resolved = self::resolveEntry($staticPath, $favicon, 'svg');
+        $resolved = self::resolveEntry($staticPath, $favicon, $assetBase, 'svg');
         $status = $resolved['status'];
         $note = $resolved['note'];
 
@@ -167,12 +179,13 @@ final class FaviconAudit
     private static function auditPng(
         string $staticPath,
         array $favicon,
+        string $assetBase,
         string $key,
         string $label,
         int $expectedWidth,
         int $expectedHeight,
     ): array {
-        $resolved = self::resolveEntry($staticPath, $favicon, $key);
+        $resolved = self::resolveEntry($staticPath, $favicon, $assetBase, $key);
         $expected = "{$expectedWidth}×{$expectedHeight}";
         $status = $resolved['status'];
         $note = $resolved['note'];
@@ -215,9 +228,9 @@ final class FaviconAudit
      *
      * @return FaviconEntry
      */
-    private static function auditIco(string $staticPath, array $favicon): array
+    private static function auditIco(string $staticPath, array $favicon, string $assetBase): array
     {
-        $resolved = self::resolveEntry($staticPath, $favicon, 'ico');
+        $resolved = self::resolveEntry($staticPath, $favicon, $assetBase, 'ico');
         $status = $resolved['status'];
         $note = $resolved['note'];
 
@@ -299,9 +312,9 @@ final class FaviconAudit
      *
      * @return FaviconEntry
      */
-    private static function auditManifestEntry(string $staticPath, array $favicon): array
+    private static function auditManifestEntry(string $staticPath, array $favicon, string $assetBase): array
     {
-        $resolved = self::resolveEntry($staticPath, $favicon, 'manifest');
+        $resolved = self::resolveEntry($staticPath, $favicon, $assetBase, 'manifest');
         $status = $resolved['status'];
         $note = $resolved['note'];
 
@@ -332,10 +345,15 @@ final class FaviconAudit
      *
      * @return FaviconManifest|null
      */
-    private static function auditManifest(string $staticPath, array $favicon): ?array
+    private static function auditManifest(string $staticPath, array $favicon, string $assetBase): ?array
     {
         $path = self::stringConfig($favicon, 'manifest');
-        if ($path === null || PathGuard::pathEscapesRoot($staticPath, $path)) {
+        if ($path === null) {
+            return null;
+        }
+
+        $path = PathGuard::stripAssetBase($path, $assetBase);
+        if (PathGuard::pathEscapesRoot($staticPath, $path)) {
             return null;
         }
 
@@ -389,11 +407,18 @@ final class FaviconAudit
                         ? $src
                         : rtrim($manifestDir, '/') . '/' . $src;
 
-                    if (PathGuard::pathEscapesRoot($staticPath, $iconOutputSrc)) {
+                    // A manifest is fetched and parsed by the BROWSER, so an
+                    // absolute icon src is necessarily a real URL carrying the
+                    // consumer's asset base — strip it back off for the disk
+                    // check, or every icon on a WordPress / Drupal consumer
+                    // audits as missing while sitting right there on disk.
+                    $iconDiskSrc = PathGuard::stripAssetBase($iconOutputSrc, $assetBase);
+
+                    if (PathGuard::pathEscapesRoot($staticPath, $iconDiskSrc)) {
                         $iconExists = false;
                         $notes[] = "icon '{$src}' escapes the static root";
                     } else {
-                        $iconExists = PathGuard::resolvePath($staticPath, $iconOutputSrc) !== null;
+                        $iconExists = PathGuard::resolvePath($staticPath, $iconDiskSrc) !== null;
                     }
                 }
 

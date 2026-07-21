@@ -117,6 +117,48 @@ final class PathGuard
         return '/' . ltrim($path, '/');
     }
 
+    /**
+     * Strips the consumer's asset base (`twig_context.templateUrl` — e.g.
+     * `/wp-content/themes/acme/static`) off the front of a path, turning a
+     * browser URL back into the static-root-relative path the filesystem
+     * side of an audit needs.
+     *
+     * The inverse of `Renderer::resolveAssetUrl()`, and the reason both
+     * directions have to exist: consumer-authored asset values arrive in
+     * two shapes that a pure filesystem auditor can't tell apart. The
+     * short `/images/touch/favicon.svg` is docroot-agnostic and joins onto
+     * `static_path` directly; the full `/wp-content/themes/acme/static/
+     * images/touch/favicon.svg` is a real browser URL that would join into
+     * `<static_path>/wp-content/themes/acme/static/images/...` — a path
+     * that exists nowhere, reported as `missing` for a file that is right
+     * there on disk.
+     *
+     * The full shape is not an authoring mistake to be linted away: a
+     * `site.webmanifest` is fetched and parsed by the browser, so its icon
+     * `src` values MUST be real URLs. Under WordPress / Drupal that made
+     * every manifest icon audit as missing.
+     *
+     * No-op when the base is empty (standalone consumer), when the path
+     * doesn't start with the base, or when the path carries a scheme —
+     * so a short path, a relative path, and an external URL all pass
+     * through untouched.
+     */
+    public static function stripAssetBase(string $path, string $base): string
+    {
+        $base = rtrim($base, '/');
+        if ($base === '' || $path === '' || self::isExternalUrl($path)) {
+            return $path;
+        }
+
+        if ($path === $base) {
+            return '/';
+        }
+
+        return str_starts_with($path, $base . '/')
+            ? substr($path, strlen($base))
+            : $path;
+    }
+
     private static function isContained(string $real, string $realStatic): bool
     {
         return $real === $realStatic || str_starts_with($real, $realStatic . DIRECTORY_SEPARATOR);

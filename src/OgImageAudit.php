@@ -70,9 +70,16 @@ final class OgImageAudit
     private const FILESIZE_ERROR_NOTE = 'file exceeds 8 MB — Facebook will reject it';
 
     /**
+     * @param string $assetBase
+     *   The consumer's asset base (`twig_context.templateUrl`). A yaml value
+     *   written as a full browser URL (`/wp-content/themes/acme/static/
+     *   images/og-image.png`) is stripped back to static-root-relative
+     *   before any disk read; see {@see PathGuard::stripAssetBase()}. Empty
+     *   (the default, and the standalone consumer) makes the strip a no-op.
+     *
      * @return OgImageResult
      */
-    public static function run(string $staticPath, mixed $ogImage): array
+    public static function run(string $staticPath, mixed $ogImage, string $assetBase = ''): array
     {
         $staticPath = rtrim($staticPath, '/');
 
@@ -84,6 +91,11 @@ final class OgImageAudit
         if (PathGuard::isExternalUrl($path)) {
             return self::result(true, $path, false, null, null, null, 'error', [self::EXTERNAL_URL_NOTE]);
         }
+
+        // Authored as a full browser URL? Strip the base back off before
+        // touching disk — otherwise the file audits as missing while
+        // sitting right there under `static_path`.
+        $path = PathGuard::stripAssetBase($path, $assetBase);
 
         if (PathGuard::pathEscapesRoot($staticPath, $path)) {
             return self::result(true, $path, false, null, null, null, 'error', [self::PATH_ESCAPES_NOTE]);

@@ -8,6 +8,25 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Manifest icons audited as `missing` on WordPress / Drupal consumers.** A
+  `site.webmanifest` is fetched and parsed by the *browser*, so its icon `src`
+  values must be real URLs — under a theme that means
+  `/wp-content/themes/<theme>/static/images/touch/icon-192.png`. `FaviconAudit`
+  joined those onto `static_path` anyway, looking for
+  `<static_path>/wp-content/themes/<theme>/static/images/…` — a path that exists
+  nowhere — so every manifest icon reported `missing` with the file sitting right
+  there on disk (and `maskable_icon` never resolved). Consumer paths are now
+  stripped back to static-root-relative before any disk read via the new
+  `PathGuard::stripAssetBase()`, the inverse of `Renderer::resolveAssetUrl()`.
+  Same treatment for the `favicon:` / `og_image:` yaml keys, so a project that
+  worked around the sibling `<img src>` bug by hardcoding the full theme path
+  stops reporting false `missing` rows too. The echoed `path` stays exactly as
+  authored, and browser-facing values keep the URL the manifest actually serves.
+  `FaviconAudit::run()` / `OgImageAudit::run()` take the asset base as a new
+  optional trailing argument (default `''` — standalone behaviour unchanged).
+
 ## [1.6.1] - 2026-07-21
 
 ### Fixed
