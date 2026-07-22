@@ -150,7 +150,8 @@ iframe:
   js:  "/dist/js/script.js"                # project's main bundled script (ES module if you build with Vite)
   fonts:                                   # string or list — one entry per @font-face stylesheet
     - "/fonts/poppins/stylesheet.css"
-  html_class: ""                           # optional — <html> class for the preview frame
+  html_class: ""                           # optional — extra <html> class for the preview frame
+                                           # (every render also carries `is-styleguide-render`)
   body_class: ""                           # optional — <body> class
   page_wrapper_class: ""                   # optional — wrapper <div> class for page renders only (see below)
   base_href: "/"                           # optional — affects relative URLs inside the iframe

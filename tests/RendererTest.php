@@ -330,7 +330,7 @@ final class RendererTest extends TestCase
             'iframe' => ['css' => '/dist/style.css'],
         ], 'cs', 'dark');
 
-        self::assertStringContainsString('<html lang="cs" class="dark">', $html);
+        self::assertStringContainsString('<html lang="cs" class="is-styleguide-render dark">', $html);
         self::assertStringContainsString('color-scheme: dark', $html);
     }
 
@@ -342,8 +342,8 @@ final class RendererTest extends TestCase
             'iframe' => ['css' => '/dist/style.css'],
         ], 'cs'); // theme omitted → default
 
-        self::assertStringContainsString('<html lang="cs">', $html);
-        self::assertStringNotContainsString('class="dark"', $html);
+        self::assertStringContainsString('<html lang="cs" class="is-styleguide-render">', $html);
+        self::assertStringNotContainsString(' dark"', $html);
         self::assertStringContainsString('color-scheme: light', $html);
     }
 
@@ -355,7 +355,25 @@ final class RendererTest extends TestCase
             'iframe' => ['css' => '/dist/style.css', 'html_class' => 'notranslate'],
         ], 'cs', 'dark');
 
-        self::assertStringContainsString('<html lang="cs" class="notranslate dark">', $html);
+        self::assertStringContainsString('<html lang="cs" class="is-styleguide-render notranslate dark">', $html);
+    }
+
+    #[Test]
+    public function every_render_announces_the_styleguide_context(): void
+    {
+        // A component's JS sometimes needs to know it is previewed rather than
+        // live. Without this class the only signal available to a consumer is the
+        // render URL, which couples every component to this package's routing —
+        // so the class is part of the contract, not a styling nicety, and it is
+        // emitted with no `iframe` config at all.
+        foreach (['component' => 'sample', 'page' => 'landing'] as $kind => $slug) {
+            $html = $this->renderer->render($kind, $slug, [
+                'project' => ['name' => 'TestProject'],
+                'iframe' => [],
+            ], 'cs');
+
+            self::assertStringContainsString('is-styleguide-render', $html, $kind . ' render');
+        }
     }
 
     #[Test]
@@ -980,7 +998,7 @@ final class RendererTest extends TestCase
         ], 'en', 'dark');
 
         self::assertStringContainsString('multi--secondary', $html, 'variant still resolves with theme set');
-        self::assertStringContainsString('class="dark"', $html, 'theme still stamps the <html> class with variant set');
+        self::assertStringContainsString(' dark"', $html, 'theme still stamps the <html> class with variant set');
     }
 
 }
