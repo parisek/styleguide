@@ -20,6 +20,12 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `docs/adr/0012-component-kind-taxonomy.md` in `tailwind-base` for the
   taxonomy rationale. `normaliseMetadata()`'s previously-fixed whitelist array
   now includes `kind`.
+- **`unknown-kind` lint rule** (Error). `normaliseKind()` swallows an
+  unrecognised value into `''` with no other signal, so `vendor/bin/styleguide
+  lint` now reports it — parity with the `unknown-render` rule that exists for
+  exactly the same reason. Without it a typo like `kind: sectoin` reaches
+  `/api/components` silently for any consumer not also running
+  `parisek/definition-kit`, which is optional.
 
 ## [1.6.2] - 2026-07-21
 

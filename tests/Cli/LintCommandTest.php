@@ -61,7 +61,7 @@ final class LintCommandTest extends TestCase
             'ERROR  component/referencer/referencer.twig  usage: references unknown id "ghost-id".',
             $stdout,
         );
-        self::assertCount(7, array_filter(explode("\n", trim($stdout))));
+        self::assertCount(8, array_filter(explode("\n", trim($stdout))));
     }
 
     #[Test]
@@ -76,7 +76,7 @@ final class LintCommandTest extends TestCase
         self::assertSame(1, $exit, "stderr: $stderr");
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
-        self::assertCount(7, $decoded);
+        self::assertCount(8, $decoded);
         foreach ($decoded as $entry) {
             self::assertArrayHasKey('severity', $entry);
             self::assertArrayHasKey('file', $entry);

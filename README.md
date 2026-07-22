@@ -422,12 +422,13 @@ vendor/bin/styleguide lint --type=component       # scan just one type
 vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
 ```
 
-Reports five issue types: templates with no parseable `name:` (dropped from
+Reports six issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
 the renderer never reads (`dead-styleguide-content` — see *Fixtures &
 sample data* below), `usage:` references to ids that don't exist
 (`broken-usage-ref`), `render:` values outside the four canonical modes
-(`unknown-render`), and empty `description` strings (`empty-description`,
+(`unknown-render`), `kind:` values outside the five canonical values
+(`unknown-kind`), and empty `description` strings (`empty-description`,
 informational only).
 
 Text output is one line per finding: `SEVERITY  file  message`. JSON output
