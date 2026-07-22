@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-07-22
+
 ### Added
 
 - **`kind:` YAML metadata key on the component/page front-comment.** New closed
@@ -414,7 +416,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/parisek/styleguide/compare/v1.6.2...v1.7.0
+[1.6.2]: https://github.com/parisek/styleguide/compare/v1.6.1...v1.6.2
+[1.6.1]: https://github.com/parisek/styleguide/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/parisek/styleguide/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/parisek/styleguide/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/parisek/styleguide/compare/v1.4.0...v1.5.0
