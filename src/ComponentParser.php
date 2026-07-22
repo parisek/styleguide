@@ -46,6 +46,22 @@ class ComponentParser
     public const RENDER_MODES = ['inset', 'bleed', 'chrome', 'overlay'];
 
     /**
+     * @api Public contract. Used by the `vendor/bin/styleguide` CLI and by
+     *      downstream tooling that needs to validate the YAML key. Adding
+     *      new kinds is a minor bump; removing or renaming any of the five
+     *      is a major bump.
+     *
+     * Closed enum declaring what a component *is* (authorial intent, not
+     * derivable from any other field — see tailwind-base's
+     * `docs/adr/0012-component-kind-taxonomy.md`): `block` is
+     * editor-insertable; `section` is page-level chrome; `element` is
+     * self-contained and reusable; `part` is a fragment authored for one
+     * specific parent; `utility` is a rendering helper with no visual
+     * identity of its own.
+     */
+    public const KIND_VALUES = ['block', 'section', 'element', 'part', 'utility'];
+
+    /**
      * Filename shape of a file-convention variant sibling: `styleguide.<id>.twig`.
      * The captured group is the canonical variant id — same character class as
      * the `?variant=` query-string whitelist in Router::parse(), so a value
@@ -109,6 +125,30 @@ class ComponentParser
         return is_string($value) && in_array($value, self::RENDER_MODES, true)
             ? $value
             : 'inset';
+    }
+
+    /**
+     * @api Public contract. Used by the `vendor/bin/styleguide` CLI and any
+     *      downstream tooling that needs to coerce a YAML value. Signature
+     *      and fall-through semantics ('' for anything unrecognised) are
+     *      SemVer-protected.
+     *
+     * Coerce an arbitrary YAML value into one of the canonical `kind`
+     * values. Unlike {@see self::normaliseRender()}, there is deliberately
+     * NO guessed default here — `kind` is authorial intent about what a
+     * component *is* (see `docs/adr/0012-component-kind-taxonomy.md` in
+     * tailwind-base), and the package must never invent one on the
+     * author's behalf. Null / missing / typos all normalise to '' (absent),
+     * which downstream tooling (e.g. `sync-skeleton`'s presence check)
+     * treats as "not yet declared" rather than silently defaulting to some
+     * plausible-looking kind. Strict-equals against the allowed list so
+     * e.g. integers or arrays from a malformed YAML can't slip through.
+     */
+    public static function normaliseKind(mixed $value): string
+    {
+        return is_string($value) && in_array($value, self::KIND_VALUES, true)
+            ? $value
+            : '';
     }
 
     /**
@@ -486,6 +526,11 @@ class ComponentParser
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
             'render' => self::normaliseRender($metadata['render'] ?? null),
+            // Closed enum declaring what the component *is* — authorial
+            // intent, never guessed (see normaliseKind()'s docblock for why
+            // this differs from `render` above). '' when the author hasn't
+            // declared it yet.
+            'kind' => self::normaliseKind($metadata['kind'] ?? null),
             // Optional per-entry class string applied to the render iframe's
             // <body> (merged after the global `iframe.body_class`). Lets a page
             // declare its body background/state — e.g. `body_class: "bg-secondary-500
