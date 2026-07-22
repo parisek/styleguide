@@ -8,6 +8,25 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`kind:` YAML metadata key on the component/page front-comment.** New closed
+  enum (`block | section | element | part | utility`) declaring what a
+  component *is* — authorial intent, never derived — surfaced on
+  `/api/components` and `/api/pages` alongside `render`. `ComponentParser`
+  gains `KIND_VALUES` and `normaliseKind()`, mirroring `RENDER_MODES` /
+  `normaliseRender()`, except an absent or unrecognised value normalises to
+  `''` rather than a guessed default — see
+  `docs/adr/0012-component-kind-taxonomy.md` in `tailwind-base` for the
+  taxonomy rationale. `normaliseMetadata()`'s previously-fixed whitelist array
+  now includes `kind`.
+- **`unknown-kind` lint rule** (Error). `normaliseKind()` swallows an
+  unrecognised value into `''` with no other signal, so `vendor/bin/styleguide
+  lint` now reports it — parity with the `unknown-render` rule that exists for
+  exactly the same reason. Without it a typo like `kind: sectoin` reaches
+  `/api/components` silently for any consumer not also running
+  `parisek/definition-kit`, which is optional.
+
 ## [1.6.2] - 2026-07-21
 
 ### Fixed

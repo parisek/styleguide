@@ -29,10 +29,10 @@ final class LinterTest extends TestCase
     }
 
     #[Test]
-    public function full_fixture_tree_produces_exactly_seven_findings(): void
+    public function full_fixture_tree_produces_exactly_eight_findings(): void
     {
         $findings = (new Linter($this->fixtures))->run();
-        self::assertCount(7, $findings);
+        self::assertCount(8, $findings);
     }
 
     #[Test]
@@ -93,6 +93,21 @@ final class LinterTest extends TestCase
         self::assertSame(LintSeverity::Error, $render[0]->severity);
         self::assertStringContainsString('fullwidth', $render[0]->message);
         self::assertStringContainsString('inset|bleed|chrome|overlay', $render[0]->message);
+    }
+
+    #[Test]
+    public function flags_unknown_kind_value(): void
+    {
+        // Parity with unknown-render. `normaliseKind()` swallows an unrecognised
+        // value into '' with no other signal, so a typo would otherwise reach the
+        // API silently — the exact failure the render rule already guards against.
+        $findings = (new Linter($this->fixtures))->run();
+        $kind = $this->findingsFor($findings, 'unknown-kind');
+
+        self::assertCount(1, $kind);
+        self::assertSame(LintSeverity::Error, $kind[0]->severity);
+        self::assertStringContainsString('sectoin', $kind[0]->message);
+        self::assertStringContainsString('block|section|element|part|utility', $kind[0]->message);
     }
 
     #[Test]

@@ -188,6 +188,23 @@ final class Linter
             );
         }
 
+        if (
+            array_key_exists('kind', $metadata)
+            && !(is_string($metadata['kind']) && in_array($metadata['kind'], ComponentParser::KIND_VALUES, true))
+        ) {
+            $raw = is_scalar($metadata['kind']) ? (string) $metadata['kind'] : gettype($metadata['kind']);
+            $findings[] = new LintFinding(
+                LintSeverity::Error,
+                $relPath,
+                'unknown-kind',
+                sprintf(
+                    'kind: "%s" is not one of %s — normalises to "" and the component is treated as undeclared.',
+                    $raw,
+                    implode('|', ComponentParser::KIND_VALUES),
+                ),
+            );
+        }
+
         $description = $metadata['description'] ?? '';
         if (!is_string($description) || trim($description) === '') {
             $findings[] = new LintFinding(

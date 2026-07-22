@@ -165,6 +165,45 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function normalise_kind_accepts_each_closed_enum_value(): void
+    {
+        foreach (ComponentParser::KIND_VALUES as $value) {
+            self::assertSame($value, ComponentParser::normaliseKind($value));
+        }
+    }
+
+    #[Test]
+    public function normalise_kind_falls_back_to_empty_string_for_unknown(): void
+    {
+        // Unlike normaliseRender(), there is no guessed default — an
+        // unrecognised value normalises to '' rather than a canonical kind.
+        self::assertSame('', ComponentParser::normaliseKind('widget'));
+    }
+
+    #[Test]
+    public function normalise_kind_falls_back_to_empty_string_for_missing(): void
+    {
+        self::assertSame('', ComponentParser::normaliseKind(null));
+    }
+
+    #[Test]
+    public function normalise_kind_falls_back_to_empty_string_for_non_string(): void
+    {
+        self::assertSame('', ComponentParser::normaliseKind(42));
+        self::assertSame('', ComponentParser::normaliseKind(['block']));
+    }
+
+    #[Test]
+    public function parse_emits_empty_kind_when_metadata_omits_it(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+        $sample = $parser->parse('component', 'sample');
+        self::assertNotNull($sample);
+        self::assertArrayHasKey('kind', $sample);
+        self::assertSame('', $sample['kind']);
+    }
+
+    #[Test]
     public function normalise_usage_splits_trims_and_drops_empty_tokens(): void
     {
         // Authoring convention: comma-separated, looser whitespace allowed

@@ -81,6 +81,22 @@ public static function normaliseRender(mixed $value): string
 
 Returns one of the four `RENDER_MODES`. Used by the CLI and any downstream consumer that wants to coerce YAML values.
 
+### `Parisek\Styleguide\ComponentParser::KIND_VALUES` (`@api`)
+
+```php
+public const KIND_VALUES = ['block', 'section', 'element', 'part', 'utility'];
+```
+
+The canonical list of values for the `kind:` YAML key. **`@api`** because the CLI (`vendor/bin/styleguide`) and downstream tooling (e.g. `sync-skeleton`'s presence check) assert against it. See tailwind-base's `docs/adr/0012-component-kind-taxonomy.md` for the taxonomy rationale.
+
+### `Parisek\Styleguide\ComponentParser::normaliseKind()` (`@api`)
+
+```php
+public static function normaliseKind(mixed $value): string
+```
+
+Returns one of the five `KIND_VALUES`, or `''` when the value is missing/unrecognised. Unlike `normaliseRender()`, there is deliberately no guessed default — `kind` is authorial intent about what a component *is*, and the package must never invent one.
+
 ### `Parisek\Styleguide\ComponentParser::normaliseUsage()` (`@api`)
 
 ```php
@@ -140,6 +156,7 @@ The first `{# … #}` comment in each component / page / doc Twig template is pa
 | `fields` | no | recursive map | `[]` | Fields inspector view + `/api/fields` |
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
+| `kind` | no | enum `block \| section \| element \| part \| utility` | `''` | Closed enum declaring what the component *is* (authorial intent — see `docs/adr/0012-component-kind-taxonomy.md` in tailwind-base). Unlike `render`, an absent or unrecognised value normalises to `''`, never a guessed default |
 | `styleguide` | no | flag (presence-only) — **legacy** | absent | Forces a separate `styleguide.twig` demo file. **Convention going forward: use a sibling `styleguide.twig`** (auto-detected, no YAML key needed) — this key exists for templates written before that convention. Content placed under it (anything beyond a bare boolean) is never read by the renderer; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. See README § Fixtures & sample data. |
 | `responsive` | no | `bool` | `true` | When `false`, the SPA hides the responsive-width toolbar for this entry (use for fixed-layout demos where resizing has no meaning). **Ignored for `doc` entries** — a doc is prose, never a widget meant to be previewed at different breakpoints, so `ComponentParser` forces `responsive: false` for every doc regardless of this key; even an explicit `responsive: true` in a doc's front-comment has no effect |
 | `body_class` | no | `string` | `''` | Class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` (empty values dropped — no stray `class=""`). Lets a page mirror what its production layout puts on `<body>` (e.g. a dark brand background) without a styleguide-only wrapper `<div>`. For `doc` entries this is the *only* body class that ever applies — `render-cell.twig` skips the global `iframe.body_class` for docs (readability guard, same rationale as `foundations`), but keeps honouring this per-entry key as the author's explicit escape hatch — see `iframe.body_class` in the `styleguide.yaml` table above |
@@ -269,6 +286,7 @@ type Field = {
   usage: string[];       // normalised from the YAML comma-separated `usage:` string (or an already-array YAML value) by ComponentParser::normaliseUsage() — see § PHP API
   fields: Field[];       // canonical ordered list — see § Fields canonicalisation
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
+  kind: '' | 'block' | 'section' | 'element' | 'part' | 'utility';
   body_class: string;    // from YAML, '' if absent — applied to the render iframe's <body>
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`; ALWAYS false for /api/docs entries regardless of YAML — see § Component YAML metadata
   has_styleguide: boolean; // true if <id>/styleguide.twig exists, OR YAML has `styleguide:` key, OR (additive, v1.1.0) at least one styleguide.<variant>.twig sibling exists — a component may ship ONLY named variants with no bare default and still surface as a renderable entry
