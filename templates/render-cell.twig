@@ -1,6 +1,15 @@
 {# vendor/parisek/styleguide — iframe HTML wrapper for component/page preview #}
 <!DOCTYPE html>
-<html lang="{{ langcode|default('en')|e }}"{{ create_attribute({ class: [iframe.html_class|default(''), theme == 'dark' ? 'dark' : ''] }) }}>
+{# `is-styleguide-render` is emitted unconditionally: a component's JS sometimes
+   needs to know it is previewed rather than live — to skip page-load choreography
+   the visual suite would photograph mid-flight, or to lift a production-only
+   guard. The renderer is the only layer that knows this for a fact, so consumers
+   must not have to derive it. The alternative they otherwise reach for is
+   sniffing `location.pathname` for `/styleguide/render/`, which couples every
+   component to this package's ROUTING and breaks silently the day a route moves.
+   Consumers with an older version can seed the same class via `iframe.html_class`
+   — same name, so the check is version-agnostic. #}
+<html lang="{{ langcode|default('en')|e }}"{{ create_attribute({ class: ['is-styleguide-render', iframe.html_class|default(''), theme == 'dark' ? 'dark' : ''] }) }}>
 <head>
 	<script>document.documentElement.classList.remove('no-js');</script>
 	{# Lock the iframe to a light backdrop regardless of OS `prefers-color-scheme`

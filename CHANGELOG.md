@@ -8,6 +8,36 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-07-22
+
+### Added
+
+- **`is-styleguide-render` on `<html>` for every component and page render.** A
+  component's JS sometimes has to know it is being previewed rather than served
+  live — to skip page-load choreography a screenshot would otherwise catch
+  mid-flight, or to lift a production-only guard. The renderer is the only layer
+  that knows this for a fact, so consumers should not have to derive it.
+  Without the class the reachable signal is `location.pathname`, and two real
+  components in a downstream project ended up testing
+  `startsWith('/styleguide/render/')` — which couples them to this package's
+  ROUTING and would break silently the day a route moves, with no failing test
+  to say so.
+
+  Emitted unconditionally, with no `iframe` config required, and it composes
+  with `iframe.html_class` / the `dark` theme class rather than replacing them.
+  Consumers on an older version can seed the same class through
+  `iframe.html_class`, so the check reads identically either way and needs no
+  version branch.
+
+  Two worked cases from the project that prompted this: a hero whose reveal is a
+  1000 ms `setTimeout` plus a 0.5 s transition (the suite shoots ~1.5 s earlier
+  and captured a blank frame), and `vanilla-cookieconsent`, whose default
+  `hideFromBots` matches `navigator.webdriver` and therefore hides from every
+  automated browser — correct in production, a blank baseline in a preview.
+
+  The 404 render is deliberately untouched: it is the package's own error page,
+  not a consumer's component, and nothing of theirs runs inside it.
+
 ## [1.7.0] - 2026-07-22
 
 ### Added
@@ -416,7 +446,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/parisek/styleguide/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/parisek/styleguide/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/parisek/styleguide/compare/v1.6.1...v1.6.2
 [1.6.1]: https://github.com/parisek/styleguide/compare/v1.6.0...v1.6.1
