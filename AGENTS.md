@@ -185,13 +185,20 @@ Static analysis: `composer phpstan`. PHPStan config lives in `phpstan.neon`.
 
 ## Release workflow
 
-1. All work merged to `main`.
-2. Bump `CHANGELOG.md` — move `[Unreleased]` notes under a new `## [x.y.z] - YYYY-MM-DD` heading following the existing format.
-3. Commit, tag (`git tag vX.Y.Z`), push tag.
-4. Packagist auto-imports the new tag (the GitHub webhook is wired). Verify on https://packagist.org/packages/parisek/styleguide.
-5. In each consumer, `composer styleguide:remote && composer update parisek/styleguide` (or just `composer update parisek/styleguide` if it's already on `^1.0`).
+Full procedure: **[`RELEASING.md`](RELEASING.md)**.
 
-`composer.json` no longer carries a hardcoded `version` field — Packagist derives versions from git tags exclusively (see CHANGELOG `[0.1.2]`). Don't reintroduce it.
+Short version: land everything on `main` with its notes under `[Unreleased]`,
+then Actions → **Stamp Release** → Run workflow → `X.Y.Z`. The workflow stamps
+the CHANGELOG, tags, pushes and dispatches `release.yml`; Packagist picks the tag
+up via webhook.
+
+**Don't hand-stamp a heading or tag by hand.** That path still works, and this
+section documented it until 2026-07 — from before `release-stamp.yml` existed —
+but it skips the workflow's guards (version format, non-empty `[Unreleased]`,
+test + PHPStan before the tag).
+
+`composer.json` carries no `version` field; Packagist derives versions from git
+tags exclusively (see CHANGELOG `[0.1.2]`). Don't reintroduce it.
 
 ## Conventions
 

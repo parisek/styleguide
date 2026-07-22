@@ -55,6 +55,10 @@
         }
     },
     "scripts": {
+        "check": [
+            "@test",
+            "@phpstan"
+        ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
         "phpstan": "php -d memory_limit=512M vendor/bin/phpstan analyse",

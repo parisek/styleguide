@@ -8,6 +8,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Release flow unified with the sibling packages.** `RELEASING.md` added
+  (same shape as `parisek/definition-kit` / `parisek/acf-json-schema` /
+  `parisek/timber-kit`), `composer check` added for parity, and
+  `release-stamp.yml` now calls `composer test` / `composer phpstan` instead of
+  the binaries directly. AGENTS.md's release section pointed at a manual
+  tag-by-hand flow predating `release-stamp.yml`, which skipped that workflow's
+  guards — it now points at `RELEASING.md`. No consumer-visible behaviour change.
+
 ## [1.8.2] - 2026-07-30
 ### Fixed
 
