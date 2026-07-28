@@ -54,8 +54,24 @@ final class FieldsNormalizer
             }
             $label = $def['label'] ?? $def['title'] ?? null;
             if (!is_string($label) || $label === '') {
-                $warnings[] = sprintf('field "%s": missing label/title — skipped', $path);
-                continue;
+                // A prop that does not project into the CMS has no editor
+                // label to carry: definition-kit 0.6 made `label` required
+                // only of a field that reaches acf.json, precisely so nobody
+                // has to invent editor copy for a value no editor ever sees
+                // (`role: parent`, `query`, `global`, `inherited`, `derived`).
+                //
+                // Skipping those dropped 115 real props out of one theme's
+                // documentation the moment it declared them. The props table
+                // is developer-facing, so the key is a perfectly good name for
+                // one — falling back is better documentation than an omission,
+                // and better than pushing invented labels back into the YAML.
+                $role = $def['role'] ?? null;
+                if (is_string($role) && $role !== '' && $role !== 'field') {
+                    $label = $key;
+                } else {
+                    $warnings[] = sprintf('field "%s": missing label/title — skipped', $path);
+                    continue;
+                }
             }
 
             $children = null;

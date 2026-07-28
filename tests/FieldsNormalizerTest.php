@@ -75,6 +75,40 @@ final class FieldsNormalizerTest extends TestCase
     }
 
     #[Test]
+    public function names_a_non_projecting_field_by_its_key_when_it_has_no_label(): void
+    {
+        // definition-kit 0.6 made `label` required only of a field that
+        // projects into acf.json — a `role: parent` prop has no editor to
+        // write copy for. Skipping those dropped 115 declared props out of one
+        // theme's documentation; the props table is developer-facing, so the
+        // key names it perfectly well.
+        $result = FieldsNormalizer::normalize([
+            'inner' => ['type' => 'boolean', 'role' => 'parent'],
+            'items' => ['type' => 'repeater', 'role' => 'query'],
+        ]);
+
+        self::assertSame([], $result['warnings']);
+        self::assertSame(['inner', 'items'], array_column($result['fields'], 'label'));
+    }
+
+    #[Test]
+    public function still_skips_an_unlabelled_field_that_projects(): void
+    {
+        // No role, or `role: field`, means an ACF field is behind it — and one
+        // of those really is missing its editor label.
+        $result = FieldsNormalizer::normalize([
+            'a' => ['type' => 'text'],
+            'b' => ['type' => 'text', 'role' => 'field'],
+        ]);
+
+        self::assertSame([], $result['fields']);
+        self::assertSame([
+            'field "a": missing label/title — skipped',
+            'field "b": missing label/title — skipped',
+        ], $result['warnings']);
+    }
+
+    #[Test]
     public function skips_malformed_entries_with_a_warning(): void
     {
         $result = FieldsNormalizer::normalize([
