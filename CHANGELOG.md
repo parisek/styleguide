@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+
+## [1.7.2] - 2026-07-28
 ### Fixed
 
 - **A field with no `label` is named by its key instead of being dropped, when
