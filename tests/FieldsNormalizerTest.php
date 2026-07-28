@@ -130,6 +130,20 @@ final class FieldsNormalizerTest extends TestCase
     }
 
     #[Test]
+    public function a_legacy_title_wins_over_the_key_fallback(): void
+    {
+        // The twig-annotation doctrine spells the label `title`. A field that
+        // has one keeps it whatever its role — the fallback is for fields with
+        // no label at all, not a rule about roles.
+        $result = FieldsNormalizer::normalize([
+            'inner' => ['type' => 'boolean', 'role' => 'parent', 'title' => 'Vnitřní'],
+        ]);
+
+        self::assertSame([], $result['warnings']);
+        self::assertSame('Vnitřní', $result['fields'][0]['label']);
+    }
+
+    #[Test]
     public function the_fallback_recurses_and_keeps_warning_order(): void
     {
         $result = FieldsNormalizer::normalize([

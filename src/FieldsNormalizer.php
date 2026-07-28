@@ -20,6 +20,12 @@ final class FieldsNormalizer
      * through to the missing-label warning rather than silently pass an
      * unlabelled field. Anything outside this set — including `field`, an
      * empty string and a non-string — keeps the original behaviour.
+     *
+     * The vocabulary is owned by parisek/definition-kit — its `role` enum in
+     * `schemas/component.fields.schema.json`, mirrored in
+     * `Generator\FieldProjectionFilter`. This package does not depend on it at
+     * runtime, so a role added there needs adding here by hand; the list is
+     * short and has changed once in the package's life (`computed`, removed).
      */
     private const NON_PROJECTING_ROLES = ['query', 'global', 'parent', 'inherited', 'derived'];
 
