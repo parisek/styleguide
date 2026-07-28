@@ -254,7 +254,7 @@ Returns array of all components, one object per. Object shape:
 ```ts
 type Field = {
     key: string;          // YAML map key
-    label: string;        // definition-kit `label`; legacy annotation `title` maps here
+    label: string;        // definition-kit `label`; legacy annotation `title` maps here; the map key itself when a non-projecting field declares neither
     type: string;         // abstract (text/richtext/media/link/reference/group/repeater/…) or legacy type, verbatim; '' when absent
     description: string;  // '' when absent
     required: boolean;    // false when absent
@@ -304,6 +304,8 @@ Field order is **not** part of the contract. Adding new fields is non-breaking. 
 ### § Fields canonicalisation
 
 A `fields:` map is authored via one of two doctrines — a legacy twig-annotation map (`title` for the label) or a sibling `<id>.yaml` definition-kit map (`label`) — and `ComponentParser` normalises both into the same canonical `Field[]` list shown above (`FieldsNormalizer`, ADR-0002). A malformed entry (not a map, or missing both `label` and `title`) is skipped rather than failing the whole component; the skip is recorded as a warning surfaced via `getWarnings()` and `GET /styleguide/api/health`.
+
+**One exception to the label requirement.** definition-kit 0.6 made `label` required only of a field that projects into `acf.json`; a prop declaring `role:` `query`, `global`, `parent`, `inherited` or `derived` has no editor behind it and therefore no editor copy to carry. Such a field is **named by its map key** instead of being skipped, and produces no warning. The list of roles is closed: any other value — including `field`, a role removed upstream, a typo, an empty string or a non-string — leaves the entry malformed and skipped exactly as before.
 
 ### `GET /styleguide/api/pages`
 

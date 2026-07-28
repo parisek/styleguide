@@ -13,6 +13,16 @@ namespace Parisek\Styleguide;
  */
 final class FieldsNormalizer
 {
+    /**
+     * definition-kit roles that do not project into `acf.json`, and therefore
+     * carry no editor label to display. The list is closed on purpose: a typo
+     * (`filed`) or a role that was removed upstream (`computed`) must fall
+     * through to the missing-label warning rather than silently pass an
+     * unlabelled field. Anything outside this set — including `field`, an
+     * empty string and a non-string — keeps the original behaviour.
+     */
+    private const NON_PROJECTING_ROLES = ['query', 'global', 'parent', 'inherited', 'derived'];
+
     /** Keys consumed by normalisation — everything else is verbatim. */
     private const CORE_KEYS = ['label', 'title', 'type', 'description', 'required', 'fields'];
 
@@ -66,7 +76,7 @@ final class FieldsNormalizer
                 // one — falling back is better documentation than an omission,
                 // and better than pushing invented labels back into the YAML.
                 $role = $def['role'] ?? null;
-                if (is_string($role) && $role !== '' && $role !== 'field') {
+                if (is_string($role) && in_array($role, self::NON_PROJECTING_ROLES, true)) {
                     $label = $key;
                 } else {
                     $warnings[] = sprintf('field "%s": missing label/title — skipped', $path);

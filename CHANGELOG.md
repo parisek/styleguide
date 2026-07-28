@@ -21,8 +21,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   documentation got worse the moment the theme documented itself properly.
 
   The props table is developer-facing, so the key is a perfectly good name for
-  one. A field that projects — no `role`, or `role: field` — still needs its
-  editor label and is still skipped with the same warning when it lacks one.
+  one. The role vocabulary is closed — `query`, `global`, `parent`, `inherited`,
+  `derived` — so a typo, a role removed upstream (`computed`), an empty string
+  or a non-string leaves the entry malformed and skipped exactly as before. A
+  field that projects — no `role`, or `role: field` — still needs its editor
+  label and is still reported without one.
 
 ## [1.7.1] - 2026-07-22
 
