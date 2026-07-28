@@ -13,6 +13,22 @@ namespace Parisek\Styleguide;
  */
 final class FieldsNormalizer
 {
+    /**
+     * definition-kit roles that do not project into `acf.json`, and therefore
+     * carry no editor label to display. The list is closed on purpose: a typo
+     * (`filed`) or a role that was removed upstream (`computed`) must fall
+     * through to the missing-label warning rather than silently pass an
+     * unlabelled field. Anything outside this set — including `field`, an
+     * empty string and a non-string — keeps the original behaviour.
+     *
+     * The vocabulary is owned by parisek/definition-kit — its `role` enum in
+     * `schemas/component.fields.schema.json`, mirrored in
+     * `Generator\FieldProjectionFilter`. This package does not depend on it at
+     * runtime, so a role added there needs adding here by hand; the list is
+     * short and has changed once in the package's life (`computed`, removed).
+     */
+    private const NON_PROJECTING_ROLES = ['query', 'global', 'parent', 'inherited', 'derived'];
+
     /** Keys consumed by normalisation — everything else is verbatim. */
     private const CORE_KEYS = ['label', 'title', 'type', 'description', 'required', 'fields'];
 
@@ -54,8 +70,24 @@ final class FieldsNormalizer
             }
             $label = $def['label'] ?? $def['title'] ?? null;
             if (!is_string($label) || $label === '') {
-                $warnings[] = sprintf('field "%s": missing label/title — skipped', $path);
-                continue;
+                // A prop that does not project into the CMS has no editor
+                // label to carry: definition-kit 0.6 made `label` required
+                // only of a field that reaches acf.json, precisely so nobody
+                // has to invent editor copy for a value no editor ever sees
+                // (`role: parent`, `query`, `global`, `inherited`, `derived`).
+                //
+                // Skipping those dropped 115 real props out of one theme's
+                // documentation the moment it declared them. The props table
+                // is developer-facing, so the key is a perfectly good name for
+                // one — falling back is better documentation than an omission,
+                // and better than pushing invented labels back into the YAML.
+                $role = $def['role'] ?? null;
+                if (is_string($role) && in_array($role, self::NON_PROJECTING_ROLES, true)) {
+                    $label = $key;
+                } else {
+                    $warnings[] = sprintf('field "%s": missing label/title — skipped', $path);
+                    continue;
+                }
             }
 
             $children = null;

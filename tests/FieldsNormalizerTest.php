@@ -75,6 +75,100 @@ final class FieldsNormalizerTest extends TestCase
     }
 
     #[Test]
+    public function names_a_non_projecting_field_by_its_key_when_it_has_no_label(): void
+    {
+        // definition-kit 0.6 made `label` required only of a field that
+        // projects into acf.json — a `role: parent` prop has no editor to
+        // write copy for. Skipping those dropped 115 declared props out of one
+        // theme's documentation; the props table is developer-facing, so the
+        // key names it perfectly well.
+        $result = FieldsNormalizer::normalize([
+            'a' => ['type' => 'repeater', 'role' => 'query'],
+            'b' => ['type' => 'text', 'role' => 'global'],
+            'c' => ['type' => 'boolean', 'role' => 'parent'],
+            'd' => ['type' => 'text', 'role' => 'inherited'],
+            'e' => ['type' => 'text', 'role' => 'derived', 'from' => 'video'],
+        ]);
+
+        self::assertSame([], $result['warnings']);
+        self::assertSame(['a', 'b', 'c', 'd', 'e'], array_column($result['fields'], 'label'));
+        // The fallback must not disturb the rest of the canonical output, nor
+        // the open contract: `role` and `from` are not core keys and ride
+        // through verbatim (ADR-0002).
+        self::assertSame('derived', $result['fields'][4]['role']);
+        self::assertSame('video', $result['fields'][4]['from']);
+        self::assertSame('e', $result['fields'][4]['key']);
+        self::assertSame('text', $result['fields'][4]['type']);
+    }
+
+    #[Test]
+    public function still_skips_an_unlabelled_field_whose_role_is_not_a_known_non_projecting_one(): void
+    {
+        // The vocabulary is closed on purpose. A typo, a role removed upstream
+        // (`computed`, dropped in definition-kit 0.6), a non-string or an empty
+        // one must not buy a field its way past the label requirement.
+        $result = FieldsNormalizer::normalize([
+            'no_role' => ['type' => 'text'],
+            'projecting' => ['type' => 'text', 'role' => 'field'],
+            'typo' => ['type' => 'text', 'role' => 'filed'],
+            'removed' => ['type' => 'text', 'role' => 'computed'],
+            'empty' => ['type' => 'text', 'role' => ''],
+            'not_a_string' => ['type' => 'text', 'role' => 1],
+            'null_role' => ['type' => 'text', 'role' => null],
+        ]);
+
+        self::assertSame([], $result['fields']);
+        self::assertSame([
+            'field "no_role": missing label/title — skipped',
+            'field "projecting": missing label/title — skipped',
+            'field "typo": missing label/title — skipped',
+            'field "removed": missing label/title — skipped',
+            'field "empty": missing label/title — skipped',
+            'field "not_a_string": missing label/title — skipped',
+            'field "null_role": missing label/title — skipped',
+        ], $result['warnings']);
+    }
+
+    #[Test]
+    public function a_legacy_title_wins_over_the_key_fallback(): void
+    {
+        // The twig-annotation doctrine spells the label `title`. A field that
+        // has one keeps it whatever its role — the fallback is for fields with
+        // no label at all, not a rule about roles.
+        $result = FieldsNormalizer::normalize([
+            'inner' => ['type' => 'boolean', 'role' => 'parent', 'title' => 'Vnitřní'],
+        ]);
+
+        self::assertSame([], $result['warnings']);
+        self::assertSame('Vnitřní', $result['fields'][0]['label']);
+    }
+
+    #[Test]
+    public function the_fallback_recurses_and_keeps_warning_order(): void
+    {
+        $result = FieldsNormalizer::normalize([
+            'items' => [
+                'type' => 'repeater',
+                'role' => 'parent',
+                'fields' => [
+                    'title' => ['type' => 'text', 'role' => 'parent'],
+                    'broken' => ['type' => 'text'],
+                ],
+            ],
+            'after' => ['type' => 'text'],
+        ]);
+
+        self::assertSame(['items'], array_column($result['fields'], 'label'));
+        self::assertSame(['title'], array_column($result['fields'][0]['children'], 'label'));
+        // Nested warnings are emitted while walking the parent, so they come
+        // before the sibling that follows it.
+        self::assertSame([
+            'field "items.broken": missing label/title — skipped',
+            'field "after": missing label/title — skipped',
+        ], $result['warnings']);
+    }
+
+    #[Test]
     public function skips_malformed_entries_with_a_warning(): void
     {
         $result = FieldsNormalizer::normalize([

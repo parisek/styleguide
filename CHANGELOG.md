@@ -7,6 +7,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Fixed
+
+- **A field with no `label` is named by its key instead of being dropped, when
+  its role says no editor fills it.** definition-kit 0.6 made `label` required
+  only of a field that projects into `acf.json` — a `role: parent`, `query`,
+  `global`, `inherited` or `derived` prop has no editor to write copy for, and
+  inventing one was the noise that change removed.
+
+  `FieldsNormalizer` still required it, so every such prop was skipped with a
+  warning and vanished from the props table. On eprukaz2025 that was **115
+  fields across 32 components**, all of them correctly declared — the
+  documentation got worse the moment the theme documented itself properly.
+
+  The props table is developer-facing, so the key is a perfectly good name for
+  one. The role vocabulary is closed — `query`, `global`, `parent`, `inherited`,
+  `derived` — so a typo, a role removed upstream (`computed`), an empty string
+  or a non-string leaves the entry malformed and skipped exactly as before. A
+  field that projects — no `role`, or `role: field` — still needs its editor
+  label and is still reported without one.
 
 ## [1.7.1] - 2026-07-22
 
