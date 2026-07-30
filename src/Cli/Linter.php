@@ -175,7 +175,7 @@ final class Linter
                 // sibling `<id>.yaml` wins over the twig front-comment
                 // (ComponentParser::readComponentMetadata()). Reading the
                 // comment directly linted a document the catalogue never
-                // reads: ADR 0007 retires the front-comment per component as
+                // reads: tailwind-base ADR-0007 retires the front-comment per component as
                 // its `<id>.yaml` lands, so once a project starts migrating,
                 // the two sources disagree BY DESIGN. Downstream that turned a
                 // clean migration into 29 phantom `metadata-yaml-invalid`
@@ -210,7 +210,7 @@ final class Linter
                     'sidecar_broken' => is_file($sidecar) && realpath($sourceFile) !== realpath($sidecar),
                     // Both documents present and the sidecar won: the twig
                     // block is dead weight, and editing it is a silent no-op.
-                    // ADR 0007 says the twig template keeps only its render
+                    // tailwind-base ADR-0007 says the twig template keeps only its render
                     // code once the sidecar lands.
                     'twig_metadata_dead' => is_file($sidecar)
                         && realpath($sourceFile) === realpath($sidecar)
@@ -232,7 +232,7 @@ final class Linter
      * carrying `name:` — i.e. it is a metadata block, not an ordinary code
      * comment.
      *
-     * The distinction is the whole point: after ADR 0007 a migrated template's
+     * The distinction is the whole point: after tailwind-base ADR-0007 a migrated template's
      * leading comment is usually prose about the markup, and reporting THAT as
      * redundant metadata would be the mirror of the bug this class just fixed.
      */
@@ -297,7 +297,7 @@ final class Linter
                 // file to edit. Everything else points at the winning source.
                 $twigPath,
                 'redundant-twig-metadata',
-                'Metadata lives in `<id>.yaml`, which wins — the twig front-comment is dead and editing it changes nothing. Remove it (ADR 0007: the template keeps only its render code).',
+                'Metadata lives in `<id>.yaml`, which wins — the twig front-comment is dead and editing it changes nothing. Remove it (tailwind-base ADR-0007: the template keeps only its render code).',
             );
         }
 

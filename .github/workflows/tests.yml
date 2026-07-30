@@ -130,6 +130,15 @@ jobs:
       - name: Fail if the rebuild differs from the committed dist/
         run: git diff --exit-code -- dist/
 
+  adr-index:
+    runs-on: ubuntu-latest
+    name: docs/adr/ index is in sync
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate the ADR directory against the index
+        run: python3 scripts/check-adr-index.py
+
   phpstan:
     runs-on: ubuntu-latest
     name: PHPStan

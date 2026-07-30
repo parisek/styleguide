@@ -16,7 +16,7 @@ only the pre-release verification is package-specific.
 ### 1. Verify locally
 
 ```bash
-composer check                       # PHPUnit + PHPStan
+composer check                       # PHPUnit + PHPStan + ADR index
 cd frontend && npm ci && npm run build && cd ..
 git diff --exit-code -- dist/        # committed dist/ must rebuild identically
 ```

@@ -55,9 +55,11 @@
         }
     },
     "scripts": {
+        "adr": "python3 scripts/check-adr-index.py",
         "check": [
             "@test",
-            "@phpstan"
+            "@phpstan",
+            "@adr"
         ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
