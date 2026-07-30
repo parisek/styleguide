@@ -26,6 +26,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   gone rather than corrected to 497 — a number nobody re-counts is a number that
   drifts back.
 
+- **ADR practice unified across the four Composer packages.** `docs/adr/README.md`
+  and a new `## Architecture decisions (ADRs)` section in `AGENTS.md` now carry
+  the same rules as `parisek/timber-kit`, `parisek/definition-kit` and
+  `parisek/acf-json-schema`: record sparingly (three conditions), propose before
+  writing, permanent sequential numbering, Nygard triad, supersede by linking.
+  The format was labelled MADR-lite but has always been the Nygard triad.
+  `scripts/check-adr-index.py` (`composer adr`, CI job *docs/adr/ index is in
+  sync*) fails the build on an ADR missing from the index, a duplicate number, a
+  dangling index entry or an off-convention filename — an ADR nothing links to
+  reads as a decision nobody recorded.
+
 - **Comments citing `ADR 0007` now say `tailwind-base ADR-0007`.** The decision
   is real but lives in the consumer that drove it; `docs/adr/` here holds 0001
   and 0002, so a bare number pointed readers at a document this repo does not
