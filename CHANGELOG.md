@@ -120,8 +120,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   An ordinary leading code comment does not trigger the second rule: the check
   requires the comment to parse as a YAML mapping carrying `name:`. Reporting
   prose about the markup would be the mirror of the bug being fixed.
-||||||| parent of 71af4b1 (feat(lint): report catalogue entries that nothing renders (no-fixture))
-
 
 - **A broken component template no longer reports itself as a missing one.**
   `component_*()` / `page_*()` wrapped both the template load AND the render in
