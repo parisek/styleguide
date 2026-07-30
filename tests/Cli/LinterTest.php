@@ -29,10 +29,64 @@ final class LinterTest extends TestCase
     }
 
     #[Test]
-    public function full_fixture_tree_produces_exactly_eight_findings(): void
+    public function full_fixture_tree_produces_exactly_nine_findings(): void
     {
         $findings = (new Linter($this->fixtures))->run();
-        self::assertCount(8, $findings);
+        self::assertCount(9, $findings);
+    }
+
+    #[Test]
+    public function flags_a_catalogue_entry_that_nothing_renders(): void
+    {
+        // The entry parses perfectly, so every metadata rule passes it — and
+        // then it shows an empty frame in the sidebar and no visual or
+        // behavioural test can reach it. Nothing else reported this.
+        $findings = (new Linter($this->fixtures))->run();
+        $noFixture = $this->findingsFor($findings, 'no-fixture');
+
+        self::assertCount(1, $noFixture);
+        self::assertSame(LintSeverity::Notice, $noFixture[0]->severity);
+        self::assertSame('component/no-fixture-demo/no-fixture-demo.twig', $noFixture[0]->file);
+    }
+
+    #[Test]
+    public function a_utility_component_is_exempt_from_the_no_fixture_rule(): void
+    {
+        // A utility renders whatever it is handed, so it has no stable
+        // appearance a demo page could pin — the fixture-less state is correct,
+        // not a gap. Without this exemption the rule would fire on exactly the
+        // components whose authors did the right thing.
+        $findings = (new Linter($this->fixtures))->run();
+
+        self::assertSame([], array_values(array_filter(
+            $findings,
+            static fn(LintFinding $f): bool => str_contains($f->file, 'utility-no-fixture'),
+        )));
+    }
+
+    #[Test]
+    public function a_variant_sibling_alone_satisfies_the_no_fixture_rule(): void
+    {
+        // Mirrors ComponentParser's has_styleguide derivation: a component that
+        // ships only named variant siblings and no bare styleguide.twig is
+        // still renderable. Reporting it would contradict the runtime.
+        $root = sys_get_temp_dir() . '/sg-variant-only-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/only-variants', 0777, true);
+        file_put_contents(
+            $root . '/component/only-variants/only-variants.twig',
+            "{#\nname: \"Only Variants\"\ndescription: \"x\"\n#}\n<div></div>\n",
+        );
+        file_put_contents($root . '/component/only-variants/styleguide.wide.twig', "<div></div>\n");
+
+        $findings = (new Linter($root))->run();
+
+        self::assertSame([], $this->findingsFor($findings, 'no-fixture'));
+
+        unlink($root . '/component/only-variants/styleguide.wide.twig');
+        unlink($root . '/component/only-variants/only-variants.twig');
+        rmdir($root . '/component/only-variants');
+        rmdir($root . '/component');
+        rmdir($root);
     }
 
 

@@ -84,6 +84,39 @@ final class Linter
     }
 
     /**
+     * Mirrors ComponentParser's own `has_styleguide` derivation: a sibling
+     * `styleguide.twig`, any `styleguide.<variant>.twig`, or the legacy
+     * presence-only `styleguide:` key.
+     *
+     * Deliberately re-derived from the filesystem rather than read off
+     * `parseAll()`: the linter walks raw metadata by design (normalisation is
+     * exactly what coerces the values it needs to see raw), and reaching into
+     * the normalised catalogue here would couple this one rule to a different
+     * data source than every rule around it.
+     *
+     * @param array<string,mixed> $metadata
+     */
+    private function hasFixture(string $relPath, array $metadata): bool
+    {
+        if (array_key_exists('styleguide', $metadata)) {
+            return true;
+        }
+
+        $dir = \dirname($this->templatesPath . '/' . $relPath);
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        foreach (scandir($dir) ?: [] as $entry) {
+            if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $entry)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array<string,true>
      */
     private function knownIds(): array
@@ -318,6 +351,29 @@ final class Linter
                     $raw,
                     implode('|', ComponentParser::KIND_VALUES),
                 ),
+            );
+        }
+
+        // A catalogue entry with no fixture renders nothing, so no preview,
+        // no visual baseline and no behavioural test can reach it — it is
+        // listed in the sidebar and then shows an empty frame. Nothing else
+        // reports this: the entry parses perfectly, so every metadata rule
+        // above passes it.
+        //
+        // Notice, not warning. Fixture-less entries are legitimate in two
+        // shapes and both are common: `kind: utility` (a helper that renders
+        // whatever it is handed, so there is no stable appearance to pin) is
+        // exempted outright below, and structural partials that a project has
+        // chosen to keep as catalogue entries are a judgement call, not a
+        // defect. Failing a build over either would make the rule the first
+        // thing a consumer ignores.
+        $kind = is_string($metadata['kind'] ?? null) ? $metadata['kind'] : '';
+        if ($kind !== 'utility' && !$this->hasFixture($relPath, $metadata)) {
+            $findings[] = new LintFinding(
+                LintSeverity::Notice,
+                $relPath,
+                'no-fixture',
+                'No styleguide.twig, no variant sibling and no `styleguide:` key — nothing renders this entry, so no preview or visual/behaviour test can cover it.',
             );
         }
 

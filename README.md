@@ -423,7 +423,7 @@ vendor/bin/styleguide lint --type=component       # scan just one type
 vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
 ```
 
-Reports eight issue types: templates with no parseable `name:` (dropped from
+Reports nine issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
 the renderer never reads (`dead-styleguide-content` — see *Fixtures &
 sample data* below), `usage:` references to ids that don't exist
@@ -434,7 +434,11 @@ informational only), a canonical `<id>.yaml` that is not valid YAML
 (`sidecar-yaml-invalid` — the runtime silently falls back to the twig comment,
 so the component renders and nothing else reports it), a twig front-comment
 left behind next to a winning `<id>.yaml` (`redundant-twig-metadata` — editing
-it changes nothing; ADR 0007).
+it changes nothing; ADR 0007), and catalogue entries that nothing renders
+(`no-fixture`, informational only — no `styleguide.twig`, no variant sibling
+and no `styleguide:` key, so the entry shows an empty frame and no visual or
+behavioural test can reach it; `kind: utility` is exempt, since a utility has
+no stable appearance to pin).
 
 Text output is one line per finding: `SEVERITY  file  message`. JSON output
 is an array of `{ severity, file, rule, message }` objects. Exit code: `0`
