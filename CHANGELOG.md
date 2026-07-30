@@ -8,6 +8,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Release flow unified with the sibling packages.** `RELEASING.md` added
+  (same shape as `parisek/definition-kit` / `parisek/acf-json-schema` /
+  `parisek/timber-kit`), `composer check` added for parity, and
+  `release-stamp.yml` now calls `composer test` / `composer phpstan` instead of
+  the binaries directly. AGENTS.md's release section pointed at a manual
+  tag-by-hand flow predating `release-stamp.yml`, which skipped that workflow's
+  guards — it now points at `RELEASING.md`. No consumer-visible behaviour change.
+
 ## [1.8.2] - 2026-07-30
 ### Fixed
 
@@ -110,8 +120,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   An ordinary leading code comment does not trigger the second rule: the check
   requires the comment to parse as a YAML mapping carrying `name:`. Reporting
   prose about the markup would be the mirror of the bug being fixed.
-||||||| parent of 71af4b1 (feat(lint): report catalogue entries that nothing renders (no-fixture))
-
 
 - **A broken component template no longer reports itself as a missing one.**
   `component_*()` / `page_*()` wrapped both the template load AND the render in
