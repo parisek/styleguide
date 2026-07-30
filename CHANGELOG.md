@@ -17,6 +17,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   said so. Found nine such entries in one downstream project, one of them a
   page.
 
+  Fixture detection follows the runtime exactly: `isset()` on the `styleguide:`
+  key (a bare `styleguide:` with no value is not a fixture there, and
+  `array_key_exists()` would have silently exempted the component), and the
+  strict canonical variant-filename pattern rather than the looser one the
+  catalogue walk uses to *exclude* fixtures — `styleguide.WIDE.twig` is
+  excluded from the walk but is not a canonical variant, so that component
+  really does render nothing.
+
   Notice, not warning, and `kind: utility` is exempt outright: a utility
   renders whatever it is handed, so it has no stable appearance a demo page
   could pin (its fixture-less state is correct, not a gap). Structural partials

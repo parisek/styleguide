@@ -49,6 +49,83 @@ final class LinterTest extends TestCase
         self::assertSame('component/no-fixture-demo/no-fixture-demo.twig', $noFixture[0]->file);
     }
 
+
+    #[Test]
+    public function a_null_valued_styleguide_key_does_not_count_as_a_fixture(): void
+    {
+        // The runtime uses isset(), so a bare `styleguide:` with no value is
+        // NOT a fixture there. array_key_exists() would call it one and
+        // silently exempt the component from this rule — a false negative that
+        // looks like coverage.
+        $root = sys_get_temp_dir() . '/sg-null-sg-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/null-key', 0777, true);
+        file_put_contents(
+            $root . '/component/null-key/null-key.twig',
+            "{#\nname: \"Null Key\"\ndescription: \"x\"\nstyleguide:\n#}\n<div></div>\n",
+        );
+
+        $findings = (new Linter($root))->run();
+
+        self::assertCount(1, $this->findingsFor($findings, 'no-fixture'));
+
+        unlink($root . '/component/null-key/null-key.twig');
+        rmdir($root . '/component/null-key');
+        rmdir($root . '/component');
+        rmdir($root);
+    }
+
+    #[Test]
+    public function a_non_canonical_variant_filename_does_not_count_as_a_fixture(): void
+    {
+        // `styleguide.WIDE.twig` is excluded from the catalogue walk (it looks
+        // like a fixture) but discoverVariants() rejects it — uppercase is not
+        // a canonical variant id — so the component really does render nothing.
+        // Matching the loose sibling pattern here would exempt exactly that
+        // component from the rule.
+        $root = sys_get_temp_dir() . '/sg-badvariant-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/shouty', 0777, true);
+        file_put_contents(
+            $root . '/component/shouty/shouty.twig',
+            "{#\nname: \"Shouty\"\ndescription: \"x\"\n#}\n<div></div>\n",
+        );
+        file_put_contents($root . '/component/shouty/styleguide.WIDE.twig', "<div></div>\n");
+
+        $findings = (new Linter($root))->run();
+
+        self::assertCount(1, $this->findingsFor($findings, 'no-fixture'));
+
+        unlink($root . '/component/shouty/styleguide.WIDE.twig');
+        unlink($root . '/component/shouty/shouty.twig');
+        rmdir($root . '/component/shouty');
+        rmdir($root . '/component');
+        rmdir($root);
+    }
+
+    #[Test]
+    public function kind_utility_declared_in_the_yaml_sidecar_also_exempts(): void
+    {
+        // The exemption reads `kind`, and after the precedence fix that value
+        // can legitimately live only in `<id>.yaml`. Before it, the linter read
+        // the twig comment and the exemption silently did not apply.
+        $root = sys_get_temp_dir() . '/sg-utilyaml-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/util', 0777, true);
+        file_put_contents(
+            $root . '/component/util/util.yaml',
+            "name: Util\nkind: utility\ncategory: Basic\ndescription: no stable appearance\n",
+        );
+        file_put_contents($root . '/component/util/util.twig', "<div></div>\n");
+
+        $findings = (new Linter($root))->run();
+
+        self::assertSame([], $this->findingsFor($findings, 'no-fixture'));
+
+        unlink($root . '/component/util/util.yaml');
+        unlink($root . '/component/util/util.twig');
+        rmdir($root . '/component/util');
+        rmdir($root . '/component');
+        rmdir($root);
+    }
+
     #[Test]
     public function a_utility_component_is_exempt_from_the_no_fixture_rule(): void
     {

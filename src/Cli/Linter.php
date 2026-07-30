@@ -98,7 +98,11 @@ final class Linter
      */
     private function hasFixture(string $relPath, array $metadata): bool
     {
-        if (array_key_exists('styleguide', $metadata)) {
+        // `isset()`, NOT `array_key_exists()` — the runtime uses isset(), so a
+        // bare `styleguide:` with no value (null) does NOT count as a fixture
+        // there. array_key_exists() would call it one and silently exempt the
+        // component from this rule.
+        if (isset($metadata['styleguide'])) {
             return true;
         }
 
@@ -107,8 +111,18 @@ final class Linter
             return false;
         }
 
-        foreach (scandir($dir) ?: [] as $entry) {
-            if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $entry)) {
+        if (is_file($dir . '/styleguide.twig')) {
+            return true;
+        }
+
+        // The strict VARIANT_FILE_PATTERN, not the looser sibling pattern the
+        // walk uses to EXCLUDE fixtures from the catalogue. The two differ:
+        // `styleguide.WIDE.twig` is excluded from the walk (it is a fixture)
+        // but is not a canonical variant id, so discoverVariants() skips it and
+        // the component really does render nothing. Matching the loose pattern
+        // here would exempt exactly that component from the rule.
+        foreach (glob($dir . '/styleguide.*.twig') ?: [] as $file) {
+            if (preg_match(ComponentParser::VARIANT_FILE_PATTERN, basename($file))) {
                 return true;
             }
         }
@@ -373,7 +387,7 @@ final class Linter
                 LintSeverity::Notice,
                 $relPath,
                 'no-fixture',
-                'No styleguide.twig, no variant sibling and no `styleguide:` key — nothing renders this entry, so no preview or visual/behaviour test can cover it.',
+                'Nothing renders this entry — no styleguide.twig, no canonical variant sibling and no `styleguide:` key — so it shows an empty frame and no visual or behavioural test can reach it. Add a styleguide.twig fixture, or declare `kind: utility` if it has no stable appearance to demo.',
             );
         }
 
