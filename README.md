@@ -460,7 +460,7 @@ informational only), a canonical `<id>.yaml` that is not valid YAML
 (`sidecar-yaml-invalid` — the runtime silently falls back to the twig comment,
 so the component renders and nothing else reports it), a twig front-comment
 left behind next to a winning `<id>.yaml` (`redundant-twig-metadata` — editing
-it changes nothing; ADR 0007), and catalogue entries that nothing renders
+it changes nothing; tailwind-base ADR-0007), and catalogue entries that nothing renders
 (`no-fixture`, informational only — no `styleguide.twig`, no variant sibling
 and no `styleguide:` key, so the entry shows an empty frame and no visual or
 behavioural test can reach it; `kind: utility` is exempt, since a utility has
@@ -894,7 +894,8 @@ vendor/parisek/styleguide/
 │   └── Api/                          # ComponentsEndpoint, PagesEndpoint, FieldsEndpoint
 ├── templates/                        # Twig templates the package renders
 │   ├── render-cell.twig              # iframe HTML wrapper
-│   ├── overview.twig                 # palette + typography + fonts
+│   ├── foundations.twig              # palette + typography + fonts
+│   ├── icons.twig                    # icon sheet
 │   └── styleguide-404.twig
 ├── dist/                             # prebuilt SPA bundle (committed)
 │   ├── index.html

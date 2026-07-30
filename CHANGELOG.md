@@ -18,6 +18,20 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   tag-by-hand flow predating `release-stamp.yml`, which skipped that workflow's
   guards — it now points at `RELEASING.md`. No consumer-visible behaviour change.
 
+- **`AGENTS.md` and `README.md` now describe the package that exists.** The repo
+  layout tree named a `useSearchShortcuts` composable that was never written and
+  an `overview.twig` that is now `foundations.twig` + `icons.twig`, omitted ten
+  `src/` classes and the whole `Cli/` directory, and advertised "3 API
+  endpoints" against the five that ship. The hard-coded "208 tests, ~0.4 s" is
+  gone rather than corrected to 497 — a number nobody re-counts is a number that
+  drifts back.
+
+- **Comments citing `ADR 0007` now say `tailwind-base ADR-0007`.** The decision
+  is real but lives in the consumer that drove it; `docs/adr/` here holds 0001
+  and 0002, so a bare number pointed readers at a document this repo does not
+  have. `docs/adr/README.md` gained the cross-repo citation rule. Docs and
+  comments only — no code path changed.
+
 ## [1.8.2] - 2026-07-30
 ### Fixed
 

@@ -170,7 +170,7 @@ final class LinterTest extends TestCase
     #[Test]
     public function a_component_migrated_to_a_yaml_sidecar_is_linted_from_the_sidecar(): void
     {
-        // ADR 0007 retires the twig front-comment per component as its
+        // tailwind-base ADR-0007 retires the twig front-comment per component as its
         // `<id>.yaml` lands, so once a project starts migrating, the two
         // sources disagree BY DESIGN — the twig file's first comment is then
         // just an ordinary code comment. Reading it directly linted a document
@@ -204,7 +204,7 @@ final class LinterTest extends TestCase
     #[Test]
     public function a_dead_twig_front_comment_next_to_a_winning_sidecar_is_reported(): void
     {
-        // The silent no-op ADR 0007 creates during migration: both documents
+        // The silent no-op tailwind-base ADR-0007 creates during migration: both documents
         // present, the sidecar wins, and edits to the twig block change
         // nothing. Downstream this had already produced three components whose
         // CORRECTED descriptions lived in the dead block and had never been

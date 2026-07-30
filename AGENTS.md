@@ -6,8 +6,8 @@ Project instructions for AI coding assistants (Claude Code, Codex CLI, Cursor, C
 
 `parisek/styleguide` is a self-contained Composer package that turns a tree of Twig component templates into a live, browsable styleguide — sidebar, ⌘K search, viewport presets, locale switcher, deep links — with no chrome code in the consuming project. The package ships:
 
-- **PHP backend** (`src/`, PSR-4 `Parisek\Styleguide\`) — `Styleguide` bootstrap + `Router` + `Renderer` + `ComponentParser` + `AssetServer` + 3 API endpoints.
-- **Templates** (`templates/`) — `render-cell.twig` (iframe wrapper), `overview.twig`, `styleguide-404.twig`.
+- **PHP backend** (`src/`, PSR-4 `Parisek\Styleguide\`) — `Styleguide` bootstrap + `Router` + `Renderer` + `ComponentParser` + `AssetServer`, five `/api/*` endpoints, and a `vendor/bin/styleguide` CLI (`list` / `show` / `lint`).
+- **Templates** (`templates/`) — `render-cell.twig` (iframe wrapper), `foundations.twig`, `icons.twig`, `styleguide-404.twig`.
 - **Frontend SPA** (`frontend/` → built into `dist/`) — Vue 3 + Pinia + vue-router + Tailwind v4. Sidebar, search, preview chrome, locale switcher, deep-link routing.
 
 Consumers wire `\Parisek\Styleguide\Styleguide::run()` into a public PHP file and the package handles every `/styleguide/*` request. See `README.md` § *Bootstrap*.
@@ -31,7 +31,7 @@ PHP commands run from the repo root, frontend commands from `frontend/`. Node is
 
 ```bash
 # Tests + static analysis (PHP)
-composer test                                # phpunit (208 tests, ~0.4 s)
+composer test                                # phpunit
 composer phpstan                             # phpstan analyse (level configured in phpstan.neon)
 vendor/bin/phpunit --filter <pattern>        # single test method
 
@@ -101,12 +101,22 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   ├── Styleguide.php         # public entry point — bootstrap + run()
 │   ├── Router.php             # /styleguide/* URI parser
 │   ├── Renderer.php           # iframe HTML wrapper for one component / page
-│   ├── ComponentParser.php    # reads first-comment YAML metadata from .twig files
+│   ├── ComponentParser.php    # reads component metadata (<id>.yaml, else the .twig front-comment)
+│   ├── FieldsNormalizer.php   # normalises the `fields:` shape (ADR-0002 open contract)
 │   ├── AssetServer.php        # serves dist/ with ETag + immutable cache
-│   └── Api/                   # JSON endpoints consumed by the SPA
+│   ├── PathGuard.php          # path traversal / symlink escape checks
+│   ├── Placeholder.php        # placeholder() SVG generator for demos
+│   ├── ColorPalettes.php      # palette derivation for the Foundations page
+│   ├── ColorUtil.php          # colour maths behind ColorPalettes
+│   ├── IconsCatalog.php       # icon sheet discovery for the Icons page
+│   ├── FaviconAudit.php       # favicon completeness report
+│   ├── OgImageAudit.php       # OG image completeness report
+│   ├── Api/                   # JSON endpoints: components, pages, docs, fields, health
+│   └── Cli/                   # vendor/bin/styleguide — list / show / lint
 ├── templates/                 # Twig templates shipped to consumers
 │   ├── render-cell.twig       # iframe wrapper (HTML doc with project CSS/JS)
-│   ├── overview.twig          # auto-generated palette / typography / fonts page
+│   ├── foundations.twig       # auto-generated palette / typography / fonts page
+│   ├── icons.twig             # auto-generated icon sheet
 │   └── styleguide-404.twig
 ├── frontend/                  # SPA source (Vite + Vue 3 + Pinia + Tailwind v4)
 │   ├── index.html             # SPA shell — sidebar, toolbar, iframe preview
@@ -115,16 +125,24 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   │   ├── main.js            # entrypoint — boots Pinia + vue-router + mounts App.vue
 │   │   ├── App.vue            # shell: sidebar, mobile backdrop, shared toolbar/description/usage/link/fields chrome
 │   │   ├── router.js          # vue-router instance + route table
-│   │   ├── views/             # OverviewView, FoundationsView, PreviewView (renders PreviewPane)
-│   │   ├── components/        # Sidebar, ViewportToolbar, PreviewPane, FieldsDrawer, UsagePanel, LinkBar
-│   │   ├── composables/       # useViewportPreset, useSearchShortcuts
+│   │   ├── views/             # OverviewView, FoundationsView, FieldsView, PreviewView (renders PreviewPane)
+│   │   ├── components/        # Sidebar, SearchPalette, ViewportToolbar, PreviewPane, VariantGrid,
+│   │   │                      #   FieldsDrawer, FieldsTable, UsagePanel, LinkBar, HealthWarningBadge
+│   │   ├── composables/       # useViewportPreset, useVariant
 │   │   ├── stores/            # Pinia: catalog, ui, i18n, theme
-│   │   └── lib/                # framework-free: searchMatch, prefixTree, viewportMath, fieldsTree, externalLinks, persistedRef, routeInfo, config
+│   │   └── lib/               # framework-free: searchMatch, prefixTree, viewportMath, fieldsTree,
+│   │                          #   externalLinks, persistedRef, routeInfo, documentChrome, tileGeometry,
+│   │                          #   cookie, config
 │   └── public/locales/        # cs.json, en.json
 ├── dist/                      # built SPA bundle (committed — consumers ship without npm)
 ├── tests/                     # phpunit
+├── docs/                      # API.md, MIGRATION.md, adr/ (architecture decision records)
+├── RELEASING.md               # release procedure (Stamp Release workflow)
 └── README.md                  # consumer-facing install + bootstrap
 ```
+
+Every `.js` / `.vue` under `frontend/src/` has a sibling `*.spec.js` — the tree
+above lists modules, not the spec files that shadow them one-for-one.
 
 ## Adding a feature
 
@@ -137,7 +155,7 @@ The package surface has three independent layers; pick the smallest one that fit
 3. `composer test` (and `composer phpstan` if signatures/types change).
 4. Verify on the consumer (with `composer styleguide:local` active) — load `/styleguide/...` and confirm the change is live.
 
-### Twig template change (`templates/render-cell.twig`, `overview.twig`)
+### Twig template change (`templates/render-cell.twig`, `foundations.twig`, `icons.twig`)
 
 1. Edit the template.
 2. If the change affects the iframe HTML shape, extend `RendererTest::renders_component_with_iframe_chrome` to assert the new markup.

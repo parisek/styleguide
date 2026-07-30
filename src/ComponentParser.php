@@ -358,7 +358,7 @@ class ComponentParser
      * the existing `{# ... #}` twig-comment convention otherwise.
      *
      * Transitional (tailwind-base is introducing `<id>.yaml` as the future
-     * canonical definition — see ADR 0007 / portadesign/tailwind-base#279):
+     * canonical definition — see tailwind-base ADR-0007):
      * twig-comment parsing is NOT being removed, just deprioritised. The
      * `<id>.yaml` root carries the same metadata keys (`name`/`usage`/
      * `category`/`render`/`web`/`asana`/`figma`/`drupal`/`description`/
@@ -390,9 +390,10 @@ class ComponentParser
      * @internal Exposed for `Cli\Linter`; not part of the SemVer contract —
      *           see docs/API.md § Other PHP classes. The linter MUST resolve
      *           metadata through the same precedence the runtime uses, or it
-     *           lints a document the catalogue never reads (ADR 0007 retires
-     *           the twig front-comment per component as its `<id>.yaml`
-     *           lands, so the two sources routinely disagree by design).
+     *           lints a document the catalogue never reads (tailwind-base
+     *           ADR-0007 retires the twig front-comment per component as its
+     *           `<id>.yaml` lands, so the two sources routinely disagree by
+     *           design).
      *
      * @return array{0: array<string,mixed>|false, 1: string}
      */
