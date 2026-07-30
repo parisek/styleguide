@@ -340,8 +340,20 @@ Diagnostics for `ComponentParser`'s per-file resilience (added alongside the `\T
 {
   warnings: Array<{ file: string; error: string }>; // relative to templates_path; empty when nothing was skipped
   counts: { components: number; pages: number; docs: number };
+  checked: 'metadata';                              // scope disclosure — see below (since 1.8.1)
 }
 ```
+
+**`checked` — what this endpoint does and does not verify.** It parses
+metadata. It does **not** compile or render anything. A template whose body
+has a fatal Twig error still parses its metadata fine, so it is counted here
+as a healthy component while every render of it fails — `warnings: []` plus a
+full component count is not evidence that the catalogue renders.
+
+For that, sweep the render endpoint: since 1.8.0 a broken template returns
+**500** with the real Twig error, so the sweep is a real check and is strictly
+stronger than a compile check (it also catches a missing partial, a runtime
+failure, and the alert fallback). See README § *CI smoke test*.
 
 ## URL surface — `@api`
 
@@ -356,7 +368,7 @@ Diagnostics for `ComponentParser`'s per-file resilience (added alongside the `\T
 | `/styleguide/overview` | SPA — Components & Pages catalog |
 | `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations`. Accepts an additive `?theme=light\|dark` query param (whitelisted server-side, default `light`) — stamps `class="dark"` + `color-scheme: dark` on the rendered `<html>`. Also accepts an additive `?variant=<id>` query param (whitelisted server-side against `^[a-z0-9-]+$`) for `component \| page \| doc` kinds — resolves `styleguide.<id>.twig` in place of the default `styleguide.twig` when that file exists; absent, invalid, or unknown-but-well-formed values silently fall back to the default `styleguide.twig` → `<slug>.twig` chain (never a 404), so a bookmarked deep link survives a deleted/renamed variant. Query-only — no cookie fallback, unlike `theme`. Composes independently with `?theme=`. This endpoint always renders exactly ONE block regardless of how many variants an entry has — no `?variant=` means the default fixture, a resolvable `?variant=<id>` means that one variant, full stop; there is no server-side "show every variant" response. The SPA is what assembles multiple isolated renders (one iframe per tile, each hitting this same endpoint with its own `?variant=`) into the variant grid described in *Component Twig file conventions* above. Also accepts an additive, **presence-based** `?canvas` query param — any presence of the key (`?canvas`, `?canvas=1`, `?canvas=`, …; the value is never inspected) suppresses the standalone back-bar the render endpoint otherwise shows when its document is the top-level window, so the SPA's own "Canvas" toolbar action can render a truly clean, full-viewport document. Absent → bar shows (top-level) or stays hidden (embedded in an iframe, unaffected either way). Composes independently with `?theme=`/`?variant=`. |
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
-| `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts) |
+| `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts + `checked` scope) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |
 

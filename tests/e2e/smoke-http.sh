@@ -211,7 +211,8 @@ assert_status        "/styleguide/api/fields"     "200" "fields api"
 assert_header        "/styleguide/api/health"    "content-type" "application/json" "health api content-type"
 assert_body_contains_all "/styleguide/api/health" \
     '"warnings"' "health api emits warnings key" \
-    '"counts"'   "health api emits counts key"
+    '"counts"'   "health api emits counts key" \
+    '"checked"'  "health api declares its scope"
 
 # Doc render endpoint
 assert_status        "/styleguide/doc/sample-doc"  "200" "deep link to doc returns SPA"

@@ -66,4 +66,21 @@ final class HealthEndpointTest extends TestCase
         self::assertNotEmpty($data['warnings']);
         self::assertSame('component/sample/sample.twig', $data['warnings'][0]['file']);
     }
+
+    #[Test]
+    public function the_response_declares_what_it_actually_checked(): void
+    {
+        // The endpoint is called "health" but only parses metadata, and a
+        // template with a fatal Twig error in its BODY parses its metadata
+        // fine — so it is counted as a healthy component while every render of
+        // it fails. Downstream, `warnings: []` plus a full component count was
+        // read as "the catalogue is fine" for days while eleven templates
+        // rendered nothing. The field makes the scope readable from the
+        // response instead of only from the docs.
+        ob_start();
+        (new HealthEndpoint(new ComponentParser(__DIR__ . '/../fixtures/templates')))->handle();
+        $data = json_decode((string) ob_get_clean(), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame('metadata', $data['checked']);
+    }
 }

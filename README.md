@@ -415,6 +415,32 @@ vendor/bin/styleguide list | jq '.[] | select(.category == "Block")'
 
 `show <id>` exits `1` with an empty stdout when the component is not found, so a missing entry surfaces as a non-zero exit code rather than a parsing error downstream.
 
+### CI smoke test — does the catalogue actually render?
+
+`lint` checks metadata; it cannot tell you whether a template compiles or
+renders. Since 1.8.0 that question has a direct answer: a broken template makes
+`/render/component/<id>` return **500** with the real Twig error, so sweeping
+the render endpoint is a real check.
+
+```bash
+BASE=https://your-site.test/styleguide
+fail=0
+for id in $(curl -sf "$BASE/api/components" | jq -r '.[].id'); do
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/render/component/$id")
+  [ "$code" = 200 ] || { echo "$id -> $code"; fail=1; }
+done
+exit $fail
+```
+
+No browser, no build step, and it is strictly stronger than a compile check —
+it also catches a missing partial, a runtime failure, and the "template not
+found" alert fallback, none of which compiling would reveal. Measured on a
+66-component project: ~9 s.
+
+Prior to 1.8.0 this sweep was worthless: a template with a fatal syntax error
+answered `200` with an alert box saying it was missing. If you run it against
+an older release, it will pass on a catalogue that renders nothing.
+
 ### `lint` — metadata quality report
 
 ```bash
