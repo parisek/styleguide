@@ -1,0 +1,10 @@
+{#
+name: "Syntax Broken"
+#}
+{# A fatal tokenize error: a comment inside an expression. The metadata
+   block above is deliberately VALID — the whole point is that discovery
+   succeeds while compilation fails. #}
+<div>{{ {
+	{# comment inside a hash literal #}
+	key: 1,
+} }}</div>

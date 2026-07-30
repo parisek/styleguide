@@ -6,6 +6,7 @@ namespace Parisek\Styleguide;
 
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
+use Twig\Error\LoaderError;
 use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
 use Twig\TwigFilter;
@@ -943,10 +944,49 @@ final class Styleguide
         string $kindLabel,
     ): string {
         $normalised = str_replace('_', '-', $template_name);
+
+        // ONLY a genuine miss falls back. A LoaderError means the file is not
+        // there — the case the alert below actually describes. Every other
+        // throw (SyntaxError: the template exists and does not compile;
+        // RuntimeError: it compiled and blew up while rendering) propagates to
+        // Renderer::render(), which turns it into HTTP 500 plus the real
+        // message.
+        //
+        // Catching \Throwable here defeated that: a template with a fatal Twig
+        // syntax error was reported as "not found", served 200, and the actual
+        // parser message only reached error_log. Renderer's 500 path — added
+        // precisely so "a health check or CI smoke test polling
+        // /render/component/<id>" cannot see success for a broken component —
+        // could never fire, because the throw was already swallowed one layer
+        // below it. Downstream, eleven templates shipped broken for days with
+        // every check green (portadesign/tailwind-base, 2026-07).
+        //
+        // Caveat worth knowing, not worth guarding: FilesystemLoader also
+        // raises LoaderError for its path-traversal check, so that would report
+        // as "not found" too. Unreachable from here — both interpolated tokens
+        // are fixed by the caller and `$normalised` has its underscores
+        // rewritten, leaving no user-controlled path segment.
+        //
+        // The render() call is deliberately OUTSIDE the try: a LoaderError
+        // raised by a nested {% include %} while rendering is a failure of THIS
+        // template, not evidence that this template is missing, and must not be
+        // relabelled as one.
         try {
             $template = $env->load("$namespace/$normalised/$normalised.twig");
-            return $template->render(array_merge($context, ['content' => $content]));
-        } catch (\Throwable $e) {
+        } catch (\Twig\Error\SyntaxError $e) {
+            // Exists but does not compile. Logged for the same reason as the
+            // render failure below, then rethrown so Renderer::render() can
+            // turn it into a 500 with the real parser message.
+            error_log(sprintf(
+                '[parisek/styleguide] %s template "%s" does not compile: %s',
+                $kindLabel,
+                $normalised,
+                $e->getMessage(),
+            ));
+            throw $e;
+        } catch (LoaderError $e) {
+            // Genuine miss — the only case the alert fallback describes.
+
             error_log(sprintf('[parisek/styleguide] %s template "%s" missing: %s', $kindLabel, $normalised, $e->getMessage()));
             try {
                 $alert = $env->load('@component/alert/alert.twig');
@@ -965,6 +1005,23 @@ final class Styleguide
                     htmlspecialchars($normalised, ENT_QUOTES, 'UTF-8'),
                 );
             }
+        }
+
+        try {
+            return $template->render(array_merge($context, ['content' => $content]));
+        } catch (\Throwable $e) {
+            // Log, then RETHROW. The miss path above logs, and a production
+            // consumer whose CMS or proxy swallows the 500 body would
+            // otherwise be left with an unexplained failure and no
+            // server-side trace at all — strictly less diagnosable than the
+            // behaviour this change replaced, which at least logged.
+            error_log(sprintf(
+                '[parisek/styleguide] %s template "%s" failed to render: %s',
+                $kindLabel,
+                $normalised,
+                $e->getMessage(),
+            ));
+            throw $e;
         }
     }
 
