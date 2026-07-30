@@ -477,7 +477,7 @@ vendor/bin/styleguide lint --type=component       # scan just one type
 vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
 ```
 
-Reports nine issue types: templates with no parseable `name:` (dropped from
+Reports ten issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
 the renderer never reads (`dead-styleguide-content` — see *Fixtures &
 sample data* below), `usage:` references to ids that don't exist
@@ -492,13 +492,50 @@ it changes nothing; tailwind-base ADR-0007), and catalogue entries that nothing 
 (`no-fixture`, informational only — no `styleguide.twig`, no variant sibling
 and no `styleguide:` key, so the entry shows an empty frame and no visual or
 behavioural test can reach it; `kind: utility` is exempt, since a utility has
-no stable appearance to pin).
+no stable appearance to pin), and ignore-list entries that no longer match
+anything (`stale-ignore`, informational only — see *Ignoring expected
+findings* below).
 
 Text output is one line per finding: `SEVERITY  file  message`. JSON output
 is an array of `{ severity, file, rule, message }` objects. Exit code: `0`
 clean (or notice-only), `1` when any `warning`/`error` finding is present,
 `2` on a usage/internal error — run it in CI to catch metadata regressions
 before they ship.
+
+#### Ignoring expected findings
+
+Some findings are correct and permanent — a shared fragment under
+`page/_partials/` legitimately has no `name:`, and is legitimately not a
+catalogue entry. Without a way to accept those, the exit code is `1` on a clean
+tree forever and the gate stops distinguishing anything.
+
+Put them in `<templates>/.styleguide-lintignore.yaml` (picked up automatically),
+or point `--ignore=<path>` at a file elsewhere:
+
+```yaml
+ignore:
+  - file: page/_partials/*        # exact path, or an fnmatch pattern covering a subtree
+    rule: unindexed               # always a specific rule — never the whole file
+    reason: shared page fragments, not catalogue entries
+```
+
+The design is deliberately grudging, because a suppression list is how a lint
+layer goes quiet without anyone deciding it should:
+
+- **`reason` is required.** An entry nobody can justify in one line is an entry
+  nobody will dare delete later.
+- **Entries are per (file pattern, rule).** There is no "mute this rule
+  everywhere" — that would also hide the next occurrence, written months later,
+  which is the finding worth having.
+- **An entry that matches nothing reports itself** as `stale-ignore` (notice),
+  so the list cannot outlive the thing it excused. That finding is itself not
+  suppressible.
+- **Suppressions are announced** on STDERR (`N finding(s) suppressed by the
+  ignore list.`), so a hidden finding never looks like an absent check. Both
+  output formats are unaffected.
+
+A malformed or missing `--ignore` file exits `2` (usage error), never `0` —
+silently ignoring nothing would recreate the problem one level up.
 
 Replacing a bespoke, hand-rolled styleguide with this package? See
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for a step-by-step guide, including

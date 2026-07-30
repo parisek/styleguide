@@ -7,6 +7,38 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Added
+
+- **`styleguide lint` can accept expected findings, and says so out loud.**
+  The linter had no ignore mechanism, and its exit code is the only thing a
+  consumer's CI can gate on. Any project carrying a legitimately unindexed
+  template — a shared fragment under `page/_partials/`, say — therefore exited
+  `1` on a clean tree, forever. The gate stops distinguishing anything, so it
+  gets dropped from CI or wrapped in a project-local filter script; both were
+  observed downstream before this landed.
+
+  Entries live in `<templates>/.styleguide-lintignore.yaml` (auto-discovered)
+  or a file named by `--ignore=<path>`:
+
+  ```yaml
+  ignore:
+    - file: page/_partials/*
+      rule: unindexed
+      reason: shared page fragments, not catalogue entries
+  ```
+
+  Four guards keep the list from becoming a place where checks go to die
+  quietly: `reason` is required; an entry is always scoped to one rule, so
+  there is no "mute this rule everywhere" that would also hide the next
+  occurrence; an entry matching nothing reports itself as `stale-ignore` (and
+  that finding cannot itself be suppressed); and every run announces
+  `N finding(s) suppressed by the ignore list.` on STDERR, so a hidden finding
+  never looks like an absent check. Both output formats are unchanged.
+
+  A malformed or missing `--ignore` file exits `2` — a usage error, distinct
+  from `1` ("findings present"). Silently ignoring nothing would recreate the
+  problem one level up, and a typo would read as a lint regression in the
+  templates rather than in the ignore file.
 
 ### Added
 

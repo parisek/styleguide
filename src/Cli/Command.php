@@ -114,8 +114,20 @@ final class Command
             return 2;
         }
 
+        try {
+            $ignores = $this->resolveIgnores($templates, $flags['ignore'] ?? null);
+        } catch (\RuntimeException $e) {
+            // Exit 2 (usage/internal), never 1: a malformed ignore file is not
+            // "the templates have findings", and conflating the two would make
+            // a typo here look like a lint regression in the tree.
+            fwrite($stderr, $e->getMessage() . "\n");
+            return 2;
+        }
+
         $types = $rawType === null ? null : [$rawType];
-        $findings = (new Linter($templates))->run($types);
+        $linter = new Linter($templates, $ignores);
+        $findings = $linter->run($types);
+        $suppressed = $linter->suppressedFindings();
 
         if ($rawFormat === 'json') {
             $payload = array_map(static fn(LintFinding $finding): array => $finding->toArray(), $findings);
@@ -134,6 +146,14 @@ final class Command
                     $finding->message,
                 ));
             }
+        }
+
+        // Always announced, and on STDERR so it reaches a human without
+        // disturbing either output contract (`--format=json` emits a bare
+        // array; the text format is one finding per line). Silent suppression
+        // is how a lint gate quietly stops meaning anything.
+        if ($suppressed !== []) {
+            fwrite($stderr, sprintf("%d finding(s) suppressed by the ignore list.\n", count($suppressed)));
         }
 
         foreach ($findings as $finding) {
@@ -290,6 +310,40 @@ final class Command
         return str_starts_with($path, '/') ? $path : $baseDir . '/' . $path;
     }
 
+    /**
+     * Explicit `--ignore=<path>` first, then the conventional
+     * `<templates>/.styleguide-lintignore.yaml`.
+     *
+     * The convention lives INSIDE the templates root because that is the only
+     * path this command is guaranteed to know (`--templates` / the
+     * `STYLEGUIDE_TEMPLATES` env var / `./templates`); anchoring it to a
+     * "project root" would mean guessing where that is. The file travels with
+     * the tree it describes, and the scanner only ever reads `*.twig`, so it is
+     * inert to everything else.
+     *
+     * A path passed explicitly must exist — a typo'd `--ignore` silently
+     * ignoring nothing is the failure mode this whole feature exists to avoid.
+     * The conventional location is optional by design.
+     *
+     * @return list<LintIgnore>
+     */
+    private function resolveIgnores(string $templates, string|bool|null $override): array
+    {
+        if (is_string($override) && $override !== '') {
+            if (!is_file($override)) {
+                throw new \RuntimeException(sprintf('lint ignore file not found: %s', $override));
+            }
+            return LintIgnore::fromFile($override);
+        }
+
+        $conventional = rtrim($templates, '/') . '/.styleguide-lintignore.yaml';
+        if (is_file($conventional)) {
+            return LintIgnore::fromFile($conventional);
+        }
+
+        return [];
+    }
+
     private function helpText(): string
     {
         return <<<TXT
@@ -311,6 +365,8 @@ final class Command
           --format=text|json     lint only — output format (default: text).
           --templates=<path>     Override the templates/ directory location.
                                  Default: \$STYLEGUIDE_TEMPLATES, then ./templates.
+          --ignore=<path>        lint only — ignore file. Default:
+                                 <templates>/.styleguide-lintignore.yaml when present.
           --pretty               Indent JSON output (use for terminals).
           --config=<path>        maintenance:render only — styleguide.yaml location.
                                  Default: ./styleguide.yaml, then ./static/styleguide.yaml.
