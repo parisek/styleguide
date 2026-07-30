@@ -7,6 +7,27 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Added
+
+- **`GET /styleguide/api/health` declares what it actually checked** —
+  `"checked": "metadata"`. Additive; existing readers of `warnings`/`counts`
+  are unaffected.
+
+  The endpoint is called *health* but only parses metadata, and a template
+  whose **body** has a fatal Twig error still parses its metadata fine. It is
+  therefore counted as a healthy component while every render of it fails.
+  Downstream, `warnings: []` alongside a full component count was read as "the
+  catalogue is fine" for days while eleven templates rendered nothing.
+
+  **No compile check was added, not even behind a flag.** Since 1.8.0 a broken
+  template makes `/render/component/<id>` return 500 with the real Twig error,
+  so sweeping the render endpoint IS the check — and it is strictly stronger
+  than compiling, because it also catches a missing partial, a runtime failure
+  and the "template not found" alert fallback. A weaker duplicate behind an
+  opt-in flag would just be a diagnostic nobody switches on. README gained the
+  nine-line sweep as § *CI smoke test* (~9 s on a 66-component project, no
+  browser, no build).
+
 
 ## [1.8.0] - 2026-07-30
 ### Added
