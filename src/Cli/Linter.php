@@ -119,7 +119,24 @@ final class Linter
             $content = (string) file_get_contents($file->getPathname());
             $relPath = $type . substr($file->getPathname(), strlen($dir));
             try {
-                $found[$relPath] = $this->parser->parseTwigComment($content);
+                // Resolve through the SAME precedence the runtime uses — a
+                // sibling `<id>.yaml` wins over the twig front-comment
+                // (ComponentParser::readComponentMetadata()). Reading the
+                // comment directly linted a document the catalogue never
+                // reads: ADR 0007 retires the front-comment per component as
+                // its `<id>.yaml` lands, so once a project starts migrating,
+                // the two sources disagree BY DESIGN. Downstream that turned a
+                // clean migration into 29 phantom `metadata-yaml-invalid`
+                // errors — every one of them the component's ordinary leading
+                // code comment, parsed as YAML because the metadata block above
+                // it had correctly been removed.
+                [$metadata] = $this->parser->readComponentMetadata(
+                    $file->getPath(),
+                    $file->getBasename('.twig'),
+                    $file->getPathname(),
+                    $content,
+                );
+                $found[$relPath] = $metadata;
             } catch (ParseException $e) {
                 // parseTwigComment() throws on malformed YAML since the
                 // health-warning change — for the CLI that must become a

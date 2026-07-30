@@ -9,6 +9,24 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 ## [Unreleased]
 ### Fixed
 
+- **`styleguide lint` reads a component's `<id>.yaml` when it has one, like the
+  runtime does.** `Cli\Linter` called `parseTwigComment()` directly, while
+  `ComponentParser` resolves metadata through `readComponentMetadata()`, where a
+  sibling `<id>.yaml` wins over the twig front-comment.
+
+  That is not a subtle inconsistency once a project starts migrating. ADR 0007
+  retires the front-comment **per component** as its `<id>.yaml` lands — so from
+  the first migrated component onward, the two sources disagree by design, and
+  the twig file's leading `{# … #}` is just an ordinary code comment. The linter
+  parsed it as YAML anyway. Downstream, completing the migration for 29
+  components produced 29 phantom `metadata-yaml-invalid` errors, each one a
+  correct code comment being read as a broken metadata block, on components the
+  catalogue was serving perfectly.
+
+  The linter now goes through `readComponentMetadata()` (made `@internal`-public
+  for this), so every rule sees the same document the catalogue does.
+
+
 - **A broken component template no longer reports itself as a missing one.**
   `component_*()` / `page_*()` wrapped both the template load AND the render in
   `catch (\Throwable)`, so every failure produced the same output: the alert

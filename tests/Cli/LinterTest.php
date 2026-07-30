@@ -35,6 +35,22 @@ final class LinterTest extends TestCase
         self::assertCount(8, $findings);
     }
 
+
+    #[Test]
+    public function a_component_migrated_to_a_yaml_sidecar_is_linted_from_the_sidecar(): void
+    {
+        // ADR 0007 retires the twig front-comment per component as its
+        // `<id>.yaml` lands, so once a project starts migrating, the two
+        // sources disagree BY DESIGN — the twig file's first comment is then
+        // just an ordinary code comment. Reading it directly linted a document
+        // the catalogue never reads: downstream, a correct migration produced
+        // 29 phantom `metadata-yaml-invalid` errors, one per migrated
+        // component. The fixture's comment is deliberately not valid YAML.
+        $findings = (new Linter(__DIR__ . '/../fixtures/lint-sidecar/templates'))->run();
+
+        self::assertSame([], $findings, 'a migrated component must produce no findings at all');
+    }
+
     #[Test]
     public function flags_metadata_yaml_invalid_as_error_instead_of_crashing(): void
     {
