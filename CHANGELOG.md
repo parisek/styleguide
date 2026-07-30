@@ -7,6 +7,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Fixed
+
+- **The iframe's `<body>` safety-net background no longer defeats
+  `iframe.body_class`.** The rule was unlayered, so it beat any consumer
+  `bg-*` utility regardless of specificity — the class landed on `<body>` in
+  the DOM while the computed colour stayed the net's, which made the symptom
+  hard to trace. Moved into `@layer base`: the net still paints when nothing
+  opposes it, a consumer utility now wins, and a consumer's own unlayered
+  `body {}` keeps winning — the behaviour the surrounding comment already
+  promised. Surfaced downstream as a styleguide footer rendering on white
+  while page content was cream.
 
 ## [1.8.1] - 2026-07-30
 ### Added
