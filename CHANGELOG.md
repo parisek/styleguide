@@ -8,6 +8,12 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **README badges** — Packagist version, PHP version, Twig, Tests, License.
+  Matches `parisek/definition-kit` and `parisek/acf-json-schema`, which already
+  carried the same row; `parisek/timber-kit` gains it in parallel.
+
 ### Changed
 
 - **Release flow unified with the sibling packages.** `RELEASING.md` added
