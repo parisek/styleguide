@@ -12,6 +12,7 @@ use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
+use Twig\Loader\FilesystemLoader;
 
 /**
  * `component_*()` / `page_*()` must distinguish "this template is missing"
@@ -38,13 +39,28 @@ final class NestedRenderFailureTest extends TestCase
 {
     private static function twig(): Environment
     {
-        $sg = new Styleguide([
+        // Built the way a CONSUMER does — hand the package a Twig environment
+        // and let it attach its namespaces and register component_*/page_* on
+        // it (README § `twig` config). The env stays in our hands, so this
+        // needs no reflection into Styleguide's private state: a rename of
+        // that property should not break a test about render failures, and
+        // going through the documented seam also proves the helpers land on a
+        // project-supplied env, which is how every real consumer runs.
+        $loader = new FilesystemLoader();
+        $loader->addPath(__DIR__ . '/fixtures/nested/templates');
+        $twig = new Environment($loader, ['cache' => false, 'autoescape' => false]);
+
+        new Styleguide([
             'templates_path' => __DIR__ . '/fixtures/nested/templates',
             'static_path' => __DIR__ . '/fixtures',
-            'config_yaml' => __DIR__ . '/fixtures/nested/styleguide.yaml',
+            // The shared fixture config — this test asserts nothing about it,
+            // and a duplicated copy would be one more file to keep in step
+            // with a config it does not exercise.
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $twig,
         ]);
 
-        return (new \ReflectionClass($sg))->getProperty('twig')->getValue($sg);
+        return $twig;
     }
 
     private static function render(string $source): string
