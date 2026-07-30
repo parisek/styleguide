@@ -125,6 +125,12 @@ final class NestedRenderFailureTest extends TestCase
 
         self::assertSame(500, http_response_code());
         self::assertStringContainsString('Render error:', $html);
+        // Not just "an error happened": the body must NAME the template that
+        // failed and carry Twig's own parser text. A generic error page would
+        // satisfy the status code while leaving the author exactly as stranded
+        // as the "not found" alert did.
+        self::assertStringContainsString('syntax-broken.twig', $html);
+        self::assertStringContainsString('at line 10', $html);
         // The real Twig message, not "not found" — the distinction this whole
         // change exists to restore.
         self::assertStringNotContainsString('not found', $html);

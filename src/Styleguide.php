@@ -973,7 +973,20 @@ final class Styleguide
         // relabelled as one.
         try {
             $template = $env->load("$namespace/$normalised/$normalised.twig");
+        } catch (\Twig\Error\SyntaxError $e) {
+            // Exists but does not compile. Logged for the same reason as the
+            // render failure below, then rethrown so Renderer::render() can
+            // turn it into a 500 with the real parser message.
+            error_log(sprintf(
+                '[parisek/styleguide] %s template "%s" does not compile: %s',
+                $kindLabel,
+                $normalised,
+                $e->getMessage(),
+            ));
+            throw $e;
         } catch (LoaderError $e) {
+            // Genuine miss — the only case the alert fallback describes.
+
             error_log(sprintf('[parisek/styleguide] %s template "%s" missing: %s', $kindLabel, $normalised, $e->getMessage()));
             try {
                 $alert = $env->load('@component/alert/alert.twig');
@@ -994,7 +1007,22 @@ final class Styleguide
             }
         }
 
-        return $template->render(array_merge($context, ['content' => $content]));
+        try {
+            return $template->render(array_merge($context, ['content' => $content]));
+        } catch (\Throwable $e) {
+            // Log, then RETHROW. The miss path above logs, and a production
+            // consumer whose CMS or proxy swallows the 500 body would
+            // otherwise be left with an unexplained failure and no
+            // server-side trace at all — strictly less diagnosable than the
+            // behaviour this change replaced, which at least logged.
+            error_log(sprintf(
+                '[parisek/styleguide] %s template "%s" failed to render: %s',
+                $kindLabel,
+                $normalised,
+                $e->getMessage(),
+            ));
+            throw $e;
+        }
     }
 
     /**

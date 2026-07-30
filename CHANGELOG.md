@@ -58,7 +58,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `vendor/bin/styleguide lint --templates=<path>` and one render pass over the
   catalogue before rolling this out, not after.
 
-  The message shown is now the actual Twig error rather than "not found".
+  The message shown is now the actual Twig error rather than "not found", and
+  both new failure paths `error_log()` before rethrowing — a consumer whose CMS
+  or proxy swallows the 500 body would otherwise have no server-side trace at
+  all, which would be strictly less diagnosable than the behaviour this
+  replaces.
+
+  **If a consumer genuinely wants the old resilient behaviour**, the escape
+  hatch already exists and is unchanged: register your own `component_*` /
+  `page_*` function on the Twig environment before handing it to the package.
+  `registerBundledHelpers()` never overwrites a name the project already
+  registered, so your implementation wins. No new configuration flag is
+  introduced for this — a switch that restores "broken renders as 200" would
+  reintroduce the failure mode by name.
 
 ## [1.7.2] - 2026-07-28
 ### Fixed
