@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+
+## [1.8.0] - 2026-07-30
 ### Added
 
 - **`styleguide lint` reports catalogue entries that nothing renders
