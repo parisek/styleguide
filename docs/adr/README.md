@@ -39,6 +39,26 @@ sequential. Every ADR is listed in the Index below; a file that is not in the
 index is invisible, which is the failure mode `parisek/timber-kit` currently
 has.
 
+## Template
+
+```markdown
+# NNNN. Short title in the imperative
+
+## Context
+
+What forces are at play — the problem, constraints, and what made the obvious
+path unworkable.
+
+## Decision
+
+What we decided, stated plainly.
+
+## Consequences
+
+What follows — the good, the bad, and what now has to stay true. Name the
+guard (test, CI check, convention) that keeps it from drifting, if any.
+```
+
 **Citing a sibling repo's ADR**: always qualify it with the repo —
 `tailwind-base ADR-0007`, never a bare `ADR 0007`. The numbering spaces are
 independent, so a bare number sends the reader to this repo's `docs/adr/`,
