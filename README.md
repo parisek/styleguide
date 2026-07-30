@@ -462,6 +462,21 @@ When the package builds its own Twig environment (or attaches loaders to a proje
 
 Anything else — non-standard image roots, third-party template packs — goes into the `namespaces` config map as `<name> => <absolute path>`. Last write wins, so you can also override a conventional location if your layout is exotic.
 
+### When a `component_*()` / `page_*()` call fails
+
+The two outcomes are deliberately different, because the two causes need
+different reactions from the author:
+
+| Cause | Result |
+|---|---|
+| The template is **not there** (`LoaderError`) | Renders the project's `@component/alert/alert.twig` saying *"Component template `<name>.twig` not found"*, and the surrounding page keeps rendering. Falls back to a bare inline message if the alert component is missing too. |
+| The template **is there and is broken** — a Twig syntax error, or any throw while rendering | Propagates. `Renderer::render()` catches it, sets **HTTP 500**, and shows the real Twig message. |
+
+The second row matters for anything automated: before 1.7.3 a broken template
+was reported as a missing one and served `200`, so a smoke test polling
+`/render/component/<id>` saw success for a component that rendered nothing.
+A consumer's CI can now treat a non-2xx render as the failure it is.
+
 ---
 
 ## Per-template metadata

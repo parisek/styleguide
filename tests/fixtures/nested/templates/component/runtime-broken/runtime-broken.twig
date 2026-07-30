@@ -1,0 +1,7 @@
+{#
+name: "Runtime Broken"
+#}
+{# Compiles cleanly; throws only when executed. An unknown FUNCTION would not
+   work here — Twig resolves those at compile time, so it would be a
+   SyntaxError and would not exercise the render() half of the change. #}
+<div>{{ 1 / 0 }}</div>

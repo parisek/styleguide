@@ -1,0 +1,8 @@
+{#
+name: "Missing Include"
+#}
+{# This template itself is fine — its INCLUDE target is not there. Twig
+   resolves an include at render time, so the LoaderError arrives after the
+   narrowed try block and must NOT be relabelled "missing-include.twig not
+   found": that file is right there. #}
+<div>{% include '@component/definitely-absent/definitely-absent.twig' %}</div>

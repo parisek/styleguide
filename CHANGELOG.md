@@ -7,6 +7,58 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Fixed
+
+- **A broken component template no longer reports itself as a missing one.**
+  `component_*()` / `page_*()` wrapped both the template load AND the render in
+  `catch (\Throwable)`, so every failure produced the same output: the alert
+  component saying *"template not found"*, returned normally — HTTP 200.
+
+  A template with a fatal Twig syntax error was therefore indistinguishable
+  from a file that is not there. The real parser message went only to
+  `error_log`, and `Renderer::render()`'s 500 path — added in 1.6.0 precisely
+  so that *"a health check or CI smoke test polling `/render/component/<id>`"*
+  cannot see success for a broken component — could never fire, because the
+  throw was swallowed one layer below it.
+
+  Downstream (portadesign/tailwind-base, 2026-07) eleven templates shipped that
+  way for days. HTTP 200, no console error, no failed request, and the
+  components stayed in the catalogue (discovery reads only the leading `{# #}`
+  block and never tokenizes the body) — so their behavioural tests ran against
+  the alert fallback and passed. Every automated check was green while the
+  pages rendered none of the components they named.
+
+  Now only a `LoaderError` — the file genuinely is not there — falls back to the
+  alert. A `SyntaxError` (exists, does not compile) and any throw from the
+  render itself propagate to `Renderer::render()`, which turns them into HTTP
+  500 with the real message. The `render()` call moved outside the `try` as
+  well: a `LoaderError` raised by a nested `{% include %}` is a failure of the
+  template being rendered, not evidence that that template is missing, and must
+  not be relabelled as one.
+
+  A missing `{% include %}` target or `{% extends %}` parent is resolved at
+  render time, so it used to be caught here too and reported as *the including
+  template* being missing — pointing the author at a file that is right there
+  while the genuinely absent one went unnamed. That is why `render()` moved out
+  of the `try`, not merely why the catch narrowed.
+
+  **Behaviour change — read before upgrading.** This is a bug fix, but it is
+  not a silent one, and the blast radius is wider than the styleguide:
+
+  - A page fixture containing a broken component now returns **500 for the
+    whole render**, instead of 200 with one alert box among healthy siblings.
+  - `component_*()` / `page_*()` are project Twig helpers. Wherever a consumer
+    calls them **outside** the styleguide sandbox — a real page template in
+    production — a component that was quietly rendering an alert box will now
+    raise instead.
+
+  The upgrade therefore turns any *already broken, not yet noticed* component
+  into a visible failure. Since not noticing is precisely the bug being fixed,
+  assume such components exist rather than assuming they do not: run
+  `vendor/bin/styleguide lint --templates=<path>` and one render pass over the
+  catalogue before rolling this out, not after.
+
+  The message shown is now the actual Twig error rather than "not found".
 
 ## [1.7.2] - 2026-07-28
 ### Fixed
