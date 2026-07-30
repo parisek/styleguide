@@ -84,6 +84,53 @@ final class Linter
     }
 
     /**
+     * Mirrors ComponentParser's own `has_styleguide` derivation: a sibling
+     * `styleguide.twig`, any `styleguide.<variant>.twig`, or the legacy
+     * presence-only `styleguide:` key.
+     *
+     * Deliberately re-derived from the filesystem rather than read off
+     * `parseAll()`: the linter walks raw metadata by design (normalisation is
+     * exactly what coerces the values it needs to see raw), and reaching into
+     * the normalised catalogue here would couple this one rule to a different
+     * data source than every rule around it.
+     *
+     * @param array<string,mixed> $metadata
+     */
+    private function hasFixture(string $relPath, array $metadata): bool
+    {
+        // `isset()`, NOT `array_key_exists()` — the runtime uses isset(), so a
+        // bare `styleguide:` with no value (null) does NOT count as a fixture
+        // there. array_key_exists() would call it one and silently exempt the
+        // component from this rule.
+        if (isset($metadata['styleguide'])) {
+            return true;
+        }
+
+        $dir = \dirname($this->templatesPath . '/' . $relPath);
+        if (!is_dir($dir)) {
+            return false;
+        }
+
+        if (is_file($dir . '/styleguide.twig')) {
+            return true;
+        }
+
+        // The strict VARIANT_FILE_PATTERN, not the looser sibling pattern the
+        // walk uses to EXCLUDE fixtures from the catalogue. The two differ:
+        // `styleguide.WIDE.twig` is excluded from the walk (it is a fixture)
+        // but is not a canonical variant id, so discoverVariants() skips it and
+        // the component really does render nothing. Matching the loose pattern
+        // here would exempt exactly that component from the rule.
+        foreach (glob($dir . '/styleguide.*.twig') ?: [] as $file) {
+            if (preg_match(ComponentParser::VARIANT_FILE_PATTERN, basename($file))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array<string,true>
      */
     private function knownIds(): array
@@ -318,6 +365,29 @@ final class Linter
                     $raw,
                     implode('|', ComponentParser::KIND_VALUES),
                 ),
+            );
+        }
+
+        // A catalogue entry with no fixture renders nothing, so no preview,
+        // no visual baseline and no behavioural test can reach it — it is
+        // listed in the sidebar and then shows an empty frame. Nothing else
+        // reports this: the entry parses perfectly, so every metadata rule
+        // above passes it.
+        //
+        // Notice, not warning. Fixture-less entries are legitimate in two
+        // shapes and both are common: `kind: utility` (a helper that renders
+        // whatever it is handed, so there is no stable appearance to pin) is
+        // exempted outright below, and structural partials that a project has
+        // chosen to keep as catalogue entries are a judgement call, not a
+        // defect. Failing a build over either would make the rule the first
+        // thing a consumer ignores.
+        $kind = is_string($metadata['kind'] ?? null) ? $metadata['kind'] : '';
+        if ($kind !== 'utility' && !$this->hasFixture($relPath, $metadata)) {
+            $findings[] = new LintFinding(
+                LintSeverity::Notice,
+                $relPath,
+                'no-fixture',
+                'Nothing renders this entry — no styleguide.twig, no canonical variant sibling and no `styleguide:` key — so it shows an empty frame and no visual or behavioural test can reach it. Add a styleguide.twig fixture, or declare `kind: utility` if it has no stable appearance to demo.',
             );
         }
 

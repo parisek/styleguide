@@ -7,6 +7,31 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Added
+
+- **`styleguide lint` reports catalogue entries that nothing renders
+  (`no-fixture`).** A component with no `styleguide.twig`, no variant sibling
+  and no `styleguide:` key parses perfectly — so every existing metadata rule
+  passes it — and then shows an empty frame in the sidebar. No preview, no
+  visual baseline and no behavioural test can reach it, and nothing anywhere
+  said so. Found nine such entries in one downstream project, one of them a
+  page.
+
+  Fixture detection follows the runtime exactly: `isset()` on the `styleguide:`
+  key (a bare `styleguide:` with no value is not a fixture there, and
+  `array_key_exists()` would have silently exempted the component), and the
+  strict canonical variant-filename pattern rather than the looser one the
+  catalogue walk uses to *exclude* fixtures — `styleguide.WIDE.twig` is
+  excluded from the walk but is not a canonical variant, so that component
+  really does render nothing.
+
+  Notice, not warning, and `kind: utility` is exempt outright: a utility
+  renders whatever it is handed, so it has no stable appearance a demo page
+  could pin (its fixture-less state is correct, not a gap). Structural partials
+  a project keeps as catalogue entries are a judgement call rather than a
+  defect, so the rule informs and never fails a build — a rule that broke CI
+  over either would be the first one consumers switch off.
+
 ### Fixed
 
 - **`styleguide lint` reads a component's `<id>.yaml` when it has one, like the
@@ -47,6 +72,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   An ordinary leading code comment does not trigger the second rule: the check
   requires the comment to parse as a YAML mapping carrying `name:`. Reporting
   prose about the markup would be the mirror of the bug being fixed.
+||||||| parent of 71af4b1 (feat(lint): report catalogue entries that nothing renders (no-fixture))
 
 
 - **A broken component template no longer reports itself as a missing one.**

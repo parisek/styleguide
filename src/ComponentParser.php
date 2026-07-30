@@ -67,7 +67,13 @@ class ComponentParser
      * the `?variant=` query-string whitelist in Router::parse(), so a value
      * ComponentParser can ever produce is exactly the set a URL can ever name.
      */
-    private const VARIANT_FILE_PATTERN = '/^styleguide\.([a-z0-9-]+)\.twig$/';
+    /**
+     * @internal Exposed for `Cli\Linter`, which must apply the SAME rule the
+     *           runtime does when deciding whether a component has a fixture —
+     *           the looser `STYLEGUIDE_SIBLING_PATTERN` accepts filenames
+     *           (`styleguide.WIDE.twig`) that never become variants here.
+     */
+    public const VARIANT_FILE_PATTERN = '/^styleguide\.([a-z0-9-]+)\.twig$/';
 
     /**
      * @api Public contract. Shared with `Cli\Linter` so the catalogue walk
