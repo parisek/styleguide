@@ -1,5 +1,11 @@
 # parisek/styleguide
 
+[![Packagist Version](https://img.shields.io/packagist/v/parisek/styleguide.svg)](https://packagist.org/packages/parisek/styleguide)
+[![PHP Version](https://img.shields.io/packagist/php-v/parisek/styleguide.svg)](https://packagist.org/packages/parisek/styleguide)
+[![Twig](https://img.shields.io/badge/Twig-3.x-brightgreen.svg)](https://twig.symfony.com/)
+[![Tests](https://github.com/parisek/styleguide/actions/workflows/tests.yml/badge.svg)](https://github.com/parisek/styleguide/actions/workflows/tests.yml)
+[![License](https://img.shields.io/packagist/l/parisek/styleguide.svg)](LICENSE)
+
 Self-contained Composer package that turns a tree of Twig component templates into a live, browsable styleguide — sidebar, ⌘K search, viewport presets, locale switcher, deep links — without writing any of that chrome yourself.
 
 Drop the package into a project that already renders Twig (Symfony, Drupal, WordPress with Timber, or any standalone Twig setup), wire a 15-line bootstrap into a public PHP file, point a YAML config at the project's CSS/JS bundles, and `/styleguide/...` works.
