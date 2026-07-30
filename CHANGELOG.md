@@ -24,7 +24,29 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   catalogue was serving perfectly.
 
   The linter now goes through `readComponentMetadata()` (made `@internal`-public
-  for this), so every rule sees the same document the catalogue does.
+  for this), so every rule sees the same document the catalogue does, and
+  findings are attributed to the file the metadata actually came from —
+  pointing an author at `<id>.twig` for a value authored in `<id>.yaml` sends
+  them to edit a document the catalogue ignores.
+
+  Two new rules cover the blind spots that adopting the runtime's precedence
+  would otherwise have created:
+
+  - **`sidecar-yaml-invalid`** (error). `readComponentMetadata()` swallows a
+    malformed `<id>.yaml` and falls back to the twig comment. That is right for
+    the renderer — one bad file must not blank a component — but it means the
+    *canonical* document can be broken while the component renders perfectly
+    and nothing says so. Reported on the `.yaml`.
+  - **`redundant-twig-metadata`** (warning). Both documents present and the
+    sidecar winning means the twig front-comment is dead: editing it changes
+    nothing, silently. ADR 0007 says the template keeps only its render code
+    once the sidecar lands. Downstream this state had already produced three
+    components whose corrected descriptions lived in the dead block and had
+    never been visible. Reported on the `.twig` — that is the file to edit.
+
+  An ordinary leading code comment does not trigger the second rule: the check
+  requires the comment to parse as a YAML mapping carrying `name:`. Reporting
+  prose about the markup would be the mirror of the bug being fixed.
 
 
 - **A broken component template no longer reports itself as a missing one.**
