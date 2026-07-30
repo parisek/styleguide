@@ -22,7 +22,12 @@
 	      paints the iframe element dark in OS dark mode, bleeding through
 	      transparent content. Setting it on `<body>` (not `<html>`) keeps
 	      consumer CSS able to override with their own body bg without an
-	      `!important` battle.
+	      `!important` battle. `@layer base` is what makes that promise hold
+	      for a Tailwind consumer: an UNLAYERED rule here would beat
+	      `@layer utilities` regardless of specificity, so a `bg-*` utility
+	      applied through `iframe.body_class` could never win. In `base` the
+	      net still paints when nothing opposes it, while a consumer utility
+	      — or their own unlayered `body {}` — wins normally.
 	   Consumer projects that want iframe content to follow OS dark can
 	   override both with their own `:root { color-scheme: dark light }`
 	   and a body background-color declaration in their stylesheet.
@@ -33,7 +38,7 @@
 	   first. #}
 	<style>
 		:root { color-scheme: {{ theme == 'dark' ? 'dark' : 'light' }}; }
-		body { background-color: {{ theme == 'dark' ? '#0a0a0a' : '#fff' }}; }{# Per-mode CSS injections for the iframe wrapper.
+		@layer base { body { background-color: {{ theme == 'dark' ? '#0a0a0a' : '#fff' }}; } }{# Per-mode CSS injections for the iframe wrapper.
 		   `bleed` / `chrome` / `overlay` all reset `--header-height` to 0
 		   so consumer "tuck under sticky header" hacks collapse cleanly
 		   in styleguide isolation; `chrome` additionally forces body to
