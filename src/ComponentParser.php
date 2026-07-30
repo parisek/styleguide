@@ -380,7 +380,17 @@ class ComponentParser
      * @throws ParseException on malformed YAML inside the twig comment
      *                        fallback (same contract as parseTwigComment())
      */
-    private function readComponentMetadata(string $dir, string $id, string $twigFile, string $twigContent): array
+    /**
+     * @internal Exposed for `Cli\Linter`; not part of the SemVer contract —
+     *           see docs/API.md § Other PHP classes. The linter MUST resolve
+     *           metadata through the same precedence the runtime uses, or it
+     *           lints a document the catalogue never reads (ADR 0007 retires
+     *           the twig front-comment per component as its `<id>.yaml`
+     *           lands, so the two sources routinely disagree by design).
+     *
+     * @return array{0: array<string,mixed>|false, 1: string}
+     */
+    public function readComponentMetadata(string $dir, string $id, string $twigFile, string $twigContent): array
     {
         $yamlFile = $dir . '/' . $id . '.yaml';
 

@@ -116,6 +116,7 @@ These are public PHP visibility for autoload / framework reasons, but **not** pa
 | `AssetServer` | Same |
 | `Placeholder` | Same |
 | `ComponentParser` (other methods) | Wrapped by JSON API endpoints; consumer access is through the API, not direct PHP |
+| `ComponentParser::readComponentMetadata()` | Exposed for `Cli\Linter`, which must resolve metadata through the SAME precedence the runtime uses (`<id>.yaml` wins over the twig front-comment). Linting a different document than the catalogue reads produced phantom findings on every ADR-0007-migrated component |
 | `Api\ComponentsEndpoint` | Same — consumed via HTTP |
 | `Api\PagesEndpoint` | Same |
 | `Api\DocsEndpoint` | Same |

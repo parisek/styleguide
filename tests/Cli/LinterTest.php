@@ -35,6 +35,69 @@ final class LinterTest extends TestCase
         self::assertCount(8, $findings);
     }
 
+
+    #[Test]
+    public function a_component_migrated_to_a_yaml_sidecar_is_linted_from_the_sidecar(): void
+    {
+        // ADR 0007 retires the twig front-comment per component as its
+        // `<id>.yaml` lands, so once a project starts migrating, the two
+        // sources disagree BY DESIGN — the twig file's first comment is then
+        // just an ordinary code comment. Reading it directly linted a document
+        // the catalogue never reads: downstream, a correct migration produced
+        // 29 phantom `metadata-yaml-invalid` errors, one per migrated
+        // component. The fixture's comment is deliberately not valid YAML.
+        $findings = (new Linter(__DIR__ . '/../fixtures/lint-sidecar/templates'))->run();
+
+        self::assertSame([], $findings, 'a migrated component must produce no findings at all');
+    }
+
+
+    #[Test]
+    public function a_malformed_canonical_sidecar_is_reported_even_though_the_runtime_survives_it(): void
+    {
+        // ComponentParser SWALLOWS a broken `<id>.yaml` and falls back to the
+        // twig front-comment — right for the renderer (one bad file must not
+        // blank a component) but it means the canonical document can be broken
+        // while the component renders perfectly and nothing anywhere says so.
+        // Adopting the runtime's precedence without this would have traded one
+        // blind spot for another.
+        $findings = (new Linter(__DIR__ . '/../fixtures/lint-sidecar-broken/templates'))->run();
+        $broken = $this->findingsFor($findings, 'sidecar-yaml-invalid');
+
+        self::assertCount(1, $broken);
+        self::assertSame(LintSeverity::Error, $broken[0]->severity);
+        // Attributed to the .yaml — the file to fix — not the .twig we walked.
+        self::assertSame('component/broken-sidecar/broken-sidecar.yaml', $broken[0]->file);
+    }
+
+    #[Test]
+    public function a_dead_twig_front_comment_next_to_a_winning_sidecar_is_reported(): void
+    {
+        // The silent no-op ADR 0007 creates during migration: both documents
+        // present, the sidecar wins, and edits to the twig block change
+        // nothing. Downstream this had already produced three components whose
+        // CORRECTED descriptions lived in the dead block and had never been
+        // visible.
+        $findings = (new Linter(__DIR__ . '/../fixtures/lint-sidecar-broken/templates'))->run();
+        $dead = $this->findingsFor($findings, 'redundant-twig-metadata');
+
+        self::assertCount(1, $dead);
+        self::assertSame(LintSeverity::Warning, $dead[0]->severity);
+        // Attributed to the .twig — that is the file to edit.
+        self::assertSame('component/dead-twig-block/dead-twig-block.twig', $dead[0]->file);
+    }
+
+    #[Test]
+    public function an_ordinary_code_comment_next_to_a_sidecar_is_not_mistaken_for_dead_metadata(): void
+    {
+        // The mirror of the bug this class fixed: after migration a template's
+        // leading comment is usually prose about the markup. Reporting that as
+        // redundant metadata would send authors to delete their code comments.
+        $findings = (new Linter(__DIR__ . '/../fixtures/lint-sidecar/templates'))->run();
+
+        self::assertSame([], $this->findingsFor($findings, 'redundant-twig-metadata'));
+    }
+
     #[Test]
     public function flags_metadata_yaml_invalid_as_error_instead_of_crashing(): void
     {
