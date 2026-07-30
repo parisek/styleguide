@@ -1,9 +1,14 @@
 # Architecture Decision Records
 
 Significant architectural decisions for `parisek/styleguide` are recorded here
-as ADRs — short, numbered, immutable documents (MADR-lite format: Context →
-Decision → Consequences). A superseded decision gets a new ADR that links back;
-the old file stays and is marked `Superseded by ADR-NNNN`.
+as ADRs — short, numbered, immutable documents. Structure is the **Nygard
+triad**: `## Context` / `## Decision` / `## Consequences`, no status line, no
+further ceremony. A superseded decision gets a new ADR that links back; the old
+file stays and is marked `Superseded by ADR-NNNN`.
+
+This practice is shared verbatim with `parisek/timber-kit`,
+`parisek/definition-kit` and `parisek/acf-json-schema` — four Composer packages,
+one set of rules. Change it in one and change it in all four.
 
 **When to write one**: a decision that constrains future work across releases —
 API contracts, doctrine choices, architectural boundaries. Not for routine

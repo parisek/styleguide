@@ -189,6 +189,20 @@ When a change adds, renames, removes, or alters the default of any of the follow
 
 Internal-only work (refactors, test tooling, static-analysis fixes) needs no doc change beyond an optional `CHANGELOG.md` note. When unsure whether a surface is public, check the `@api` / `@internal` markers in `src/` and the SemVer tables in `docs/API.md`.
 
+## Architecture decisions (ADRs)
+
+Significant decisions live in `docs/adr/`. See `docs/adr/README.md` for the full
+practice and the index. Shared with `parisek/timber-kit`, `parisek/definition-kit`
+and `parisek/acf-json-schema` — same rules in all four packages.
+
+- Record **sparingly** — only when a decision is (1) hard to reverse, (2) surprising without context, and (3) the result of a real trade-off. Most changes warrant none.
+- Propose and get a yes **before** writing one. Don't auto-create.
+- One file per decision, `NNNN-kebab-title.md`, sequential and permanent (never renumber/reuse).
+- Structure is the Nygard triad: `## Context` / `## Decision` / `## Consequences`. No status line.
+- To reverse a past decision, write a new ADR linking back — don't edit the old one.
+- The ADR lands in the **same PR** as the work it describes — a merge gate, not a follow-up (see the table above).
+- Citing a sibling repo's ADR: **always qualify it with the repo** — `tailwind-base ADR-0007`, never a bare `ADR 0007`. Numbering spaces are per-repo.
+
 ## Testing
 
 ```bash
