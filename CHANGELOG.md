@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+
+## [1.8.2] - 2026-07-30
 ### Fixed
 
 - **The iframe's `<body>` safety-net background no longer defeats
