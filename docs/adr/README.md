@@ -9,10 +9,30 @@ the old file stays and is marked `Superseded by ADR-NNNN`.
 API contracts, doctrine choices, architectural boundaries. Not for routine
 features or fixes (those live in `CHANGELOG.md` and PR descriptions).
 
+Offer one **sparingly** — only when **all three** hold (the `parisek/timber-kit`
+test, adopted here verbatim because it is the restraint this file was missing):
+
+1. **Hard to reverse** — the cost of changing your mind later is meaningful.
+2. **Surprising without context** — a future reader will wonder *"why did they
+   do it this way?"*
+3. **The result of a real trade-off** — there were genuine alternatives and one
+   was picked for specific reasons.
+
+Most changes are none of these. Propose the ADR, get a yes, *then* write it.
+Don't auto-create — AGENTS.md's documentation gate makes an ADR mandatory for an
+architectural decision, and without this test that pressure reads as "when in
+doubt, add one", which buries the handful that matter.
+
 **Process**: the ADR lands in the same PR as the work it describes (like docs
 and CHANGELOG — a merge gate, not a follow-up). Decisions made during design
 discussions get their ADR at design-approval time, referencing the tracking
 issue.
+
+Numbers are permanent — never renumber or reuse, even if an ADR is later
+superseded. One file per decision: `NNNN-kebab-title.md`, zero-padded and
+sequential. Every ADR is listed in the Index below; a file that is not in the
+index is invisible, which is the failure mode `parisek/timber-kit` currently
+has.
 
 **Citing a sibling repo's ADR**: always qualify it with the repo —
 `tailwind-base ADR-0007`, never a bare `ADR 0007`. The numbering spaces are
