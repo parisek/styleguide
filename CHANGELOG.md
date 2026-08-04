@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+
+## [1.8.3] - 2026-08-04
 ### Fixed
 
 - **`styleguide lint` no longer reports templates inside underscore-prefixed
