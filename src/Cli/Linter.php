@@ -167,12 +167,6 @@ final class Linter
             if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
                 continue;
             }
-            // Same skip the catalogue walk applies (ComponentParser::parseAll)
-            // — an underscore-prefixed directory is partials, so there is
-            // nothing here to be missing from a catalogue it never joins.
-            if (ComponentParser::isPartialPath(substr($file->getPathname(), strlen($dir) + 1))) {
-                continue;
-            }
             $content = (string) file_get_contents($file->getPathname());
             $relPath = $type . substr($file->getPathname(), strlen($dir));
             $sidecar = $file->getPath() . '/' . $file->getBasename('.twig') . '.yaml';
@@ -321,6 +315,20 @@ final class Linter
         }
 
         if ($metadata === false || !isset($metadata['name'])) {
+            // A template under an underscore-prefixed directory is a partial —
+            // it has no `name:` because it was never meant to be an entry, so
+            // the catalogue's exclusion is correct and reporting it as a
+            // WARNING asks the author to fix a file behaving as intended.
+            //
+            // Suppressed here rather than skipped in the walk on purpose. A
+            // partial that DOES carry a `name:` is catalogued today, and
+            // dropping it from the walk would remove it from the catalogue —
+            // a runtime behaviour change dressed as a lint fix. Such a file
+            // falls through to every rule below, exactly as before.
+            if (ComponentParser::isPartialPath($relPath)) {
+                return $sourceFindings;
+            }
+
             return [...$sourceFindings, new LintFinding(
                 LintSeverity::Warning,
                 $relPath,

@@ -32,7 +32,7 @@ final class LinterTest extends TestCase
     public function full_fixture_tree_produces_exactly_nine_findings(): void
     {
         $findings = (new Linter($this->fixtures))->run();
-        self::assertCount(9, $findings);
+        self::assertCount(10, $findings);
     }
 
     #[Test]
@@ -267,20 +267,32 @@ final class LinterTest extends TestCase
     }
 
     #[Test]
-    public function skips_underscore_prefixed_partial_directories(): void
+    public function does_not_flag_nameless_templates_inside_partial_directories(): void
     {
         $findings = (new Linter($this->fixtures))->run();
         $inPartials = array_values(array_filter(
             $findings,
-            static fn(LintFinding $f): bool => str_contains($f->file, '/_partials/'),
+            static fn(LintFinding $f): bool => $f->file === 'component/_partials/fragment.twig',
         ));
 
-        // Not "no unindexed finding" — NO finding of any rule. A directory the
-        // author prefixed with `_` is a statement that nothing inside it is a
-        // catalogue entry, and the catalogue walk agrees (ComponentParser::
-        // parseAll applies the same skip). Reporting anything here would ask
-        // someone to fix a file for behaving exactly as intended.
+        // `_partials/fragment.twig` has no `name:` because it is a partial.
+        // The catalogue excludes it correctly; the linter must not report that
+        // correct exclusion as a defect.
         self::assertSame([], $inPartials);
+    }
+
+    #[Test]
+    public function still_lints_a_named_component_inside_a_partial_directory(): void
+    {
+        $findings = (new Linter($this->fixtures))->run();
+        $forNamed = $this->findingsFor($findings, 'empty-description');
+        $files = array_map(static fn(LintFinding $f): string => $f->file, $forNamed);
+
+        // The suppression above is scoped to the missing-name case ONLY. A
+        // partial that DOES carry a `name:` is a catalogue entry today, so it
+        // must keep being linted — otherwise the fix would quietly create a
+        // blind spot instead of removing noise.
+        self::assertContains('component/_partials/named.twig', $files);
     }
 
     #[Test]
@@ -327,9 +339,13 @@ final class LinterTest extends TestCase
         $findings = (new Linter($this->fixtures))->run();
         $blank = $this->findingsFor($findings, 'empty-description');
 
-        self::assertCount(1, $blank);
+        // Two now: the dedicated fixture and the named partial that proves
+        // suppression is scoped to the missing-name case (see
+        // still_lints_a_named_component_inside_a_partial_directory).
+        self::assertCount(2, $blank);
+        $files = array_map(static fn(LintFinding $f): string => $f->file, $blank);
+        self::assertContains('component/blank-description/blank-description.twig', $files);
         self::assertSame(LintSeverity::Notice, $blank[0]->severity);
-        self::assertSame('component/blank-description/blank-description.twig', $blank[0]->file);
     }
 
     #[Test]
