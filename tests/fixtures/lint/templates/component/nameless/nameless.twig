@@ -1,0 +1,9 @@
+{#
+category: "Basic"
+kind: utility
+#}
+{# Valid YAML metadata with no `name:` — the exact shape `unindexed` exists to
+	catch. Deliberately OUTSIDE `_partials/`: both walks still descend into
+	partial directories, but the `unindexed` finding is suppressed there, so a
+	fixture in one could no longer reach this rule. #}
+<div class="nameless"></div>

@@ -7,47 +7,31 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Fixed
 
-### Added
+- **`styleguide lint` no longer reports templates inside underscore-prefixed
+  directories as `unindexed`.** `_partials/` is the near-universal convention for
+  "included by something else, not an entry in its own right" — the same meaning
+  Sass gives `_file.scss` and Jekyll `_includes/`. The suppression covers any
+  metadata without a `name:` key: an absent comment and a mapping that simply
+  lacks the key alike.
+  Such a template has no `name:` because it was never supposed to have one, so
+  the catalogue excluded it correctly and the linter then reported that correct
+  exclusion as a **warning**, asking the author to fix a file behaving exactly as
+  intended. Found on a downstream project where the only two warnings in the
+  whole report were its shared header and footer partials.
 
-- **README badges** — Packagist version, PHP version, Twig, Tests, License.
-  Matches `parisek/definition-kit` and `parisek/acf-json-schema`, which already
-  carried the same row; `parisek/timber-kit` gains it in parallel.
+  **Scoped to the missing-name case only, and deliberately not to the walk.** A
+  first attempt skipped underscore directories in `ComponentParser::parseAll()`
+  as well, for symmetry. Review caught that this silently removes a partial that
+  *does* carry a `name:` from the catalogue and from `/api/components` — a
+  runtime behaviour change dressed as a lint fix, and not a patch-level one. Such
+  a component is still catalogued and still linted by every other rule; only the
+  `unindexed` finding is suppressed, and only where there is no name to index by.
 
-### Changed
-
-- **Release flow unified with the sibling packages.** `RELEASING.md` added
-  (same shape as `parisek/definition-kit` / `parisek/acf-json-schema` /
-  `parisek/timber-kit`), `composer check` added for parity, and
-  `release-stamp.yml` now calls `composer test` / `composer phpstan` instead of
-  the binaries directly. AGENTS.md's release section pointed at a manual
-  tag-by-hand flow predating `release-stamp.yml`, which skipped that workflow's
-  guards — it now points at `RELEASING.md`. No consumer-visible behaviour change.
-
-- **`AGENTS.md` and `README.md` now describe the package that exists.** The repo
-  layout tree named a `useSearchShortcuts` composable that was never written and
-  an `overview.twig` that is now `foundations.twig` + `icons.twig`, omitted ten
-  `src/` classes and the whole `Cli/` directory, and advertised "3 API
-  endpoints" against the five that ship. The hard-coded "208 tests, ~0.4 s" is
-  gone rather than corrected to 497 — a number nobody re-counts is a number that
-  drifts back.
-
-- **ADR practice unified across the four Composer packages.** `docs/adr/README.md`
-  and a new `## Architecture decisions (ADRs)` section in `AGENTS.md` now carry
-  the same rules as `parisek/timber-kit`, `parisek/definition-kit` and
-  `parisek/acf-json-schema`: record sparingly (three conditions), propose before
-  writing, permanent sequential numbering, Nygard triad, supersede by linking.
-  The format was labelled MADR-lite but has always been the Nygard triad.
-  `scripts/check-adr-index.py` (`composer adr`, CI job *docs/adr/ index is in
-  sync*) fails the build on an ADR missing from the index, a duplicate number, a
-  dangling index entry or an off-convention filename — an ADR nothing links to
-  reads as a decision nobody recorded.
-
-- **Comments citing `ADR 0007` now say `tailwind-base ADR-0007`.** The decision
-  is real but lives in the consumer that drove it; `docs/adr/` here holds 0001
-  and 0002, so a bare number pointed readers at a document this repo does not
-  have. `docs/adr/README.md` gained the cross-repo citation rule. Docs and
-  comments only — no code path changed.
+  Directory rule, not a filename one: `_foo.twig` beside real components is not
+  an established convention here, and dropping a file over a leading underscore
+  in its own name would be a surprise.
 
 ## [1.8.2] - 2026-07-30
 ### Fixed

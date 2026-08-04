@@ -54,14 +54,22 @@ final class LintCommandTest extends TestCase
         self::assertSame(1, $exit, "stderr: $stderr");
         self::assertSame('', $stderr);
         self::assertStringContainsString(
-            'WARNING  component/_partials/fragment.twig  No parseable `name:` key',
+            'WARNING  component/nameless/nameless.twig  No parseable `name:` key',
             $stdout,
         );
+        // A named partial is still linted — the `unindexed` suppression is
+        // scoped to the missing-name case, not to the directory.
+        self::assertStringContainsString(
+            'NOTICE  component/_partials/named.twig  No description set',
+            $stdout,
+        );
+        // ...and the nameless one in the same directory is silent.
+        self::assertStringNotContainsString('component/_partials/fragment.twig', $stdout);
         self::assertStringContainsString(
             'ERROR  component/referencer/referencer.twig  usage: references unknown id "ghost-id".',
             $stdout,
         );
-        self::assertCount(9, array_filter(explode("\n", trim($stdout))));
+        self::assertCount(10, array_filter(explode("\n", trim($stdout))));
     }
 
     #[Test]
@@ -76,7 +84,7 @@ final class LintCommandTest extends TestCase
         self::assertSame(1, $exit, "stderr: $stderr");
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
-        self::assertCount(9, $decoded);
+        self::assertCount(10, $decoded);
         foreach ($decoded as $entry) {
             self::assertArrayHasKey('severity', $entry);
             self::assertArrayHasKey('file', $entry);
