@@ -10,10 +10,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 ### Fixed
 
 - **`styleguide lint` no longer reports templates inside underscore-prefixed
-  directories as `unindexed`.** The suppression covers any metadata without a
-  `name:` key — an absent comment and a mapping that simply lacks the key alike. `_partials/` is the
-  near-universal convention for "included by something else, not an entry in its
-  own right" — the same meaning Sass gives `_file.scss` and Jekyll `_includes/`.
+  directories as `unindexed`.** `_partials/` is the near-universal convention for
+  "included by something else, not an entry in its own right" — the same meaning
+  Sass gives `_file.scss` and Jekyll `_includes/`. The suppression covers any
+  metadata without a `name:` key: an absent comment and a mapping that simply
+  lacks the key alike.
   Such a template has no `name:` because it was never supposed to have one, so
   the catalogue excluded it correctly and the linter then reported that correct
   exclusion as a **warning**, asking the author to fix a file behaving exactly as
