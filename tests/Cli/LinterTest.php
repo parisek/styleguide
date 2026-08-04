@@ -29,7 +29,7 @@ final class LinterTest extends TestCase
     }
 
     #[Test]
-    public function full_fixture_tree_produces_exactly_nine_findings(): void
+    public function full_fixture_tree_produces_exactly_ten_findings(): void
     {
         $findings = (new Linter($this->fixtures))->run();
         self::assertCount(10, $findings);
