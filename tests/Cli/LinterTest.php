@@ -263,7 +263,24 @@ final class LinterTest extends TestCase
 
         self::assertCount(1, $unindexed);
         self::assertSame(LintSeverity::Warning, $unindexed[0]->severity);
-        self::assertSame('component/_partials/fragment.twig', $unindexed[0]->file);
+        self::assertSame('component/nameless/nameless.twig', $unindexed[0]->file);
+    }
+
+    #[Test]
+    public function skips_underscore_prefixed_partial_directories(): void
+    {
+        $findings = (new Linter($this->fixtures))->run();
+        $inPartials = array_values(array_filter(
+            $findings,
+            static fn(LintFinding $f): bool => str_contains($f->file, '/_partials/'),
+        ));
+
+        // Not "no unindexed finding" — NO finding of any rule. A directory the
+        // author prefixed with `_` is a statement that nothing inside it is a
+        // catalogue entry, and the catalogue walk agrees (ComponentParser::
+        // parseAll applies the same skip). Reporting anything here would ask
+        // someone to fix a file for behaving exactly as intended.
+        self::assertSame([], $inPartials);
     }
 
     #[Test]

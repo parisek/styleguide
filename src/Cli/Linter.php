@@ -167,6 +167,12 @@ final class Linter
             if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
                 continue;
             }
+            // Same skip the catalogue walk applies (ComponentParser::parseAll)
+            // — an underscore-prefixed directory is partials, so there is
+            // nothing here to be missing from a catalogue it never joins.
+            if (ComponentParser::isPartialPath(substr($file->getPathname(), strlen($dir) + 1))) {
+                continue;
+            }
             $content = (string) file_get_contents($file->getPathname());
             $relPath = $type . substr($file->getPathname(), strlen($dir));
             $sidecar = $file->getPath() . '/' . $file->getBasename('.twig') . '.yaml';

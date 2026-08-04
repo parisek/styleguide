@@ -91,6 +91,43 @@ class ComponentParser
      */
     public const STYLEGUIDE_SIBLING_PATTERN = '/^styleguide(\.[A-Za-z0-9_-]+)?\.twig$/';
 
+    /**
+     * Directory segments a walk must not descend into: any whose name starts
+     * with an underscore.
+     *
+     * `_partials/` is the near-universal convention for "this is included by
+     * something else, it is not an entry in its own right" — the same meaning
+     * Sass gives `_file.scss` and Jekyll gives `_includes/`. Such a template
+     * has no `name:` because it was never supposed to have one, so the
+     * catalogue already dropped it silently, and `styleguide lint` then
+     * reported that silence as an `unindexed` WARNING — asking the author to
+     * fix a file that is behaving exactly as intended.
+     *
+     * Skipping the directory outright makes both halves agree on purpose
+     * rather than by accident: the catalogue excludes it because it was told
+     * to, and the linter has nothing to report.
+     *
+     * Deliberately a directory rule, not a filename one. `_foo.twig` beside
+     * real components is not an established convention here, and silently
+     * dropping a file because of a leading underscore in its own name would
+     * be a surprise; a directory the author named `_partials` is an explicit
+     * statement about everything inside it.
+     */
+    public const PARTIAL_DIR_PATTERN = '#(?:^|/)_[^/]*(?:/|$)#';
+
+    /**
+     * True when `$relativePath` lives under an underscore-prefixed directory.
+     *
+     * Takes the path RELATIVE to the walk root so a project checked out under
+     * e.g. `/home/_deploy/site` is not mistaken for one big partial.
+     */
+    public static function isPartialPath(string $relativePath): bool
+    {
+        $dir = str_replace('\\', '/', dirname($relativePath));
+
+        return $dir !== '.' && preg_match(self::PARTIAL_DIR_PATTERN, $dir . '/') === 1;
+    }
+
     private string $templatesPath;
 
     /** @var list<array{file:string, error:string}> */
@@ -265,6 +302,11 @@ class ComponentParser
             // never discovered by discoverVariants()) still can't leak in
             // here as its own "component".
             if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
+                continue;
+            }
+
+            // Underscore-prefixed directories are partials, never entries.
+            if (self::isPartialPath(substr($file->getPathname(), strlen($dir) + 1))) {
                 continue;
             }
 

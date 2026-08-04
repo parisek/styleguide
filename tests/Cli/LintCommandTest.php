@@ -54,7 +54,7 @@ final class LintCommandTest extends TestCase
         self::assertSame(1, $exit, "stderr: $stderr");
         self::assertSame('', $stderr);
         self::assertStringContainsString(
-            'WARNING  component/_partials/fragment.twig  No parseable `name:` key',
+            'WARNING  component/nameless/nameless.twig  No parseable `name:` key',
             $stdout,
         );
         self::assertStringContainsString(

@@ -7,6 +7,28 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Fixed
+
+- **`styleguide lint` no longer reports templates inside underscore-prefixed
+  directories.** `_partials/` is the near-universal convention for "included by
+  something else, not an entry in its own right" — the same meaning Sass gives
+  `_file.scss` and Jekyll `_includes/`. Such a template has no `name:` because it
+  was never supposed to have one, so the catalogue dropped it silently and the
+  linter then reported that silence as an `unindexed` **warning**, asking the
+  author to fix a file behaving exactly as intended. Found on a downstream
+  project where the only two warnings in the whole report were its shared header
+  and footer partials.
+
+  The walk now skips those directories in `ComponentParser::parseAll()` **and**
+  `Linter::scanFiles()`, via a shared `ComponentParser::isPartialPath()` — so the
+  catalogue excludes them because it was told to rather than by accident, and the
+  linter has nothing to report. Same principle as #107: the linter reads the tree
+  the way the runtime does.
+
+  Deliberately a directory rule, not a filename one — `_foo.twig` beside real
+  components is not an established convention, and dropping a file over a leading
+  underscore in its own name would be a surprise. A directory the author named
+  `_partials` is an explicit statement about everything inside it.
 
 ### Added
 
