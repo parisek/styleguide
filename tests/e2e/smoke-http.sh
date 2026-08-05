@@ -119,6 +119,39 @@ assert_body_not_contains() {
     fi
 }
 
+# assert_body_not_matches URL extended_regex description
+#
+# Same shape/retry guard as assert_body_not_contains, but discriminates on a
+# property via a case-insensitive extended regex instead of one literal
+# string — use this where the thing being ruled out (e.g. "an executable
+# event-handler attribute reached the body") has many equivalent raw-markup
+# serializations (quoting, case, whitespace, a different tag/attribute
+# entirely) that a fixed-string check would miss.
+assert_body_not_matches() {
+    local url="$1" pattern="$2" desc="$3"
+    local body attempt max=5
+    for (( attempt=1; attempt<=max; attempt++ )); do
+        body=$(curl -sk "$BASE$url") || body=""
+        [ -n "$body" ] && break
+        sleep 0.2
+    done
+    if [ -z "$body" ]; then
+        ko "$desc: '$url' returned an empty body after $max attempts — cannot assert absence"
+    else
+        # Flatten newlines/tabs to spaces first — grep matches per line by
+        # default, so a raw tag whose attributes wrap onto a second line
+        # would otherwise slip past [^>]* (it can't cross a line boundary)
+        # and produce a false pass.
+        local flat
+        flat=$(tr '\n\t\r' '   ' <<< "$body")
+        if grep -qiE "$pattern" <<< "$flat"; then
+            ko "$desc: '$url' body unexpectedly matches /$pattern/i"
+        else
+            ok "$desc ${DIM}[body doesn't match /$pattern/i]${NC}"
+        fi
+    fi
+}
+
 # assert_body_contains_all URL needle1 desc1 [needle2 desc2 ...]
 #
 # Fetches URL ONCE and asserts every (needle, description) pair against that
@@ -295,12 +328,27 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # body_sample (#78 review) — same |e|typography path as heading.label above,
 # but had no hostile-payload coverage of its own. The digit inside the payload
 # is intentionally left in (unlike heading.label, which avoids digits) so this
-# also pins the |typography number-wrap interaction: the emitted form wraps
-# the lone digit in <span class="numbers">…</span> *after* HTML-escaping —
-# confirmed by curling the fixture render directly rather than guessed.
+# also pins the |typography digit-wrap interaction: as of parisek/twig-typography
+# 1.3.0 the bundled house policy no longer wraps lone digits in
+# <span class="numbers">…</span> (see that package's CHANGELOG — "Rendered
+# output changes" under 1.3.0) — confirmed by curling the fixture render
+# directly rather than guessed.
 assert_body_contains_all "/styleguide/render/foundations/index" \
-    'lazy dog. &lt;img src=x onerror=alert(<span class="numbers">2</span>)&gt;End' "foundations typography: hostile body_sample renders HTML-escaped (including the |typography number-wrap span)"
-assert_body_not_contains "/styleguide/render/foundations/index" "onerror=alert(2)" "foundations typography: hostile body_sample never reaches the body as raw unescaped markup"
+    'lazy dog. &lt;img src=x onerror=alert(2)&gt;End' "foundations typography: hostile body_sample renders HTML-escaped"
+# A fixed-string check here (e.g. `<img src=x onerror=alert(2)>` byte-for-byte)
+# only proves *that one* serialization didn't leak — it sails past different
+# quoting (onerror="alert(2)"), case (<IMG ONERROR=...>), whitespace (attrs
+# wrapped onto a new line), or a different vector entirely (<svg onload=...>).
+# Assert the actual property instead: an unescaped opening tag carrying a live
+# `on*=` event-handler attribute whose value is this fixture's own payload
+# (`alert(2)`) — case-insensitive, tolerant of quoting/whitespace, matching by
+# pattern rather than one literal string. Anchored to `alert(2)` deliberately,
+# not "any on*= attribute anywhere in the body": the foundations page itself
+# ships a legitimate `onerror="this.onerror=null;this.src=..."` favicon
+# fallback <img>, so an unanchored version of this check would false-positive
+# on the page's own real markup — confirmed by running it against a live
+# fixture render before landing this pattern.
+assert_body_not_matches "/styleguide/render/foundations/index" '<[a-z][a-z0-9]*\b[^>]*\bon[a-z]+[[:space:]]*=[^>]*alert\(2\)' "foundations typography: hostile body_sample never reaches the body as a live event-handler attribute"
 # Raw-payload checks target the exact hostile string per fixture entry (not a
 # bare `<script>` substring) — the page legitimately emits real `<script>`
 # tags (foundations.js module, standalone-bar reveal script), so a blanket

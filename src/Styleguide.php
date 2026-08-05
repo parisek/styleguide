@@ -301,7 +301,14 @@ final class Styleguide
      * `attachLoaders()` — projects that already registered any of these
      * (e.g. tailwind-base's `static/index.php`) won't see a double-registration
      * error, and their (possibly project-tuned, e.g. TypographyExtension with
-     * a settings YAML) instance wins.
+     * a settings YAML) instance wins. Trade-off: a project that pre-registered
+     * its own single-argument `TypographyExtension('...')` (no locale resolver)
+     * before upgrading past 1.9.0 keeps working exactly as before — no fatal,
+     * no behaviour change — but silently misses the per-language layer this
+     * method would otherwise wire up. That is the same trade-off `hasExtension()`
+     * has always made for every setting the project's own instance carries
+     * (a tuned YAML path is silently kept too); it is not a new failure mode,
+     * just a new instance of the existing one. Documented in README.md § Bootstrap.
      */
     private function registerBundledExtensions(Environment $twig): void
     {
@@ -310,13 +317,35 @@ final class Styleguide
         // with that path instead of the default empty instance. Keep the
         // hasExtension() check so projects that pre-registered it themselves
         // win — their instance carries whatever runtime settings they tuned.
+        //
+        // The second constructor argument (parisek/twig-typography >= 1.3) is
+        // a locale resolver — a zero-arg callable returning the locale to
+        // typeset against, invoked fresh on every `|typography` call.
+        // `default_locale` is already this package's single source of truth
+        // for "what locale is this render in" — it drives `<html lang>`
+        // (dispatchSpa()) and the `langcode` context value handed to every
+        // component/page render (dispatchRender()), which a project's own
+        // translator (WP `_x()` etc., wired ahead of the identity stubs
+        // below) is free to read. Reusing it here keeps that one config key
+        // meaning one thing consistently instead of adding a second key a
+        // project would have to keep in sync with the first. A styleguide
+        // request only ever
+        // renders one locale — there is no per-request language switch; the
+        // SPA's locale switcher changes only the chrome UI language, never
+        // `default_locale` — so a resolver reading `$this->config` fresh on
+        // each call (rather than capturing the value up front) is safe: every
+        // HTTP request builds its own `Styleguide` instance with its own
+        // config, so there is no cross-request bleed.
         if (
             class_exists(\Parisek\Twig\TypographyExtension::class)
             && !$twig->hasExtension(\Parisek\Twig\TypographyExtension::class)
         ) {
             $typographyConfig = $this->config['typography_config'] ?? null;
             $arg = (is_string($typographyConfig) && is_file($typographyConfig)) ? $typographyConfig : '';
-            $twig->addExtension(new \Parisek\Twig\TypographyExtension($arg));
+            $twig->addExtension(new \Parisek\Twig\TypographyExtension(
+                $arg,
+                fn(): string => (string) $this->config['default_locale'],
+            ));
         }
 
         // DumpExtension needs a VarCloner instance — `new $class()` in the

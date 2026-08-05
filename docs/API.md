@@ -44,12 +44,12 @@ Optional keys (with their defaults):
 
 | Key | Default | Description |
 |---|---|---|
-| `default_locale` | `'en'` | Two-letter locale code; drives `<html lang>` + locale fallback for `_x()` shim |
+| `default_locale` | `'en'` | Two-letter locale code; drives `<html lang>`, the `langcode` value in every render's Twig context (`twig_context`; a project's own translator may key off it — the bundled `_x()` etc. are identity stubs and don't), and the bundled `TypographyExtension`'s per-language locale resolver (>= `parisek/twig-typography` 1.3) |
 | `base_url` | `'/styleguide'` | URL prefix the package serves under (must match the web server rewrite) |
 | `twig_context` | `[]` | Map of variables added to every Twig render — typically `homeUrl`, `templateUrl`, `langcode` |
 | `twig` | `null` | Pre-built `Twig\Environment` to reuse. When null, the package builds a pristine env (autoescape: false, cache: false, debug: true) |
 | `twig_options` | `[]` | Map merged on top of pristine env defaults (ignored if `twig` is provided) |
-| `typography_config` | `null` | Absolute path to a `typography.yml` for the bundled TypographyExtension |
+| `typography_config` | `null` | Absolute path to a `typography.yml` for the bundled TypographyExtension. The extension is constructed as `new TypographyExtension($typography_config ?: '', fn (): string => $default_locale)` — the second argument is a locale resolver read fresh from `$this->config['default_locale']` on every `\|typography` call |
 | `namespaces` | `[]` | Map of `<namespace> => <absolute path>` Twig namespaces beyond the conventional ones |
 | `auth` | `null` | Optional `callable(array<string,mixed> $route): bool` gate checked once per request in `dispatch()`, before any handler (SPA, render, JSON API, or asset). Returning `false` responds `403 Forbidden` (plain text) and skips dispatch entirely. Returning `true`, or omitting the key (`null`), preserves today's behaviour — no gating. A non-`null`, non-callable value throws `InvalidArgumentException` from the constructor instead of being silently treated as "allow everything". |
 
