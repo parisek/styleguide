@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+
+## [1.9.0] - 2026-08-05
 ### Added
 
 - **`styleguide_data()` can read another fixture's sidecar.** Its argument is now
