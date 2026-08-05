@@ -825,8 +825,8 @@ illegal inside an id or a set name.
 `[a-z0-9-]+` — nothing else is accepted, so no path can be smuggled through.
 
 Reach for it only when the data is genuinely shared. Duplicating a couple of
-keys is still cheaper to read than a reference; the `from:` form exists for
-the case where the alternative is a data partial that accumulates every
+keys is still cheaper to read than a reference; the cross-fixture form exists
+for the case where the alternative is a data partial that accumulates every
 consumer's fixture data in one file (see the escape hatch below for why an
 `{% include %}` cannot share data any other way).
 
@@ -841,7 +841,9 @@ consumer's fixture data in one file (see the escape hatch below for why an
 
 **Missing set → loud failure that lists what IS there.** A `styleguide_data()`
 / `styleguide_data('<name>')` call with no matching file on disk throws a
-`RuntimeException` naming the expected absolute path AND enumerating every
+`RuntimeException` naming the expected path — relative to `templates_path`, so
+an absolute filesystem path never reaches rendered 500-page markup; the absolute
+one goes to `error_log()` — AND enumerating every
 `styleguide.data*.yaml` set actually present in that directory — e.g.
 `sidecar file not found: …/styleguide.data-gallry.yaml (available data sets
 in this directory: default, gallery, hero)`. Fixtures are dev-time only, so

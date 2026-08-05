@@ -798,16 +798,85 @@ final class StyleguideDataTest extends TestCase
         self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'component/data-demo/gallery/extra');
     }
 
+    /**
+     * `''` resolved to the current default set before references existed. An
+     * earlier revision of this branch made it throw; that was a real
+     * compatibility break for any consumer passing a possibly-empty variable,
+     * and it is exactly what the segment-count grammar promises not to do.
+     */
     #[Test]
-    public function rejects_an_empty_reference(): void
+    public function an_empty_reference_still_means_the_current_default_set(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', '');
+
+        self::assertIsArray($data);
+        self::assertSame("Page's own data", $data['title']);
+    }
+
+    /**
+     * A trailing separator used to make this a three-segment reference whose
+     * EMPTY set name skipped the id check and fell through to the default set —
+     * the reference saying one thing and the resolver doing another.
+     */
+    #[Test]
+    #[\PHPUnit\Framework\Attributes\DataProvider('referencesWithAnEmptySegment')]
+    public function rejects_a_reference_with_an_empty_segment(string $ref): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('empty reference');
+        $this->expectExceptionMessage('empty segment');
 
-        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', '');
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', $ref);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function referencesWithAnEmptySegment(): array
+    {
+        return [
+            'trailing separator'     => ['component/data-demo/'],
+            'doubled separator'      => ['component//data-demo'],
+            'empty set name segment' => ['component/data-demo//'],
+            'separator only'         => ['//'],
+        ];
+    }
+
+    /**
+     * Containment is checked on the resolved FILE. A directory-only check walks
+     * straight past a symlinked sidecar, which is the one escape the lexical
+     * whitelist cannot describe.
+     */
+    #[Test]
+    public function rejects_a_sidecar_symlinked_outside_templates_path(): void
+    {
+        $outside = sys_get_temp_dir() . '/sg-outside-' . bin2hex(random_bytes(4));
+        mkdir($outside);
+        file_put_contents($outside . '/leaked.yaml', "title: \"Leaked\"\n");
+
+        $dir = self::TEMPLATES_PATH . '/component/data-demo-symlinked';
+        mkdir($dir);
+        symlink($outside . '/leaked.yaml', $dir . '/styleguide.data.yaml');
+
+        try {
+            $twig = $this->newTwig();
+            $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+            $this->expectException(\RuntimeException::class);
+            $this->expectExceptionMessage('resolves outside templates_path');
+
+            self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'component/data-demo-symlinked');
+        } finally {
+            @unlink($dir . '/styleguide.data.yaml');
+            @rmdir($dir);
+            @unlink($outside . '/leaked.yaml');
+            @rmdir($outside);
+        }
     }
 
     /**

@@ -69,9 +69,10 @@ concatenated into a filesystem path. `<kind>` must be one of `component` / `page
 / `doc`, and every id segment must match `/^[a-z0-9-]+$/D`. The `D` modifier is
 not decoration: PCRE's default `$` also matches before a trailing newline, so
 `component/header\n` would otherwise pass validation while the documentation
-claimed nothing else was expressible. A `PathGuard::pathEscapesRoot()` check backs
-the lexical rules, covering the one escape a string cannot describe — a symlinked
-directory pointing outside `templates_path`.
+claimed nothing else was expressible. A `PathGuard::pathEscapesRoot()` check on the
+resolved **file** backs the lexical rules, covering the one escape a string cannot
+describe. On the file rather than its directory, deliberately: a directory-only
+check walks straight past a symlinked sidecar.
 
 ## Consequences
 
@@ -88,11 +89,23 @@ keys still reads better than a reference. The form exists for the case where the
 alternative is a data partial accumulating every consumer's fixture data; README
 says so where authors will read it.
 
-**Error messages were reclassified.** An argument containing `/` used to be
-refused as an invalid *set name* and is now refused as an invalid *reference*.
-The same inputs are still refused with the same exception type; only the wording
-differs. Two tests in this repository asserted on the old message and were
-updated.
+**Two arguments that used to be refused are now valid** — that is the feature:
+`component/header` and `component/header/dark` were invalid set names and now
+resolve. Of the ones still refused, the diagnostic changed: `a/b` was an invalid
+*set name* and is now an invalid *kind*; a reference with an empty segment or
+more than three names its own shape. Same exception type throughout. Two tests
+in this repository asserted on the old wording and were updated.
+
+**One input's behaviour genuinely regressed and was restored.** An earlier
+revision of this branch made `styleguide_data('')` throw. It had resolved to the
+current default set before, so a consumer passing a possibly-empty variable would
+have started failing. It is back to being an alias of the no-argument form, with
+a test pinning it.
+
+**The `D` modifier is a deliberate narrowing, not a pure fix.** A set name with a
+trailing newline used to resolve — `styleguide.data-gallery\n.yaml` was reachable
+— and no longer does. Nothing plausibly relied on it, and the alternative was
+documentation that claimed a guarantee the code did not provide.
 
 **The `D` modifier fix reaches beyond this feature.** It was applied to the
 set-name pattern as well, where the gap pre-existed. A set name with a trailing

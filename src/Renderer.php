@@ -133,14 +133,32 @@ final class Renderer
             return [(string) $this->currentKind, (string) $this->currentSlug, null];
         }
 
+        // `''` resolved to the current default set before references existed, and
+        // a consumer calling `styleguide_data(someEmptyVariable)` must not start
+        // throwing. Kept as an alias of the no-argument form rather than
+        // rejected, because the compatibility promise is the point of the
+        // segment-count grammar.
         if ($ref === '') {
-            throw new \RuntimeException(
-                'styleguide_data(): empty reference — omit the argument entirely to read the '
-                . "current fixture's own default set",
-            );
+            /** @var array{0: string, 1: string, 2: string|null} */
+            return [(string) $this->currentKind, (string) $this->currentSlug, null];
         }
 
         $parts = explode('/', $ref);
+
+        // A trailing separator would otherwise make `component/header/` a
+        // three-segment reference whose empty set name skips the id check and
+        // silently falls through to the DEFAULT set — the shape saying one thing
+        // and the behaviour doing another. Every segment carries an id, so an
+        // empty one is malformed regardless of position.
+        foreach ($parts as $part) {
+            if ($part === '') {
+                throw new \RuntimeException(sprintf(
+                    'styleguide_data(): invalid reference "%s" — empty segment; every segment must '
+                    . 'match ^[a-z0-9-]+$',
+                    $ref,
+                ));
+            }
+        }
 
         if (count($parts) === 1) {
             // No separator — a set name in the currently-rendering directory.
@@ -302,20 +320,30 @@ final class Renderer
         // trust boundary; the package nonetheless resolves every other
         // filesystem read through PathGuard, and an exception here would be a
         // silent one.
-        if (PathGuard::pathEscapesRoot($this->templatesPath, $kind . '/' . $slug)) {
-            error_log(sprintf('styleguide_data(): source resolves outside templates_path: %s', $dir));
-            throw new \RuntimeException(sprintf(
-                'styleguide_data(): source "%s/%s" resolves outside templates_path',
-                $kind,
-                $slug,
-            ));
-        }
+
         $filename = ($name === null || $name === '') ? 'styleguide.data.yaml' : sprintf('styleguide.data-%s.yaml', $name);
         $file = $dir . '/' . $filename;
         // Path relative to templates_path — used in the exception messages
         // below so an absolute filesystem path never reaches rendered
         // 500-page markup; the absolute path is still logged server-side.
         $relativeFile = $kind . '/' . $slug . '/' . $filename;
+
+        // Containment is checked on the resolved FILE, not on its directory: the
+        // sidecar itself can be a symlink pointing out of the tree, and a
+        // directory-only check walks straight past that. The lexical whitelist
+        // above already makes a traversal segment inexpressible, so this only
+        // fires on the one escape a string cannot describe.
+        //
+        // The reference reaches this method from a project's own Twig template
+        // rather than from a request, so this is consistency with how the
+        // package resolves every other filesystem read, not a trust boundary.
+        if (PathGuard::pathEscapesRoot($this->templatesPath, $kind . '/' . $slug . '/' . $filename)) {
+            error_log(sprintf('styleguide_data(): sidecar resolves outside templates_path: %s', $file));
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): %s resolves outside templates_path',
+                $relativeFile,
+            ));
+        }
 
         if (!is_file($file)) {
             error_log(sprintf('styleguide_data(): sidecar file not found: %s', $file));

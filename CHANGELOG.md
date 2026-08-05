@@ -20,8 +20,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   ```
 
   Because `/` is illegal inside an id or a set name, a one-segment reference is
-  unambiguously a set name in the current directory — every existing call keeps
-  its exact meaning and no consumer has to change anything.
+  unambiguously a set name in the current directory — an existing call that
+  resolved before still resolves to the same file. See `### Changed` for the two
+  inputs whose handling did move.
 
   This supersedes the previous "no cross-component lookup" rule. That rule left
   fixtures with only one way to share demo data — an `{% include %}` data
@@ -37,9 +38,13 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 ### Changed
 
 - **`styleguide_data()` rejects a `/`-containing argument as an invalid
-  *reference* rather than an invalid *set name*.** The same inputs are still
-  refused with a `RuntimeException`; only the message differs. Anything matching
-  on the old wording in a test needs updating.
+  *reference* or *kind* rather than an invalid *set name*.** Still a
+  `RuntimeException` for anything that stays refused; only the message differs.
+  Tests matching on the old wording need updating.
+- **A set name with a trailing newline no longer resolves.** PCRE's default `$`
+  matches before a final newline, so `styleguide.data-gallery\n.yaml` was
+  reachable; the `D` modifier closes that. A deliberate narrowing — the
+  documentation already claimed the stricter rule.
 
 ## [1.8.3] - 2026-08-04
 ### Fixed
