@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-08-05
+
 ### Changed
 
 - **`|typography` now typesets per language.** The bundled `TypographyExtension`
