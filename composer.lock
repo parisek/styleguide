@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "725e211b147814eaba39bd22b0a5d6dd",
+    "content-hash": "0347673181a9c2153de5298134b9a02f",
     "packages": [
         {
             "name": "masterminds/html5",
@@ -190,25 +190,27 @@
         },
         {
             "name": "parisek/twig-typography",
-            "version": "v1.2.2",
+            "version": "v1.3.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/parisek/twig-typography.git",
-                "reference": "3b26b38e00ab07fde990b9b0dfc73a8e46658f0e"
+                "reference": "1a25378a5c6793b1cb648ec0780204c2fb9b1f67"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/parisek/twig-typography/zipball/3b26b38e00ab07fde990b9b0dfc73a8e46658f0e",
-                "reference": "3b26b38e00ab07fde990b9b0dfc73a8e46658f0e",
+                "url": "https://api.github.com/repos/parisek/twig-typography/zipball/1a25378a5c6793b1cb648ec0780204c2fb9b1f67",
+                "reference": "1a25378a5c6793b1cb648ec0780204c2fb9b1f67",
                 "shasum": ""
             },
             "require": {
                 "mundschenk-at/php-typography": "^6.0",
                 "php": "^8.3",
                 "symfony/yaml": "^6.0 || ^7.0 || ^8.0",
-                "twig/twig": "^3.0 || ^4.0"
+                "twig/twig": "^3.27 || ^4.0"
             },
             "require-dev": {
+                "ergebnis/composer-normalize": "^2.0",
+                "friendsofphp/php-cs-fixer": "^3.0",
                 "phpstan/phpstan": "^2.0",
                 "phpunit/phpunit": "^11.0 || ^12.0"
             },
@@ -230,9 +232,9 @@
             ],
             "support": {
                 "issues": "https://github.com/parisek/twig-typography/issues",
-                "source": "https://github.com/parisek/twig-typography/tree/v1.2.2"
+                "source": "https://github.com/parisek/twig-typography/tree/v1.3.0"
             },
-            "time": "2026-05-30T10:34:59+00:00"
+            "time": "2026-08-05T13:10:32+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
