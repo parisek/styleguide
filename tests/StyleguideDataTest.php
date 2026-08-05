@@ -77,12 +77,18 @@ final class StyleguideDataTest extends TestCase
      * surface to the test instead of being swallowed into 500 markup.
      *
      * @param string|null $argName Optional `styleguide_data('<name>')` set
-     *                             name — always resolved within the SAME
-     *                             `$kind`/`$slug` directory, never a
-     *                             cross-component lookup.
+     *                             name, resolved within `$from`'s directory —
+     *                             or `$kind`/`$slug`'s when `$from` is null.
+     * @param string|null $from    Optional `<kind>/<slug>` source reference.
      */
-    private static function callStyleguideData(Renderer $renderer, Environment $twig, string $kind, string $slug, ?string $argName = null): mixed
-    {
+    private static function callStyleguideData(
+        Renderer $renderer,
+        Environment $twig,
+        string $kind,
+        string $slug,
+        ?string $argName = null,
+        ?string $from = null,
+    ): mixed {
         $ref = new \ReflectionClass($renderer);
         $ref->getProperty('currentKind')->setValue($renderer, $kind);
         $ref->getProperty('currentSlug')->setValue($renderer, $slug);
@@ -90,7 +96,7 @@ final class StyleguideDataTest extends TestCase
         $callable = $twig->getFunction('styleguide_data')?->getCallable();
         self::assertIsCallable($callable);
 
-        return $argName === null ? $callable() : $callable($argName);
+        return $callable($argName, $from);
     }
 
     #[Test]
@@ -687,4 +693,118 @@ final class StyleguideDataTest extends TestCase
         self::assertArrayHasKey('payload', $data);
         self::assertNull($data['payload']);
     }
+    // ─── Cross-component sources (`from:`) ──────────────────────────────────
+
+    #[Test]
+    public function reads_another_components_default_set_when_from_is_given(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'component/data-demo');
+
+        self::assertIsArray($data);
+        self::assertSame('Demo Title', $data['title']);
+    }
+
+    #[Test]
+    public function reads_another_components_named_set_when_both_arguments_are_given(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'gallery', 'component/data-demo');
+
+        self::assertIsArray($data);
+        self::assertNotSame('Demo Title', $data['title'] ?? null);
+    }
+
+    /**
+     * The whole point of defaulting `$from` to null: adding the argument must
+     * not change what a call without it resolves to.
+     */
+    #[Test]
+    public function still_reads_its_own_sidecar_when_from_is_omitted(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer');
+
+        self::assertIsArray($data);
+        self::assertSame("Page's own data", $data['title']);
+    }
+
+    #[Test]
+    public function reports_the_source_directory_not_the_rendering_one_when_a_cross_component_file_is_missing(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('component/data-demo-missing/styleguide.data.yaml');
+
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'component/data-demo-missing');
+    }
+
+    #[Test]
+    public function rejects_a_source_that_is_not_kind_slash_slug(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid source');
+
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'data-demo');
+    }
+
+    #[Test]
+    public function rejects_an_unknown_source_kind(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid source kind');
+
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'partial/data-demo');
+    }
+
+    /**
+     * `$from` lands in a filesystem path, so the traversal shapes already
+     * covered for set names get the same treatment here.
+     *
+     * @param string $from
+     */
+    #[Test]
+    #[\PHPUnit\Framework\Attributes\DataProvider('traversalShapedSources')]
+    public function rejects_traversal_shaped_sources(string $from): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('invalid source');
+
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, $from);
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function traversalShapedSources(): array
+    {
+        return [
+            'parent segment as slug'   => ['component/..'],
+            'nested traversal'         => ['component/../../etc'],
+            'absolute path'            => ['/etc/passwd'],
+            'url-encoded traversal'    => ['component/%2e%2e'],
+            'extra segment'            => ['component/data-demo/nested'],
+            'empty slug'               => ['component/'],
+            'empty kind'               => ['/data-demo'],
+            'backslash separator'      => ['component\\data-demo'],
+        ];
+    }
+
 }

@@ -7,6 +7,25 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Added
+
+- **`styleguide_data()` can read another component's sidecar** via a new optional
+  second argument: `styleguide_data(from = 'component/header')`, or
+  `styleguide_data('dark', 'component/header')` for a named set there. Both
+  arguments default to the currently rendering fixture, so every existing call
+  keeps its exact meaning and no consumer has to change anything.
+
+  This supersedes the previous "no cross-component lookup" rule. That rule left
+  fixtures with only one way to share demo data — an `{% include %}` data
+  partial — which cannot export variables to its caller and therefore
+  accumulates every consumer's data in one file; a downstream project's had
+  reached 1147 lines. A `from:` reference names its source at the call site,
+  which is a weaker and more visible coupling than an include chain.
+
+  `from` is validated as a closed `<kind>/<slug>` shape (`component` / `page` /
+  `doc`, plus the same `^[a-z0-9-]+$` slug rule set names already use), so no
+  separator, traversal segment or absolute path can reach the resolved
+  filesystem path.
 
 ## [1.8.3] - 2026-08-04
 ### Fixed

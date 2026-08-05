@@ -40,6 +40,13 @@ final class Renderer
     private ?string $currentSlug = null;
 
     /**
+     * Kinds a `styleguide_data()` `$from` reference may name — the same three
+     * `Router` routes to. Kept as a closed set so `$from` can never widen the
+     * filesystem surface the resolver reaches (see {@see resolveDataSource()}).
+     */
+    private const DATA_SOURCE_KINDS = ['component', 'page', 'doc'];
+
+    /**
      * @param array<string, mixed> $context
      * @param string|null $templatesPath
      *   Absolute path to the project's `templates_path` (mirrors the value
@@ -79,7 +86,8 @@ final class Renderer
         try {
             $this->twig->addFunction(new TwigFunction(
                 'styleguide_data',
-                static fn(?string $name = null): array => $renderer->resolveStyleguideData($name),
+                static fn(?string $name = null, ?string $from = null): array
+                    => $renderer->resolveStyleguideData($name, $from),
             ));
         } catch (\LogicException) {
             // Duplicate function name, or "extensions already initialized"
@@ -87,6 +95,62 @@ final class Renderer
             // Styleguide::tryAddFunction() (see that method's doc comment
             // for why the two cases aren't distinguished).
         }
+    }
+
+    /**
+     * Resolve `styleguide_data()`'s `$from` argument to a `[kind, slug]` pair.
+     *
+     * `null` (the default) means "the fixture I am rendering in", which is the
+     * behaviour every call had before `$from` existed.
+     *
+     * Validation is deliberately whitelist-only rather than a traversal filter.
+     * The resolved value is concatenated straight into a filesystem path, and a
+     * blacklist ("reject `..`") is the shape of that check that keeps being
+     * bypassed — encoded separators, absolute paths, a bare `.`. Requiring
+     * exactly `<kind>/<slug>`, with `<kind>` from a closed set of three and
+     * `<slug>` matching `^[a-z0-9-]+$`, leaves nothing to bypass: no `/`, `.`
+     * or `\` can appear in either half.
+     *
+     * @return array{0: string, 1: string}
+     *
+     * @throws \RuntimeException When `$from` is malformed or names an unknown kind.
+     */
+    private function resolveDataSource(?string $from): array
+    {
+        if ($from === null || $from === '') {
+            /** @var array{0: string, 1: string} */
+            return [(string) $this->currentKind, (string) $this->currentSlug];
+        }
+
+        $parts = explode('/', $from);
+        if (count($parts) !== 2) {
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): invalid source "%s" — must be "<kind>/<slug>", e.g. "component/header"',
+                $from,
+            ));
+        }
+
+        [$kind, $slug] = $parts;
+
+        if (!in_array($kind, self::DATA_SOURCE_KINDS, true)) {
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): invalid source kind "%s" in "%s" — must be one of %s',
+                $kind,
+                $from,
+                implode(' / ', self::DATA_SOURCE_KINDS),
+            ));
+        }
+
+        if (preg_match('/^[a-z0-9-]+$/', $slug) !== 1) {
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): invalid source slug "%s" in "%s" — must match ^[a-z0-9-]+$ '
+                . '(same id rule as data set names and styleguide.<variant>.twig variant ids)',
+                $slug,
+                $from,
+            ));
+        }
+
+        return [$kind, $slug];
     }
 
     /**
@@ -106,12 +170,29 @@ final class Renderer
      *    the two flat-suffix-naming families (variant `.twig` siblings and
      *    named `.yaml` data sets) stay consistent.
      *
-     * Resolution is ALWAYS scoped to the currently-rendering component's own
-     * directory — there is no cross-component/cross-slug lookup. A page or
-     * component that wants another component's demo data must duplicate it
-     * (or the styleguide.yaml/`{% extends %}` data-template escape hatch);
-     * this function intentionally never reaches outside `$currentKind` /
-     * `$currentSlug`.
+     * Resolution is scoped to the currently-rendering component's own
+     * directory UNLESS `$from` names another one:
+     *
+     *  - `$from` omitted → the current `$currentKind` / `$currentSlug`, i.e.
+     *    the fixture's own sidecar. Unchanged behaviour, and still the
+     *    overwhelmingly common case.
+     *  - `$from` given → `<kind>/<slug>`, e.g. `component/header`. Lets a
+     *    page fixture render a shared chrome component with the component's
+     *    OWN demo data instead of restating it, which is what the alternative
+     *    had become: an `{% include %}`-only data partial that grows without
+     *    bound because nothing else can share a fixture's data (one downstream
+     *    project reached 1147 lines of it).
+     *
+     * The pairing is deliberate: `$name` says WHICH set, `$from` says WHOSE.
+     * Both default to "mine", so every existing call keeps its meaning and a
+     * cross-component read has to name its source — the dependency is greppable
+     * rather than buried in an include chain.
+     *
+     * `$from` is validated as strictly as the templates tree it indexes:
+     * `<kind>` must be one of `component` / `page` / `doc` (the same three
+     * `Router` accepts) and `<slug>` must match the same `^[a-z0-9-]+$` id
+     * rule as `$name`, so no separator, traversal segment or absolute path
+     * can survive into the resolved filesystem path.
      *
      * Two resolution steps run over the parsed YAML, in order:
      *  1. {@see resolvePlaceholders()} — recursively replaces every
@@ -161,7 +242,7 @@ final class Renderer
      *
      * @return array<string, mixed>
      */
-    private function resolveStyleguideData(?string $name = null): array
+    private function resolveStyleguideData(?string $name = null, ?string $from = null): array
     {
         if ($this->templatesPath === null || $this->currentKind === null || $this->currentSlug === null) {
             throw new \RuntimeException(
@@ -185,13 +266,15 @@ final class Renderer
             ));
         }
 
-        $dir = rtrim($this->templatesPath, '/') . '/' . $this->currentKind . '/' . $this->currentSlug;
+        [$kind, $slug] = $this->resolveDataSource($from);
+
+        $dir = rtrim($this->templatesPath, '/') . '/' . $kind . '/' . $slug;
         $filename = ($name === null || $name === '') ? 'styleguide.data.yaml' : sprintf('styleguide.data-%s.yaml', $name);
         $file = $dir . '/' . $filename;
         // Path relative to templates_path — used in the exception messages
         // below so an absolute filesystem path never reaches rendered
         // 500-page markup; the absolute path is still logged server-side.
-        $relativeFile = $this->currentKind . '/' . $this->currentSlug . '/' . $filename;
+        $relativeFile = $kind . '/' . $slug . '/' . $filename;
 
         if (!is_file($file)) {
             error_log(sprintf('styleguide_data(): sidecar file not found: %s', $file));

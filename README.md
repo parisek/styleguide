@@ -803,14 +803,29 @@ cta:
 {{ component_hero(styleguide_data()) }}
 ```
 
-**Resolution is always scoped to the CURRENT fixture's own directory** —
-whichever component/page/doc is rendering picks up its own sidecar(s), no
-path/id to keep in sync. There is deliberately **no cross-component lookup**:
-`styleguide_data('<name>')` only ever reads `<name>` within the SAME
-directory that's currently rendering. A page wanting to reuse another
-component's demo data duplicates it (or reaches for the `{% extends %}`
-escape hatch below) rather than pointing `styleguide_data()` at a different
-component.
+**Resolution defaults to the CURRENT fixture's own directory** — whichever
+component/page/doc is rendering picks up its own sidecar(s), no path/id to
+keep in sync. That covers almost every call.
+
+When a fixture genuinely needs another one's data — typically a page
+rendering shared chrome — name the source explicitly:
+
+```twig
+{# templates/page/about/styleguide.twig #}
+{{ component_header(styleguide_data(from = 'component/header')) }}
+{{ component_header(styleguide_data('dark', 'component/header')) }}  {# named set there #}
+```
+
+`name` says WHICH set, `from` says WHOSE; both default to "mine". `from` must
+be `<kind>/<slug>` with `<kind>` one of `component` / `page` / `doc` and
+`<slug>` matching the same `[a-z0-9-]+` id rule — nothing else is accepted,
+so no path can be smuggled through it.
+
+Reach for it only when the data is genuinely shared. Duplicating a couple of
+keys is still cheaper to read than a reference; the `from:` form exists for
+the case where the alternative is a data partial that accumulates every
+consumer's fixture data in one file (see the escape hatch below for why an
+`{% include %}` cannot share data any other way).
 
 > **Why flat suffix naming instead of a `data/` subdirectory?** A nested
 > `data/<name>.yaml` layout was considered and deliberately deferred: the
