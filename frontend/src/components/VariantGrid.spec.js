@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
-import { ref, provide, defineComponent, h } from 'vue';
+import { ref, provide, defineComponent, h, nextTick } from 'vue';
+import { CHROME_VIEWPORT_HEIGHT_PX } from '../lib/previewHeight.js';
 import VariantGrid from './VariantGrid.vue';
 import { useViewportPreset } from '../composables/useViewportPreset.js';
 import { useI18nStore } from '../stores/i18n.js';
@@ -328,5 +329,39 @@ describe('VariantGrid — click-to-isolate', () => {
         expect(icon.classes()).toContain('opacity-0');
         expect(icon.classes()).toContain('group-hover:opacity-100');
         expect(icon.classes()).toContain('group-focus-visible:opacity-100');
+    });
+});
+
+// Wiring regression for #116. The pure-geometry tests in
+// lib/previewHeight.spec.js pin the RULE; this pins that VariantGrid actually
+// applies it. Without this, the suite would stay green even if the component
+// never passed `scrolls` at all — which is precisely how the first fix shipped
+// incomplete.
+describe('VariantGrid -- chrome entries do not size to their own content (#116)', () => {
+    const chromeItem = [{
+        id: 'multi', name: 'Multi', render: 'chrome',
+        variants: [{ id: 'fixed', title: 'fixed', description: '' }],
+    }];
+
+    it('pins every tile of a chrome entry instead of following a runaway measurement', async () => {
+        const wrapper = mountGrid('component', 'multi', { items: chromeItem });
+        await nextTick();
+        const iframes = wrapper.findAll('iframe');
+        expect(iframes.length).toBeGreaterThan(0);
+        for (const f of iframes) {
+            expect(f.attributes('style')).toContain(`height: ${CHROME_VIEWPORT_HEIGHT_PX}px`);
+        }
+        wrapper.unmount();
+    });
+
+    it('leaves a non-chrome entry measuring its own content', async () => {
+        const wrapper = mountGrid('component', 'multi', {
+            items: [{ ...chromeItem[0], render: 'inset' }],
+        });
+        await nextTick();
+        for (const f of wrapper.findAll('iframe')) {
+            expect(f.attributes('style')).not.toContain(`height: ${CHROME_VIEWPORT_HEIGHT_PX}px`);
+        }
+        wrapper.unmount();
     });
 });

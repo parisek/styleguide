@@ -12,41 +12,14 @@
 // — only consulted when there's no canonical preset height (Full, or a
 // fixed-width preset/Custom-width with no canonical height).
 import { fitZoom } from './viewportMath.js';
+import { resolveContentHeight } from './previewHeight.js';
 
-// Demo height for a `render: chrome` tile that has no canonical preset height
-// to fall back on (Full, or a fixed-width/Custom-width preset). Such a
-// component declares `body { min-height: 200vh }` (render-cell.twig) so sticky
-// and fixed chrome has something to scroll against — which means its content
-// height is DERIVED FROM its viewport height. Sizing the tile to that content
-// would therefore define the two heights in terms of each other, and the
-// resulting feedback loop runs until the browser clamps the element at 2^25px
-// and the renderer process dies (#116).
-//
-// Pinning the tile instead breaks the cycle at its source: the viewport stops
-// depending on the content, so `200vh` resolves against a fixed number and
-// settles. The iframe scrolls internally with no extra CSS — that is an
-// iframe's default behaviour once its content exceeds its height — and the
-// variants then demo honestly: sticky pins, fixed holds, static and absolute
-// scroll away.
-export const CHROME_TILE_HEIGHT_PX = 640;
-
-// Defensive ceiling on any measured content height. This is NOT what fixes
-// #116 — `scrolls` above is — and it is deliberately far above any legitimate
-// fixture, so it never truncates real content. It exists so that if some
-// future path reintroduces a viewport/content feedback loop, the failure is a
-// comically tall tile that someone reports, rather than a dead tab.
-export const MAX_TILE_CONTENT_HEIGHT_PX = 20000;
 
 // Full preset: fluid tile, no scaling, height is whatever the iframe's own
 // content measures (or the caller's pre-measure floor before the first
 // load/ResizeObserver tick).
 export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawContentHeight, minHeight, scrolls = false }) {
-    // `scrolls` wins over any measurement: for a chrome tile the measurement is
-    // precisely the quantity that must not feed back into the height. Defaults
-    // to false so every existing caller and test double keeps its behaviour.
-    const contentHeight = scrolls
-        ? CHROME_TILE_HEIGHT_PX
-        : Math.min(rawContentHeight ?? minHeight ?? 0, MAX_TILE_CONTENT_HEIGHT_PX);
+    const contentHeight = resolveContentHeight({ rawContentHeight, minHeight, scrolls });
     if (presetWidth === null) {
         return {
             fluid: true, zoom: 1,

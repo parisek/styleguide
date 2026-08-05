@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
     computeTileGeometry, autoGridColumnBasis,
     AUTO_GRID_FLUID_BASIS_PX, TILE_CHROME_PADDING_PX,
-    CHROME_TILE_HEIGHT_PX, MAX_TILE_CONTENT_HEIGHT_PX,
 } from './tileGeometry.js';
+import { CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX } from './previewHeight.js';
 
 describe('computeTileGeometry', () => {
     it('is fluid (no scaling) for the Full preset (presetWidth null)', () => {
@@ -84,7 +84,7 @@ describe('computeTileGeometry -- chrome tiles (scrolls)', () => {
             presetWidth: null, presetHeight: null, cellWidth: 620,
             rawContentHeight: RUNAWAY, scrolls: true,
         });
-        expect(g.iframeHeight).toBe(CHROME_TILE_HEIGHT_PX);
+        expect(g.iframeHeight).toBe(CHROME_VIEWPORT_HEIGHT_PX);
     });
 
     it('ignores a runaway content height on a fixed-width preset with no canonical height', () => {
@@ -92,7 +92,7 @@ describe('computeTileGeometry -- chrome tiles (scrolls)', () => {
             presetWidth: 375, presetHeight: null, cellWidth: 375,
             rawContentHeight: RUNAWAY, scrolls: true,
         });
-        expect(g.iframeHeight).toBe(CHROME_TILE_HEIGHT_PX);
+        expect(g.iframeHeight).toBe(CHROME_VIEWPORT_HEIGHT_PX);
     });
 
     it('still prefers a canonical preset height when the preset has one', () => {
@@ -122,7 +122,7 @@ describe('computeTileGeometry -- defensive content-height cap', () => {
             presetWidth: null, presetHeight: null, cellWidth: 620,
             rawContentHeight: 33554400,
         });
-        expect(g.iframeHeight).toBe(MAX_TILE_CONTENT_HEIGHT_PX);
+        expect(g.iframeHeight).toBe(MAX_CONTENT_HEIGHT_PX);
     });
 
     it('does not truncate a legitimately long fixture', () => {
