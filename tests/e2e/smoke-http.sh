@@ -295,12 +295,20 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # body_sample (#78 review) — same |e|typography path as heading.label above,
 # but had no hostile-payload coverage of its own. The digit inside the payload
 # is intentionally left in (unlike heading.label, which avoids digits) so this
-# also pins the |typography number-wrap interaction: the emitted form wraps
-# the lone digit in <span class="numbers">…</span> *after* HTML-escaping —
-# confirmed by curling the fixture render directly rather than guessed.
+# also pins the |typography digit-wrap interaction: as of parisek/twig-typography
+# 1.3.0 the bundled house policy no longer wraps lone digits in
+# <span class="numbers">…</span> (see that package's CHANGELOG — "Rendered
+# output changes" under 1.3.0) — confirmed by curling the fixture render
+# directly rather than guessed.
 assert_body_contains_all "/styleguide/render/foundations/index" \
-    'lazy dog. &lt;img src=x onerror=alert(<span class="numbers">2</span>)&gt;End' "foundations typography: hostile body_sample renders HTML-escaped (including the |typography number-wrap span)"
-assert_body_not_contains "/styleguide/render/foundations/index" "onerror=alert(2)" "foundations typography: hostile body_sample never reaches the body as raw unescaped markup"
+    'lazy dog. &lt;img src=x onerror=alert(2)&gt;End' "foundations typography: hostile body_sample renders HTML-escaped"
+# "onerror=alert(2)" alone is no longer a valid raw-vs-escaped discriminator:
+# it's a literal substring of the escaped form asserted above
+# (&lt;img src=x onerror=alert(2)&gt;) once the number-wrap span (removed in
+# twig-typography 1.3.0) no longer splits the digit out. Assert against the
+# unescaped opening tag instead — that substring only exists if the payload
+# broke out as live markup.
+assert_body_not_contains "/styleguide/render/foundations/index" "<img src=x onerror=alert(2)>" "foundations typography: hostile body_sample never reaches the body as raw unescaped markup"
 # Raw-payload checks target the exact hostile string per fixture entry (not a
 # bare `<script>` substring) — the page legitimately emits real `<script>`
 # tags (foundations.js module, standalone-bar reveal script), so a blanket

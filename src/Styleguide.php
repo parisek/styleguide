@@ -341,7 +341,7 @@ final class Styleguide
             $arg = (is_string($typographyConfig) && is_file($typographyConfig)) ? $typographyConfig : '';
             $twig->addExtension(new \Parisek\Twig\TypographyExtension(
                 $arg,
-                fn (): string => (string) $this->config['default_locale'],
+                fn(): string => (string) $this->config['default_locale'],
             ));
         }
 
