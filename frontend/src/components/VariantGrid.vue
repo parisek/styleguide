@@ -175,6 +175,10 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
         cellWidth: cellWidths[key] ?? 0,
         rawContentHeight: heights[key] ?? null,
         minHeight: PRE_MEASURE_MIN_HEIGHT,
+        // `render: chrome` components declare `min-height: 200vh` for
+        // scroll-room, so their content height is a function of their viewport
+        // height — auto-sizing the tile to it never converges (#116).
+        scrolls: viewport.currentItem.value?.render === 'chrome',
     });
     return {
         ...tile,
