@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-08-05
+
 ### Fixed
 
 - **A `render: chrome` component could grow its preview until the browser died.**
