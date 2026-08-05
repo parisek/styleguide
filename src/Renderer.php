@@ -42,7 +42,7 @@ final class Renderer
     /**
      * Kinds a `styleguide_data()` `$from` reference may name — the same three
      * `Router` routes to. Kept as a closed set so `$from` can never widen the
-     * filesystem surface the resolver reaches (see {@see resolveDataSource()}).
+     * filesystem surface the resolver reaches (see {@see parseDataReference()}).
      */
     private const DATA_SOURCE_KINDS = ['component', 'page', 'doc'];
 
@@ -86,8 +86,7 @@ final class Renderer
         try {
             $this->twig->addFunction(new TwigFunction(
                 'styleguide_data',
-                static fn(?string $name = null, ?string $from = null): array
-                    => $renderer->resolveStyleguideData($name, $from),
+                static fn(?string $ref = null): array => $renderer->resolveStyleguideData($ref),
             ));
         } catch (\LogicException) {
             // Duplicate function name, or "extensions already initialized"
@@ -98,59 +97,87 @@ final class Renderer
     }
 
     /**
-     * Resolve `styleguide_data()`'s `$from` argument to a `[kind, slug]` pair.
+     * Parse `styleguide_data()`'s single reference argument into a
+     * `[kind, slug, setName]` triple.
      *
-     * `null` (the default) means "the fixture I am rendering in", which is the
-     * behaviour every call had before `$from` existed.
+     * The reference is a PATH, and its segment count is what distinguishes the
+     * four shapes — no keyword argument, no positional second parameter whose
+     * meaning depends on the first:
      *
-     * Validation is deliberately whitelist-only rather than a traversal filter.
-     * The resolved value is concatenated straight into a filesystem path, and a
-     * blacklist ("reject `..`") is the shape of that check that keeps being
-     * bypassed — encoded separators, absolute paths, a bare `.`. Requiring
-     * exactly `<kind>/<slug>`, with `<kind>` from a closed set of three and
-     * `<slug>` matching `^[a-z0-9-]+$`, leaves nothing to bypass: no `/`, `.`
-     * or `\` can appear in either half.
+     *   null                        own default set
+     *   'gallery'                   own named set          (unchanged behaviour)
+     *   'component/header'          another fixture's default set
+     *   'component/header/dark'     another fixture's named set
      *
-     * @return array{0: string, 1: string}
+     * Segment counts cannot collide, because `/` is not a legal character in
+     * either an id or a set name — the `^[a-z0-9-]+$` rule that already governs
+     * `styleguide.<variant>.twig` ids forbids it. So a one-segment reference is
+     * unambiguously a set name in the current directory, which is why every call
+     * written before cross-fixture references existed keeps its exact meaning.
      *
-     * @throws \RuntimeException When `$from` is malformed or names an unknown kind.
+     * Validation is whitelist-only rather than a traversal filter. The result is
+     * concatenated into a filesystem path, and a blacklist ("reject `..`") is the
+     * shape of that check that keeps being bypassed — encoded separators,
+     * absolute paths, a bare `.`. Requiring every segment to match a closed
+     * pattern leaves nothing to bypass; the `D` modifier is load-bearing, since
+     * PCRE's default `$` also matches before a trailing newline.
+     *
+     * @return array{0: string, 1: string, 2: string|null}
+     *
+     * @throws \RuntimeException When the reference is malformed or names an unknown kind.
      */
-    private function resolveDataSource(?string $from): array
+    private function parseDataReference(?string $ref): array
     {
-        if ($from === null || $from === '') {
-            /** @var array{0: string, 1: string} */
-            return [(string) $this->currentKind, (string) $this->currentSlug];
+        if ($ref === null) {
+            /** @var array{0: string, 1: string, 2: string|null} */
+            return [(string) $this->currentKind, (string) $this->currentSlug, null];
         }
 
-        $parts = explode('/', $from);
-        if (count($parts) !== 2) {
+        if ($ref === '') {
+            throw new \RuntimeException(
+                'styleguide_data(): empty reference — omit the argument entirely to read the '
+                . "current fixture's own default set",
+            );
+        }
+
+        $parts = explode('/', $ref);
+
+        if (count($parts) === 1) {
+            // No separator — a set name in the currently-rendering directory.
+            /** @var array{0: string, 1: string, 2: string|null} */
+            return [(string) $this->currentKind, (string) $this->currentSlug, $parts[0]];
+        }
+
+        if (count($parts) > 3) {
             throw new \RuntimeException(sprintf(
-                'styleguide_data(): invalid source "%s" — must be "<kind>/<slug>", e.g. "component/header"',
-                $from,
+                'styleguide_data(): invalid reference "%s" — expected "<name>", "<kind>/<slug>" '
+                . 'or "<kind>/<slug>/<name>"',
+                $ref,
             ));
         }
 
         [$kind, $slug] = $parts;
+        $name = $parts[2] ?? null;
 
         if (!in_array($kind, self::DATA_SOURCE_KINDS, true)) {
             throw new \RuntimeException(sprintf(
-                'styleguide_data(): invalid source kind "%s" in "%s" — must be one of %s',
+                'styleguide_data(): invalid kind "%s" in reference "%s" — must be one of %s',
                 $kind,
-                $from,
+                $ref,
                 implode(' / ', self::DATA_SOURCE_KINDS),
             ));
         }
 
-        if (preg_match('/^[a-z0-9-]+$/', $slug) !== 1) {
+        if (preg_match('/^[a-z0-9-]+$/D', $slug) !== 1) {
             throw new \RuntimeException(sprintf(
-                'styleguide_data(): invalid source slug "%s" in "%s" — must match ^[a-z0-9-]+$ '
-                . '(same id rule as data set names and styleguide.<variant>.twig variant ids)',
+                'styleguide_data(): invalid slug "%s" in reference "%s" — must match ^[a-z0-9-]+$ '
+                . '(same id rule as styleguide.<variant>.twig variant ids)',
                 $slug,
-                $from,
+                $ref,
             ));
         }
 
-        return [$kind, $slug];
+        return [$kind, $slug, $name];
     }
 
     /**
@@ -170,29 +197,25 @@ final class Renderer
      *    the two flat-suffix-naming families (variant `.twig` siblings and
      *    named `.yaml` data sets) stay consistent.
      *
-     * Resolution is scoped to the currently-rendering component's own
-     * directory UNLESS `$from` names another one:
+     * The single `$ref` argument is a PATH, and its segment count selects the
+     * shape ({@see parseDataReference()} for the grammar and its validation):
      *
-     *  - `$from` omitted → the current `$currentKind` / `$currentSlug`, i.e.
-     *    the fixture's own sidecar. Unchanged behaviour, and still the
-     *    overwhelmingly common case.
-     *  - `$from` given → `<kind>/<slug>`, e.g. `component/header`. Lets a
-     *    page fixture render a shared chrome component with the component's
-     *    OWN demo data instead of restating it, which is what the alternative
-     *    had become: an `{% include %}`-only data partial that grows without
-     *    bound because nothing else can share a fixture's data (one downstream
-     *    project reached 1147 lines of it).
+     *   styleguide_data()                        own default set
+     *   styleguide_data('gallery')               own named set — unchanged
+     *   styleguide_data('component/header')      another fixture's default set
+     *   styleguide_data('component/header/dark') another fixture's named set
      *
-     * The pairing is deliberate: `$name` says WHICH set, `$from` says WHOSE.
-     * Both default to "mine", so every existing call keeps its meaning and a
-     * cross-component read has to name its source — the dependency is greppable
-     * rather than buried in an include chain.
+     * The cross-fixture shapes exist because a fixture's data used to be
+     * unshareable, which left `{% include %}` as the only tool — and an include
+     * cannot export variables to its caller, so the partial ends up holding
+     * every consumer's data as well as rendering it. One downstream project's
+     * reached 1147 lines that way, while the component owning that data held
+     * none of it.
      *
-     * `$from` is validated as strictly as the templates tree it indexes:
-     * `<kind>` must be one of `component` / `page` / `doc` (the same three
-     * `Router` accepts) and `<slug>` must match the same `^[a-z0-9-]+$` id
-     * rule as `$name`, so no separator, traversal segment or absolute path
-     * can survive into the resolved filesystem path.
+     * One argument rather than two, deliberately. A second parameter would have
+     * to mean "the set" in one call and "the source" in another depending on
+     * what the first one looked like; a path says both at once, in the order a
+     * reader already expects from the directory layout it mirrors.
      *
      * Two resolution steps run over the parsed YAML, in order:
      *  1. {@see resolvePlaceholders()} — recursively replaces every
@@ -242,7 +265,7 @@ final class Renderer
      *
      * @return array<string, mixed>
      */
-    private function resolveStyleguideData(?string $name = null, ?string $from = null): array
+    private function resolveStyleguideData(?string $ref = null): array
     {
         if ($this->templatesPath === null || $this->currentKind === null || $this->currentSlug === null) {
             throw new \RuntimeException(
@@ -251,6 +274,8 @@ final class Renderer
             );
         }
 
+        [$kind, $slug, $name] = $this->parseDataReference($ref);
+
         if ($name === 'default') {
             throw new \InvalidArgumentException(
                 'styleguide_data(): "default" is a reserved data set name — '
@@ -258,7 +283,7 @@ final class Renderer
             );
         }
 
-        if ($name !== null && $name !== '' && preg_match('/^[a-z0-9-]+$/', $name) !== 1) {
+        if ($name !== null && $name !== '' && preg_match('/^[a-z0-9-]+$/D', $name) !== 1) {
             throw new \RuntimeException(sprintf(
                 'styleguide_data(): invalid data set name "%s" — must match ^[a-z0-9-]+$ '
                 . '(same id rule as styleguide.<variant>.twig variant ids)',
@@ -266,9 +291,25 @@ final class Renderer
             ));
         }
 
-        [$kind, $slug] = $this->resolveDataSource($from);
-
         $dir = rtrim($this->templatesPath, '/') . '/' . $kind . '/' . $slug;
+
+        // Belt-and-braces containment. The whitelist above already makes a
+        // traversal segment inexpressible, so this only fires when the path is
+        // pulled out of the tree by something the string cannot describe — a
+        // symlinked component directory pointing outside `templates_path`.
+        // `$from` reaches this method from a project's own Twig template rather
+        // than from a request, so that is a consistency guarantee rather than a
+        // trust boundary; the package nonetheless resolves every other
+        // filesystem read through PathGuard, and an exception here would be a
+        // silent one.
+        if (PathGuard::pathEscapesRoot($this->templatesPath, $kind . '/' . $slug)) {
+            error_log(sprintf('styleguide_data(): source resolves outside templates_path: %s', $dir));
+            throw new \RuntimeException(sprintf(
+                'styleguide_data(): source "%s/%s" resolves outside templates_path',
+                $kind,
+                $slug,
+            ));
+        }
         $filename = ($name === null || $name === '') ? 'styleguide.data.yaml' : sprintf('styleguide.data-%s.yaml', $name);
         $file = $dir . '/' . $filename;
         // Path relative to templates_path — used in the exception messages

@@ -807,19 +807,22 @@ cta:
 component/page/doc is rendering picks up its own sidecar(s), no path/id to
 keep in sync. That covers almost every call.
 
-When a fixture genuinely needs another one's data — typically a page
-rendering shared chrome — name the source explicitly:
+When a fixture genuinely needs another one's data — typically a page rendering
+shared chrome — reference it by path:
 
 ```twig
 {# templates/page/about/styleguide.twig #}
-{{ component_header(styleguide_data(from = 'component/header')) }}
-{{ component_header(styleguide_data('dark', 'component/header')) }}  {# named set there #}
+{{ component_header(styleguide_data('component/header')) }}
+{{ component_header(styleguide_data('component/header/dark')) }}  {# named set there #}
 ```
 
-`name` says WHICH set, `from` says WHOSE; both default to "mine". `from` must
-be `<kind>/<slug>` with `<kind>` one of `component` / `page` / `doc` and
-`<slug>` matching the same `[a-z0-9-]+` id rule — nothing else is accepted,
-so no path can be smuggled through it.
+The argument is a path and its segment count decides the meaning: `<name>` is a
+set in the current directory, `<kind>/<slug>` is another fixture's default set,
+`<kind>/<slug>/<name>` is a named set there. They cannot collide, because `/` is
+illegal inside an id or a set name.
+
+`<kind>` must be `component`, `page` or `doc`, and every segment must match
+`[a-z0-9-]+` — nothing else is accepted, so no path can be smuggled through.
 
 Reach for it only when the data is genuinely shared. Duplicating a couple of
 keys is still cheaper to read than a reference; the `from:` form exists for

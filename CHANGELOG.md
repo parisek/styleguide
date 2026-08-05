@@ -9,23 +9,37 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 ## [Unreleased]
 ### Added
 
-- **`styleguide_data()` can read another component's sidecar** via a new optional
-  second argument: `styleguide_data(from = 'component/header')`, or
-  `styleguide_data('dark', 'component/header')` for a named set there. Both
-  arguments default to the currently rendering fixture, so every existing call
-  keeps its exact meaning and no consumer has to change anything.
+- **`styleguide_data()` can read another fixture's sidecar.** Its argument is now
+  a path whose segment count selects the shape:
+
+  ```twig
+  styleguide_data()                          {# own default set — unchanged #}
+  styleguide_data('gallery')                 {# own named set — unchanged #}
+  styleguide_data('component/header')        {# another fixture's default set #}
+  styleguide_data('component/header/dark')   {# another fixture's named set #}
+  ```
+
+  Because `/` is illegal inside an id or a set name, a one-segment reference is
+  unambiguously a set name in the current directory — every existing call keeps
+  its exact meaning and no consumer has to change anything.
 
   This supersedes the previous "no cross-component lookup" rule. That rule left
   fixtures with only one way to share demo data — an `{% include %}` data
   partial — which cannot export variables to its caller and therefore
   accumulates every consumer's data in one file; a downstream project's had
-  reached 1147 lines. A `from:` reference names its source at the call site,
-  which is a weaker and more visible coupling than an include chain.
+  reached 1147 lines while the component owning that data held none of it.
 
-  `from` is validated as a closed `<kind>/<slug>` shape (`component` / `page` /
-  `doc`, plus the same `^[a-z0-9-]+$` slug rule set names already use), so no
-  separator, traversal segment or absolute path can reach the resolved
-  filesystem path.
+  Validation is whitelist-only (closed kind set, `^[a-z0-9-]+$` per segment with
+  the `D` modifier, plus a `PathGuard` containment check), so no separator,
+  traversal segment, trailing newline or symlink escape reaches the resolved
+  path.
+
+### Changed
+
+- **`styleguide_data()` rejects a `/`-containing argument as an invalid
+  *reference* rather than an invalid *set name*.** The same inputs are still
+  refused with a `RuntimeException`; only the message differs. Anything matching
+  on the old wording in a test needs updating.
 
 ## [1.8.3] - 2026-08-04
 ### Fixed

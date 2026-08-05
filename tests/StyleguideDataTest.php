@@ -76,27 +76,20 @@ final class StyleguideDataTest extends TestCase
      * bypasses `Renderer::render()`'s top-level try/catch so exceptions
      * surface to the test instead of being swallowed into 500 markup.
      *
-     * @param string|null $argName Optional `styleguide_data('<name>')` set
-     *                             name, resolved within `$from`'s directory —
-     *                             or `$kind`/`$slug`'s when `$from` is null.
-     * @param string|null $from    Optional `<kind>/<slug>` source reference.
+     * @param string|null $argRef Optional `styleguide_data('<ref>')` reference —
+     *                             a bare set name, `<kind>/<slug>`, or
+     *                             `<kind>/<slug>/<name>`.
      */
-    private static function callStyleguideData(
-        Renderer $renderer,
-        Environment $twig,
-        string $kind,
-        string $slug,
-        ?string $argName = null,
-        ?string $from = null,
-    ): mixed {
-        $ref = new \ReflectionClass($renderer);
-        $ref->getProperty('currentKind')->setValue($renderer, $kind);
-        $ref->getProperty('currentSlug')->setValue($renderer, $slug);
+    private static function callStyleguideData(Renderer $renderer, Environment $twig, string $kind, string $slug, ?string $argRef = null): mixed
+    {
+        $reflection = new \ReflectionClass($renderer);
+        $reflection->getProperty('currentKind')->setValue($renderer, $kind);
+        $reflection->getProperty('currentSlug')->setValue($renderer, $slug);
 
         $callable = $twig->getFunction('styleguide_data')?->getCallable();
         self::assertIsCallable($callable);
 
-        return $callable($argName, $from);
+        return $argRef === null ? $callable() : $callable($argRef);
     }
 
     #[Test]
@@ -625,6 +618,13 @@ final class StyleguideDataTest extends TestCase
 
     // ─── Review follow-up: traversal-shaped set names rejected ──────────────
 
+    /**
+     * Still rejected, but now as a malformed REFERENCE rather than a malformed
+     * set name: once `/` separates a reference's segments, a value containing
+     * one stopped being a candidate set name at all. The diagnostic changed
+     * with it, and the new one is the more accurate of the two — `a/b` really
+     * is a reference naming a kind that does not exist.
+     */
     #[Test]
     public function rejects_parent_directory_traversal_shaped_set_names(): void
     {
@@ -632,7 +632,7 @@ final class StyleguideDataTest extends TestCase
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('invalid data set name');
+        $this->expectExceptionMessage('invalid kind');
 
         self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', '../x');
     }
@@ -644,7 +644,7 @@ final class StyleguideDataTest extends TestCase
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('invalid data set name');
+        $this->expectExceptionMessage('invalid kind');
 
         self::callStyleguideData($renderer, $twig, 'component', 'data-demo-sets', 'a/b');
     }
@@ -693,50 +693,77 @@ final class StyleguideDataTest extends TestCase
         self::assertArrayHasKey('payload', $data);
         self::assertNull($data['payload']);
     }
-    // ─── Cross-component sources (`from:`) ──────────────────────────────────
+    // ─── Cross-fixture references ──────────────────────────────────────────
+
+    /**
+     * End-to-end through `Renderer::render()`, not the reflection-assisted
+     * direct call: the reference shapes are what README and docs/API.md tell
+     * consumers to write, so they are covered the way a consumer reaches them.
+     */
+    #[Test]
+    public function integration_render_resolves_every_reference_shape(): void
+    {
+        $renderer = $this->newRenderer();
+        $context = ['project' => ['name' => 'TestProject'], 'iframe' => []];
+
+        // `variant` travels in the config array, not as a positional argument
+        // (Renderer::render()'s 5th parameter is the theme).
+        $crossDefault = $renderer->render('page', 'data-consumer', $context, 'en');
+        $crossNamed = $renderer->render('page', 'data-consumer', $context + ['variant' => 'named-elsewhere'], 'en');
+        $own = $renderer->render('page', 'data-consumer', $context + ['variant' => 'own-wins'], 'en');
+
+        self::assertSame('Demo Title', self::extractSgData($crossDefault)['title']);
+        self::assertSame('Gallery Set', self::extractSgData($crossNamed)['title']);
+        self::assertSame("Page's own data", self::extractSgData($own)['title']);
+    }
 
     #[Test]
-    public function reads_another_components_default_set_when_from_is_given(): void
+    public function reads_another_fixtures_default_set(): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'component/data-demo');
+        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'component/data-demo');
 
         self::assertIsArray($data);
         self::assertSame('Demo Title', $data['title']);
     }
 
     #[Test]
-    public function reads_another_components_named_set_when_both_arguments_are_given(): void
+    public function reads_another_fixtures_named_set_from_a_three_segment_reference(): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'gallery', 'component/data-demo');
+        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'component/data-demo/gallery');
 
         self::assertIsArray($data);
-        self::assertNotSame('Demo Title', $data['title'] ?? null);
+        self::assertSame('Gallery Set', $data['title']);
     }
 
     /**
-     * The whole point of defaulting `$from` to null: adding the argument must
-     * not change what a call without it resolves to.
+     * The compatibility guarantee: a one-segment reference is still a set name
+     * in the CURRENT directory, and no reference at all is still the current
+     * default set. Adding the cross-fixture shapes must not touch either.
      */
     #[Test]
-    public function still_reads_its_own_sidecar_when_from_is_omitted(): void
+    public function a_reference_without_a_separator_still_means_the_current_directory(): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
-        $data = self::callStyleguideData($renderer, $twig, 'page', 'data-consumer');
-
-        self::assertIsArray($data);
-        self::assertSame("Page's own data", $data['title']);
+        self::assertSame(
+            "Page's own data",
+            self::callStyleguideData($renderer, $twig, 'page', 'data-consumer')['title'],
+        );
+        self::assertSame(
+            'Gallery Set',
+            self::callStyleguideData($renderer, $twig, 'component', 'data-demo', 'gallery')['title'],
+        );
     }
 
     #[Test]
-    public function reports_the_source_directory_not_the_rendering_one_when_a_cross_component_file_is_missing(): void
+    public function reports_the_referenced_directory_not_the_rendering_one_when_a_file_is_missing(): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
@@ -744,66 +771,81 @@ final class StyleguideDataTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('component/data-demo-missing/styleguide.data.yaml');
 
-        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'component/data-demo-missing');
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'component/data-demo-missing');
     }
 
     #[Test]
-    public function rejects_a_source_that_is_not_kind_slash_slug(): void
+    public function rejects_an_unknown_kind(): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('invalid source');
+        $this->expectExceptionMessage('invalid kind');
 
-        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'data-demo');
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'partial/data-demo');
     }
 
     #[Test]
-    public function rejects_an_unknown_source_kind(): void
+    public function rejects_a_reference_with_too_many_segments(): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('invalid source kind');
+        $this->expectExceptionMessage('invalid reference');
 
-        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, 'partial/data-demo');
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', 'component/data-demo/gallery/extra');
+    }
+
+    #[Test]
+    public function rejects_an_empty_reference(): void
+    {
+        $twig = $this->newTwig();
+        $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('empty reference');
+
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', '');
     }
 
     /**
-     * `$from` lands in a filesystem path, so the traversal shapes already
-     * covered for set names get the same treatment here.
+     * A reference lands in a filesystem path, so it gets the same traversal
+     * treatment set names already had.
      *
-     * @param string $from
+     * The trailing-newline case is why both id patterns carry the `D`
+     * modifier: PCRE's default `$` also matches before a final newline, so
+     * `component/data-demo\n` would otherwise pass validation and contradict
+     * the documented "nothing else is expressible" guarantee.
      */
     #[Test]
-    #[\PHPUnit\Framework\Attributes\DataProvider('traversalShapedSources')]
-    public function rejects_traversal_shaped_sources(string $from): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('traversalShapedReferences')]
+    public function rejects_traversal_shaped_references(string $ref): void
     {
         $twig = $this->newTwig();
         $renderer = new Renderer($twig, [], self::TEMPLATES_PATH);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('invalid source');
 
-        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', null, $from);
+        self::callStyleguideData($renderer, $twig, 'page', 'data-consumer', $ref);
     }
 
     /**
      * @return array<string, array{0: string}>
      */
-    public static function traversalShapedSources(): array
+    public static function traversalShapedReferences(): array
     {
         return [
-            'parent segment as slug'   => ['component/..'],
-            'nested traversal'         => ['component/../../etc'],
-            'absolute path'            => ['/etc/passwd'],
-            'url-encoded traversal'    => ['component/%2e%2e'],
-            'extra segment'            => ['component/data-demo/nested'],
-            'empty slug'               => ['component/'],
-            'empty kind'               => ['/data-demo'],
-            'backslash separator'      => ['component\\data-demo'],
+            'parent segment as slug' => ['component/..'],
+            'nested traversal'       => ['component/../../etc'],
+            'absolute path'          => ['/etc/passwd'],
+            'url-encoded traversal'  => ['component/%2e%2e'],
+            'empty slug'             => ['component/'],
+            'empty kind'             => ['/data-demo'],
+            'backslash separator'    => ['component\\data-demo'],
+            'trailing newline'       => ["component/data-demo\n"],
+            'uppercase slug'         => ['component/Data-Demo'],
         ];
     }
 
