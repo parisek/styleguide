@@ -71,3 +71,4 @@ referenced here rather than duplicated.
 
 - [ADR-0001](0001-record-architecture-decisions.md) — Record architecture decisions
 - [ADR-0002](0002-canonical-fields-shape-open-contract.md) — Canonical fields shape with open verbatim pass-through contract
+- [ADR-0003](0003-cross-fixture-sidecar-references.md) — Let a fixture reference another fixture's sidecar by path
