@@ -44,7 +44,7 @@ Optional keys (with their defaults):
 
 | Key | Default | Description |
 |---|---|---|
-| `default_locale` | `'en'` | Two-letter locale code; drives `<html lang>`, locale fallback for `_x()` shim, and the bundled `TypographyExtension`'s per-language locale resolver (>= `parisek/twig-typography` 1.3) |
+| `default_locale` | `'en'` | Two-letter locale code; drives `<html lang>`, the `langcode` value in every render's Twig context (`twig_context`; a project's own translator may key off it — the bundled `_x()` etc. are identity stubs and don't), and the bundled `TypographyExtension`'s per-language locale resolver (>= `parisek/twig-typography` 1.3) |
 | `base_url` | `'/styleguide'` | URL prefix the package serves under (must match the web server rewrite) |
 | `twig_context` | `[]` | Map of variables added to every Twig render — typically `homeUrl`, `templateUrl`, `langcode` |
 | `twig` | `null` | Pre-built `Twig\Environment` to reuse. When null, the package builds a pristine env (autoescape: false, cache: false, debug: true) |

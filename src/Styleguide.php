@@ -323,10 +323,13 @@ final class Styleguide
         // typeset against, invoked fresh on every `|typography` call.
         // `default_locale` is already this package's single source of truth
         // for "what locale is this render in" — it drives `<html lang>`
-        // (dispatchSpa()) and the `_x()` langcode fallback (dispatchRender())
-        // the same way. Reusing it here keeps that one config key meaning one
-        // thing consistently instead of adding a second key a project would
-        // have to keep in sync with the first. A styleguide request only ever
+        // (dispatchSpa()) and the `langcode` context value handed to every
+        // component/page render (dispatchRender()), which a project's own
+        // translator (WP `_x()` etc., wired ahead of the identity stubs
+        // below) is free to read. Reusing it here keeps that one config key
+        // meaning one thing consistently instead of adding a second key a
+        // project would have to keep in sync with the first. A styleguide
+        // request only ever
         // renders one locale — there is no per-request language switch; the
         // SPA's locale switcher changes only the chrome UI language, never
         // `default_locale` — so a resolver reading `$this->config` fresh on

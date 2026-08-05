@@ -15,8 +15,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `|typography` applies the resolved language's quote/dash/spacing conventions
   (via `parisek/twig-typography` >= 1.3's per-language layer) instead of only
   the house policy. No config changes needed — `default_locale` already drove
-  `<html lang>` and the `_x()` langcode fallback, and now does the same job
-  for typography. Bumped the `parisek/twig-typography` floor to `^1.3` — the
+  `<html lang>` and the `langcode` value handed into every render's Twig
+  context, and now does the same job for typography. Bumped the
+  `parisek/twig-typography` floor to `^1.3` — the
   first version whose constructor accepts a resolver; older 1.x versions
   silently ignore the extra constructor argument (PHP allows excess
   arguments to user-defined constructors) rather than erroring, so without
