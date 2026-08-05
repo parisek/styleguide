@@ -12,12 +12,14 @@
 // — only consulted when there's no canonical preset height (Full, or a
 // fixed-width preset/Custom-width with no canonical height).
 import { fitZoom } from './viewportMath.js';
+import { resolveContentHeight } from './previewHeight.js';
+
 
 // Full preset: fluid tile, no scaling, height is whatever the iframe's own
 // content measures (or the caller's pre-measure floor before the first
 // load/ResizeObserver tick).
-export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawContentHeight, minHeight }) {
-    const contentHeight = rawContentHeight ?? minHeight ?? 0;
+export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawContentHeight, minHeight, scrolls = false }) {
+    const contentHeight = resolveContentHeight({ rawContentHeight, minHeight, scrolls });
     if (presetWidth === null) {
         return {
             fluid: true, zoom: 1,

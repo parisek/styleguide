@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
+import { resolveContentHeight, entryScrolls } from '../lib/previewHeight.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
@@ -100,7 +101,14 @@ const wrapperStyle = computed(() => {
     const { width: w, height: h } = viewport.effective.value;
     if (w === null) return 'width: 100%; height: 100%';
     const z = viewport.zoom.value;
-    const sourceH = h ?? iframeContentHeight.value ?? 400;
+    // Same rule as VariantGrid's tiles: a `render: chrome` entry's content
+    // height is a function of its viewport height, so feeding the measurement
+    // back here never converges (#116 — this path reproduced the runaway at
+    // 820 x 33,554,400 px in Custom-width mode after the grid was fixed).
+    const sourceH = h ?? resolveContentHeight({
+        rawContentHeight: iframeContentHeight.value, minHeight: 400,
+        scrolls: entryScrolls(viewport.currentItem.value),
+    });
     const scaledW = Math.max(1, Math.round(w * z));
     const scaledH = Math.max(1, Math.round(sourceH * z));
     return `width: ${scaledW}px; height: ${scaledH}px`;
@@ -113,7 +121,10 @@ const wrapperStyle = computed(() => {
 const iframeStyle = computed(() => {
     const { width: w } = viewport.effective.value;
     if (w === null) return 'width: 100%; height: 100%';
-    const h = viewport.effective.value.height ?? iframeContentHeight.value ?? 400;
+    const h = viewport.effective.value.height ?? resolveContentHeight({
+        rawContentHeight: iframeContentHeight.value, minHeight: 400,
+        scrolls: entryScrolls(viewport.currentItem.value),
+    });
     const z = viewport.zoom.value;
     return `width: ${w}px; height: ${h}px; transform: scale(${z}); transform-origin: 0 0`;
 });

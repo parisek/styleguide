@@ -8,6 +8,36 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A `render: chrome` component could grow its preview until the browser died.**
+  Such a component declares `body { min-height: 200vh }` so sticky/fixed chrome
+  has scroll-room, while both preview surfaces sized their iframe from the
+  measured content height. That defines the two heights in terms of each other,
+  and the loop ran until the element hit the browser's 2^25px clamp:
+
+  ```
+  variant grid:   620 x 33,554,400 px per tile   (83,215 megapixels over four tiles)
+  single preview: 820 x 33,554,400 px            (Custom-width mode)
+  ```
+
+  The renderer process died — downstream this was reported simply as "the browser
+  crashes on this page". Only the paths with no canonical preset height were
+  affected (Full, and fixed-width/Custom-width presets); a preset carrying its own
+  height never consulted the measurement and never diverged.
+
+  Both surfaces now pin such an entry to a fixed viewport height and let the
+  iframe scroll internally, which breaks the cycle at its source rather than
+  damping it. `min-height: 200vh` is unchanged: once the viewport is fixed, `vh`
+  is well-defined, so the scroll-room stays — and the variants now demo more
+  honestly than before the bug existed, since previously nothing scrolled inside
+  a tile at all.
+
+  Also added a defensive ceiling on any measured content height. It is not what
+  fixes the loop; it means a future feedback path degrades into a conspicuously
+  tall pane someone reports rather than a dead tab. Exceeding it truncates
+  nothing — the iframe keeps its whole document and scrolls.
+
 ## [1.10.0] - 2026-08-05
 
 ### Changed

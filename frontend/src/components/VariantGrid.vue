@@ -25,6 +25,7 @@ import { inject, computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
+import { entryScrolls } from '../lib/previewHeight.js';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
@@ -175,6 +176,10 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
         cellWidth: cellWidths[key] ?? 0,
         rawContentHeight: heights[key] ?? null,
         minHeight: PRE_MEASURE_MIN_HEIGHT,
+        // `render: chrome` components declare `min-height: 200vh` for
+        // scroll-room, so their content height is a function of their viewport
+        // height — auto-sizing the tile to it never converges (#116).
+        scrolls: entryScrolls(viewport.currentItem.value),
     });
     return {
         ...tile,
