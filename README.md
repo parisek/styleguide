@@ -803,14 +803,32 @@ cta:
 {{ component_hero(styleguide_data()) }}
 ```
 
-**Resolution is always scoped to the CURRENT fixture's own directory** —
-whichever component/page/doc is rendering picks up its own sidecar(s), no
-path/id to keep in sync. There is deliberately **no cross-component lookup**:
-`styleguide_data('<name>')` only ever reads `<name>` within the SAME
-directory that's currently rendering. A page wanting to reuse another
-component's demo data duplicates it (or reaches for the `{% extends %}`
-escape hatch below) rather than pointing `styleguide_data()` at a different
-component.
+**Resolution defaults to the CURRENT fixture's own directory** — whichever
+component/page/doc is rendering picks up its own sidecar(s), no path/id to
+keep in sync. That covers almost every call.
+
+When a fixture genuinely needs another one's data — typically a page rendering
+shared chrome — reference it by path:
+
+```twig
+{# templates/page/about/styleguide.twig #}
+{{ component_header(styleguide_data('component/header')) }}
+{{ component_header(styleguide_data('component/header/dark')) }}  {# named set there #}
+```
+
+The argument is a path and its segment count decides the meaning: `<name>` is a
+set in the current directory, `<kind>/<slug>` is another fixture's default set,
+`<kind>/<slug>/<name>` is a named set there. They cannot collide, because `/` is
+illegal inside an id or a set name.
+
+`<kind>` must be `component`, `page` or `doc`, and every segment must match
+`[a-z0-9-]+` — nothing else is accepted, so no path can be smuggled through.
+
+Reach for it only when the data is genuinely shared. Duplicating a couple of
+keys is still cheaper to read than a reference; the cross-fixture form exists
+for the case where the alternative is a data partial that accumulates every
+consumer's fixture data in one file (see the escape hatch below for why an
+`{% include %}` cannot share data any other way).
 
 > **Why flat suffix naming instead of a `data/` subdirectory?** A nested
 > `data/<name>.yaml` layout was considered and deliberately deferred: the
@@ -823,7 +841,9 @@ component.
 
 **Missing set → loud failure that lists what IS there.** A `styleguide_data()`
 / `styleguide_data('<name>')` call with no matching file on disk throws a
-`RuntimeException` naming the expected absolute path AND enumerating every
+`RuntimeException` naming the expected path — relative to `templates_path`, so
+an absolute filesystem path never reaches rendered 500-page markup; the absolute
+one goes to `error_log()` — AND enumerating every
 `styleguide.data*.yaml` set actually present in that directory — e.g.
 `sidecar file not found: …/styleguide.data-gallry.yaml (available data sets
 in this directory: default, gallery, hero)`. Fixtures are dev-time only, so
