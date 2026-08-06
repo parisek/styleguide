@@ -541,13 +541,30 @@ final class Styleguide
                 // "last list contributes its fallback" semantics below
                 // refer to the last *real* list, not the last positional
                 // arg.
-                $items = array_values(array_filter($items, 'is_array'));
+                // Keep each surviving list's ORIGINAL 1-based call position
+                // alongside it. The diagnostic below names an argument, and
+                // a number counted after re-indexing points at the wrong
+                // one the moment any earlier argument was null:
+                // `merge_resizer($a, null, $bad, $fallback)` would report
+                // `$bad` as #2 when the author wrote it third.
+                $positions = [];
+                $lists = [];
+                $position = 0;
+                foreach ($items as $item) {
+                    $position++;
+                    if (is_array($item)) {
+                        $positions[] = $position;
+                        $lists[] = $item;
+                    }
+                }
+                $items = $lists;
                 // Cache the last index once — `array_key_last()` is
                 // O(1) on an array but evaluating it inside the nested
                 // loop is wasted work on every image.
                 $lastKey = array_key_last($items);
                 $images = [];
                 foreach ($items as $key => $item) {
+                    $kept = 0;
                     foreach ($item as $image) {
                         // All but the last list contribute only their
                         // media-queried entries (variants with `media`).
@@ -556,10 +573,56 @@ final class Styleguide
                         if ($key !== $lastKey) {
                             if (isset($image['media'])) {
                                 $images[] = $image;
+                                $kept++;
                             }
                         } else {
                             $images[] = $image;
+                            $kept++;
                         }
+                    }
+                    // A non-final argument that arrived non-empty and
+                    // contributed NOTHING is always an authoring mistake,
+                    // never a legitimate state — and it fails silently: the
+                    // whole viewport layer disappears and the remaining one
+                    // stretches across every breakpoint. The symptom reads
+                    // as a CSS bug (wrong image at wrong width), so the
+                    // hunt starts nowhere near the template that caused it.
+                    //
+                    // Deliberately NOT reported: a partially-consumed
+                    // argument (some entries have `media`, some don't).
+                    // Dropping a non-final argument's fallback-shaped
+                    // entries is the documented contract, not a mistake —
+                    // warning there would flag correct templates.
+                    //
+                    // The message names symptom and rule, not a single
+                    // cause, because there are several ways to reach here
+                    // and the most tempting one-line remedy is wrong for
+                    // some of them. A single-tuple argument is the common
+                    // case (the last tuple of a `|resizer` call is the
+                    // unconditional fallback, so it never gets a `media`).
+                    // But two tuples are not sufficient either — the
+                    // non-final one also needs a non-empty numeric
+                    // breakpoint. And a pass-through case such as an
+                    // animated GIF (which `{@see self::resizerFilter()}`
+                    // returns untouched, by design) yields one medialess
+                    // entry no matter how many tuples were requested; that
+                    // argument cannot serve a non-final position at all.
+                    //
+                    // `error_log()` rather than a throw: a styleguide that
+                    // dies on a fixture typo is worse than one that renders
+                    // and complains, and this mirrors how the
+                    // `component_*` / `page_*` misses already report.
+                    if ($kept === 0 && $item !== [] && $key !== $lastKey) {
+                        error_log(sprintf(
+                            'merge_resizer(): argument #%d contributed no variants and was dropped — '
+                            . 'all %d of its entries lack a `media` key, and non-final arguments keep '
+                            . 'only media-queried ones. Give it at least one NON-LAST tuple with a '
+                            . 'non-empty numeric maxWidth (the last tuple of a `|resizer` call is always '
+                            . 'the medialess fallback). Sources that pass through `|resizer` untouched, '
+                            . 'such as animated GIFs, can only be used in the final position.',
+                            $positions[$key],
+                            count($item),
+                        ));
                     }
                 }
                 return $images;

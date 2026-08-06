@@ -133,6 +133,141 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function merge_resizer_warns_when_a_non_final_argument_contributes_nothing(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // A single-tuple `|resizer` call yields one medialess entry, which a
+        // non-final position filters out entirely — the silent-annihilation
+        // case. Shaped here by hand so the test does not depend on
+        // resizerFilter's tuple maths.
+        $tpl = $twig->createTemplate(
+            '{% set out = merge_resizer('
+            . '[{src: "desktop.avif"}], '
+            . '[{src: "mobile.avif"}]'
+            . ') %}{{ out|length }}|{{ out[0].src }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            // The behaviour itself is unchanged — still one entry, still the
+            // last argument's. Only the diagnostic is new.
+            self::assertSame('1|mobile.avif', $tpl->render());
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertStringContainsString('argument #1 contributed no variants', $contents);
+        self::assertStringContainsString('non-empty numeric maxWidth', $contents);
+    }
+
+    #[Test]
+    public function merge_resizer_warning_names_the_original_call_position(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // The offending list is the THIRD thing the author typed. Arguments
+        // are re-indexed by the null-dropping filter before the diagnostic
+        // runs, so a position counted after that filter would say "#2" and
+        // send the reader to the wrong argument.
+        $tpl = $twig->createTemplate(
+            '{{ merge_resizer('
+            . '[{src: "xl.avif", media: "(min-width: 1440px)"}], '
+            . 'null, '
+            . '[{src: "desktop.avif"}], '
+            . '[{src: "mobile.avif"}]'
+            . ')|length }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            $tpl->render();
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertStringContainsString('argument #3 contributed no variants', $contents);
+    }
+
+    #[Test]
+    public function merge_resizer_stays_quiet_when_a_non_final_argument_is_partially_consumed(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // A non-final argument carrying both a media-queried variant and a
+        // medialess fallback loses the fallback — that is the documented
+        // contract, not an authoring mistake. Warning here would flag
+        // correctly-written templates, which is worse than staying silent.
+        $tpl = $twig->createTemplate(
+            '{{ merge_resizer('
+            . '[{src: "d.avif", media: "(min-width: 992px)"}, {src: "d-fallback.avif"}], '
+            . '[{src: "m.avif"}]'
+            . ')|length }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            // Two entries: the desktop media variant plus the mobile
+            // fallback. The desktop fallback is dropped, silently.
+            self::assertSame('2', $tpl->render());
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertSame('', $contents);
+    }
+
+    #[Test]
+    public function merge_resizer_stays_quiet_on_legitimate_shapes(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // Three quiet cases in one render: a well-formed two-argument call, a
+        // dropped null argument, and an empty-array argument (a component
+        // whose optional image simply has no variants). None is an error.
+        $tpl = $twig->createTemplate(
+            '{{ merge_resizer('
+            . '[{src: "a.avif", media: "(min-width: 1024px)"}], '
+            . 'null, [], '
+            . '[{src: "b.avif"}]'
+            . ')|length }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            self::assertSame('2', $tpl->render());
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertSame('', $contents);
+    }
+
+    #[Test]
     public function custom_price_format_emits_czk_and_eur_shapes(): void
     {
         $twig = self::twigOf(self::newStyleguide());

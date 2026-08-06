@@ -8,6 +8,47 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **`merge_resizer()` now reports the argument it silently annihilates.** A
+  non-final argument keeps only its media-queried variants, and the last tuple
+  of a `|resizer` call never gets a `media` (it is the unconditional `<img>`
+  fallback). Both rules are correct alone; together they mean a **single-tuple**
+  non-final argument contributes nothing and is dropped whole:
+
+  ```twig
+  merge_resizer(
+    content.image|resizer(['900', '', '', 'center']),        {# dropped entirely #}
+    content.image_mobile|resizer(['1439', '', '', 'center']),
+  )
+  ```
+
+  Nothing threw, nothing logged — the desktop layer just disappeared and the
+  mobile image served every breakpoint up to 1920px wide. Downstream this reads
+  as a CSS sizing bug, so the search starts nowhere near the template at fault.
+  Such an argument is now reported via `error_log()` by position, with the fix
+  (give it at least two tuples, maxWidth on the non-final ones).
+
+  The returned candidate list is **unchanged** — this adds a diagnostic only
+  (`error_log()` is itself a new side effect during rendering; the markup is not).
+  Legitimate quiet cases stay quiet: `null` arguments, empty-array arguments,
+  well-formed multi-tuple calls, and a non-final argument that keeps its
+  media-queried variants while losing its fallback — that last one is the
+  function's documented contract, not a mistake.
+
+  The argument is named by its position in the **original** call. Arguments are
+  re-indexed by the null-dropping filter before the check runs, so a naive count
+  would report `merge_resizer($a, null, $bad, $fallback)`'s third argument as the
+  second.
+
+### Documentation
+
+- `docs/API.md` described `merge_resizer` as `merge_resizer(image, mode, …tuples)`
+  and typed it a *filter*. It is a variadic *function* taking one `|resizer`
+  output per viewport layer, and it has no `mode` parameter. Corrected, and given
+  its own § contract section covering the positional asymmetry, the
+  at-least-two-tuples rule, and worked ❌/✅ calls.
+
 ## [1.10.1] - 2026-08-05
 
 ### Fixed
