@@ -548,6 +548,7 @@ final class Styleguide
                 $lastKey = array_key_last($items);
                 $images = [];
                 foreach ($items as $key => $item) {
+                    $kept = 0;
                     foreach ($item as $image) {
                         // All but the last list contribute only their
                         // media-queried entries (variants with `media`).
@@ -556,10 +557,44 @@ final class Styleguide
                         if ($key !== $lastKey) {
                             if (isset($image['media'])) {
                                 $images[] = $image;
+                                $kept++;
                             }
                         } else {
                             $images[] = $image;
+                            $kept++;
                         }
+                    }
+                    // A non-final argument that arrived non-empty and
+                    // contributed NOTHING is always an authoring mistake,
+                    // never a legitimate state — and it fails silently: the
+                    // whole viewport layer disappears and the remaining one
+                    // stretches across every breakpoint. The symptom reads
+                    // as a CSS bug (wrong image at wrong width), so the
+                    // hunt starts nowhere near the template that caused it.
+                    //
+                    // The usual cause is a single-tuple argument. Only the
+                    // LAST tuple of a `|resizer` call is the unconditional
+                    // fallback, so `{@see self::resizerFilter()}` never
+                    // assigns it a `media` — which means a one-tuple call
+                    // produces exactly one medialess entry, and every
+                    // medialess entry is filtered out here. The two rules
+                    // are each correct alone and annihilate the argument
+                    // together.
+                    //
+                    // `error_log()` rather than a throw: a styleguide that
+                    // dies on a fixture typo is worse than one that renders
+                    // and complains, and this mirrors how the
+                    // `component_*` / `page_*` misses already report.
+                    if ($kept === 0 && $item !== [] && $key !== $lastKey) {
+                        error_log(sprintf(
+                            'merge_resizer(): argument #%d contributed no variants and was dropped — '
+                            . 'all %d of its entries lack a `media` key. Non-final arguments keep only '
+                            . 'media-queried variants, and the last tuple of a `|resizer` call never '
+                            . 'gets one. Give this argument at least two tuples, with a maxWidth set on '
+                            . 'the non-final ones.',
+                            $key + 1,
+                            count($item),
+                        ));
                     }
                 }
                 return $images;

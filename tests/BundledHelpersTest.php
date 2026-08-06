@@ -133,6 +133,73 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function merge_resizer_warns_when_a_non_final_argument_contributes_nothing(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // A single-tuple `|resizer` call yields one medialess entry, which a
+        // non-final position filters out entirely — the silent-annihilation
+        // case. Shaped here by hand so the test does not depend on
+        // resizerFilter's tuple maths.
+        $tpl = $twig->createTemplate(
+            '{% set out = merge_resizer('
+            . '[{src: "desktop.avif"}], '
+            . '[{src: "mobile.avif"}]'
+            . ') %}{{ out|length }}|{{ out[0].src }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            // The behaviour itself is unchanged — still one entry, still the
+            // last argument's. Only the diagnostic is new.
+            self::assertSame('1|mobile.avif', $tpl->render());
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertStringContainsString('argument #1 contributed no variants', $contents);
+        self::assertStringContainsString('at least two tuples', $contents);
+    }
+
+    #[Test]
+    public function merge_resizer_stays_quiet_on_legitimate_shapes(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // Three quiet cases in one render: a well-formed two-argument call, a
+        // dropped null argument, and an empty-array argument (a component
+        // whose optional image simply has no variants). None is an error.
+        $tpl = $twig->createTemplate(
+            '{{ merge_resizer('
+            . '[{src: "a.avif", media: "(min-width: 1024px)"}], '
+            . 'null, [], '
+            . '[{src: "b.avif"}]'
+            . ')|length }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            self::assertSame('2', $tpl->render());
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertSame('', $contents);
+    }
+
+    #[Test]
     public function custom_price_format_emits_czk_and_eur_shapes(): void
     {
         $twig = self::twigOf(self::newStyleguide());

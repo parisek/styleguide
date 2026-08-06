@@ -204,7 +204,7 @@ The package registers these on its pristine Twig env (or layers them on top of a
 | `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig` |
 | `placeholder(opts)` | function | Generate a placeholder image URL — see README § Fixtures & sample data for the main option table (`subject`, `mood`, `seed`, `width`, `height`, `aspect`, `label`) and migration examples away from `picsum.photos`-style URLs. Three finishing options exist beyond that table: `grain` (bool, default `true` — film-grain overlay), `vignette` (bool, default `true` — edge darkening), `alt` (string, default `"<subject> placeholder"`). |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
-| `merge_resizer(image, mode, …tuples)` | filter | Null-safe `resizer` for optionally-empty images |
+| `merge_resizer(…lists)` | function | Combines several `\|resizer` outputs into one `<picture>` candidate list, one argument per viewport layer (widest first). Null / non-array arguments are dropped, so an optional per-viewport image needs no `{% if %}`. **Non-final arguments contribute only their media-queried variants** — see § `merge_resizer()` below |
 | `cachebust(url)` | filter | Appends `?v=<filemtime>` (or `&v=…` if the URL already has a query string) to a root-relative URL that resolves to a real file, walking up from `static_path` to find it. Non-string, empty, non-root-relative, or unresolvable URLs pass through unchanged. Used internally on `iframe.css` / `iframe.js` / `iframe.fonts[]`, also callable from any component template |
 | `format_date(timestamp, type, format)` | filter | Locale-light date formatter. Default output is `j. n. Y` (Czech short date); pass `type: 'custom'` with a `format` for any PHP `date()` pattern. Accepts an int timestamp or a string `strtotime()` can parse; unparseable strings are returned unchanged |
 | `custom_price_format(value)` | filter | Formats a `{ number, currency_code }` map into the project's canonical price string (`CZK` → `1 234 Kč`, `EUR` → `€ 1 234,56`); any other currency code returns the raw `number` unchanged |
@@ -216,6 +216,50 @@ The package registers these on its pristine Twig env (or layers them on top of a
 | `dump(...)` | function | `symfony/var-dumper` style debug output |
 | `uniqueId()` | function | Per-render unique DOM id |
 | `styleguide_data(ref = null)` | function | Parses and returns a `styleguide.data.yaml` / `styleguide.data-<name>.yaml` sidecar as a nested PHP array. `ref` is a path whose segment count selects the shape: none → own default set, `<name>` → own named set, `<kind>/<slug>` → another fixture's default set, `<kind>/<slug>/<name>` → another fixture's named set. See § `styleguide_data()` below. |
+
+### `merge_resizer()` — full contract
+
+One argument per viewport layer, widest first, each one the output of its own
+`|resizer` call. The result is a single candidate list that `component_picture`
+consumes exactly like a plain `|resizer` output.
+
+Arguments are treated **asymmetrically by position**:
+
+| Position | Surviving entries |
+|---|---|
+| Non-final | Only entries carrying a `media` key |
+| Final | Every entry — this is the only layer that can supply the unconditional `<img>` fallback |
+
+`null` and non-array arguments are dropped before that split, so an optional
+per-viewport image needs no `{% if %}`: the remaining layer simply becomes the
+last one and keeps its own fallback.
+
+**A non-final argument needs at least two tuples.** Only the *last* tuple of a
+`|resizer` call becomes the unconditional fallback, so it never receives a
+`media` — which means a single-tuple call produces exactly one medialess entry,
+and a non-final position filters every medialess entry out. Both rules are
+correct alone; together they annihilate the argument:
+
+```twig
+{# ❌ the desktop layer is silently dropped — one tuple, so no `media` ever #}
+merge_resizer(
+  content.image|resizer(['900', '', '', 'center']),
+  content.image_mobile|resizer(['1439', '', '', 'center']),
+)
+
+{# ✅ the non-final layer carries a maxWidth on its non-final tuple #}
+merge_resizer(
+  content.image|resizer(['900', '', '992', 'center'], ['1500', '2000', '', 'crop']),
+  content.image_mobile|resizer(['1439', '', '', 'center']),
+)
+```
+
+The failure is silent and its symptom is misleading — the whole layer vanishes
+and the surviving one stretches across every breakpoint, which reads as a CSS
+sizing bug far from the template that caused it. Since 1.10.2 this case is
+reported via `error_log()`, naming the argument position: *"argument #N
+contributed no variants and was dropped"*. Rendering is unchanged; only the
+diagnostic is new.
 
 ### `styleguide_data()` — full contract
 
