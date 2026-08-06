@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.10.2] - 2026-08-06
+
 ### Fixed
 
 - **`merge_resizer()` now reports the argument it silently annihilates.** A
