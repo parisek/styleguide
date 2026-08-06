@@ -164,7 +164,75 @@ final class BundledHelpersTest extends TestCase
         }
 
         self::assertStringContainsString('argument #1 contributed no variants', $contents);
-        self::assertStringContainsString('at least two tuples', $contents);
+        self::assertStringContainsString('non-empty numeric maxWidth', $contents);
+    }
+
+    #[Test]
+    public function merge_resizer_warning_names_the_original_call_position(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // The offending list is the THIRD thing the author typed. Arguments
+        // are re-indexed by the null-dropping filter before the diagnostic
+        // runs, so a position counted after that filter would say "#2" and
+        // send the reader to the wrong argument.
+        $tpl = $twig->createTemplate(
+            '{{ merge_resizer('
+            . '[{src: "xl.avif", media: "(min-width: 1440px)"}], '
+            . 'null, '
+            . '[{src: "desktop.avif"}], '
+            . '[{src: "mobile.avif"}]'
+            . ')|length }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            $tpl->render();
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertStringContainsString('argument #3 contributed no variants', $contents);
+    }
+
+    #[Test]
+    public function merge_resizer_stays_quiet_when_a_non_final_argument_is_partially_consumed(): void
+    {
+        $twig = self::twigOf(self::newStyleguide());
+        // A non-final argument carrying both a media-queried variant and a
+        // medialess fallback loses the fallback — that is the documented
+        // contract, not an authoring mistake. Warning here would flag
+        // correctly-written templates, which is worse than staying silent.
+        $tpl = $twig->createTemplate(
+            '{{ merge_resizer('
+            . '[{src: "d.avif", media: "(min-width: 992px)"}, {src: "d-fallback.avif"}], '
+            . '[{src: "m.avif"}]'
+            . ')|length }}',
+        );
+
+        $log = tempnam(sys_get_temp_dir(), 'sg-merge-resizer-');
+        self::assertIsString($log);
+        $previous = ini_set('error_log', $log);
+
+        try {
+            // Two entries: the desktop media variant plus the mobile
+            // fallback. The desktop fallback is dropped, silently.
+            self::assertSame('2', $tpl->render());
+            $contents = (string) file_get_contents($log);
+        } finally {
+            if ($previous !== false) {
+                ini_set('error_log', $previous);
+            }
+            @unlink($log);
+        }
+
+        self::assertSame('', $contents);
     }
 
     #[Test]

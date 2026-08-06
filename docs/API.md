@@ -234,11 +234,12 @@ Arguments are treated **asymmetrically by position**:
 per-viewport image needs no `{% if %}`: the remaining layer simply becomes the
 last one and keeps its own fallback.
 
-**A non-final argument needs at least two tuples.** Only the *last* tuple of a
-`|resizer` call becomes the unconditional fallback, so it never receives a
-`media` — which means a single-tuple call produces exactly one medialess entry,
-and a non-final position filters every medialess entry out. Both rules are
-correct alone; together they annihilate the argument:
+**A non-final argument needs at least one non-last tuple carrying a non-empty
+numeric maxWidth.** Only the *last* tuple of a `|resizer` call becomes the
+unconditional fallback, so it never receives a `media` — which means a
+single-tuple call produces exactly one medialess entry, and a non-final position
+filters every medialess entry out. Both rules are correct alone; together they
+annihilate the argument:
 
 ```twig
 {# ❌ the desktop layer is silently dropped — one tuple, so no `media` ever #}
@@ -254,11 +255,25 @@ merge_resizer(
 )
 ```
 
-The failure is silent and its symptom is misleading — the whole layer vanishes
-and the surviving one stretches across every breakpoint, which reads as a CSS
-sizing bug far from the template that caused it. Since 1.10.2 this case is
-reported via `error_log()`, naming the argument position: *"argument #N
-contributed no variants and was dropped"*. Rendering is unchanged; only the
+Two tuples are necessary but **not** sufficient: the non-final one must also
+carry a non-empty numeric maxWidth. (The tuple slot is named `maxWidth` at the
+public boundary for historical reasons; internally it becomes a `(min-width: Npx)`
+media query.) A source that `|resizer` passes through untouched — an animated
+GIF, or an image whose tuples are all invalid — always yields a single medialess
+entry regardless of how many tuples were requested, so **it can only be used in
+the final position**.
+
+Entries are lost quietly in one case that is *not* an error: a non-final argument
+carrying both media-queried variants and a medialess fallback keeps the former
+and drops the latter. That is this function's whole purpose — only the final
+argument supplies the `<img>`.
+
+Total annihilation, by contrast, is always a mistake, and the symptom is
+misleading — the whole layer vanishes and the surviving one stretches across
+every breakpoint, which reads as a CSS sizing bug far from the template that
+caused it. Since 1.10.2 that case is reported via `error_log()`, naming the
+argument by its position in the original call: *"argument #N contributed no
+variants and was dropped"*. The returned candidate list is unchanged; only the
 diagnostic is new.
 
 ### `styleguide_data()` — full contract

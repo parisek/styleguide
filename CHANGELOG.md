@@ -29,9 +29,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   Such an argument is now reported via `error_log()` by position, with the fix
   (give it at least two tuples, maxWidth on the non-final ones).
 
-  Rendering behaviour is **unchanged** — this adds a diagnostic only. Legitimate
-  quiet cases stay quiet: `null` arguments, empty-array arguments, and
-  well-formed multi-tuple calls.
+  The returned candidate list is **unchanged** — this adds a diagnostic only
+  (`error_log()` is itself a new side effect during rendering; the markup is not).
+  Legitimate quiet cases stay quiet: `null` arguments, empty-array arguments,
+  well-formed multi-tuple calls, and a non-final argument that keeps its
+  media-queried variants while losing its fallback — that last one is the
+  function's documented contract, not a mistake.
+
+  The argument is named by its position in the **original** call. Arguments are
+  re-indexed by the null-dropping filter before the check runs, so a naive count
+  would report `merge_resizer($a, null, $bad, $fallback)`'s third argument as the
+  second.
 
 ### Documentation
 
