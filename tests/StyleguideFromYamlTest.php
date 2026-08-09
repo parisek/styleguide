@@ -220,6 +220,39 @@ final class StyleguideFromYamlTest extends TestCase
     }
 
     #[Test]
+    public function sequence_bootstrap_key_fails_clearly(): void
+    {
+        // A YAML sequence under `bootstrap:` parses to a PHP list, which
+        // is_array() alone accepts — without the array_is_list() check this
+        // used to fall through and be misreported as a missing
+        // 'bootstrap.templates_path' instead of the actual wrong-shape
+        // problem.
+        $yaml = $this->writeYaml("bootstrap:\n  - a\n  - b\n");
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches("/'bootstrap' must be a mapping, got a YAML sequence/");
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function null_bootstrap_key_fails_clearly(): void
+    {
+        // `bootstrap:` with no value parses to null. The old `?? []`
+        // silently coerced that to an empty mapping and reported it as a
+        // missing 'bootstrap.templates_path' — this asserts the key is
+        // reported as the wrong shape instead, distinct from the
+        // `missing_bootstrap_section_fails_clearly` case below where the
+        // `bootstrap:` key is absent from the document entirely.
+        $yaml = $this->writeYaml("bootstrap:\nproject:\n  name: Fixture\n");
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches("/'bootstrap' must be a mapping, got null/");
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
     public function missing_bootstrap_section_fails_clearly(): void
     {
         $yaml = $this->writeYaml("project:\n  name: Fixture\n");

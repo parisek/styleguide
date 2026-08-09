@@ -82,13 +82,22 @@ final class Styleguide
      * never about the project itself, and therefore forbidden inside a
      * `bootstrap:` YAML section ({@see self::fromYaml()}) even though every
      * one of them is a legal key on the array constructor above. This is the
-     * ONE place that distinction is declared — {@see self::fromYaml()}
+     * ONE place this ENFORCEMENT is declared — {@see self::fromYaml()}
      * validates purely by walking this list, so adding a new run-truth key
-     * (top-level or nested) means adding one entry here and nowhere else.
-     * Forgetting to add it here means the new key is silently treated as
-     * project-truth (accepted from YAML) rather than silently forbidden —
-     * loud in the sense that a project that meant to keep it run-truth would
-     * need to notice the acceptance, not that omission itself throws.
+     * (top-level or nested) means changing exactly two things: one entry
+     * here, AND the matching entry in the prose enumeration at
+     * `docs/API.md` § YAML schemas → `bootstrap:` (the **Forbidden keys**
+     * paragraph — that paragraph is itself the single authoritative copy
+     * within the docs; the other two mentions of this set elsewhere in
+     * `docs/API.md`, plus the `CHANGELOG.md` entry that introduced
+     * `fromYaml()`, point back at it instead of re-listing the keys, so
+     * they need no edit). Nothing mechanically enforces the docs edit —
+     * it is a manual, but deliberately small (one file, one paragraph),
+     * companion step to this const. Forgetting to add a new key here means
+     * it is silently treated as project-truth (accepted from YAML) rather
+     * than silently forbidden — loud in the sense that a project that
+     * meant to keep it run-truth would need to notice the acceptance, not
+     * that omission itself throws.
      *
      * Entries are `bootstrap.*`-relative dotted paths: a bare name
      * (`'auth'`) checks a top-level `bootstrap` key; a dotted name
@@ -341,13 +350,30 @@ final class Styleguide
             ));
         }
 
-        $bootstrap = $data['bootstrap'] ?? [];
-        if (!is_array($bootstrap)) {
-            throw new \InvalidArgumentException(sprintf(
-                "Styleguide::fromYaml(): '%s' key 'bootstrap' must be a mapping, got %s",
-                $path,
-                get_debug_type($bootstrap),
-            ));
+        // A `bootstrap:` key that's simply absent from the document is not
+        // an error here (the required-key checks below report that) — but a
+        // key that IS present and is the wrong shape must say so, not fall
+        // through and get misreported as "missing bootstrap.templates_path".
+        // Two shapes disguise themselves as "missing" if only is_array() is
+        // checked: a YAML sequence (`bootstrap:\n  - a\n  - b`) parses to a
+        // PHP list, which is_array() alone accepts; and `bootstrap:` with no
+        // value parses to null, which `?? []` used to silently coerce to an
+        // empty mapping. array_is_list() catches the sequence case the same
+        // way the top-level `$data` check above does; the `!== []` guard
+        // keeps a genuinely empty mapping (`bootstrap: {}`) — a legal,
+        // still-missing-its-required-keys shape — out of that branch, since
+        // array_is_list([]) is true for an empty array.
+        if (array_key_exists('bootstrap', $data)) {
+            $bootstrap = $data['bootstrap'];
+            if (!is_array($bootstrap) || ($bootstrap !== [] && array_is_list($bootstrap))) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap' must be a mapping, got %s",
+                    $path,
+                    is_array($bootstrap) ? 'a YAML sequence' : get_debug_type($bootstrap),
+                ));
+            }
+        } else {
+            $bootstrap = [];
         }
 
         foreach (['templates_path', 'static_path'] as $key) {
