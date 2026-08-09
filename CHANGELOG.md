@@ -21,13 +21,23 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
   `$overrides` is the run-truth boundary: what's true about the *project*
   (paths, locale, routes) belongs in the YAML; what's true only about *this
-  run* (`templateUrl`, a pre-built `twig` environment, `auth`, …) is never read
-  from the YAML and can only arrive via `$overrides`. `twig_context` is merged
-  key-by-key rather than replaced wholesale, so an override supplying only
-  `templateUrl` doesn't discard the YAML's own `homeUrl`/`frontPageUrl`/`langcode`.
+  run* (`templateUrl`, a pre-built `twig` environment, `auth`, …) can only
+  arrive via `$overrides`. The boundary is enforced, not just documented:
+  writing a run-truth key into `bootstrap:` — a top-level `twig`,
+  `twig_options`, `auth`, `dist_path`, `config_yaml`, or a nested
+  `twig_context.templateUrl` — throws `\InvalidArgumentException` naming the
+  key, rather than the key being silently dropped or (in `templateUrl`'s
+  case) silently honoured. A genuinely unrecognised key is still tolerated,
+  for forward compatibility with a later schema — only this fixed,
+  known-forbidden set is refused. `twig_context` is merged key-by-key rather
+  than replaced wholesale, so an override supplying only `templateUrl`
+  doesn't discard the YAML's own `homeUrl`/`frontPageUrl`/`langcode`.
   Relative `bootstrap.*` paths resolve against the YAML file's own directory,
   not the caller's `__DIR__` or cwd — the same file produces the same absolute
   paths whether read over HTTP or from a CLI script invoked from anywhere.
+  A present-but-wrongly-typed optional key (`base_url: []`, `twig_context:
+  bad`, a non-string `namespaces` entry) also throws, naming the key,
+  instead of being coerced or quietly falling back to the constructor default.
 
   `bootstrap:` is a new, standalone top-level YAML key, deliberately kept
   outside every section `sync-styleguide` already regenerates — an unaware

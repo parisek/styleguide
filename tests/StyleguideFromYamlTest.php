@@ -241,6 +241,187 @@ final class StyleguideFromYamlTest extends TestCase
         Styleguide::fromYaml($yaml);
     }
 
+    #[Test]
+    public function templateUrl_in_bootstrap_twig_context_is_refused_not_silently_honoured(): void
+    {
+        // This is the reproduction for the boundary violation found in
+        // review: a `templateUrl` written directly into bootstrap.twig_context
+        // used to be copied wholesale and honoured, contradicting the
+        // documented "run-truth can only arrive via $overrides" contract.
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          twig_context:
+            templateUrl: /SMUGGLED-FROM-YAML
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.twig_context\.templateUrl/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function forbidden_run_truth_keys_are_refused_not_silently_dropped(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          auth:
+            user: sneaky
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.auth/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function forbidden_twig_key_is_refused(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          twig: whatever
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.twig\b/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function forbidden_twig_options_key_is_refused(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          twig_options:
+            cache: /tmp/twig
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.twig_options/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function forbidden_dist_path_key_is_refused(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          dist_path: /tmp/dist
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.dist_path/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function forbidden_config_yaml_key_is_refused(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          config_yaml: /nonsense/path.yaml
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.config_yaml/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function wrongly_typed_base_url_fails_clearly_naming_the_key(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          base_url: []
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.base_url/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function wrongly_typed_twig_context_fails_clearly_naming_the_key(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          twig_context: bad
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.twig_context/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function wrongly_typed_namespaces_entry_fails_clearly_naming_the_key(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          namespaces:
+            icons: [not, a, string]
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessageMatches('/bootstrap\.namespaces\.icons/');
+
+        Styleguide::fromYaml($yaml);
+    }
+
+    #[Test]
+    public function an_unknown_bootstrap_key_is_ignored_not_rejected(): void
+    {
+        // Forward-compatibility: an unrecognised key (future schema, typo in
+        // a non-forbidden name) must not hard-fail the whole load — only the
+        // fixed, known-forbidden run-truth keys do. Mirrors how sync-styleguide
+        // round-trips keys it doesn't own.
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          some_future_key: whatever
+        YAML);
+
+        $sg = Styleguide::fromYaml($yaml);
+
+        self::assertIsArray($sg->inventory());
+    }
+
     /**
      * @return array<string, mixed>
      */
