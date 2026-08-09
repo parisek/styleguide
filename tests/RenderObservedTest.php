@@ -112,17 +112,21 @@ final class RenderObservedTest extends TestCase
     }
 
     #[Test]
-    public function inventory_rows_are_always_their_own_fixture(): void
+    public function inventory_rows_have_no_ownFixture_field(): void
     {
-        // See Styleguide::inventory()'s docblock: `ownFixture` is always
-        // true because this method only enumerates fixtures that exist as
-        // real kind/slug demo files — every row it can produce already is
-        // that kind/slug's own fixture.
+        // MUST-FIX 5 (parisek/styleguide#120 review): an earlier revision
+        // carried an `ownFixture` key hardcoded to `true` on every row — a
+        // field that can only ever be `true` invites a consumer to branch on
+        // it as if it carried information, so it was dropped rather than
+        // kept constant. See Styleguide::inventory()'s docblock for why the
+        // distinction it promised (rendered, but NOT by its own fixture)
+        // cannot be computed from inside this method at all.
         $rows = $this->styleguide()->inventory();
 
         self::assertNotEmpty($rows);
         foreach ($rows as $row) {
-            self::assertTrue($row['ownFixture'], sprintf('%s/%s should be ownFixture', $row['kind'], $row['slug']));
+            self::assertArrayNotHasKey('ownFixture', $row);
+            self::assertSame(['kind', 'slug', 'variant'], array_keys($row));
         }
 
         $slugs = array_map(static fn(array $row): string => $row['kind'] . '/' . $row['slug'], $rows);
@@ -140,46 +144,48 @@ final class RenderObservedTest extends TestCase
     }
 
     #[Test]
-    public function assertion_fires_on_the_constructed_contradiction(): void
+    public function a_content_only_doc_fixture_renders_observed_without_throwing(): void
     {
-        // The invariant this method guards against — non-empty HTML with an
-        // empty trace — cannot currently be provoked through the public
-        // renderObserved() surface: the recorder is unconditionally wired
-        // into component_*/page_* by registerBundledHelpers(), which every
-        // Styleguide construction runs, so there is no code path left where
-        // a REAL render produces this combination other than a fixture with
-        // no component_*/page_*/include call at all (a legitimate, if rare,
-        // shape — see the docblock on RenderObserver::assertNotContradictory()
-        // for why that specific case is accepted rather than special-cased
-        // away). The pure invariant is therefore tested directly here rather
-        // than by engineering a broken-wiring scenario that no longer exists.
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessageMatches('/not.*wired/i');
+        // MUST-FIX 1 (parisek/styleguide#120 review): a `doc/` fixture is BY
+        // DEFINITION content-only markup (changelog, icon gallery,
+        // typography specimen) — no component_*/page_* call, no
+        // {% include @component… %} either. The API must return a normal
+        // (if empty) trace for it, not throw. There used to be a
+        // RenderObserver::assertNotContradictory() guard that fired here;
+        // it was removed once forceAddFunction() (MUST-FIX 3) made the
+        // wiring failure it guarded against structurally impossible — see
+        // Styleguide::renderObserved()'s inline comment.
+        $trace = $this->styleguide()->renderObserved('doc', 'plain-doc');
 
-        RenderObserver::assertNotContradictory('<div>content</div>', [], []);
+        self::assertStringContainsString('plain-doc', $trace['html']);
+        self::assertSame([], $trace['calls']);
+        self::assertSame([], $trace['unobservable']);
     }
 
     #[Test]
-    public function assertion_does_not_fire_when_calls_are_present(): void
+    public function an_include_of_an_include_is_declared_unobservable(): void
     {
-        RenderObserver::assertNotContradictory('<div>content</div>', [['component' => 'x']], []);
-        $this->addToAssertionCount(1); // no exception thrown
-    }
+        // MUST-FIX 4 (parisek/styleguide#120 review): the top-level fixture
+        // includes a plain partial (_row.twig), which itself includes
+        // @component/leaf/leaf.twig. A regex over the top-level source alone
+        // could never see this; the AST-walking detector must traverse into
+        // the partial to find it.
+        $trace = $this->styleguide()->renderObserved('component', 'nested-includer');
 
-    #[Test]
-    public function assertion_does_not_fire_when_only_unobservable_calls_are_present(): void
-    {
-        RenderObserver::assertNotContradictory('<div>content</div>', [], [['component' => 'x']]);
-        $this->addToAssertionCount(1); // no exception thrown
-    }
+        self::assertStringContainsString('<div class="leaf">included via a nested partial</div>', $trace['html']);
+        self::assertSame([], $trace['calls']);
 
-    #[Test]
-    public function assertion_does_not_fire_on_genuinely_empty_html(): void
-    {
-        // An empty render (nothing rendered at all) pairs naturally with an
-        // empty trace — not a contradiction.
-        RenderObserver::assertNotContradictory('', [], []);
-        $this->addToAssertionCount(1); // no exception thrown
+        self::assertCount(1, $trace['unobservable']);
+        self::assertSame('leaf', $trace['unobservable'][0]['component']);
+        self::assertSame('component', $trace['unobservable'][0]['kind']);
+        self::assertSame(
+            ['kind' => 'component', 'slug' => 'nested-includer', 'variant' => null],
+            $trace['unobservable'][0]['fixture'],
+        );
+        // Attributed to the partial that actually contains the include, not
+        // the top-level fixture file that merely reaches it transitively —
+        // that is the file an author would have to open to fix it.
+        self::assertStringContainsString('_row.twig', $trace['unobservable'][0]['source']);
     }
 
     #[Test]
@@ -212,5 +218,92 @@ final class RenderObservedTest extends TestCase
         // has not — it must nest under "outer", not "inner".
         self::assertSame('nested', $calls[2]['position']);
         self::assertSame('outer', $calls[2]['parent']);
+    }
+
+    #[Test]
+    public function arm_disarm_is_reentrant_and_preserves_both_frames(): void
+    {
+        // MUST-FIX 2 (parisek/styleguide#120 review): a nested arm()/disarm()
+        // pair (an inner `renderObserved()` triggered while an outer one is
+        // still in progress) must not destroy the outer frame's
+        // already-recorded calls/stack. Before the fix, arm() reset shared
+        // state, so this sequence would lose the outer "before" call
+        // entirely and misattribute "after" as a fresh direct call with the
+        // outer stack wiped.
+        $observer = new RenderObserver();
+
+        $observer->arm(['kind' => 'component', 'slug' => 'outer-fixture', 'variant' => null]);
+        $observer->enter('outer-before', []); // recorded directly under the outer frame
+        $observer->enter('outer-parent', []); // outer stack now: [outer-before? no — see below]
+
+        // Nested renderObserved(): arm() a SECOND frame while the outer one
+        // is still armed (outer-parent is still "inside", i.e. not yet
+        // exit()-ed).
+        $observer->arm(['kind' => 'component', 'slug' => 'inner-fixture', 'variant' => null]);
+        $observer->enter('inner-call', []);
+        $observer->exit(); // inner-call returns
+        $innerCalls = $observer->disarm();
+
+        // Outer frame resumes exactly where it left off.
+        $observer->enter('outer-after', []); // nested inside outer-parent, per the still-intact outer stack
+        $observer->exit(); // outer-after returns
+        $observer->exit(); // outer-parent returns
+        $observer->exit(); // outer-before returns
+        $outerCalls = $observer->disarm();
+
+        // Inner trace: exactly its own one call, attributed to the inner fixture.
+        self::assertCount(1, $innerCalls);
+        self::assertSame('inner-call', $innerCalls[0]['component']);
+        self::assertSame(
+            ['kind' => 'component', 'slug' => 'inner-fixture', 'variant' => null],
+            $innerCalls[0]['fixture'],
+        );
+        self::assertSame('direct', $innerCalls[0]['position']);
+
+        // Outer trace: BOTH calls made before and after the nested
+        // observation survive, both attributed to the outer fixture, and
+        // the outer stack/nesting is unaffected by the inner arm()/disarm().
+        self::assertCount(3, $outerCalls);
+        self::assertSame(['outer-before', 'outer-parent', 'outer-after'], array_column($outerCalls, 'component'));
+        foreach ($outerCalls as $call) {
+            self::assertSame(
+                ['kind' => 'component', 'slug' => 'outer-fixture', 'variant' => null],
+                $call['fixture'],
+            );
+        }
+        self::assertSame('direct', $outerCalls[0]['position']);
+        self::assertNull($outerCalls[0]['parent']);
+        self::assertSame('nested', $outerCalls[1]['position']);
+        self::assertSame('outer-before', $outerCalls[1]['parent']);
+        // outer-after is recorded while outer-parent is still on the stack
+        // (not yet exit()-ed) — it must nest under outer-parent, exactly as
+        // it would have without the inner observation splicing in between.
+        self::assertSame('nested', $outerCalls[2]['position']);
+        self::assertSame('outer-parent', $outerCalls[2]['parent']);
+    }
+
+    #[Test]
+    public function renderObserved_itself_is_reentrant_via_a_real_nested_call(): void
+    {
+        // Same guarantee as the frame-level test above, but exercised
+        // through the real public API: calling Styleguide::renderObserved()
+        // a second time on the SAME instance while processing the results
+        // of the first must not corrupt anything — the two calls don't share
+        // state beyond the RenderObserver's internal frame stack, and each
+        // must return its own correct, independent trace.
+        $styleguide = $this->styleguide();
+
+        $outer = $styleguide->renderObserved('component', 'wrapper');
+        $inner = $styleguide->renderObserved('component', 'simple');
+        $outerAgain = $styleguide->renderObserved('component', 'wrapper');
+
+        self::assertSame($outer, $outerAgain);
+        self::assertCount(2, $outer['calls']);
+        self::assertCount(1, $inner['calls']);
+        self::assertSame('simple', $inner['calls'][0]['component']);
+        self::assertSame(
+            ['kind' => 'component', 'slug' => 'simple', 'variant' => null],
+            $inner['calls'][0]['fixture'],
+        );
     }
 }

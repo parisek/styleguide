@@ -30,11 +30,16 @@ final class Renderer
      * read by {@see resolveStyleguideData()} (the `styleguide_data()` Twig
      * function implementation) at CALL time from inside the template being
      * rendered. `null` outside an active render: before the first render, if
-     * `$templatesPath` was never configured, or AFTER a render has completed
-     * — {@see renderInner()} resets both back to `null` in a `finally` block
-     * once its Twig render call returns (or throws), so a `styleguide_data()`
-     * call reaching this class between renders never resolves a stale
-     * directory left over from whichever render happened last.
+     * `$templatesPath` was never configured, or AFTER the outermost render
+     * has completed — {@see renderInner()} saves both in a local variable
+     * before each render and restores that saved value (not `null`) in a
+     * `finally` block once its Twig render call returns (or throws). This
+     * makes RE-ENTRANT renders (an inner render triggered while an outer one
+     * is still in progress on this same instance) correct: the outer
+     * render's directory becomes active again once the inner one finishes,
+     * rather than being wiped to `null`. A `styleguide_data()` call reaching
+     * this class with no render active at all still resolves to `null` for
+     * both, exactly as before.
      */
     private ?string $currentKind = null;
     private ?string $currentSlug = null;
@@ -864,13 +869,27 @@ final class Renderer
                 // styleguide_data() BEFORE calling render() — the Twig
                 // function reads $this->currentKind/$currentSlug at CALL
                 // time from inside the template about to render.
+                //
+                // Save-and-restore, not reset-to-null: a render can be
+                // RE-ENTRANT (e.g. `Styleguide::renderObserved()` invoked
+                // again while an outer render is still in progress on this
+                // same `Renderer` instance). Resetting to `null` in the
+                // `finally` — instead of restoring whatever was active
+                // before this call — would leave `styleguide_data()`
+                // unable to resolve once the inner render returns and the
+                // outer template keeps executing, even though an outer
+                // render context genuinely is still active. Ordinary
+                // (non-reentrant) exceptions unwind correctly either way;
+                // this only changes behaviour for the nested case.
+                $previousKind = $this->currentKind;
+                $previousSlug = $this->currentSlug;
                 $this->currentKind = $kind;
                 $this->currentSlug = $slug;
                 try {
                     return $this->twig->render($path, $this->context);
                 } finally {
-                    $this->currentKind = null;
-                    $this->currentSlug = null;
+                    $this->currentKind = $previousKind;
+                    $this->currentSlug = $previousSlug;
                 }
             }
         }

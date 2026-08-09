@@ -22,116 +22,104 @@ namespace Parisek\Styleguide;
  * counter, so each recorded call can also report WHICH parent it nested
  * inside — the depth-only version would tell you a call was nested but not
  * where.
+ *
+ * RE-ENTRANT by construction: `arm()`/`disarm()` push/pop a FRAME rather
+ * than resetting a single set of fields. A `renderObserved()` call can
+ * legitimately nest inside another one on the same `Styleguide`/`Renderer`
+ * instance (e.g. a fixture render that itself invokes `renderObserved()`
+ * for a sub-render), and a reset-based `arm()` would destroy the outer
+ * frame's already-recorded calls and stack the moment the inner one armed,
+ * leaving the outer trace truncated and unable to resume once the inner
+ * `disarm()` finished. With a frame stack, `enter()`/`exit()` always act on
+ * the TOP (innermost currently-armed) frame, and disarming the inner frame
+ * simply exposes the outer one again, fully intact.
  */
 final class RenderObserver
 {
-    private bool $armed = false;
-
-    /** @var array{kind: string, slug: string, variant: string|null}|null */
-    private ?array $fixture = null;
-
-    /** @var list<string> Names of the calls currently "inside" — last element is the immediate parent. */
-    private array $stack = [];
-
-    /** @var list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}> */
-    private array $calls = [];
+    /**
+     * @var list<array{
+     *   fixture: array{kind: string, slug: string, variant: string|null},
+     *   stack: list<string>,
+     *   calls: list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>,
+     * }>
+     * Last element is the innermost currently-armed observation — the one
+     * `enter()`/`exit()` operate on. Empty means "not armed at all".
+     */
+    private array $frames = [];
 
     /**
      * Arms the observer for one `renderObserved()` call and records which
-     * top-level fixture the resulting calls originate from. Resets any
-     * leftover state from a previous (already-disarmed) observation.
+     * top-level fixture the resulting calls originate from. Pushes a NEW
+     * frame rather than resetting shared state, so a re-entrant `arm()`
+     * (called while an outer frame is still armed) leaves the outer frame's
+     * calls/stack untouched underneath — see the class docblock.
      *
      * @param array{kind: string, slug: string, variant: string|null} $fixture
      */
     public function arm(array $fixture): void
     {
-        $this->armed = true;
-        $this->fixture = $fixture;
-        $this->stack = [];
-        $this->calls = [];
+        $this->frames[] = ['fixture' => $fixture, 'stack' => [], 'calls' => []];
     }
 
     /**
-     * Disarms the observer and returns everything recorded since `arm()`.
-     * Safe to call even when never armed (returns `[]`) — a defensive
-     * complement to `arm()`, not a documented usage path.
+     * Disarms the innermost frame and returns everything recorded since its
+     * matching `arm()`, restoring whichever frame was armed before it (if
+     * any) as the new top. Safe to call even when never armed (returns
+     * `[]`) — a defensive complement to `arm()`, not a documented usage
+     * path.
      *
      * @return list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>
      */
     public function disarm(): array
     {
-        $calls = $this->calls;
-        $this->armed = false;
-        $this->fixture = null;
-        $this->stack = [];
-        $this->calls = [];
+        $frame = array_pop($this->frames);
 
-        return $calls;
+        return $frame['calls'] ?? [];
     }
 
     /**
      * Called by `Styleguide::renderNamespaced()` immediately BEFORE a
-     * resolved component/page template renders. Cheap no-op when unarmed —
-     * the stack still needs to track nesting depth regardless of arm state,
-     * so a mid-render arm()/disarm() toggle (not a supported usage, but not
-     * one this class needs to guard against either) can't desync `exit()`.
+     * resolved component/page template renders. Cheap no-op when unarmed
+     * (`$this->frames === []`) — a single array-emptiness check, no
+     * allocation. Operates on the innermost frame only, so nesting depth for
+     * an outer frame is never disturbed by an inner `arm()`/`disarm()` pair
+     * that happened in between two of the outer frame's own calls.
      *
      * @param array<string, mixed> $content Raw, unflattened `$content` array as passed to `component_*`/`page_*`.
      */
     public function enter(string $name, array $content): void
     {
-        if ($this->armed && $this->fixture !== null) {
-            $parent = $this->stack === [] ? null : $this->stack[array_key_last($this->stack)];
-            $this->calls[] = [
-                'component' => $name,
-                'arguments' => $content,
-                'fixture' => $this->fixture,
-                'position' => $this->stack === [] ? 'direct' : 'nested',
-                'parent' => $parent,
-            ];
+        if ($this->frames === []) {
+            return;
         }
-        $this->stack[] = $name;
+
+        $top = array_key_last($this->frames);
+        $stack = $this->frames[$top]['stack'];
+        $parent = $stack === [] ? null : $stack[array_key_last($stack)];
+        $this->frames[$top]['calls'][] = [
+            'component' => $name,
+            'arguments' => $content,
+            'fixture' => $this->frames[$top]['fixture'],
+            'position' => $stack === [] ? 'direct' : 'nested',
+            'parent' => $parent,
+        ];
+        $this->frames[$top]['stack'][] = $name;
     }
 
     /**
      * Called by `Styleguide::renderNamespaced()` in a `finally` block around
-     * the render call `enter()` preceded — pops the call stack regardless of
-     * whether the render succeeded or threw, mirroring `Renderer::
-     * renderInner()`'s own finally-reset pattern for `$currentKind`/
-     * `$currentSlug`.
+     * the render call `enter()` preceded — pops the innermost frame's call
+     * stack regardless of whether the render succeeded or threw, mirroring
+     * `Renderer::renderInner()`'s own finally-restore pattern for
+     * `$currentKind`/`$currentSlug`. No-op when unarmed, matching `enter()`.
      */
     public function exit(): void
     {
-        array_pop($this->stack);
-    }
-
-    /**
-     * The internal invariant `renderObserved()` is built to make impossible:
-     * non-empty HTML paired with an empty trace (no recorded calls AND no
-     * declared unobservable includes) can only mean the recorder was not
-     * actually wired into the render that produced the HTML — a
-     * *structural* contradiction once `component_*`/`page_*` always thread
-     * through this class, not a state a consumer needs to guard against.
-     *
-     * Not called unconditionally from `renderObserved()` — a fixture whose
-     * template is plain markup with no `component_*`/`page_*`/`{% include
-     * @component… %}` call at all is a legitimate (if unusual) render that
-     * would otherwise trip this assertion on every observation. It exists
-     * as a directly testable pure invariant instead; see
-     * `RenderObserverTest::assertion_fires_on_the_constructed_contradiction()`.
-     *
-     * @param list<array<string, mixed>> $calls
-     * @param list<array<string, mixed>> $unobservable
-     */
-    public static function assertNotContradictory(string $html, array $calls, array $unobservable): void
-    {
-        if ($html !== '' && $calls === [] && $unobservable === []) {
-            throw new \LogicException(
-                'Render observation produced non-empty HTML with an empty trace (no recorded calls, no '
-                . 'declared unobservable includes) — that combination means the recorder was not wired '
-                . 'into the render that produced this HTML, which should be structurally impossible when '
-                . 'Styleguide::renderObserved() is used as documented.',
-            );
+        if ($this->frames === []) {
+            return;
         }
+
+        $top = array_key_last($this->frames);
+        array_pop($this->frames[$top]['stack']);
     }
 }

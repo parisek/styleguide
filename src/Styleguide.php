@@ -53,6 +53,18 @@ final class Styleguide
     private AssetServer $assetServer;
     private string $distRoot;
     private RenderObserver $observer;
+    /**
+     * Names of the observation-carrying functions (`component_*`/`page_*`)
+     * that lost their registration to something already present on the
+     * supplied Twig environment — populated in {@see registerBundledHelpers()},
+     * consumed by {@see renderObserved()} to refuse rather than silently
+     * return an incomplete trace. Always empty for a package-built
+     * environment (the `twig` config key omitted), since there is nothing
+     * pre-registered to collide with.
+     *
+     * @var list<string>
+     */
+    private array $unobservableFunctions = [];
 
     /**
      * @param array{
@@ -425,20 +437,51 @@ final class Styleguide
         // against an env that was already locked, e.g. by a prior
         // `getFunctions()` call). See {@see tryAddFunction()} for why we no
         // longer try to tell the two apart.
-        self::tryAddFunction($twig, new TwigFunction(
+        //
+        // component_*/page_* go through the SAME swallow-duplicate
+        // tryAddFunction() as every other helper here — `run()`'s HTTP path
+        // must keep tolerating a consumer's pre-registered version exactly
+        // as it does today, and that tolerance is exactly what
+        // tryAddFunction() already provides. An earlier revision force-won
+        // this registration by reflecting into Twig's private
+        // `ExtensionSet`/`StagingExtension` internals to evict any
+        // pre-existing entry first. That was rejected on review: it
+        // relocated the exact hack this whole API exists to eliminate
+        // — a consumer no longer reaches into `parisek/styleguide`'s private
+        // state, but this package reached into `twig/twig`'s instead, a
+        // third-party dependency with its own release cycle, one step
+        // further from anyone who could fix a future internal-shape change.
+        //
+        // Instead: `tryAddFunction()`'s return value tells us whether OUR
+        // closure actually got wired in. When it didn't — the consumer
+        // pre-registered its own `component_*`/`page_*` on a shared
+        // environment before constructing `Styleguide`, or the extension set
+        // was already locked — the render observer ({@see RenderObserver})
+        // is provably not wired into this render, so `renderObserved()`
+        // records the collision in `$this->unobservableFunctions` and
+        // refuses outright (see {@see renderObserved()}) rather than
+        // silently returning an empty/partial trace. `run()`'s HTTP path
+        // doesn't consult `$this->unobservableFunctions` at all, so it is
+        // unaffected: whichever `component_*`/`page_*` won the registration
+        // race keeps rendering exactly as before.
+        if (!self::tryAddFunction($twig, new TwigFunction(
             'component_*',
             static function (Environment $env, array $context, string $template_name, array $content = []) use ($observer): string {
                 return self::renderNamespaced($env, $context, '@component', $template_name, $content, 'Component', $observer);
             },
             ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['html']],
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
+        ))) {
+            $this->unobservableFunctions[] = 'component_*';
+        }
+        if (!self::tryAddFunction($twig, new TwigFunction(
             'page_*',
             static function (Environment $env, array $context, string $template_name, array $content = []) use ($observer): string {
                 return self::renderNamespaced($env, $context, '@page', $template_name, $content, 'Page', $observer);
             },
             ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['html']],
-        ));
+        ))) {
+            $this->unobservableFunctions[] = 'page_*';
+        }
 
         // Identity translation stubs — WordPress consumers register the
         // real `__()` / `_x()` / `_n()` / `_nx()` BEFORE constructing
@@ -728,13 +771,26 @@ final class Styleguide
      * expected "already registered" collision, so the rare genuine-misuse
      * case (constructing Styleguide against an env that's already been used
      * to render) still leaves a breadcrumb for whoever's debugging it.
+     *
+     * Returns whether OUR function actually won the registration — `true`
+     * when `addFunction()` succeeded, `false` on either failure shape
+     * (duplicate name, or the extension set already locked). This return
+     * value is how {@see registerBundledHelpers()} detects, for
+     * `component_*`/`page_*` specifically, that the render observer did NOT
+     * get wired into a consumer-supplied environment — see
+     * `$this->unobservableFunctions` and {@see renderObserved()}. No
+     * internals reflection needed: the ordinary `addFunction()` call this
+     * method already makes for every other helper is itself sufficient
+     * detection, because success/failure IS the fact renderObserved() needs.
      */
-    private static function tryAddFunction(Environment $twig, TwigFunction $function): void
+    private static function tryAddFunction(Environment $twig, TwigFunction $function): bool
     {
         try {
             $twig->addFunction($function);
+            return true;
         } catch (\LogicException $e) {
             self::logUnexpectedRegistrationFailure($function->getName(), $e);
+            return false;
         }
     }
 
@@ -1126,12 +1182,26 @@ final class Styleguide
      * nothing of its own to hide. `Renderer` stays fully `@internal`; nothing
      * about its own surface changes here.
      *
-     * The recorder ({@see RenderObserver}) is unconditionally wired into the
-     * `component_*`/`page_*` Twig functions themselves (registered in
+     * The recorder ({@see RenderObserver}) is wired into the `component_*`/
+     * `page_*` Twig functions themselves (registered in
      * {@see registerBundledHelpers()}, which every `Styleguide` construction
-     * runs), not layered on afterward by this method — so there is no
-     * registration-order dependency and no way for a consumer to "wire it
-     * wrong". Nesting/position is derived from a call-stack the observer
+     * runs), not layered on afterward by this method. That wiring IS
+     * registration-order dependent, though: when a consumer supplies their
+     * own Twig environment (the `twig` config key) with `component_*`/
+     * `page_*` already registered — a WordPress theme does this because its
+     * component templates need those functions before `Styleguide` ever
+     * gets constructed — this package's own closures lose the registration
+     * race and the recorder never sees a single call. That state is
+     * detected at construction time (see `$this->unobservableFunctions`)
+     * and this method REFUSES to run rather than return a silently
+     * incomplete trace — see the check at the top of the method body.
+     * `run()`'s HTTP path is unaffected: it doesn't consult
+     * `$this->unobservableFunctions`, so the consumer's pre-registered
+     * `component_*`/`page_*` keeps rendering exactly as before. A
+     * package-built environment (the `twig` config key omitted) never hits
+     * this: there is nothing pre-registered to collide with, so the
+     * recorder is always wired in and every call above this point continues
+     * to hold. Nesting/position is derived from a call-stack the observer
      * maintains across the recursive `renderNamespaced()` calls a nested
      * render produces (depth 0 = direct, depth > 0 = nested, with the
      * immediate parent's name attached) — see {@see RenderObserver} for the
@@ -1151,12 +1221,35 @@ final class Styleguide
      * @return array{
      *   html: string,
      *   calls: list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>,
-     *   unobservable: list<array{component: string, kind: 'component'|'page', fixture: array{kind: string, slug: string, variant: string|null}, source: string}>,
+     *   unobservable: list<array{component: string|null, kind: 'component'|'page'|null, fixture: array{kind: string, slug: string, variant: string|null}, source: string, reason?: string}>,
      * }
      * @throws \InvalidArgumentException When `$kind` isn't `component`/`page`/`doc`.
+     * @throws \LogicException When the supplied Twig environment already had
+     *         `component_*`/`page_*` registered before `Styleguide` was
+     *         constructed (or its extension set was already locked), so the
+     *         render observer could not be wired in — this environment is
+     *         not observable. See the class-level check below and the
+     *         `$this->unobservableFunctions` docblock for how this is
+     *         detected without reflecting into Twig internals.
      */
     public function renderObserved(string $kind, string $slug, ?string $variant = null): array
     {
+        if ($this->unobservableFunctions !== []) {
+            throw new \LogicException(sprintf(
+                'Styleguide::renderObserved(): cannot observe this render — %s could not be registered on the '
+                . 'supplied Twig environment, because a function of that name (or a locked extension set) was '
+                . 'already present before Styleguide was constructed. renderObserved() requires exclusive control '
+                . 'of component_*/page_* to record a trace, and a partial/silent trace would be worse than this '
+                . 'refusal. Fix: construct Styleguide with a pristine environment (omit the `twig` config key, '
+                . 'the package builds its own), or, if a shared environment is required, do not pre-register '
+                . 'component_*/page_* on it before constructing Styleguide — the package registers its own '
+                . '(honouring any OTHER pre-registered helper, e.g. real WP __()) and both run() and '
+                . 'renderObserved() work off the same wiring. This does not affect run()\'s HTTP path, which '
+                . 'keeps rendering with whichever component_*/page_* won the registration race.',
+                implode(', ', $this->unobservableFunctions),
+            ));
+        }
+
         if (!in_array($kind, ['component', 'page', 'doc'], true)) {
             throw new \InvalidArgumentException(sprintf(
                 'Styleguide::renderObserved(): kind must be one of component/page/doc, got "%s"',
@@ -1184,33 +1277,51 @@ final class Styleguide
 
         $unobservable = $this->detectUnobservableIncludes($kind, $slug, $variant, $fixture);
 
-        // See RenderObserver::assertNotContradictory() for why this is safe
-        // to call unconditionally here (rather than only in a dedicated
-        // test): every genuine wiring failure this guards against is a
-        // structural impossibility given how the recorder is registered
-        // above, so the only way to reach the throw via this public method
-        // is a fixture whose template calls neither `component_*`/`page_*`
-        // nor a declared-unobservable include — content-only markup, which
-        // is rare enough among styleguide fixtures (the whole point of a
-        // fixture is normally to demonstrate a component) that surfacing it
-        // loudly is more useful than staying silent.
-        RenderObserver::assertNotContradictory($html, $calls, $unobservable);
-
+        // No "non-empty HTML with an empty trace" assertion here (there used
+        // to be one — see RenderObservedTest for the history). It guarded
+        // against the recorder being bypassed by a pre-registered consumer
+        // `component_*`/`page_*` — a state this method now refuses outright
+        // at the top (see the `$this->unobservableFunctions` check above),
+        // so by the time execution reaches this point the recorder is
+        // guaranteed to have been wired into whatever render just happened.
+        // The only way left to reach "non-empty HTML, empty trace" is a
+        // fixture that is plain markup — content-only, no
+        // component_*/page_*/include call at all — which a `doc/` fixture
+        // (changelog, icon gallery, typography specimen) is BY DEFINITION.
+        // Keeping the assertion would mean inventory() enumerating a doc and
+        // renderObserved() throwing on it — a LogicException on legitimate
+        // input, not a caught wiring bug.
         return ['html' => $html, 'calls' => $calls, 'unobservable' => $unobservable];
     }
 
     /**
-     * Regex-detects `{% include '@component/<x>/<x>.twig' with {...} %}` (and
-     * the `@page` equivalent) in the TOP-LEVEL fixture's own Twig source.
-     * Actually capturing what such an include renders is out of scope (see
-     * {@see renderObserved()}'s docblock) — this only declares that an
-     * unobservable call exists, naming whatever component/page id the include
-     * path names. Nested includes (an include inside a file this fixture
-     * itself includes) are NOT walked — a known limitation, not a silent one.
+     * Parses the fixture's own Twig source with Twig's own lexer/parser
+     * (`$this->twig->tokenize()` / `->parse()`) — NOT a regex — and walks the
+     * resulting AST for `{% include '@component/<x>/<x>.twig' %}` (and the
+     * `@page` equivalent). Actually capturing what such an include renders is
+     * out of scope (see {@see renderObserved()}'s docblock) — this only
+     * declares that an unobservable call exists, naming whatever
+     * component/page id the include path names.
+     *
+     * Traverses INTO included templates, recursively: an include that does
+     * NOT itself name a `@component/…`/`@page/…` self-consistent path (a
+     * plain partial, e.g. `_row.twig`) is resolved and scanned in turn, so an
+     * include buried inside an included partial (include-of-an-include) is
+     * still found — a regex over the top-level source alone could never see
+     * it. Cycle-guarded via `$visited` (absolute paths already scanned) so a
+     * partial that includes itself, directly or via a longer cycle, cannot
+     * loop forever.
+     *
+     * A non-constant include expression (`{% include some_var %}`,
+     * `{% include 'prefix-' ~ name %}`) cannot be resolved statically — that
+     * IS a blind spot, and per this API's contract a blind spot must be
+     * DECLARED, never silently dropped. Such entries carry `component: null`
+     * / `kind: null` plus a `reason` explaining why, rather than being
+     * omitted from the result.
      *
      * @param 'component'|'page'|'doc' $kind
      * @param array{kind: string, slug: string, variant: string|null} $fixture
-     * @return list<array{component: string, kind: 'component'|'page', fixture: array{kind: string, slug: string, variant: string|null}, source: string}>
+     * @return list<array{component: string|null, kind: 'component'|'page'|null, fixture: array{kind: string, slug: string, variant: string|null}, source: string, reason?: string}>
      */
     private function detectUnobservableIncludes(string $kind, string $slug, ?string $variant, array $fixture): array
     {
@@ -1219,30 +1330,143 @@ final class Styleguide
             return [];
         }
 
+        $visited = [];
+
+        return $this->scanFileForUnobservableIncludes($file, $fixture, $visited);
+    }
+
+    /**
+     * @param array{kind: string, slug: string, variant: string|null} $fixture
+     * @param array<string, true> $visited Absolute paths already scanned in this call tree — cycle guard, passed by reference.
+     * @return list<array{component: string|null, kind: 'component'|'page'|null, fixture: array{kind: string, slug: string, variant: string|null}, source: string, reason?: string}>
+     */
+    private function scanFileForUnobservableIncludes(string $file, array $fixture, array &$visited): array
+    {
+        $real = realpath($file) ?: $file;
+        if (isset($visited[$real])) {
+            return [];
+        }
+        $visited[$real] = true;
+
         $content = (string) file_get_contents($file);
-        // Group 1: `component`/`page`. Group 2: the id — backreferenced via
-        // `\2` so only a SELF-consistent path (`@component/<x>/<x>.twig`, the
-        // convention every component_*/page_* call already relies on) is
-        // matched; an include naming two different segments is a different
-        // shape entirely and not a `component_*`/`page_*`-equivalent call.
-        $pattern = '/\{%-?\s*include\s+[\'"]@(component|page)\/([a-zA-Z0-9_-]+)\/\2\.twig[\'"]/';
-        if (preg_match_all($pattern, $content, $matches, PREG_SET_ORDER) === false || $matches === []) {
+
+        try {
+            $module = $this->twig->parse($this->twig->tokenize(
+                new \Twig\Source($content, $this->relativeTemplatePath($file), $file),
+            ));
+        } catch (\Twig\Error\Error) {
+            // Can't parse this file's includes statically — the render path
+            // (Styleguide::renderNamespaced()) will surface the same syntax
+            // error through its own, already-tested 500 path. Nothing safe
+            // to say about includes inside an unparseable file.
             return [];
         }
 
         $found = [];
-        foreach ($matches as $m) {
-            /** @var 'component'|'page' $includedKind */
-            $includedKind = $m[1];
-            $found[] = [
-                'component' => $m[2],
-                'kind' => $includedKind,
-                'fixture' => $fixture,
-                'source' => $this->relativeTemplatePath($file),
-            ];
-        }
+        $this->walkNodeForIncludes($module, $file, $fixture, $found, $visited);
 
         return $found;
+    }
+
+    /**
+     * @param array{kind: string, slug: string, variant: string|null} $fixture
+     * @param list<array{component: string|null, kind: 'component'|'page'|null, fixture: array{kind: string, slug: string, variant: string|null}, source: string, reason?: string}> $found
+     * @param array<string, true> $visited
+     */
+    private function walkNodeForIncludes(
+        \Twig\Node\Node $node,
+        string $currentFile,
+        array $fixture,
+        array &$found,
+        array &$visited,
+    ): void {
+        if ($node instanceof \Twig\Node\IncludeNode) {
+            $exprNode = $node->getNode('expr');
+
+            if ($exprNode instanceof \Twig\Node\Expression\ConstantExpression) {
+                $target = (string) $exprNode->getAttribute('value');
+
+                // Group 1: `component`/`page`. Group 2: the id —
+                // backreferenced via `\2` so only a SELF-consistent path
+                // (`@component/<x>/<x>.twig`, the convention every
+                // component_*/page_* call already relies on) is matched; an
+                // include naming two different segments is a different
+                // shape entirely and not a component_*/page_*-equivalent
+                // call.
+                if (preg_match('/^@(component|page)\/([a-zA-Z0-9_-]+)\/\2\.twig$/', $target, $m) === 1) {
+                    $found[] = [
+                        'component' => $m[2],
+                        'kind' => $m[1],
+                        'fixture' => $fixture,
+                        'source' => $this->relativeTemplatePath($currentFile),
+                    ];
+                    // Deliberately NOT recursing into the included
+                    // component's own template here — that template's own
+                    // fixture (if it has one) is scanned separately via
+                    // inventory(); this walk only cares about includes
+                    // reachable from THIS fixture's own markup.
+                } else {
+                    // Not a component/page-equivalent include — e.g. a
+                    // plain partial (`_row.twig`). Resolve it and recurse:
+                    // the partial may itself include a component
+                    // (include-of-an-include), which only shows up by
+                    // actually walking into it.
+                    $resolved = $this->resolveIncludeTarget($target, $currentFile);
+                    if ($resolved !== null) {
+                        foreach ($this->scanFileForUnobservableIncludes($resolved, $fixture, $visited) as $nested) {
+                            $found[] = $nested;
+                        }
+                    }
+                    // Unresolvable partial path (named but not found on
+                    // disk): nothing to traverse into, and this is not
+                    // itself a component/page-equivalent include, so no
+                    // blind spot to declare for THIS node — Twig's own
+                    // render path will raise the "template not found" error
+                    // if this branch is actually reached at render time.
+                }
+            } else {
+                // Non-constant (dynamic) include target — cannot be resolved
+                // statically. Declared, not dropped: see this method's
+                // docblock for why a silent omission here would be exactly
+                // the "confidently wrong report" this API exists to avoid.
+                $found[] = [
+                    'component' => null,
+                    'kind' => null,
+                    'fixture' => $fixture,
+                    'source' => $this->relativeTemplatePath($currentFile),
+                    'reason' => 'dynamic include target — cannot be resolved statically',
+                ];
+            }
+        }
+
+        // Node::getIterator() (\IteratorAggregate<int|string, Node>) always
+        // yields Node instances — no instanceof guard needed, and PHPStan
+        // correctly flags one as always-true.
+        foreach ($node as $child) {
+            $this->walkNodeForIncludes($child, $currentFile, $fixture, $found, $visited);
+        }
+    }
+
+    /**
+     * Resolves an include target string to an absolute filesystem path, for
+     * the recursive traversal in {@see walkNodeForIncludes()}. Two shapes:
+     * a namespaced path (`@component/…`, `@page/…`, `@doc/…`) resolves
+     * directly under `templates_path`; anything else is treated as relative
+     * to the INCLUDING file's own directory, mirroring how a plain
+     * (non-namespaced) `{% include %}` resolves in this package's own
+     * `FilesystemLoader` setup (see {@see registerConventionalNamespaces()}).
+     */
+    private function resolveIncludeTarget(string $target, string $currentFile): ?string
+    {
+        if (preg_match('#^@(component|page|doc)/(.+)$#', $target, $m) === 1) {
+            $candidate = rtrim((string) $this->config['templates_path'], '/') . '/' . $m[1] . '/' . $m[2];
+
+            return is_file($candidate) ? $candidate : null;
+        }
+
+        $candidate = dirname($currentFile) . '/' . $target;
+
+        return is_file($candidate) ? $candidate : null;
     }
 
     /**
@@ -1297,29 +1521,30 @@ final class Styleguide
      * `variant: null` row (the component/page/doc's own default demo); each
      * entry in `variants` emits one row per named variant.
      *
-     * **`ownFixture` is always `true`.** This method only enumerates fixtures
-     * that exist as real `kind/slug[/variant]` demo files on disk — every row
-     * it can possibly produce is, by construction, that kind/slug's own
-     * fixture. The `ownFixture: false` case the original design brief
-     * described — a component with NO fixture of its own that a trace's
-     * `calls` reveal gets rendered somewhere nested (e.g. inside a page) — is
-     * a DIFFERENT axis entirely: it can only be produced by cross-referencing
-     * `renderObserved()`'s `calls` against this method's own output (a
-     * component id appearing in `calls` that never appears as a `slug` here),
-     * never by `inventory()` in isolation. The original brief's assumption
-     * that `ownFixture` lives inside `inventory()`'s own rows doesn't hold —
-     * `inventory()`'s data model has no place to express "rendered, but not
-     * by its own fixture" because it never looks at what renders what; only a
-     * consumer holding both `inventory()` and one or more `renderObserved()`
-     * traces can compute that distinction. Forcing a synthetic `false` row in
-     * here would require inventing entries for slugs that have no fixture
-     * file at all, which breaks the "one row per real fixture" contract this
-     * method exists to keep. The `ownFixture` key is kept in the row shape
-     * (rather than dropped) so a consumer's static type doesn't need an
-     * `inventory()`-specific narrowing just to read a field that's always
-     * `true` here.
+     * **No `ownFixture` field.** An earlier revision of this method carried
+     * one, hardcoded to `true` on every row — dropped rather than fixed,
+     * because it cannot be made meaningful from inside this method. This
+     * method only enumerates fixtures that exist as real `kind/slug[/variant]`
+     * demo files on disk, so every row it can possibly produce already is
+     * that kind/slug's own fixture by construction; there is no false case
+     * to report. The distinction the field's name promised — "rendered, but
+     * NOT by its own fixture" (e.g. a component with no fixture of its own
+     * that a trace's `calls` reveal gets rendered somewhere nested, inside a
+     * page) — lives on a different axis entirely: it can only be computed by
+     * cross-referencing `renderObserved()`'s `calls` across one or more
+     * fixtures against this method's own output (a component id appearing in
+     * `calls` that never appears as a `slug` here). `inventory()` never looks
+     * at what renders what, so it has no data to compute that distinction
+     * from, and forcing a synthetic row for it would require inventing
+     * entries for slugs that have no fixture file at all — breaking the "one
+     * row per real fixture" contract this method exists to keep. A field
+     * that can only ever read `true` is worse than no field: a consumer would
+     * be tempted to branch on it. If a future consumer needs that
+     * cross-reference, it belongs in a helper that takes an `inventory()`
+     * result AND one or more `renderObserved()` traces as input — not in
+     * this method's row shape.
      *
-     * @return list<array{kind: 'component'|'page'|'doc', slug: string, variant: string|null, ownFixture: bool}>
+     * @return list<array{kind: 'component'|'page'|'doc', slug: string, variant: string|null}>
      */
     public function inventory(): array
     {
@@ -1327,10 +1552,10 @@ final class Styleguide
         foreach (['component', 'page', 'doc'] as $kind) {
             foreach ($this->parser->parseAll($kind) as $entry) {
                 if ($entry['has_default_variant']) {
-                    $rows[] = ['kind' => $kind, 'slug' => $entry['id'], 'variant' => null, 'ownFixture' => true];
+                    $rows[] = ['kind' => $kind, 'slug' => $entry['id'], 'variant' => null];
                 }
                 foreach ($entry['variants'] as $variant) {
-                    $rows[] = ['kind' => $kind, 'slug' => $entry['id'], 'variant' => $variant['id'], 'ownFixture' => true];
+                    $rows[] = ['kind' => $kind, 'slug' => $entry['id'], 'variant' => $variant['id']];
                 }
             }
         }
