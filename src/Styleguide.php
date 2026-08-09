@@ -105,6 +105,14 @@ final class Styleguide
      * {@see self::assertNoRunTruthKeys()} walks each path generically, so a
      * nested entry needs no bespoke check the way `templateUrl` once did.
      *
+     * Known limitation, not worth the cure: a `bootstrap:` mapping whose keys
+     * are numeric (`{0: a, 1: b}`) is reported as a YAML sequence. Symfony's
+     * parser produces the identical PHP array for that and for a real
+     * sequence — `array_is_list()` cannot tell them apart because PHP does not
+     * keep the distinction — so separating them would mean re-parsing the raw
+     * YAML for a config nobody writes. The message is wrong; the rejection is
+     * not.
+     *
      * @var list<string>
      */
     private const RUN_TRUTH_KEYS = [
