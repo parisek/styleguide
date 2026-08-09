@@ -344,17 +344,41 @@ class ComponentParser
             }
         }
 
+        // Three-level sort: weight, then name (locale-aware via Collator
+        // when the intl extension is loaded, plain strcmp otherwise — see
+        // below), then `id` as a FINAL tie-breaker so two entries that also
+        // share the same weight AND name (a real if unusual case — e.g. two
+        // components both left at the default weight with the same display
+        // name) still get a deterministic total order. Without it, the
+        // fallback was filesystem/glob order, which is platform-dependent,
+        // AND the Collator-vs-strcmp branch above already meant "same
+        // weight, same name" could tie-break differently depending on
+        // whether ext-intl happens to be installed — a consumer asserting
+        // determinism (e.g. `Styleguide::inventory()`'s own contract) could
+        // not rely on that being stable across machines.
         usort($items, function ($a, $b): int {
-            if ($a['weight'] === $b['weight']) {
-                $an = (string) $a['name'];
-                $bn = (string) $b['name'];
-                if (class_exists(\Collator::class)) {
-                    $cmp = (new \Collator('cs'))->compare($an, $bn);
-                    return $cmp === false ? 0 : $cmp;
-                }
-                return strcmp($an, $bn);
+            if ($a['weight'] !== $b['weight']) {
+                return $a['weight'] <=> $b['weight'];
             }
-            return $a['weight'] <=> $b['weight'];
+
+            $an = (string) $a['name'];
+            $bn = (string) $b['name'];
+            if (class_exists(\Collator::class)) {
+                $nameCmp = (new \Collator('cs'))->compare($an, $bn);
+                $nameCmp = $nameCmp === false ? 0 : $nameCmp;
+            } else {
+                $nameCmp = strcmp($an, $bn);
+            }
+            if ($nameCmp !== 0) {
+                return $nameCmp;
+            }
+
+            // Plain strcmp — deliberately NOT Collator here: `id` is an
+            // internal filesystem slug, not display text, so locale-aware
+            // collation would be the wrong tool and would reintroduce the
+            // Collator-availability-dependent ordering this tie-breaker
+            // exists to remove.
+            return strcmp((string) $a['id'], (string) $b['id']);
         });
 
         return $items;

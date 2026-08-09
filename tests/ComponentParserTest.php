@@ -84,6 +84,31 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function parse_all_breaks_a_weight_and_name_tie_with_id(): void
+    {
+        // MUST-FIX 6 (parisek/styleguide#120 review): a weight tie is already
+        // broken by name (Collator when ext-intl is loaded, strcmp
+        // otherwise — see the roster test above). But two entries can ALSO
+        // tie on name — this dedicated fixture pair shares both `weight: 40`
+        // and `name: "Same Name"`, differing only in `id`
+        // (`alpha-tie`/`beta-tie`). Without a final `id` tie-breaker the
+        // result would fall back to glob()'s platform-dependent order; with
+        // it, the order is deterministic regardless of filesystem/OS and
+        // regardless of whether ext-intl is loaded.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/tie-break/templates');
+        $items = $parser->parseAll('component');
+
+        self::assertSame(['alpha-tie', 'beta-tie'], array_column($items, 'id'));
+
+        // Same result on a second call and a freshly constructed parser —
+        // not an artifact of one lucky glob() ordering.
+        self::assertSame(
+            array_column($items, 'id'),
+            array_column((new ComponentParser(__DIR__ . '/fixtures/tie-break/templates'))->parseAll('component'), 'id'),
+        );
+    }
+
+    #[Test]
     public function returns_null_for_missing_component(): void
     {
         $parser = new ComponentParser($this->fixturesPath);
