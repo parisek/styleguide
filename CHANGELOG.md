@@ -8,6 +8,63 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`Styleguide::renderObserved(kind, slug, variant?)`** — renders a fixture and
+  returns the HTML together with the `component_*` calls it produced. Each call
+  carries the component name, the argument hash **as passed** (unflattened,
+  uninterpreted), the originating fixture, and its position in the call structure
+  (`direct`/`nested`, plus the parent). A consumer previously had to reach into
+  `Renderer`'s private state by reflection and win a Twig function-name
+  registration race to learn any of this.
+
+  The trace is a return value rather than a hook, deliberately: a hook leaves it
+  a side effect of correct wiring, and a consumer that wires it wrong gets an
+  empty trace — indistinguishable from a clean project.
+
+  Arguments are raw on purpose. While calibrating the first consumer, the
+  semantics of flattening them changed four times; each was a one-file edit
+  there rather than a release here plus a bump in two projects. The package
+  reports what happened; what counts as a defect belongs to rules that move
+  faster than a package can.
+
+  The result also **declares calls it cannot observe**:
+  `{% include '@component/x/x.twig' %}` bypasses recording entirely, because
+  `component_*` is a function that can be wrapped while `include` is a tag
+  compiled into the template class. Capturing those is out of scope; declaring
+  them is not — a blind spot the tool announces costs one line of output, one it
+  does not know it has produces a confidently wrong report.
+
+  Observation **refuses** when a consumer-supplied environment already registered
+  `component_*`/`page_*`, naming the collision and the remedy. `run()`'s HTTP
+  path keeps tolerating those registrations exactly as before; only observation
+  refuses, because only observation is wrong without them.
+
+- **`Styleguide::inventory()`** — components, pages, docs and their variants in a
+  stable order. Consumers that glob for fixtures themselves restate naming rules
+  this package owns (`styleguide.<variant>.twig`, the underscore segment that is
+  never a variant), which works until the package grows another shape and then
+  silently skips fixtures nobody knows exist.
+
+- **`Styleguide::componentDirectories()`** and
+  `ComponentParser::listDirectories()` — component identities with a
+  `hasTemplate` flag, independent of whether a fixture renders them. `inventory()`
+  lists only what renders, so a component with no `styleguide*.twig` never
+  appears in it — which is exactly the "never rendered" case a coverage check
+  exists to catch. Reported by the first real consumer; one call answers both
+  "what exists" and "does it have a template", so nothing has to glob.
+
+### Fixed
+
+- **`Renderer` now restores the outer fixture context** instead of resetting it
+  to `null` when an inner render finishes. Ordinary exceptions already unwound
+  correctly; re-entrancy did not.
+
+- **`ComponentParser::parseAll()` has a total order.** Weight and display name
+  left equal pairs to filesystem traversal order, and `Collator` availability
+  changed the comparison itself, so a caller asserting determinism could not.
+  Ties now break on id. This can reorder previously-ambiguous pairs.
+
 ## [1.10.2] - 2026-08-06
 
 ### Fixed

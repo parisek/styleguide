@@ -1609,6 +1609,38 @@ final class Styleguide
      *
      * @return list<array{kind: 'component'|'page'|'doc', slug: string, variant: string|null}>
      */
+    /**
+     * @api Public contract. `list<array{id: string, hasTemplate: bool}>`
+     *      shape and `component` scope are SemVer-protected.
+     *
+     * Enumerates every `component/<id>/` directory REGARDLESS of whether it
+     * ever renders — the gap `inventory()` (above) cannot close: that method
+     * only lists fixtures that already render, so a directory with no
+     * `styleguide*.twig` (a `never-rendered` component, still a real one) or
+     * with no `<id>.twig` template at all (not a real component candidate —
+     * a stray definition-only directory, or a working directory like
+     * `<id>/js/`) is equally invisible to it. A consumer that needs to know
+     * about ALL of a project's component directories — not just the ones
+     * with a demonstrated fixture — previously had no choice but to `glob()`
+     * the templates tree itself, which is exactly the kind of filesystem
+     * knowledge this package exists to own on the consumer's behalf.
+     *
+     * Delegates to `ComponentParser::listDirectories('component')` — the
+     * SAME "does `<id>/<id>.twig` exist" check `parse()`/`parseAll()` use
+     * before they'll even attempt to read a directory's metadata — so this
+     * method can never disagree with the catalogue's own notion of what a
+     * component directory is. Deliberately ONE enumeration answering both
+     * "what directories exist" and "does this one have a template", rather
+     * than two overlapping methods a caller would have to cross-reference by
+     * id themselves.
+     *
+     * @return list<array{id: string, hasTemplate: bool}>
+     */
+    public function componentDirectories(): array
+    {
+        return $this->parser->listDirectories('component');
+    }
+
     public function inventory(): array
     {
         $rows = [];

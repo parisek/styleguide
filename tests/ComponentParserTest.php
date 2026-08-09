@@ -794,4 +794,40 @@ final class ComponentParserTest extends TestCase
 
         self::assertCount(1, $parser->getWarnings());
     }
+
+    #[Test]
+    public function list_directories_reports_every_directory_with_its_template_presence(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/directory-listing-templates');
+
+        self::assertSame(
+            [
+                ['id' => 'js-only', 'hasTemplate' => false],
+                ['id' => 'with-template', 'hasTemplate' => true],
+                ['id' => 'yaml-only', 'hasTemplate' => false],
+            ],
+            $parser->listDirectories('component'),
+        );
+    }
+
+    #[Test]
+    public function list_directories_does_not_descend_into_nested_working_directories(): void
+    {
+        // `js-only/js/` must never itself surface as a directory entry — the
+        // walk is one level deep, mirroring the on-disk `<id>/<id>.twig`
+        // convention (see the method's own docblock).
+        $parser = new ComponentParser(__DIR__ . '/fixtures/directory-listing-templates');
+
+        $ids = array_column($parser->listDirectories('component'), 'id');
+
+        self::assertSame(['js-only', 'with-template', 'yaml-only'], $ids);
+    }
+
+    #[Test]
+    public function list_directories_returns_empty_list_for_a_type_with_no_directory(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/directory-listing-templates');
+
+        self::assertSame([], $parser->listDirectories('doc'));
+    }
 }
