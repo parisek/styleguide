@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-08-09
+
 ### Added
 
 - **`Styleguide::fromYaml(string $path, array $overrides = []): self`** — loads
