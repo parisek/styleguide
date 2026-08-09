@@ -1641,6 +1641,47 @@ final class Styleguide
         return $this->parser->listDirectories('component');
     }
 
+    /**
+     * @api Fixture inventory. Lists every renderable component/page/doc
+     *      fixture the project's `templates_path` contains, in stable order
+     *      — needed for a consumer's determinism assertion (two calls in the
+     *      same process must return identical order).
+     *
+     * Reuses {@see ComponentParser::parseAll()} rather than re-globbing the
+     * filesystem — variant naming (`styleguide.<variant>.twig`, the
+     * underscore-prefixed-directory partial exclusion, `doc/`) is package
+     * doctrine owned by `ComponentParser`, and restating it here would drift
+     * the moment that doctrine grows a new shape.
+     *
+     * One row per fixture: an entry with `has_default_variant` true emits a
+     * `variant: null` row (the component/page/doc's own default demo); each
+     * entry in `variants` emits one row per named variant.
+     *
+     * **No `ownFixture` field.** An earlier revision of this method carried
+     * one, hardcoded to `true` on every row — dropped rather than fixed,
+     * because it cannot be made meaningful from inside this method. This
+     * method only enumerates fixtures that exist as real `kind/slug[/variant]`
+     * demo files on disk, so every row it can possibly produce already is
+     * that kind/slug's own fixture by construction; there is no false case
+     * to report. The distinction the field's name promised — "rendered, but
+     * NOT by its own fixture" (e.g. a component with no fixture of its own
+     * that a trace's `calls` reveal gets rendered somewhere nested, inside a
+     * page) — lives on a different axis entirely: it can only be computed by
+     * cross-referencing `renderObserved()`'s `calls` across one or more
+     * fixtures against this method's own output (a component id appearing in
+     * `calls` that never appears as a `slug` here). `inventory()` never looks
+     * at what renders what, so it has no data to compute that distinction
+     * from, and forcing a synthetic row for it would require inventing
+     * entries for slugs that have no fixture file at all — breaking the "one
+     * row per real fixture" contract this method exists to keep. A field
+     * that can only ever read `true` is worse than no field: a consumer would
+     * be tempted to branch on it. If a future consumer needs that
+     * cross-reference, it belongs in a helper that takes an `inventory()`
+     * result AND one or more `renderObserved()` traces as input — not in
+     * this method's row shape.
+     *
+     * @return list<array{kind: 'component'|'page'|'doc', slug: string, variant: string|null}>
+     */
     public function inventory(): array
     {
         $rows = [];
