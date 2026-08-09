@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\Error\LoaderError;
@@ -16,12 +17,13 @@ use Twig\TwigFunction;
  * Public bootstrap entry for the styleguide.
  *
  * @api This class and its public methods (`__construct`, `run`, `renderObserved`,
- *      `inventory`) are the only part of the PHP surface covered by SemVer. The
- *      config array shape passed to the constructor is part of the contract —
- *      see `docs/API.md` § PHP API. All other classes in `Parisek\Styleguide\*`
- *      (Router, Renderer, ComponentParser methods other than
- *      `RENDER_MODES`/`normaliseRender`, AssetServer, Placeholder, RenderObserver,
- *      Api\*) are `@internal` — refactor without bumping major is allowed.
+ *      `inventory`, `componentDirectories`, `fromYaml`) are the only part of the
+ *      PHP surface covered by SemVer. The config array shape passed to the
+ *      constructor is part of the contract — see `docs/API.md` § PHP API. All
+ *      other classes in `Parisek\Styleguide\*` (Router, Renderer, ComponentParser
+ *      methods other than `RENDER_MODES`/`normaliseRender`, AssetServer,
+ *      Placeholder, RenderObserver, Api\*) are `@internal` — refactor without
+ *      bumping major is allowed.
  *
  * Usage in project's static/index.php:
  *
@@ -31,6 +33,14 @@ use Twig\TwigFunction;
  *         'config_yaml'     => __DIR__ . '/styleguide.yaml',
  *         'default_locale'  => 'cs',
  *     ]))->run();
+ *
+ * Or, once `styleguide.yaml` carries a `bootstrap:` section (see
+ * {@see self::fromYaml()}), both the HTTP entry point and any CLI consumer can
+ * share the exact same project config instead of restating it:
+ *
+ *     \Parisek\Styleguide\Styleguide::fromYaml(__DIR__ . '/styleguide.yaml', [
+ *         'twig_context' => ['templateUrl' => rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')],
+ *     ])->run();
  *
  * `run()` inspects the request URI via {@see Router::parse()} and dispatches to:
  * - {@see AssetServer::serve()}      for /styleguide/assets/<path>
@@ -65,6 +75,54 @@ final class Styleguide
      * @var list<string>
      */
     private array $unobservableFunctions = [];
+
+    /**
+     * The single authoritative list of run-truth config keys — values true
+     * only about THIS RUN (which process is rendering, over HTTP or CLI),
+     * never about the project itself, and therefore forbidden inside a
+     * `bootstrap:` YAML section ({@see self::fromYaml()}) even though every
+     * one of them is a legal key on the array constructor above. This is the
+     * ONE place this ENFORCEMENT is declared — {@see self::fromYaml()}
+     * validates purely by walking this list, so adding a new run-truth key
+     * (top-level or nested) means changing exactly two things: one entry
+     * here, AND the matching entry in the prose enumeration at
+     * `docs/API.md` § YAML schemas → `bootstrap:` (the **Forbidden keys**
+     * paragraph — that paragraph is itself the single authoritative copy
+     * within the docs; the other two mentions of this set elsewhere in
+     * `docs/API.md`, plus the `CHANGELOG.md` entry that introduced
+     * `fromYaml()`, point back at it instead of re-listing the keys, so
+     * they need no edit). Nothing mechanically enforces the docs edit —
+     * it is a manual, but deliberately small (one file, one paragraph),
+     * companion step to this const. Forgetting to add a new key here means
+     * it is silently treated as project-truth (accepted from YAML) rather
+     * than silently forbidden — loud in the sense that a project that
+     * meant to keep it run-truth would need to notice the acceptance, not
+     * that omission itself throws.
+     *
+     * Entries are `bootstrap.*`-relative dotted paths: a bare name
+     * (`'auth'`) checks a top-level `bootstrap` key; a dotted name
+     * (`'twig_context.templateUrl'`) checks a key nested one level deep.
+     * {@see self::assertNoRunTruthKeys()} walks each path generically, so a
+     * nested entry needs no bespoke check the way `templateUrl` once did.
+     *
+     * Known limitation, not worth the cure: a `bootstrap:` mapping whose keys
+     * are numeric (`{0: a, 1: b}`) is reported as a YAML sequence. Symfony's
+     * parser produces the identical PHP array for that and for a real
+     * sequence — `array_is_list()` cannot tell them apart because PHP does not
+     * keep the distinction — so separating them would mean re-parsing the raw
+     * YAML for a config nobody writes. The message is wrong; the rejection is
+     * not.
+     *
+     * @var list<string>
+     */
+    private const RUN_TRUTH_KEYS = [
+        'twig',
+        'twig_options',
+        'auth',
+        'dist_path',
+        'config_yaml',
+        'twig_context.templateUrl',
+    ];
 
     /**
      * @param array{
@@ -191,6 +249,355 @@ final class Styleguide
         $this->parser = new ComponentParser($config['templates_path']);
         $this->renderer = new Renderer($this->twig, $this->config['twig_context'], $config['templates_path']);
         $this->assetServer = new AssetServer($this->distRoot);
+    }
+
+    /**
+     * @api Loader layered over the array constructor — never replaces it.
+     *      Reads a project's `styleguide.yaml` `bootstrap:` section and
+     *      constructs a `Styleguide` from it, so the HTTP entry point
+     *      (`static/index.php`) and any other consumer that needs to render
+     *      the same project (e.g. a CLI fixture-coverage audit) share one
+     *      declaration of the project's config instead of each restating it.
+     *      See `docs/superpowers/specs/2026-08-08-styleguide-render-trace-api-design.md`
+     *      § 5 in `tailwind-base` for the design rationale, and `docs/API.md`
+     *      § YAML schemas → `bootstrap:` for the key reference.
+     *
+     * **What goes in the YAML vs. `$overrides` — project-truth vs. run-truth,
+     * enforced, not just documented.** Everything true about the PROJECT
+     * regardless of who is rendering it (`templates_path`, `static_path`,
+     * `default_locale`, `base_url`, `typography_config`, `namespaces`, and
+     * the project-shaped part of `twig_context` — `homeUrl`, `frontPageUrl`,
+     * `langcode`, …) belongs in `bootstrap:`. Everything true only about
+     * THIS RUN — `templateUrl` (computed from `$_SERVER['SCRIPT_NAME']`,
+     * correct for exactly one HTTP request and quietly wrong for a CLI
+     * process on another machine), a pre-built `twig` environment,
+     * `twig_options`, `auth`, `dist_path` — can ONLY arrive via `$overrides`.
+     * The exhaustive, single-source list of these keys — top-level and
+     * nested alike — is {@see self::RUN_TRUTH_KEYS}; this paragraph
+     * describes the distinction the list encodes, not a second copy of it.
+     * Writing one of them into `bootstrap:` anyway is a hard
+     * `\InvalidArgumentException`, not a silent no-op: a value that merely
+     * failed to be READ (the old behaviour for the top-level keys, since
+     * nothing copied them out of `$bootstrap` into `$config`) looks
+     * identical, from the author's chair, to a value that was silently
+     * IGNORED — and `bootstrap.twig_context` used to be copied wholesale,
+     * so `templateUrl` written there WAS honoured, not ignored. Both failure
+     * shapes are refused now, by name. A key outside this fixed forbidden
+     * set that isn't otherwise recognised is not an error — it's forward
+     * compatibility with a future schema, the same tolerance
+     * `sync-styleguide` already relies on for `project:`/`labels:`.
+     *
+     * `twig_context` is the one YAML key `$overrides` can partially
+     * override: an override supplying only `templateUrl` (the run-dependent
+     * value) is merged key-by-key on top of the YAML's own `twig_context`
+     * (`homeUrl`/`frontPageUrl`/`langcode`), rather than replacing it
+     * wholesale — otherwise every CLI caller would have to restate the
+     * project's routes just to add the one key that's actually theirs to
+     * supply. Every other config key is a plain override: whatever
+     * `$overrides` sets for a scalar key wins outright over the YAML.
+     *
+     * `config_yaml` is NOT an overridable key via `$overrides` — `$path` IS
+     * the file being read, so an override claiming a different `config_yaml`
+     * would contradict the very call that produced this config. It is
+     * always set to `$path`, after the override merge, so a stray
+     * `'config_yaml' => …` entry in `$overrides` is silently correct rather
+     * than silently wrong. It is also forbidden as a `bootstrap.*` YAML key
+     * (see above) — unlike `$overrides`, there's no benign reading of a
+     * project author writing `config_yaml:` inside the file it's already
+     * being read from, so that one is refused rather than tolerated.
+     *
+     * Relative `bootstrap.*` paths (`templates_path`, `static_path`,
+     * `typography_config`, each `namespaces.*` value) resolve relative to
+     * the YAML FILE'S OWN DIRECTORY, not `__DIR__` of whatever script calls
+     * this method and not the process's current working directory — the
+     * portability property called out in the design doc: the same
+     * `styleguide.yaml` produces the same absolute paths whether it's read
+     * by `static/index.php` (HTTP) or a CLI script invoked from an
+     * arbitrary cwd.
+     *
+     * @param array<string, mixed> $overrides Run-truth config, layered on top of the YAML's project-truth. See above.
+     * @throws \InvalidArgumentException When `$path` doesn't exist, isn't valid YAML, doesn't parse to a
+     *         top-level mapping, has a non-mapping `bootstrap:` key, is missing a required
+     *         `bootstrap.templates_path` / `bootstrap.static_path` string, contains a forbidden
+     *         run-truth key (see {@see self::RUN_TRUTH_KEYS} for the exhaustive list, top-level and
+     *         nested alike), or has a present-but-optional key (`default_locale`, `base_url`, `typography_config`,
+     *         `namespaces`, `namespaces.*`, `twig_context`) of the wrong type. Each message names the
+     *         file and the specific problem — this method never falls back to a guessed default for
+     *         a required key and never coerces or silently drops a malformed optional one, because a
+     *         guessed `templates_path` that's wrong, or a forbidden key that's quietly ignored, is a
+     *         silent-wrong-config bug wearing the same clothes as the `ReflectionProperty` hack this
+     *         whole API replaces.
+     */
+    public static function fromYaml(string $path, array $overrides = []): self
+    {
+        if (!is_file($path)) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): config file not found at '%s'",
+                $path,
+            ));
+        }
+
+        try {
+            $data = Yaml::parseFile($path);
+        } catch (ParseException $e) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): '%s' is not valid YAML: %s",
+                $path,
+                $e->getMessage(),
+            ), 0, $e);
+        }
+
+        // array_is_list() rejects a YAML sequence (`- one\n- two`) too — that
+        // parses to a PHP list, which is_array() alone would accept, but it
+        // isn't the mapping shape `bootstrap:`/`project:`/… keys need.
+        if (!is_array($data) || array_is_list($data)) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): '%s' must parse to a YAML mapping at the top level, got %s",
+                $path,
+                is_array($data) ? 'a YAML sequence' : get_debug_type($data),
+            ));
+        }
+
+        // A `bootstrap:` key that's simply absent from the document is not
+        // an error here (the required-key checks below report that) — but a
+        // key that IS present and is the wrong shape must say so, not fall
+        // through and get misreported as "missing bootstrap.templates_path".
+        // Two shapes disguise themselves as "missing" if only is_array() is
+        // checked: a YAML sequence (`bootstrap:\n  - a\n  - b`) parses to a
+        // PHP list, which is_array() alone accepts; and `bootstrap:` with no
+        // value parses to null, which `?? []` used to silently coerce to an
+        // empty mapping. array_is_list() catches the sequence case the same
+        // way the top-level `$data` check above does; the `!== []` guard
+        // keeps a genuinely empty mapping (`bootstrap: {}`) — a legal,
+        // still-missing-its-required-keys shape — out of that branch, since
+        // array_is_list([]) is true for an empty array.
+        if (array_key_exists('bootstrap', $data)) {
+            $bootstrap = $data['bootstrap'];
+            if (!is_array($bootstrap) || ($bootstrap !== [] && array_is_list($bootstrap))) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap' must be a mapping, got %s",
+                    $path,
+                    is_array($bootstrap) ? 'a YAML sequence' : get_debug_type($bootstrap),
+                ));
+            }
+        } else {
+            $bootstrap = [];
+        }
+
+        foreach (['templates_path', 'static_path'] as $key) {
+            if (empty($bootstrap[$key]) || !is_string($bootstrap[$key])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' is missing required 'bootstrap.%s' (non-empty string)",
+                    $path,
+                    $key,
+                ));
+            }
+        }
+
+        // Run-truth keys are forbidden inside bootstrap: — not merely
+        // unrecognised. `$overrides` is documented as the ONLY place they can
+        // arrive from (see docblock § What goes in the YAML vs. $overrides);
+        // an author who deliberately writes one here (e.g. `auth:` expecting
+        // it to gate the styleguide) must be told it was refused, not have
+        // it silently vanish while looking like it took effect. Contrast
+        // with a genuinely unknown key, which round-trips unharmed for
+        // forward compatibility (see the `sync-styleguide` generator-safety
+        // note in docs/API.md) — only the fixed set in self::RUN_TRUTH_KEYS
+        // fails, top-level or nested alike.
+        self::assertNoRunTruthKeys($bootstrap, $path);
+
+        // Resolve relative bootstrap.* paths against the YAML's own
+        // directory (see docblock) — NOT __DIR__ of the caller, NOT cwd.
+        $baseDir = dirname($path);
+        $realBase = realpath($baseDir);
+        if ($realBase !== false) {
+            $baseDir = $realBase;
+        }
+
+        $config = [
+            'templates_path' => self::resolveYamlPath((string) $bootstrap['templates_path'], $baseDir),
+            'static_path' => self::resolveYamlPath((string) $bootstrap['static_path'], $baseDir),
+        ];
+
+        // Every other bootstrap.* key is optional — omitted here (not
+        // defaulted) when absent from the YAML, so Styleguide::__construct's
+        // OWN default-merging (`$config + [...]`) is the single place those
+        // defaults live, rather than restating them a second time. Unlike
+        // the old silent-ignore behaviour, a key that IS present but carries
+        // the wrong type throws — a typo'd `base_url: []` must fail loudly
+        // at load time, naming the offending key, rather than quietly
+        // falling back to the constructor's default as if nothing was
+        // written at all.
+        if (array_key_exists('default_locale', $bootstrap)) {
+            if (!is_string($bootstrap['default_locale']) || $bootstrap['default_locale'] === '') {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.default_locale' must be a non-empty string, got %s",
+                    $path,
+                    get_debug_type($bootstrap['default_locale']),
+                ));
+            }
+            $config['default_locale'] = $bootstrap['default_locale'];
+        }
+        if (array_key_exists('base_url', $bootstrap)) {
+            if (!is_string($bootstrap['base_url']) || $bootstrap['base_url'] === '') {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.base_url' must be a non-empty string, got %s",
+                    $path,
+                    get_debug_type($bootstrap['base_url']),
+                ));
+            }
+            $config['base_url'] = $bootstrap['base_url'];
+        }
+        if (array_key_exists('typography_config', $bootstrap)) {
+            if (!is_string($bootstrap['typography_config'])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.typography_config' must be a string, got %s",
+                    $path,
+                    get_debug_type($bootstrap['typography_config']),
+                ));
+            }
+            // An explicit empty string means "no typography config" — a
+            // legitimate no-op, not an error, and not distinguishable in
+            // the YAML from "key absent" any other way.
+            if ($bootstrap['typography_config'] !== '') {
+                $config['typography_config']
+                    = self::resolveYamlPath($bootstrap['typography_config'], $baseDir);
+            }
+        }
+        if (array_key_exists('namespaces', $bootstrap)) {
+            if (!is_array($bootstrap['namespaces']) || array_is_list($bootstrap['namespaces'])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.namespaces' must be a mapping of "
+                        . 'name => path, got %s',
+                    $path,
+                    is_array($bootstrap['namespaces']) ? 'a YAML sequence' : get_debug_type($bootstrap['namespaces']),
+                ));
+            }
+            $namespaces = [];
+            foreach ($bootstrap['namespaces'] as $name => $namespacePath) {
+                if (!is_string($name) || $name === '') {
+                    throw new \InvalidArgumentException(sprintf(
+                        "Styleguide::fromYaml(): '%s' key 'bootstrap.namespaces' has a non-string or empty "
+                            . 'namespace name, got %s',
+                        $path,
+                        get_debug_type($name),
+                    ));
+                }
+                if (!is_string($namespacePath) || $namespacePath === '') {
+                    throw new \InvalidArgumentException(sprintf(
+                        "Styleguide::fromYaml(): '%s' key 'bootstrap.namespaces.%s' must be a non-empty "
+                            . 'string, got %s',
+                        $path,
+                        $name,
+                        get_debug_type($namespacePath),
+                    ));
+                }
+                $namespaces[$name] = self::resolveYamlPath($namespacePath, $baseDir);
+            }
+            $config['namespaces'] = $namespaces;
+        }
+        if (array_key_exists('twig_context', $bootstrap)) {
+            if (!is_array($bootstrap['twig_context']) || array_is_list($bootstrap['twig_context'])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.twig_context' must be a mapping, got %s",
+                    $path,
+                    is_array($bootstrap['twig_context']) ? 'a YAML sequence' : get_debug_type($bootstrap['twig_context']),
+                ));
+            }
+            // `templateUrl` (the canonical run-truth value this whole
+            // boundary exists for — computed from $_SERVER['SCRIPT_NAME'],
+            // correct for exactly one HTTP request) is already refused by
+            // the self::assertNoRunTruthKeys() call above, which walks
+            // self::RUN_TRUTH_KEYS including the nested 'twig_context.*'
+            // entries — nothing bespoke needed here.
+            $config['twig_context'] = $bootstrap['twig_context'];
+        }
+
+        // $overrides is run-truth (see docblock). twig_context is merged
+        // key-by-key rather than replaced wholesale, so an override
+        // supplying only the run-dependent `templateUrl` doesn't blow away
+        // the project's own homeUrl/frontPageUrl/langcode from the YAML.
+        if (isset($overrides['twig_context']) && is_array($overrides['twig_context'])) {
+            $overrides['twig_context'] = $overrides['twig_context'] + ($config['twig_context'] ?? []);
+        }
+
+        $config = $overrides + $config;
+        // Never overridable — $path IS the file this config was read from.
+        $config['config_yaml'] = $path;
+
+        return new self($config);
+    }
+
+    /**
+     * Walks {@see self::RUN_TRUTH_KEYS} against `$bootstrap` and throws on
+     * the first one present, whether top-level (`'auth'`) or nested
+     * (`'twig_context.templateUrl'`). Reports the same message shape either
+     * way, naming the full dotted `bootstrap.*` path so a nested hit points
+     * at the leaf, not just the containing mapping.
+     *
+     * A dotted entry only matches when every intermediate segment is itself
+     * an array — a `bootstrap.twig_context` that fails its OWN type check
+     * later (e.g. a string instead of a mapping) simply doesn't match here,
+     * so this method never masks that separate, more specific error.
+     *
+     * @param array<string, mixed> $bootstrap
+     */
+    private static function assertNoRunTruthKeys(array $bootstrap, string $path): void
+    {
+        foreach (self::RUN_TRUTH_KEYS as $keyPath) {
+            $cursor = $bootstrap;
+            $present = true;
+            foreach (explode('.', $keyPath) as $segment) {
+                if (!is_array($cursor) || !array_key_exists($segment, $cursor)) {
+                    $present = false;
+                    break;
+                }
+                $cursor = $cursor[$segment];
+            }
+            if ($present) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.%s' is a run-truth value — it can only "
+                        . 'be supplied via $overrides, never via the YAML. See Styleguide::fromYaml() docblock.',
+                    $path,
+                    $keyPath,
+                ));
+            }
+        }
+    }
+
+    /**
+     * Resolves a `bootstrap.*` YAML value against `$baseDir` (the YAML
+     * file's own directory) unless it's already absolute. `realpath()` is
+     * used opportunistically to normalise `../` segments and symlinks when
+     * the target already exists; a target that doesn't exist yet (a
+     * `namespaces` entry for a directory created later, say) falls back to
+     * plain string concatenation rather than failing — mirrors how the
+     * array constructor never requires `templates_path`/`static_path` to
+     * exist ahead of time either.
+     */
+    private static function resolveYamlPath(string $value, string $baseDir): string
+    {
+        if ($value === '') {
+            return $baseDir;
+        }
+        if (self::isAbsoluteFilesystemPath($value)) {
+            return $value;
+        }
+        $joined = rtrim($baseDir, '/') . '/' . $value;
+        $real = realpath($joined);
+        return $real !== false ? $real : $joined;
+    }
+
+    /**
+     * `/…` (POSIX/UNC-style, incl. `\\server\share` normalised forms) or
+     * `C:\…` / `C:/…` (Windows drive letter) — the two absolute-path shapes
+     * worth distinguishing from "relative to the YAML's directory".
+     */
+    private static function isAbsoluteFilesystemPath(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            || str_starts_with($path, '\\\\')
+            || preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1;
     }
 
     private function buildOwnTwig(string $templatesPath): Environment
