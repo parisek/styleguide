@@ -385,6 +385,57 @@ class ComponentParser
     }
 
     /**
+     * @api Public contract. Backs `Styleguide::componentDirectories()` (see
+     *      that method's docblock for the full rationale) — exposed here too
+     *      so any consumer that already holds a `ComponentParser` instance
+     *      doesn't need a `Styleguide` just to enumerate directories.
+     *
+     * Lists every immediate subdirectory of `templates_path/<type>/`,
+     * reporting whether it carries its OWN `<id>/<id>.twig` template — the
+     * exact file `parse()`/`parseAll()` require before they'll even attempt
+     * to read metadata from it. This is deliberately a WEAKER filter than
+     * `parseAll()`'s: it does not require a `name:`-bearing metadata source,
+     * so a directory that fails `parseAll()`'s catalogue walk for lacking a
+     * template (or for lacking valid metadata) still shows up here — that's
+     * the point. A consumer auditing "is this directory even a real,
+     * template-backed component candidate" needs exactly this weaker
+     * question; `parseAll()` alone can only answer "is it a fully catalogued
+     * one", which silently conflates "not a component" with "a component
+     * with nothing demonstrated yet".
+     *
+     * One level deep, not recursive — mirrors the on-disk convention every
+     * `<type>/<id>/<id>.twig` component follows and the `GLOB_ONLYDIR`
+     * directory walk this replaces; a nested working directory such as
+     * `<id>/js/` or `<id>/tests/` is never itself a candidate and is not
+     * descended into or reported.
+     *
+     * @return list<array{id: string, hasTemplate: bool}>
+     */
+    public function listDirectories(string $type): array
+    {
+        $dir = $this->templatesPath . '/' . $type;
+        if (!is_dir($dir)) {
+            return [];
+        }
+
+        $entries = [];
+        foreach (scandir($dir) ?: [] as $name) {
+            if ($name === '.' || $name === '..' || !is_dir($dir . '/' . $name)) {
+                continue;
+            }
+            // Same existence check `parse()`/`parseAll()` make before they'll
+            // read metadata from this directory at all — reusing it here
+            // keeps "has a template" a single definition, not a second one
+            // that could silently drift from the catalogue's own.
+            $entries[] = ['id' => $name, 'hasTemplate' => file_exists($dir . '/' . $name . '/' . $name . '.twig')];
+        }
+
+        usort($entries, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
+
+        return $entries;
+    }
+
+    /**
      * Extract YAML metadata from the first {# ... #} comment in a Twig file.
      *
      * Malformed YAML THROWS ParseException instead of degrading to `false`

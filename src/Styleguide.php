@@ -1609,6 +1609,79 @@ final class Styleguide
      *
      * @return list<array{kind: 'component'|'page'|'doc', slug: string, variant: string|null}>
      */
+    /**
+     * @api Public contract. `list<array{id: string, hasTemplate: bool}>`
+     *      shape and `component` scope are SemVer-protected.
+     *
+     * Enumerates every `component/<id>/` directory REGARDLESS of whether it
+     * ever renders — the gap `inventory()` (above) cannot close: that method
+     * only lists fixtures that already render, so a directory with no
+     * `styleguide*.twig` (a `never-rendered` component, still a real one) or
+     * with no `<id>.twig` template at all (not a real component candidate —
+     * a stray definition-only directory, or a working directory like
+     * `<id>/js/`) is equally invisible to it. A consumer that needs to know
+     * about ALL of a project's component directories — not just the ones
+     * with a demonstrated fixture — previously had no choice but to `glob()`
+     * the templates tree itself, which is exactly the kind of filesystem
+     * knowledge this package exists to own on the consumer's behalf.
+     *
+     * Delegates to `ComponentParser::listDirectories('component')` — the
+     * SAME "does `<id>/<id>.twig` exist" check `parse()`/`parseAll()` use
+     * before they'll even attempt to read a directory's metadata — so this
+     * method can never disagree with the catalogue's own notion of what a
+     * component directory is. Deliberately ONE enumeration answering both
+     * "what directories exist" and "does this one have a template", rather
+     * than two overlapping methods a caller would have to cross-reference by
+     * id themselves.
+     *
+     * @return list<array{id: string, hasTemplate: bool}>
+     */
+    public function componentDirectories(): array
+    {
+        return $this->parser->listDirectories('component');
+    }
+
+    /**
+     * @api Fixture inventory. Lists every renderable component/page/doc
+     *      fixture the project's `templates_path` contains, in stable order
+     *      — needed for a consumer's determinism assertion (two calls in the
+     *      same process must return identical order).
+     *
+     * Reuses {@see ComponentParser::parseAll()} rather than re-globbing the
+     * filesystem — variant naming (`styleguide.<variant>.twig`, the
+     * underscore-prefixed-directory partial exclusion, `doc/`) is package
+     * doctrine owned by `ComponentParser`, and restating it here would drift
+     * the moment that doctrine grows a new shape.
+     *
+     * One row per fixture: an entry with `has_default_variant` true emits a
+     * `variant: null` row (the component/page/doc's own default demo); each
+     * entry in `variants` emits one row per named variant.
+     *
+     * **No `ownFixture` field.** An earlier revision of this method carried
+     * one, hardcoded to `true` on every row — dropped rather than fixed,
+     * because it cannot be made meaningful from inside this method. This
+     * method only enumerates fixtures that exist as real `kind/slug[/variant]`
+     * demo files on disk, so every row it can possibly produce already is
+     * that kind/slug's own fixture by construction; there is no false case
+     * to report. The distinction the field's name promised — "rendered, but
+     * NOT by its own fixture" (e.g. a component with no fixture of its own
+     * that a trace's `calls` reveal gets rendered somewhere nested, inside a
+     * page) — lives on a different axis entirely: it can only be computed by
+     * cross-referencing `renderObserved()`'s `calls` across one or more
+     * fixtures against this method's own output (a component id appearing in
+     * `calls` that never appears as a `slug` here). `inventory()` never looks
+     * at what renders what, so it has no data to compute that distinction
+     * from, and forcing a synthetic row for it would require inventing
+     * entries for slugs that have no fixture file at all — breaking the "one
+     * row per real fixture" contract this method exists to keep. A field
+     * that can only ever read `true` is worse than no field: a consumer would
+     * be tempted to branch on it. If a future consumer needs that
+     * cross-reference, it belongs in a helper that takes an `inventory()`
+     * result AND one or more `renderObserved()` traces as input — not in
+     * this method's row shape.
+     *
+     * @return list<array{kind: 'component'|'page'|'doc', slug: string, variant: string|null}>
+     */
     public function inventory(): array
     {
         $rows = [];

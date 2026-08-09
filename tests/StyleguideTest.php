@@ -222,4 +222,25 @@ final class StyleguideTest extends TestCase
         self::assertSame('403 Forbidden', $output);
         http_response_code(200);
     }
+
+    #[Test]
+    public function component_directories_lists_a_directory_with_no_template_that_inventory_never_sees(): void
+    {
+        // The gap this method exists to close: `yaml-only/` carries a
+        // definition (`<id>.yaml`) but no `<id>.twig`, so it never becomes an
+        // `inventory()`/`parseAll()` entry at all — invisible to both. A
+        // consumer auditing "does every component directory have a real
+        // template" needs exactly this directory-level fact, which
+        // `inventory()` structurally cannot supply.
+        $sg = $this->newStyleguide(['templates_path' => __DIR__ . '/fixtures/directory-listing-templates']);
+
+        self::assertSame(
+            [
+                ['id' => 'js-only', 'hasTemplate' => false],
+                ['id' => 'with-template', 'hasTemplate' => true],
+                ['id' => 'yaml-only', 'hasTemplate' => false],
+            ],
+            $sg->componentDirectories(),
+        );
+    }
 }
