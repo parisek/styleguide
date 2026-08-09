@@ -59,6 +59,26 @@ The config array shape is **`@api`**. Adding new optional keys is a minor bump. 
 
 `dist_path` also exists on the config array (points `dispatchSpa()` at an alternate `dist/` directory) but is **`@internal` for tests only** (see `SpaConfigTest`) — it is not covered by SemVer and consumers must never set it.
 
+#### `fromYaml(string $path, array $overrides = []): self` (`@api`, added 1.12.0)
+
+Loader layered **on top of** the array constructor — `__construct()` is unchanged and stays the package's primitive API; `fromYaml()` is sugar over it for the common case where a project wants its HTTP entry point (`static/index.php`) and any other consumer that renders the same project (a CLI fixture-coverage audit, say) to share one declaration of the project's config instead of each restating it. See `docs/superpowers/specs/2026-08-08-styleguide-render-trace-api-design.md` § 5 (`tailwind-base` repo) for the design rationale.
+
+```php
+Styleguide::fromYaml(__DIR__ . '/styleguide.yaml', [
+    'twig_context' => ['templateUrl' => rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')],
+])->run();
+```
+
+Reads the `bootstrap:` top-level key of the YAML at `$path` (see § YAML schemas → `bootstrap:` below) and constructs a `Styleguide` from it. `config_yaml` is never read from `$overrides` — it is always set to `$path`, since `$path` names the very config being loaded.
+
+**Project-truth vs. run-truth — the line `$overrides` draws.** What is true about the *project*, regardless of who renders it — `templates_path`, `static_path`, `default_locale`, `base_url`, `typography_config`, `namespaces`, and the project-shaped part of `twig_context` (`homeUrl`, `frontPageUrl`, `langcode`, …) — belongs in the YAML's `bootstrap:` section. What is true only about *this run* — `templateUrl` (computed from `$_SERVER['SCRIPT_NAME']`, correct for exactly one HTTP request and quietly wrong on a CLI process/another machine), a pre-built `twig` environment, `twig_options`, `auth`, `dist_path` — is never read from the YAML at all and can only arrive via `$overrides`.
+
+`twig_context` is the one key `$overrides` merges into rather than replacing wholesale: an override supplying only `templateUrl` is layered on top of the YAML's own `twig_context`, so a CLI caller doesn't have to restate `homeUrl`/`frontPageUrl`/`langcode` just to add the one key that's actually theirs to supply. Every other key is a plain override — whatever `$overrides` sets wins outright.
+
+Relative `bootstrap.*` paths resolve against **the YAML file's own directory**, not the caller's `__DIR__` and not the process's current working directory — the same `styleguide.yaml` produces the same absolute paths whether read by `static/index.php` over HTTP or by a CLI script invoked from an arbitrary cwd.
+
+Throws `\InvalidArgumentException` when: `$path` doesn't exist; the file isn't valid YAML; the parsed document isn't a top-level mapping; `bootstrap:` exists but isn't a mapping; or `bootstrap.templates_path` / `bootstrap.static_path` is missing or not a non-empty string. Each message names the file and the specific problem — there is no guessed fallback for a required key, because a wrong guess is a silent-wrong-config bug in different clothes.
+
 #### `run(): void`
 
 Inspects `$_SERVER['REQUEST_URI']` via `Router::parse()`, dispatches to the right handler, and calls `exit` on routes the package handles. Returns silently for non-`/styleguide/*` URLs — the caller's own routing continues.
@@ -142,8 +162,27 @@ The project-level config consumed by `Styleguide::__construct(['config_yaml' => 
 | `typography` | optional | `{ fonts: [{ name, type, stylesheet, url, usage, alphabet }], headings, weights, body_sample }` | Foundations view |
 | `labels` | optional | `{ logo, colors, typography, headings, font_weights, body_text, font_family, click_to_copy, copied, click_swatch }` | i18n strings for foundations view |
 | `colors` | optional | `{ <name>: { name, css_variable, default, shades: { <shade>: { hex, oklch } } } }` | Foundations colour palette |
+| `bootstrap` | optional (required for `Styleguide::fromYaml()`) | `{ templates_path, static_path, default_locale?, base_url?, typography_config?, namespaces?, twig_context? }` | Project-truth bootstrap config consumed **only** by `Styleguide::fromYaml()` (§ PHP API above) — never read by `Styleguide::__construct()`/`run()` directly. See § `bootstrap:` below. |
 
 Adding new optional top-level keys or new optional sub-keys is **non-breaking**. Renaming or removing existing keys is **breaking**.
+
+### `bootstrap:` (added 1.12.0)
+
+Consumed only by `Styleguide::fromYaml()`. Every key mirrors a same-named `Styleguide::__construct()` config key and carries the same meaning — see § PHP API → `__construct(array $config)` above for each key's semantics and default.
+
+| Key | Required | Type | Notes |
+|---|---|---|---|
+| `templates_path` | yes | `string` | Relative to this YAML file's own directory, or absolute |
+| `static_path` | yes | `string` | Relative to this YAML file's own directory, or absolute |
+| `default_locale` | no | `string` | Falls through to `__construct()`'s own default (`'en'`) when absent |
+| `base_url` | no | `string` | Falls through to `__construct()`'s own default (`'/styleguide'`) when absent |
+| `typography_config` | no | `string` | Relative to this YAML file's own directory, or absolute |
+| `namespaces` | no | `{ <namespace>: <path> }` | Each value relative to this YAML file's own directory, or absolute |
+| `twig_context` | no | `{ <key>: <value> }` | **Project-truth context only** — `homeUrl`, `frontPageUrl`, `langcode`, and similar. Never put `templateUrl` here — it's a run-truth value (depends on `$_SERVER['SCRIPT_NAME']`) and belongs in the caller's `$overrides` instead; see `Styleguide::fromYaml()` docs |
+
+None of these keys are read by the array constructor (`Styleguide::__construct()`) or by `run()` directly — only `fromYaml()` reads `bootstrap:`. A project that hasn't adopted `fromYaml()` yet can ignore this section entirely; its `static/index.php` keeps working unchanged.
+
+**Safety for the `sync-styleguide` generator.** `bootstrap:` is a **new, standalone top-level key** deliberately kept out of every section the generator already regenerates (`colors`, fonts inside `typography`, `logo`, `favicon`, the `iframe:` asset block, `icons`, `og_image`). A generator that has not been taught about `bootstrap:` yet — the common case immediately after this release — round-trips it unharmed as long as it follows the same pattern it already uses for `project:`/`labels:`/`typography` overrides: parse the existing file, merge freshly computed values into the specific top-level keys it owns, and re-serialise the rest of the document unchanged. Because `bootstrap:` is never one of those owned keys, an unaware generator has nothing to overwrite. **What a consumer must still do:** teach `sync-styleguide` to populate `bootstrap:` from the project's `static/index.php` config array (a one-time migration per project) if it wants `fromYaml()`-based CLI consumers to work — this package cannot make that change, since the skill lives in each consuming project's own tree.
 
 ### Component YAML metadata (front comment in `<id>.twig`)
 

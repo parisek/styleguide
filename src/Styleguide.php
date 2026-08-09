@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\Error\LoaderError;
@@ -16,12 +17,13 @@ use Twig\TwigFunction;
  * Public bootstrap entry for the styleguide.
  *
  * @api This class and its public methods (`__construct`, `run`, `renderObserved`,
- *      `inventory`) are the only part of the PHP surface covered by SemVer. The
- *      config array shape passed to the constructor is part of the contract —
- *      see `docs/API.md` § PHP API. All other classes in `Parisek\Styleguide\*`
- *      (Router, Renderer, ComponentParser methods other than
- *      `RENDER_MODES`/`normaliseRender`, AssetServer, Placeholder, RenderObserver,
- *      Api\*) are `@internal` — refactor without bumping major is allowed.
+ *      `inventory`, `componentDirectories`, `fromYaml`) are the only part of the
+ *      PHP surface covered by SemVer. The config array shape passed to the
+ *      constructor is part of the contract — see `docs/API.md` § PHP API. All
+ *      other classes in `Parisek\Styleguide\*` (Router, Renderer, ComponentParser
+ *      methods other than `RENDER_MODES`/`normaliseRender`, AssetServer,
+ *      Placeholder, RenderObserver, Api\*) are `@internal` — refactor without
+ *      bumping major is allowed.
  *
  * Usage in project's static/index.php:
  *
@@ -31,6 +33,14 @@ use Twig\TwigFunction;
  *         'config_yaml'     => __DIR__ . '/styleguide.yaml',
  *         'default_locale'  => 'cs',
  *     ]))->run();
+ *
+ * Or, once `styleguide.yaml` carries a `bootstrap:` section (see
+ * {@see self::fromYaml()}), both the HTTP entry point and any CLI consumer can
+ * share the exact same project config instead of restating it:
+ *
+ *     \Parisek\Styleguide\Styleguide::fromYaml(__DIR__ . '/styleguide.yaml', [
+ *         'twig_context' => ['templateUrl' => rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')],
+ *     ])->run();
  *
  * `run()` inspects the request URI via {@see Router::parse()} and dispatches to:
  * - {@see AssetServer::serve()}      for /styleguide/assets/<path>
@@ -191,6 +201,204 @@ final class Styleguide
         $this->parser = new ComponentParser($config['templates_path']);
         $this->renderer = new Renderer($this->twig, $this->config['twig_context'], $config['templates_path']);
         $this->assetServer = new AssetServer($this->distRoot);
+    }
+
+    /**
+     * @api Loader layered over the array constructor — never replaces it.
+     *      Reads a project's `styleguide.yaml` `bootstrap:` section and
+     *      constructs a `Styleguide` from it, so the HTTP entry point
+     *      (`static/index.php`) and any other consumer that needs to render
+     *      the same project (e.g. a CLI fixture-coverage audit) share one
+     *      declaration of the project's config instead of each restating it.
+     *      See `docs/superpowers/specs/2026-08-08-styleguide-render-trace-api-design.md`
+     *      § 5 in `tailwind-base` for the design rationale, and `docs/API.md`
+     *      § YAML schemas → `bootstrap:` for the key reference.
+     *
+     * **What goes in the YAML vs. `$overrides` — project-truth vs. run-truth.**
+     * Everything true about the PROJECT regardless of who is rendering it
+     * (`templates_path`, `static_path`, `default_locale`, `base_url`,
+     * `typography_config`, `namespaces`, and the project-shaped part of
+     * `twig_context` — `homeUrl`, `frontPageUrl`, `langcode`, …) belongs in
+     * `bootstrap:`. Everything true only about THIS RUN — `templateUrl`
+     * (computed from `$_SERVER['SCRIPT_NAME']`, correct for exactly one HTTP
+     * request and quietly wrong for a CLI process on another machine), a
+     * pre-built `twig` environment, `twig_options`, `auth`, `dist_path` — is
+     * never read from the YAML at all; it can ONLY arrive via `$overrides`.
+     * `bootstrap:` therefore has no keys for those — there is nothing to
+     * accidentally put there.
+     *
+     * `twig_context` is the one YAML key `$overrides` can partially
+     * override: an override supplying only `templateUrl` (the run-dependent
+     * value) is merged key-by-key on top of the YAML's own `twig_context`
+     * (`homeUrl`/`frontPageUrl`/`langcode`), rather than replacing it
+     * wholesale — otherwise every CLI caller would have to restate the
+     * project's routes just to add the one key that's actually theirs to
+     * supply. Every other config key is a plain override: whatever
+     * `$overrides` sets for a scalar key wins outright over the YAML.
+     *
+     * `config_yaml` is NOT an overridable key — `$path` IS the file being
+     * read, so an override claiming a different `config_yaml` would
+     * contradict the very call that produced this config. It is always set
+     * to `$path`, after the override merge, so a stray `'config_yaml' => …`
+     * entry in `$overrides` is silently correct rather than silently wrong.
+     *
+     * Relative `bootstrap.*` paths (`templates_path`, `static_path`,
+     * `typography_config`, each `namespaces.*` value) resolve relative to
+     * the YAML FILE'S OWN DIRECTORY, not `__DIR__` of whatever script calls
+     * this method and not the process's current working directory — the
+     * portability property called out in the design doc: the same
+     * `styleguide.yaml` produces the same absolute paths whether it's read
+     * by `static/index.php` (HTTP) or a CLI script invoked from an
+     * arbitrary cwd.
+     *
+     * @param array<string, mixed> $overrides Run-truth config, layered on top of the YAML's project-truth. See above.
+     * @throws \InvalidArgumentException When `$path` doesn't exist, isn't valid YAML, doesn't parse to a
+     *         top-level mapping, has a non-mapping `bootstrap:` key, or is missing a required
+     *         `bootstrap.templates_path` / `bootstrap.static_path` string. Each message names the
+     *         file and the specific problem — this method never falls back to a guessed default for
+     *         a required key, because a guessed `templates_path` that's wrong is a silent-wrong-config
+     *         bug wearing the same clothes as the `ReflectionProperty` hack this whole API replaces.
+     */
+    public static function fromYaml(string $path, array $overrides = []): self
+    {
+        if (!is_file($path)) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): config file not found at '%s'",
+                $path,
+            ));
+        }
+
+        try {
+            $data = Yaml::parseFile($path);
+        } catch (ParseException $e) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): '%s' is not valid YAML: %s",
+                $path,
+                $e->getMessage(),
+            ), 0, $e);
+        }
+
+        // array_is_list() rejects a YAML sequence (`- one\n- two`) too — that
+        // parses to a PHP list, which is_array() alone would accept, but it
+        // isn't the mapping shape `bootstrap:`/`project:`/… keys need.
+        if (!is_array($data) || array_is_list($data)) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): '%s' must parse to a YAML mapping at the top level, got %s",
+                $path,
+                is_array($data) ? 'a YAML sequence' : get_debug_type($data),
+            ));
+        }
+
+        $bootstrap = $data['bootstrap'] ?? [];
+        if (!is_array($bootstrap)) {
+            throw new \InvalidArgumentException(sprintf(
+                "Styleguide::fromYaml(): '%s' key 'bootstrap' must be a mapping, got %s",
+                $path,
+                get_debug_type($bootstrap),
+            ));
+        }
+
+        foreach (['templates_path', 'static_path'] as $key) {
+            if (empty($bootstrap[$key]) || !is_string($bootstrap[$key])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' is missing required 'bootstrap.%s' (non-empty string)",
+                    $path,
+                    $key,
+                ));
+            }
+        }
+
+        // Resolve relative bootstrap.* paths against the YAML's own
+        // directory (see docblock) — NOT __DIR__ of the caller, NOT cwd.
+        $baseDir = dirname($path);
+        $realBase = realpath($baseDir);
+        if ($realBase !== false) {
+            $baseDir = $realBase;
+        }
+
+        $config = [
+            'templates_path' => self::resolveYamlPath((string) $bootstrap['templates_path'], $baseDir),
+            'static_path' => self::resolveYamlPath((string) $bootstrap['static_path'], $baseDir),
+        ];
+
+        // Every other bootstrap.* key is optional — omitted here (not
+        // defaulted) when absent from the YAML, so Styleguide::__construct's
+        // OWN default-merging (`$config + [...]`) is the single place those
+        // defaults live, rather than restating them a second time.
+        if (isset($bootstrap['default_locale']) && is_string($bootstrap['default_locale'])) {
+            $config['default_locale'] = $bootstrap['default_locale'];
+        }
+        if (isset($bootstrap['base_url']) && is_string($bootstrap['base_url'])) {
+            $config['base_url'] = $bootstrap['base_url'];
+        }
+        if (
+            isset($bootstrap['typography_config'])
+            && is_string($bootstrap['typography_config'])
+            && $bootstrap['typography_config'] !== ''
+        ) {
+            $config['typography_config'] = self::resolveYamlPath((string) $bootstrap['typography_config'], $baseDir);
+        }
+        if (isset($bootstrap['namespaces']) && is_array($bootstrap['namespaces'])) {
+            $namespaces = [];
+            foreach ($bootstrap['namespaces'] as $name => $namespacePath) {
+                if (is_string($name) && $name !== '' && is_string($namespacePath) && $namespacePath !== '') {
+                    $namespaces[$name] = self::resolveYamlPath($namespacePath, $baseDir);
+                }
+            }
+            $config['namespaces'] = $namespaces;
+        }
+        if (isset($bootstrap['twig_context']) && is_array($bootstrap['twig_context'])) {
+            $config['twig_context'] = $bootstrap['twig_context'];
+        }
+
+        // $overrides is run-truth (see docblock). twig_context is merged
+        // key-by-key rather than replaced wholesale, so an override
+        // supplying only the run-dependent `templateUrl` doesn't blow away
+        // the project's own homeUrl/frontPageUrl/langcode from the YAML.
+        if (isset($overrides['twig_context']) && is_array($overrides['twig_context'])) {
+            $overrides['twig_context'] = $overrides['twig_context'] + ($config['twig_context'] ?? []);
+        }
+
+        $config = $overrides + $config;
+        // Never overridable — $path IS the file this config was read from.
+        $config['config_yaml'] = $path;
+
+        return new self($config);
+    }
+
+    /**
+     * Resolves a `bootstrap.*` YAML value against `$baseDir` (the YAML
+     * file's own directory) unless it's already absolute. `realpath()` is
+     * used opportunistically to normalise `../` segments and symlinks when
+     * the target already exists; a target that doesn't exist yet (a
+     * `namespaces` entry for a directory created later, say) falls back to
+     * plain string concatenation rather than failing — mirrors how the
+     * array constructor never requires `templates_path`/`static_path` to
+     * exist ahead of time either.
+     */
+    private static function resolveYamlPath(string $value, string $baseDir): string
+    {
+        if ($value === '') {
+            return $baseDir;
+        }
+        if (self::isAbsoluteFilesystemPath($value)) {
+            return $value;
+        }
+        $joined = rtrim($baseDir, '/') . '/' . $value;
+        $real = realpath($joined);
+        return $real !== false ? $real : $joined;
+    }
+
+    /**
+     * `/…` (POSIX/UNC-style, incl. `\\server\share` normalised forms) or
+     * `C:\…` / `C:/…` (Windows drive letter) — the two absolute-path shapes
+     * worth distinguishing from "relative to the YAML's directory".
+     */
+    private static function isAbsoluteFilesystemPath(string $path): bool
+    {
+        return str_starts_with($path, '/')
+            || str_starts_with($path, '\\\\')
+            || preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1;
     }
 
     private function buildOwnTwig(string $templatesPath): Environment

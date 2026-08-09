@@ -8,6 +8,40 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`Styleguide::fromYaml(string $path, array $overrides = []): self`** — loads
+  project config from `styleguide.yaml`'s new `bootstrap:` section instead of a
+  hand-written PHP array, so `static/index.php` and any other consumer that
+  renders the same project (e.g. a CLI fixture-coverage audit) share one
+  declaration instead of each restating it. Layered on top of the array
+  constructor, which is unchanged — `Styleguide::__construct()` still takes the
+  same config array it always has, and `fromYaml()` just builds one and hands
+  it over.
+
+  `$overrides` is the run-truth boundary: what's true about the *project*
+  (paths, locale, routes) belongs in the YAML; what's true only about *this
+  run* (`templateUrl`, a pre-built `twig` environment, `auth`, …) is never read
+  from the YAML and can only arrive via `$overrides`. `twig_context` is merged
+  key-by-key rather than replaced wholesale, so an override supplying only
+  `templateUrl` doesn't discard the YAML's own `homeUrl`/`frontPageUrl`/`langcode`.
+  Relative `bootstrap.*` paths resolve against the YAML file's own directory,
+  not the caller's `__DIR__` or cwd — the same file produces the same absolute
+  paths whether read over HTTP or from a CLI script invoked from anywhere.
+
+  `bootstrap:` is a new, standalone top-level YAML key, deliberately kept
+  outside every section `sync-styleguide` already regenerates — an unaware
+  generator that round-trips unknown keys (as it already does for `project:`)
+  cannot destroy it. See `docs/API.md` § YAML schemas → `bootstrap:` for the
+  full key reference and the generator-safety note, and consult
+  parisek/styleguide#119 for the design history.
+
+  **Consumer action required:** existing projects keep working unchanged with
+  the array constructor. Adopting `fromYaml()` means adding a `bootstrap:`
+  section to `styleguide.yaml` (by hand, or by teaching `sync-styleguide` to
+  populate it from `static/index.php`) and switching the entry point to call
+  `Styleguide::fromYaml()` instead of `new Styleguide([...])`.
+
 ## [1.11.0] - 2026-08-09
 
 ### Added
