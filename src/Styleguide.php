@@ -77,6 +77,37 @@ final class Styleguide
     private array $unobservableFunctions = [];
 
     /**
+     * The single authoritative list of run-truth config keys — values true
+     * only about THIS RUN (which process is rendering, over HTTP or CLI),
+     * never about the project itself, and therefore forbidden inside a
+     * `bootstrap:` YAML section ({@see self::fromYaml()}) even though every
+     * one of them is a legal key on the array constructor above. This is the
+     * ONE place that distinction is declared — {@see self::fromYaml()}
+     * validates purely by walking this list, so adding a new run-truth key
+     * (top-level or nested) means adding one entry here and nowhere else.
+     * Forgetting to add it here means the new key is silently treated as
+     * project-truth (accepted from YAML) rather than silently forbidden —
+     * loud in the sense that a project that meant to keep it run-truth would
+     * need to notice the acceptance, not that omission itself throws.
+     *
+     * Entries are `bootstrap.*`-relative dotted paths: a bare name
+     * (`'auth'`) checks a top-level `bootstrap` key; a dotted name
+     * (`'twig_context.templateUrl'`) checks a key nested one level deep.
+     * {@see self::assertNoRunTruthKeys()} walks each path generically, so a
+     * nested entry needs no bespoke check the way `templateUrl` once did.
+     *
+     * @var list<string>
+     */
+    private const RUN_TRUTH_KEYS = [
+        'twig',
+        'twig_options',
+        'auth',
+        'dist_path',
+        'config_yaml',
+        'twig_context.templateUrl',
+    ];
+
+    /**
      * @param array{
      *   templates_path: string,
      *   static_path: string,
@@ -224,9 +255,10 @@ final class Styleguide
      * correct for exactly one HTTP request and quietly wrong for a CLI
      * process on another machine), a pre-built `twig` environment,
      * `twig_options`, `auth`, `dist_path` — can ONLY arrive via `$overrides`.
-     * Writing one of these run-truth keys into `bootstrap:` anyway — as a
-     * top-level key (`twig`, `twig_options`, `auth`, `dist_path`,
-     * `config_yaml`) or as `bootstrap.twig_context.templateUrl` — is a hard
+     * The exhaustive, single-source list of these keys — top-level and
+     * nested alike — is {@see self::RUN_TRUTH_KEYS}; this paragraph
+     * describes the distinction the list encodes, not a second copy of it.
+     * Writing one of them into `bootstrap:` anyway is a hard
      * `\InvalidArgumentException`, not a silent no-op: a value that merely
      * failed to be READ (the old behaviour for the top-level keys, since
      * nothing copied them out of `$bootstrap` into `$config`) looks
@@ -270,9 +302,8 @@ final class Styleguide
      * @throws \InvalidArgumentException When `$path` doesn't exist, isn't valid YAML, doesn't parse to a
      *         top-level mapping, has a non-mapping `bootstrap:` key, is missing a required
      *         `bootstrap.templates_path` / `bootstrap.static_path` string, contains a forbidden
-     *         run-truth key (`bootstrap.twig`, `bootstrap.twig_options`, `bootstrap.auth`,
-     *         `bootstrap.dist_path`, `bootstrap.config_yaml`, or `bootstrap.twig_context.templateUrl`),
-     *         or has a present-but-optional key (`default_locale`, `base_url`, `typography_config`,
+     *         run-truth key (see {@see self::RUN_TRUTH_KEYS} for the exhaustive list, top-level and
+     *         nested alike), or has a present-but-optional key (`default_locale`, `base_url`, `typography_config`,
      *         `namespaces`, `namespaces.*`, `twig_context`) of the wrong type. Each message names the
      *         file and the specific problem — this method never falls back to a guessed default for
      *         a required key and never coerces or silently drops a malformed optional one, because a
@@ -337,17 +368,9 @@ final class Styleguide
         // it silently vanish while looking like it took effect. Contrast
         // with a genuinely unknown key, which round-trips unharmed for
         // forward compatibility (see the `sync-styleguide` generator-safety
-        // note in docs/API.md) — only this fixed, known-forbidden set fails.
-        foreach (['twig', 'twig_options', 'auth', 'dist_path', 'config_yaml'] as $forbiddenKey) {
-            if (array_key_exists($forbiddenKey, $bootstrap)) {
-                throw new \InvalidArgumentException(sprintf(
-                    "Styleguide::fromYaml(): '%s' key 'bootstrap.%s' is a run-truth value — it can only "
-                        . 'be supplied via $overrides, never via the YAML. See Styleguide::fromYaml() docblock.',
-                    $path,
-                    $forbiddenKey,
-                ));
-            }
-        }
+        // note in docs/API.md) — only the fixed set in self::RUN_TRUTH_KEYS
+        // fails, top-level or nested alike.
+        self::assertNoRunTruthKeys($bootstrap, $path);
 
         // Resolve relative bootstrap.* paths against the YAML's own
         // directory (see docblock) — NOT __DIR__ of the caller, NOT cwd.
@@ -447,20 +470,12 @@ final class Styleguide
                     is_array($bootstrap['twig_context']) ? 'a YAML sequence' : get_debug_type($bootstrap['twig_context']),
                 ));
             }
-            // `templateUrl` is the canonical run-truth value this whole
-            // boundary exists for (see class docblock) — computed from
-            // $_SERVER['SCRIPT_NAME'], correct for exactly one HTTP request.
-            // Writing it into bootstrap.twig_context must fail loudly, not
-            // be silently honoured because it happens to share a key with
-            // $overrides's own twig_context merge.
-            if (array_key_exists('templateUrl', $bootstrap['twig_context'])) {
-                throw new \InvalidArgumentException(sprintf(
-                    "Styleguide::fromYaml(): '%s' key 'bootstrap.twig_context.templateUrl' is a run-truth "
-                        . 'value — it can only be supplied via $overrides, never via the YAML. '
-                        . 'See Styleguide::fromYaml() docblock.',
-                    $path,
-                ));
-            }
+            // `templateUrl` (the canonical run-truth value this whole
+            // boundary exists for — computed from $_SERVER['SCRIPT_NAME'],
+            // correct for exactly one HTTP request) is already refused by
+            // the self::assertNoRunTruthKeys() call above, which walks
+            // self::RUN_TRUTH_KEYS including the nested 'twig_context.*'
+            // entries — nothing bespoke needed here.
             $config['twig_context'] = $bootstrap['twig_context'];
         }
 
@@ -477,6 +492,43 @@ final class Styleguide
         $config['config_yaml'] = $path;
 
         return new self($config);
+    }
+
+    /**
+     * Walks {@see self::RUN_TRUTH_KEYS} against `$bootstrap` and throws on
+     * the first one present, whether top-level (`'auth'`) or nested
+     * (`'twig_context.templateUrl'`). Reports the same message shape either
+     * way, naming the full dotted `bootstrap.*` path so a nested hit points
+     * at the leaf, not just the containing mapping.
+     *
+     * A dotted entry only matches when every intermediate segment is itself
+     * an array — a `bootstrap.twig_context` that fails its OWN type check
+     * later (e.g. a string instead of a mapping) simply doesn't match here,
+     * so this method never masks that separate, more specific error.
+     *
+     * @param array<string, mixed> $bootstrap
+     */
+    private static function assertNoRunTruthKeys(array $bootstrap, string $path): void
+    {
+        foreach (self::RUN_TRUTH_KEYS as $keyPath) {
+            $cursor = $bootstrap;
+            $present = true;
+            foreach (explode('.', $keyPath) as $segment) {
+                if (!is_array($cursor) || !array_key_exists($segment, $cursor)) {
+                    $present = false;
+                    break;
+                }
+                $cursor = $cursor[$segment];
+            }
+            if ($present) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.%s' is a run-truth value — it can only "
+                        . 'be supplied via $overrides, never via the YAML. See Styleguide::fromYaml() docblock.',
+                    $path,
+                    $keyPath,
+                ));
+            }
+        }
     }
 
     /**

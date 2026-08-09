@@ -362,7 +362,12 @@ final class StyleguideFromYamlTest extends TestCase
         YAML);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/bootstrap\.base_url/');
+        // Not just that it names the key — that the message states the
+        // expected AND actual type, since that wording is the specific
+        // reason this loader is debuggable (a stray `[]` points straight at
+        // an indentation mistake) rather than a vague "invalid" like a
+        // regression could silently reduce it to.
+        $this->expectExceptionMessageMatches('/bootstrap\.base_url.*must be a non-empty string, got array/');
 
         Styleguide::fromYaml($yaml);
     }
@@ -379,7 +384,7 @@ final class StyleguideFromYamlTest extends TestCase
         YAML);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/bootstrap\.twig_context/');
+        $this->expectExceptionMessageMatches('/bootstrap\.twig_context.*must be a mapping, got string/');
 
         Styleguide::fromYaml($yaml);
     }
@@ -397,7 +402,7 @@ final class StyleguideFromYamlTest extends TestCase
         YAML);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessageMatches('/bootstrap\.namespaces\.icons/');
+        $this->expectExceptionMessageMatches('/bootstrap\.namespaces\.icons.*must be a non-empty string, got array/');
 
         Styleguide::fromYaml($yaml);
     }
