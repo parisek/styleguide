@@ -201,7 +201,7 @@ final class LintCommandTest extends TestCase
     public function an_ignore_file_suppresses_the_finding_and_the_count_goes_to_stderr(): void
     {
         $path = sys_get_temp_dir() . '/sg-cli-ignore-' . bin2hex(random_bytes(6)) . '.yaml';
-        file_put_contents($path, "ignore:\n  - file: component/_partials/*\n    rule: unindexed\n    reason: shared fragments\n");
+        file_put_contents($path, "ignore:\n  - file: component/nameless/*\n    rule: unindexed\n    reason: deliberately nameless\n");
 
         [$exit, $stdout, $stderr] = $this->runCli([
             'lint',
@@ -209,7 +209,7 @@ final class LintCommandTest extends TestCase
             '--ignore=' . $path,
         ]);
 
-        self::assertStringNotContainsString('component/_partials/fragment.twig', $stdout);
+        self::assertStringNotContainsString('component/nameless/nameless.twig', $stdout);
         // STDERR, so neither output contract is disturbed: --format=json emits
         // a bare array, and the text format is one finding per line.
         self::assertStringContainsString('1 finding(s) suppressed', $stderr);
@@ -259,15 +259,18 @@ final class LintCommandTest extends TestCase
     #[Test]
     public function the_conventional_ignore_file_inside_the_templates_root_is_picked_up(): void
     {
+        // A plain directory name, not an underscore one: #112 makes the walk
+        // skip `_*` entirely, so a fragment placed there produces no finding
+        // and this test would pass on an empty result.
         $root = sys_get_temp_dir() . '/sg-conv-' . bin2hex(random_bytes(6));
-        mkdir($root . '/component/_partials', 0777, true);
+        mkdir($root . '/component/fragment', 0777, true);
         file_put_contents(
-            $root . '/component/_partials/fragment.twig',
+            $root . '/component/fragment/fragment.twig',
             "{# no name key — a shared fragment #}\n<div></div>\n",
         );
         file_put_contents(
             $root . '/.styleguide-lintignore.yaml',
-            "ignore:\n  - file: component/_partials/*\n    rule: unindexed\n    reason: shared fragments\n",
+            "ignore:\n  - file: component/fragment/*\n    rule: unindexed\n    reason: shared fragment\n",
         );
 
         [$exit, $stdout, $stderr] = $this->runCli(['lint', '--templates=' . $root]);
@@ -276,8 +279,8 @@ final class LintCommandTest extends TestCase
         self::assertStringContainsString('1 finding(s) suppressed', $stderr);
 
         unlink($root . '/.styleguide-lintignore.yaml');
-        unlink($root . '/component/_partials/fragment.twig');
-        rmdir($root . '/component/_partials');
+        unlink($root . '/component/fragment/fragment.twig');
+        rmdir($root . '/component/fragment');
         rmdir($root . '/component');
         rmdir($root);
     }

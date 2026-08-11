@@ -101,7 +101,7 @@ final class Linter
             }
         }
 
-        $findings = [...$findings, ...$this->staleIgnoreFindings($findings)];
+        $findings = [...$findings, ...$this->staleIgnoreFindings($findings, $types)];
 
         $this->suppressed = [];
         $kept = [];
@@ -146,13 +146,23 @@ final class Linter
      * Notice, not warning: a stale entry is untidy, never wrong, and a project
      * mid-refactor should not have its build broken by one.
      *
+     * Only entries belonging to a scanned type are judged. `lint --type=component`
+     * never walks page or doc templates, so every page and doc ignore matches
+     * nothing in that run — reporting them as stale would tell the reader to
+     * delete entries that are doing their job. An entry's type is the first
+     * path segment of its file, the same shape scanFiles() builds.
+     *
      * @param list<LintFinding> $findings
+     * @param list<string> $types  The types this run actually walked.
      * @return list<LintFinding>
      */
-    private function staleIgnoreFindings(array $findings): array
+    private function staleIgnoreFindings(array $findings, array $types): array
     {
         $stale = [];
         foreach ($this->ignores as $ignore) {
+            if (!$this->ignoreCoversScannedType($ignore->file, $types)) {
+                continue;
+            }
             foreach ($findings as $finding) {
                 if ($ignore->matches($finding)) {
                     continue 2;
@@ -170,6 +180,26 @@ final class Linter
             );
         }
         return $stale;
+    }
+
+    /**
+     * Does this ignore entry describe a file the run actually walked?
+     *
+     * The type is the first path segment. When that segment is itself a
+     * pattern (`*` / `?` / `[`), the entry can reach any type, so it is judged
+     * rather than skipped — a false stale notice is untidy, but silently never
+     * checking an entry is how the list rots.
+     *
+     * @param list<string> $types
+     */
+    private function ignoreCoversScannedType(string $file, array $types): bool
+    {
+        $first = explode('/', $file)[0];
+        if (strpbrk($first, '*?[') !== false) {
+            return true;
+        }
+
+        return in_array($first, $types, true);
     }
 
     /**

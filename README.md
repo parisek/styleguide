@@ -504,19 +504,24 @@ before they ship.
 
 #### Ignoring expected findings
 
-Some findings are correct and permanent — a shared fragment under
-`page/_partials/` legitimately has no `name:`, and is legitimately not a
-catalogue entry. Without a way to accept those, the exit code is `1` on a clean
-tree forever and the gate stops distinguishing anything.
+Some findings are correct and permanent — a template that deliberately carries
+no `name:` is legitimately not a catalogue entry, and a component built for one
+page legitimately has no fixture. Without a way to accept those, the exit code
+is `1` on a clean tree forever and the gate stops distinguishing anything.
+
+Underscore-prefixed directories need no entry: the walk skips `_partials/` and
+its siblings outright, so a shared fragment there produces no finding to accept
+in the first place. An ignore entry aimed at one would only report itself as
+`stale-ignore`.
 
 Put them in `<templates>/.styleguide-lintignore.yaml` (picked up automatically),
 or point `--ignore=<path>` at a file elsewhere:
 
 ```yaml
 ignore:
-  - file: page/_partials/*        # exact path, or an fnmatch pattern covering a subtree
-    rule: unindexed               # always a specific rule — never the whole file
-    reason: shared page fragments, not catalogue entries
+  - file: component/legacy-embed/*  # exact path, or an fnmatch pattern covering a subtree
+    rule: no-fixture                # always a specific rule — never the whole file
+    reason: rendered only inside the checkout flow, nothing to demo standalone
 ```
 
 The design is deliberately grudging, because a suppression list is how a lint

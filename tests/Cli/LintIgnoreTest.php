@@ -35,14 +35,18 @@ final class LintIgnoreTest extends TestCase
     #[Test]
     public function an_ignored_finding_is_removed_from_the_result_and_kept_for_reporting(): void
     {
-        $ignores = [new LintIgnore('component/_partials/*', 'unindexed', 'shared fragments')];
+        // Not component/_partials/* — #112 made the walk skip underscore
+        // directories outright, so that path produces no finding to suppress
+        // and the entry itself would read as stale.
+        $ignores = [new LintIgnore('component/nameless/*', 'unindexed', 'deliberately nameless')];
         $linter = new Linter($this->fixtures, $ignores);
 
         $findings = $linter->run();
 
         self::assertSame([], array_values(array_filter(
             $findings,
-            static fn($f): bool => $f->rule === 'unindexed',
+            static fn($f): bool => $f->rule === 'unindexed'
+                && str_starts_with($f->file, 'component/nameless/'),
         )));
         // Suppression is retained, not discarded — the CLI announces the count,
         // because a hidden finding and an absent check look identical otherwise.
@@ -76,6 +80,45 @@ final class LintIgnoreTest extends TestCase
         // not break the build of a project mid-refactor.
         self::assertSame(LintSeverity::Notice, $stale[0]->severity);
         self::assertStringContainsString('deleted last year', $stale[0]->message);
+    }
+
+    #[Test]
+    public function a_scoped_run_does_not_call_another_type_stale(): void
+    {
+        // A page entry cannot match anything in a component-only run, because
+        // that run never walks page templates. Judging it against those partial
+        // findings told the reader to delete an entry that is doing its job.
+        $ignores = [new LintIgnore('page/home/home.twig', 'unindexed', 'expected on the home page')];
+
+        $findings = (new Linter($this->fixtures, $ignores))->run(['component']);
+        $stale = array_values(array_filter($findings, static fn($f): bool => $f->rule === 'stale-ignore'));
+
+        self::assertSame([], $stale);
+    }
+
+    #[Test]
+    public function a_scoped_run_still_reports_a_stale_entry_of_its_own_type(): void
+    {
+        // The narrowing must not cost the signal where the run can see it.
+        $ignores = [new LintIgnore('component/long-gone/long-gone.twig', 'unindexed', 'deleted last year')];
+
+        $findings = (new Linter($this->fixtures, $ignores))->run(['component']);
+        $stale = array_values(array_filter($findings, static fn($f): bool => $f->rule === 'stale-ignore'));
+
+        self::assertCount(1, $stale);
+    }
+
+    #[Test]
+    public function a_pattern_spanning_types_is_judged_not_skipped(): void
+    {
+        // The first segment is a pattern, so the entry can reach any type. A
+        // skipped entry is never checked at all — worse than a false notice.
+        $ignores = [new LintIgnore('*/long-gone/long-gone.twig', 'unindexed', 'wildcard type segment')];
+
+        $findings = (new Linter($this->fixtures, $ignores))->run(['component']);
+        $stale = array_values(array_filter($findings, static fn($f): bool => $f->rule === 'stale-ignore'));
+
+        self::assertCount(1, $stale);
     }
 
     #[Test]

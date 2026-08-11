@@ -11,9 +11,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 - **`styleguide lint` can accept expected findings, and says so out loud.**
   The linter had no ignore mechanism, and its exit code is the only thing a
-  consumer's CI can gate on. Any project carrying a legitimately unindexed
-  template — a shared fragment under `page/_partials/`, say — therefore exited
-  `1` on a clean tree, forever. The gate stops distinguishing anything, so it
+  consumer's CI can gate on. Any project carrying a legitimately flagged
+  template — a component rendered only inside one flow, so nothing demos it
+  standalone — therefore exited `1` on a clean tree, forever. The gate stops distinguishing anything, so it
   gets dropped from CI or wrapped in a project-local filter script; both were
   observed downstream before this landed.
 
@@ -22,9 +22,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
   ```yaml
   ignore:
-    - file: page/_partials/*
-      rule: unindexed
-      reason: shared page fragments, not catalogue entries
+    - file: component/legacy-embed/*
+      rule: no-fixture
+      reason: rendered only inside the checkout flow, nothing to demo standalone
   ```
 
   Four guards keep the list from becoming a place where checks go to die
@@ -39,6 +39,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   from `1` ("findings present"). Silently ignoring nothing would recreate the
   problem one level up, and a typo would read as a lint regression in the
   templates rather than in the ignore file.
+
+  `stale-ignore` is judged only against the types a run actually walked.
+  `lint --type=component` never reads page or doc templates, so every page and
+  doc entry matches nothing there — reporting those as stale would tell the
+  reader to delete entries that are doing their job. An entry whose first path
+  segment is itself a pattern can reach any type, so it is still judged: a
+  false notice is untidy, but an entry nothing ever checks is how the list
+  rots.
 
 ### Added
 
