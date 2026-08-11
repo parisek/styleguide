@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+
+## [1.13.1] - 2026-08-11
 ### Fixed
 
 - **`maintenance:render` left `@font-face` in the artefact on any Tailwind
