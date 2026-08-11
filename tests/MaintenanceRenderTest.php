@@ -104,6 +104,55 @@ final class MaintenanceRenderTest extends TestCase
     }
 
     #[Test]
+    public function font_face_stripping_is_case_insensitive(): void
+    {
+        // A browser reads @FONT-FACE as the same at-rule. A case-sensitive
+        // match let one through into a shipped artefact.
+        $css = '@FONT-FACE{font-family:X;src:url(/x.woff2)}.a{color:red}';
+
+        self::assertSame('.a{color:red}', MaintenanceRenderer::stripFontFaces($css));
+    }
+
+    #[Test]
+    public function a_brace_inside_a_font_face_value_does_not_end_the_rule(): void
+    {
+        // Matching to the first closing brace cuts here and leaves the tail
+        // of the rule behind as stray CSS.
+        $css = '@font-face{src:url("data:font/woff2;base64,fake}fake")}.a{color:red}';
+
+        self::assertSame('.a{color:red}', MaintenanceRenderer::stripFontFaces($css));
+    }
+
+    #[Test]
+    public function external_urls_become_none_and_data_uris_survive(): void
+    {
+        $css = '.spinner{background:url(../images/loading.gif)}'
+            . '.tick{background:url("data:image/svg+xml,%3csvg/%3e")}';
+
+        $out = MaintenanceRenderer::stripExternalUrls($css);
+
+        self::assertSame(
+            '.spinner{background:none}.tick{background:url("data:image/svg+xml,%3csvg/%3e")}',
+            $out,
+        );
+    }
+
+    #[Test]
+    public function the_rendered_document_requests_nothing(): void
+    {
+        // The whole point of the file: served by a drop-in with no server
+        // behind it, every request it issues is a request that fails.
+        $styleguide = Styleguide::fromYaml($this->tempDir . '/styleguide.yaml');
+
+        $html = (new MaintenanceRenderer($styleguide))->render(
+            '@font-face{src:url(/f.woff2)}.a{background:url(/images/loading.gif)}',
+            'en',
+        );
+
+        self::assertSame(0, preg_match('/url\((?!\s*["\']?data:)/i', $html));
+    }
+
+    #[Test]
     public function render_inlines_the_stylesheet_around_the_project_page(): void
     {
         $styleguide = Styleguide::fromYaml($this->tempDir . '/styleguide.yaml');

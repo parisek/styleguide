@@ -578,19 +578,21 @@ error (exit `1`) rather than an empty document: `page_*()` logs a miss and
 substitutes an alert block, which would write a file that looks rendered and
 shows an error banner during the one outage it exists for.
 
-**Self-containment is the contract.** The stylesheet arrives inlined, every
-`@font-face` rule is stripped before the template sees the CSS, and the shipped
-shell references no script and no font file. A page served by a drop-in has no
-web server behind it worth trusting.
+**Self-containment is the contract.** The stylesheet arrives inlined, and
+`MaintenanceRenderer::selfContain()` makes it safe: every `@font-face` rule is
+removed, and every remaining `url()` that is not a `data:` URI becomes `none`.
+Background images, cursors and vendor spinners reach for the same unreachable
+server a font would. The shipped shell adds no script and no font of its own.
 
 **One file, one language.** A drop-in runs before anything that knows about
 languages, so it cannot choose. Render another with `--locale`, write it
 elsewhere with `--out`.
 
 Exit codes: `0` written, `1` render or write failure, `2` usage/config error
-(missing config, missing stylesheet, bad flag). On any non-zero exit **nothing
-is written** — a stale but working file survives instead of being replaced by
-an error document.
+(missing config, missing stylesheet, bad flag). On any non-zero exit **the
+previous artefact is untouched**: the render goes to a sibling temp file and is
+moved into place with a rename, so a full disk or a crash mid-write cannot
+leave a truncated screen behind.
 
 ### `Parisek\Styleguide\MaintenanceRenderer` (`@api`)
 
@@ -606,7 +608,9 @@ $html = (new MaintenanceRenderer(Styleguide::fromYaml($config)))
 |---|---|
 | `render(string $css, string $langcode): string` | Strips `@font-face`, renders the shell. Throws `\RuntimeException` when the project has no maintenance page. |
 | `template(): string` | Which shell this render uses — the project's, when it has one. |
-| `stripFontFaces(string $css): string` | Static, side-effect free. |
+| `selfContain(string $css): string` | Static. Strips `@font-face`, then rewrites external `url()` to `none`. |
+| `stripFontFaces(string $css): string` | Static. Case-insensitive; scans the rule body, so a brace inside a quoted value cannot end it early. |
+| `stripExternalUrls(string $css): string` | Static. Leaves `data:` URIs alone. |
 | `PAGE_TEMPLATE`, `PACKAGE_TEMPLATE`, `PROJECT_TEMPLATE` | The three template names above. |
 | `OUTPUT_RELATIVE` | Default output path, relative to `templates_path`. |
 

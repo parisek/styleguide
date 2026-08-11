@@ -76,7 +76,7 @@ final class MaintenanceRenderer
         }
 
         return $this->styleguide->renderTemplate($this->template(), [
-            'stylesheet' => self::stripFontFaces($css),
+            'stylesheet' => self::selfContain($css),
             'langcode' => $langcode,
         ]);
     }
@@ -92,17 +92,115 @@ final class MaintenanceRenderer
     }
 
     /**
+     * Makes a stylesheet safe to inline into a page served during an outage.
+     *
+     * Two passes, because a page with no server behind it must issue no
+     * request at all:
+     *
+     * 1. every `@font-face` rule goes — each names a file this document
+     *    cannot fetch, and a request guaranteed to fail delays the first
+     *    paint of the one screen that must appear at once;
+     * 2. every remaining `url()` that is not a `data:` URI becomes `none` —
+     *    background images, cursors and the odd vendor spinner reach for the
+     *    same unreachable server. `none` is valid wherever an image is, and
+     *    the declarations that carried them are decoration on a page whose
+     *    job is one heading and one sentence.
+     */
+    public static function selfContain(string $css): string
+    {
+        return self::stripExternalUrls(self::stripFontFaces($css));
+    }
+
+    /**
      * Removes every `@font-face` rule from a stylesheet.
      *
-     * Each one names a file this document cannot fetch. Dropping the rules
-     * makes the fallback stack the deliberate choice rather than the result of
-     * a failed download — and saves the browser the failing requests.
+     * Case-insensitive: `@FONT-FACE` is the same at-rule to a browser, and a
+     * case-sensitive match let one through into a shipped artefact.
      *
-     * `@font-face` bodies carry no nested braces, so a non-greedy match to the
-     * first closing brace is exact rather than approximate.
+     * The rule body is scanned rather than matched to the first `}`, because
+     * a `src:` value can carry a quoted data URI containing a brace — where
+     * a non-greedy match cuts the rule in half and leaves its tail behind as
+     * stray CSS.
      */
     public static function stripFontFaces(string $css): string
     {
-        return (string) preg_replace('/@font-face\s*\{[^}]*\}/', '', $css);
+        $out = '';
+        $offset = 0;
+        while (($start = self::findAtRule($css, '@font-face', $offset)) !== null) {
+            $brace = strpos($css, '{', $start);
+            if ($brace === false) {
+                break;
+            }
+            $end = self::endOfBlock($css, $brace);
+            if ($end === null) {
+                break;
+            }
+            $out .= substr($css, $offset, $start - $offset);
+            $offset = $end + 1;
+        }
+
+        return $out . substr($css, $offset);
+    }
+
+    /**
+     * Rewrites every non-`data:` `url()` value to `none`.
+     *
+     * The quoting forms all appear in minified output: `url(x)`, `url('x')`,
+     * `url("x")`. A `data:` URI is left alone — it is the payload, not a
+     * request.
+     */
+    public static function stripExternalUrls(string $css): string
+    {
+        return (string) preg_replace_callback(
+            '/url\(\s*(["\']?)(.*?)\1\s*\)/is',
+            static fn(array $m): string => str_starts_with(ltrim($m[2]), 'data:') ? $m[0] : 'none',
+            $css,
+        );
+    }
+
+    /**
+     * Offset of an at-rule name, matched case-insensitively, or null.
+     */
+    private static function findAtRule(string $css, string $name, int $offset): ?int
+    {
+        $position = stripos($css, $name, $offset);
+
+        return $position === false ? null : $position;
+    }
+
+    /**
+     * Offset of the `}` closing the block that opens at `$brace`.
+     *
+     * Skips over quoted strings so a brace inside a value cannot end the
+     * block early. Returns null when the stylesheet is truncated.
+     */
+    private static function endOfBlock(string $css, int $brace): ?int
+    {
+        $depth = 0;
+        $quote = null;
+        $length = strlen($css);
+        for ($i = $brace; $i < $length; $i++) {
+            $char = $css[$i];
+            if ($quote !== null) {
+                if ($char === '\\') {
+                    $i++;
+                } elseif ($char === $quote) {
+                    $quote = null;
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+            } elseif ($char === '{') {
+                $depth++;
+            } elseif ($char === '}') {
+                $depth--;
+                if ($depth === 0) {
+                    return $i;
+                }
+            }
+        }
+
+        return null;
     }
 }

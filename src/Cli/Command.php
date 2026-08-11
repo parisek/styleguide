@@ -223,8 +223,21 @@ final class Command
             return 1;
         }
 
-        if (file_put_contents($out, $html) === false) {
+        // Write beside the target, then rename. A rename is atomic on the
+        // same filesystem, so a full disk or a crash mid-write leaves the
+        // previous artefact intact — the contract this command documents.
+        // file_put_contents() straight onto $out would truncate it first and
+        // could then report a short write as success.
+        $temp = $out . '.tmp';
+        $written = file_put_contents($temp, $html);
+        if ($written !== strlen($html)) {
+            @unlink($temp);
             fwrite($stderr, sprintf("Could not write %s.\n", $out));
+            return 1;
+        }
+        if (!rename($temp, $out)) {
+            @unlink($temp);
+            fwrite($stderr, sprintf("Could not replace %s.\n", $out));
             return 1;
         }
 
