@@ -45,10 +45,36 @@ final class Linter
 
     private readonly ComponentParser $parser;
 
-    public function __construct(string $templatesPath)
+    /** @var list<LintIgnore> */
+    private readonly array $ignores;
+
+    /**
+     * @param list<LintIgnore> $ignores Expected findings to suppress. Empty by
+     *        default, so every existing caller keeps reporting everything.
+     */
+    public function __construct(string $templatesPath, array $ignores = [])
     {
         $this->templatesPath = rtrim($templatesPath, '/');
         $this->parser = new ComponentParser($this->templatesPath);
+        $this->ignores = $ignores;
+    }
+
+    /**
+     * Findings suppressed by the ignore list on the last run(), in the order
+     * they were produced.
+     *
+     * Kept rather than discarded so the CLI can say how many findings it hid.
+     * A suppression nobody can see is indistinguishable from a check that
+     * stopped running.
+     *
+     * @var list<LintFinding>
+     */
+    private array $suppressed = [];
+
+    /** @return list<LintFinding> */
+    public function suppressedFindings(): array
+    {
+        return $this->suppressed;
     }
 
     /**
@@ -75,12 +101,105 @@ final class Linter
             }
         }
 
+        $findings = [...$findings, ...$this->staleIgnoreFindings($findings, $types)];
+
+        $this->suppressed = [];
+        $kept = [];
+        foreach ($findings as $finding) {
+            // `stale-ignore` is deliberately not suppressible by the very list
+            // it reports on — an entry that could silence its own staleness
+            // warning would make the anti-rot mechanism self-defeating.
+            $ignored = $finding->rule !== 'stale-ignore' && $this->isIgnored($finding);
+            if ($ignored) {
+                $this->suppressed[] = $finding;
+                continue;
+            }
+            $kept[] = $finding;
+        }
+
         usort(
-            $findings,
+            $kept,
             static fn(LintFinding $a, LintFinding $b): int => [$a->file, $a->rule] <=> [$b->file, $b->rule],
         );
 
-        return $findings;
+        return $kept;
+    }
+
+    private function isIgnored(LintFinding $finding): bool
+    {
+        foreach ($this->ignores as $ignore) {
+            if ($ignore->matches($finding)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * An ignore entry that matches nothing in this run.
+     *
+     * The template it excused was renamed, fixed, or deleted — so the entry now
+     * silences a finding that no longer exists, and will go on silencing the
+     * next one that happens to match. Reporting it is what keeps the list from
+     * becoming a place where checks go to die quietly.
+     *
+     * Notice, not warning: a stale entry is untidy, never wrong, and a project
+     * mid-refactor should not have its build broken by one.
+     *
+     * Only entries belonging to a scanned type are judged. `lint --type=component`
+     * never walks page or doc templates, so every page and doc ignore matches
+     * nothing in that run — reporting them as stale would tell the reader to
+     * delete entries that are doing their job. An entry's type is the first
+     * path segment of its file, the same shape scanFiles() builds.
+     *
+     * @param list<LintFinding> $findings
+     * @param list<string> $types  The types this run actually walked.
+     * @return list<LintFinding>
+     */
+    private function staleIgnoreFindings(array $findings, array $types): array
+    {
+        $stale = [];
+        foreach ($this->ignores as $ignore) {
+            if (!$this->ignoreCoversScannedType($ignore->file, $types)) {
+                continue;
+            }
+            foreach ($findings as $finding) {
+                if ($ignore->matches($finding)) {
+                    continue 2;
+                }
+            }
+            $stale[] = new LintFinding(
+                LintSeverity::Notice,
+                $ignore->file,
+                'stale-ignore',
+                sprintf(
+                    'Ignore entry for rule `%s` matches nothing — the finding it excused ("%s") is gone. Remove it.',
+                    $ignore->rule,
+                    $ignore->reason,
+                ),
+            );
+        }
+        return $stale;
+    }
+
+    /**
+     * Does this ignore entry describe a file the run actually walked?
+     *
+     * The type is the first path segment. When that segment is itself a
+     * pattern (`*` / `?` / `[`), the entry can reach any type, so it is judged
+     * rather than skipped — a false stale notice is untidy, but silently never
+     * checking an entry is how the list rots.
+     *
+     * @param list<string> $types
+     */
+    private function ignoreCoversScannedType(string $file, array $types): bool
+    {
+        $first = explode('/', $file)[0];
+        if (strpbrk($first, '*?[') !== false) {
+            return true;
+        }
+
+        return in_array($first, $types, true);
     }
 
     /**
