@@ -1,0 +1,34 @@
+{# Default document shell for the outage screen. #}
+{##}
+{# Rendered offline by `styleguide maintenance:render` and served by a CMS #}
+{# drop-in while the CMS itself is down, so it reaches for nothing over the #}
+{# network: the stylesheet arrives inlined, there is no script, and every #}
+{# @font-face rule has been stripped before this template sees the CSS. #}
+{##}
+{# The project supplies `page/maintenance/maintenance.twig`. A project that #}
+{# needs different markup around it puts its own copy of this file at #}
+{# <templates_path>/maintenance-document.twig, which then wins. #}
+<!doctype html>
+<html lang="{{ langcode|default('en') }}">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	{# Contextless on purpose: the tab title is the one string this shell owns, #}
+	{# and a project translates it by adding this msgid to its catalogue. #}
+	{# Untranslated, it falls back to English in the browser tab only. #}
+	<title>{{ __('The site is briefly unavailable') }}</title>
+	<style>{{ stylesheet|raw }}</style>
+	<style>
+		/* No webfont is referenced on purpose — a file that must always load
+		   cannot wait for one. The inlined stylesheet still names the brand
+		   family, so redefine the token and make the system stack the
+		   deliberate choice rather than an accident of a failed download. */
+		:root {
+			--font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+		}
+	</style>
+</head>
+<body class="flex flex-col min-h-svh">
+	{{ page_maintenance() }}
+</body>
+</html>

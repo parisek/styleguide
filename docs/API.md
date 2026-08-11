@@ -80,6 +80,20 @@ Relative `bootstrap.*` paths resolve against **the YAML file's own directory**, 
 
 Throws `\InvalidArgumentException` when: `$path` doesn't exist; the file isn't valid YAML; the parsed document isn't a top-level mapping; `bootstrap:` exists but isn't a mapping; `bootstrap.templates_path` / `bootstrap.static_path` is missing or not a non-empty string; `bootstrap:` contains a forbidden run-truth key (the list below, § YAML schemas → `bootstrap:`) — top-level or nested (`bootstrap.twig_context.templateUrl`); or a present-but-optional key (`default_locale`, `base_url`, `typography_config`, `namespaces`, `namespaces.*`, `twig_context`) carries the wrong type. Each message names the file and the specific problem — there is no guessed fallback for a required key and no silent fallback for a malformed optional one, because either is a silent-wrong-config bug in different clothes.
 
+#### `renderTemplate(string $name, array $context = []): string` (`@api`, added 1.13.0)
+
+Renders one template on the configured environment and returns the HTML —
+the primitive behind offline renders, where output is written to a file
+rather than an HTTP response. `renderObserved()` cannot serve them: it renders
+a catalogue entry and records a call trace, while an offline render needs an
+arbitrary template and no trace. `$context` is merged over `twig_context`.
+
+#### `hasTemplate(string $name): bool` (`@api`, added 1.13.0)
+
+Whether a template name resolves on the configured loader. Callers prefer a
+project template over a packaged default without catching a loader exception
+as flow control.
+
 #### `run(): void`
 
 Inspects `$_SERVER['REQUEST_URI']` via `Router::parse()`, dispatches to the right handler, and calls `exit` on routes the package handles. Returns silently for non-`/styleguide/*` URLs — the caller's own routing continues.
@@ -522,6 +536,7 @@ A stored locale whose catalogue is no longer offered (renamed/removed `.mo`, or 
 | `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
 | `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
 | `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions). See README § Command-line catalogue. |
+| `maintenance:render [--config=<path>] [--locale=<code>] [--css=<path>] [--out=<path>]` | Render the outage screen to one self-contained HTML file. See § Offline outage render below. |
 | `--help` / `-h` | Usage |
 
 `lint` has its own exit-code contract, distinct from `list`/`show`: `0`
@@ -532,6 +547,72 @@ found). `list` and `show` keep their existing `0`/`1` contract.
 Env: `STYLEGUIDE_TEMPLATES` overrides the default templates directory.
 
 Adding new commands or new optional flags: **non-breaking**. Removing or renaming commands: **breaking**.
+
+## Offline outage render — `@api` (added 1.13.0)
+
+A CMS shows a fallback screen exactly when it cannot render one: WordPress
+reads `.maintenance` before plugins and theme load, and reaches
+`wp-content/db-error.php` with no database at all. So the screen has to exist
+as a finished file before the outage starts.
+
+```
+vendor/bin/styleguide maintenance:render
+```
+
+Reads `styleguide.yaml` — `bootstrap:` locates the templates, the static root
+and the `.mo` catalogues, `iframe.css` names the stylesheet — renders the
+project's `@page/maintenance/maintenance.twig` inside a document shell, and
+writes `<static_path>/maintenance.html`.
+
+| Flag | Default |
+|---|---|
+| `--config=<path>` | `./styleguide.yaml`, then `./static/styleguide.yaml` |
+| `--locale=<code>` | `bootstrap.default_locale`, then `project.locale`, then `en` |
+| `--css=<path>` | the first entry of `iframe.css`, resolved under `static_path` |
+| `--out=<path>` | `<static_path>/maintenance.html` |
+
+**The project supplies `page/maintenance/maintenance.twig`.** Its absence is an
+error (exit `1`) rather than an empty document: `page_*()` logs a miss and
+substitutes an alert block, which would write a file that looks rendered and
+shows an error banner during the one outage it exists for.
+
+**Self-containment is the contract.** The stylesheet arrives inlined, every
+`@font-face` rule is stripped before the template sees the CSS, and the shipped
+shell references no script and no font file. A page served by a drop-in has no
+web server behind it worth trusting.
+
+**One file, one language.** A drop-in runs before anything that knows about
+languages, so it cannot choose. Render another with `--locale`, write it
+elsewhere with `--out`.
+
+Exit codes: `0` written, `1` render or write failure, `2` usage/config error
+(missing config, missing stylesheet, bad flag). On any non-zero exit **nothing
+is written** — a stale but working file survives instead of being replaced by
+an error document.
+
+### `Parisek\Styleguide\MaintenanceRenderer` (`@api`)
+
+The same render without the CLI, for a project that wires it into its own
+build tooling.
+
+```php
+$html = (new MaintenanceRenderer(Styleguide::fromYaml($config)))
+    ->render(file_get_contents($cssFile), 'cs');
+```
+
+| Member | Purpose |
+|---|---|
+| `render(string $css, string $langcode): string` | Strips `@font-face`, renders the shell. Throws `\RuntimeException` when the project has no maintenance page. |
+| `template(): string` | Which shell this render uses — the project's, when it has one. |
+| `stripFontFaces(string $css): string` | Static, side-effect free. |
+| `PAGE_TEMPLATE`, `PACKAGE_TEMPLATE`, `PROJECT_TEMPLATE` | The three template names above. |
+
+**Overriding the shell.** A file at `<templates_path>/maintenance-document.twig`
+wins over the packaged one. It receives `stylesheet` (already stripped) and
+`langcode`, and renders `page_maintenance()` itself. The packaged shell also
+sets the document title through the contextless `__('The site is briefly
+unavailable')` — a project translates it by adding that msgid to its catalogue;
+untranslated it falls back to English in the browser tab only.
 
 ## Web-server rewrite — convention, not contract
 
