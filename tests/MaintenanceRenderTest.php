@@ -156,6 +156,32 @@ final class MaintenanceRenderTest extends TestCase
     }
 
     #[Test]
+    public function an_escaped_quote_in_a_selector_does_not_open_a_string(): void
+    {
+        // Tailwind compiles `content-[""]` into a selector whose quotes are
+        // CSS identifier escapes, not delimiters. Reading one as a delimiter
+        // opened a string that ran to the end of the file, so every later
+        // @font-face went unseen: a real build shipped with the rule still in
+        // it while every fixture here passed. Taken from that build.
+        $css = '.before\\:content-\\[\\"\\"\\]{--tw-content:""}'
+            . '@font-face{src:url(/x.woff2)}.a{color:red}';
+
+        $out = MaintenanceRenderer::stripFontFaces($css);
+
+        self::assertStringNotContainsString('@font-face', $out);
+        self::assertStringContainsString('.a{color:red}', $out);
+        self::assertStringContainsString('.before\\:content-\\[\\"\\"\\]', $out);
+    }
+
+    #[Test]
+    public function an_escaped_brace_inside_a_font_face_value_does_not_end_it_early(): void
+    {
+        $css = '@font-face{font-family:"\\}";src:url(/x.woff2)}.a{color:red}';
+
+        self::assertSame('.a{color:red}', MaintenanceRenderer::stripFontFaces($css));
+    }
+
+    #[Test]
     public function external_urls_become_none_and_data_uris_survive(): void
     {
         $css = '.spinner{background:url(../images/loading.gif)}'
