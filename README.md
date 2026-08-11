@@ -103,6 +103,28 @@ require __DIR__ . '/vendor/autoload.php';
 | `typography_config` | no | `null` | Path to a typography settings yaml consumed by `\Parisek\Twig\TypographyExtension`. Only matters if your templates use `|typography` and you want non-default behavior. Note: a project that pre-registers its own `TypographyExtension` on the `twig` env it passes in (see `hasExtension()` below) wins over the package's own — including its `default_locale`-driven resolver — so a hand-registered single-argument instance silently gets no per-language typesetting. Pass a resolver of your own (`new TypographyExtension($path, fn () => $locale)`) if you pre-register it. |
 | `namespaces` | no | `[]` | Extra Twig namespaces (`<name> => <absolute path>`) for paths that live outside `templates_path` and aren't covered by the auto-registered conventional namespaces. |
 | `auth` | no | `null` | Optional `callable(array $route): bool` gate checked once per request, before any dispatch (SPA, render, JSON API, or asset). Return `false` to reject with a plain-text `403 Forbidden`; return `true` (or omit the key entirely) to allow. Receives the parsed route array (`type`, plus `slug`/`kind`/`endpoint`/`path`/`theme` depending on route type). Requests loaded inside the styleguide's own iframe (`Sec-Fetch-Dest: iframe`) are re-typed to `type: 'render'` (carrying `kind: 'component'`/`'page'`/`'doc'`/`'foundations'`) before the callable ever sees them — don't gate solely on `type === 'component'`, or every iframe-embedded component render will fall through as `'render'` and bypass that branch. A non-`null`, non-callable value throws `InvalidArgumentException` at construction time (fail loudly at boot) rather than silently allowing every request; a callable that throws is treated as a denial (fail closed) and logged via `error_log()`, never surfaced to the caller. For publicly reachable deployments, HTTP Basic Auth at the web-server level is usually simpler and more robust than an in-PHP callable — reach for `auth` when the check needs request context only PHP has access to (e.g. a signed query token, a session check your framework already performs). |
+| `translations_path` | no | `null` | Absolute path to a directory of compiled `.mo` catalogues, one per locale (`cs_CZ.mo`, `en_US.mo`, …). When set, `__()`/`_x()`/`_n()`/`_nx()` become real gettext-backed translators instead of identity stubs; a consumer that pre-registers its own translator still wins, unaffected. The render endpoint then accepts `?locale=<code>` to select the catalogue per request — see *Locale switching* below. |
+
+### Locale switching
+
+Set `translations_path` to a directory of compiled `.mo` catalogues (`cs_CZ.mo`, `en_US.mo`, …) and the package discovers every catalogue in it, reads it with a pure-PHP reader (no new Composer dependency), and wires real `__()`/`_x()`/`_n()`/`_nx()` in place of the identity stubs. A consumer that pre-registers its own translator — WordPress's real `__()`, for instance — still wins, exactly as it always has.
+
+```php
+(new Styleguide([
+    // …
+    'translations_path' => __DIR__ . '/translations',
+]))->run();
+```
+
+The render endpoint then accepts `?locale=<code>` — a full catalogue code (`cs_CZ`) or a bare two-letter prefix (`cs`, resolved against the discovered catalogues; an ambiguous prefix like `pt` matching both `pt_BR.mo` and `pt_PT.mo` is a `400`, not a silent pick):
+
+```
+/styleguide/render/component/registration?locale=cs_CZ
+```
+
+selects the catalogue for that one render — content strings AND `<html lang>`/the `langcode` Twig context value, one switch for both. Absent → `default_locale`, i.e. unchanged behaviour whether or not `translations_path` is even set. The SPA's existing chrome language switcher reuses its own selection to drive the iframe's `?locale=` too, so a screenshot/harvest script hitting the same URL a human sees never falls out of sync with it.
+
+**Cache consequence:** a render URL now returns different content per `?locale=` — any cache sitting in front of the styleguide must include `locale` in its key, same as it already must for `?theme=`/`?variant=`. Full contract: `docs/API.md` § Locale switching.
 
 ### `twig` config — when to pass it
 

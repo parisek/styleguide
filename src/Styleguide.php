@@ -64,6 +64,22 @@ final class Styleguide
     private string $distRoot;
     private RenderObserver $observer;
     /**
+     * Non-null only when `translations_path` was supplied — discovers and
+     * parses `.mo` catalogues on demand. See {@see \Parisek\Styleguide\Translation\TranslationCatalog}.
+     */
+    private ?\Parisek\Styleguide\Translation\TranslationCatalog $translationCatalog = null;
+    /**
+     * The locale a `render` request asked for via `?locale=`, resolved
+     * against the discovered catalogues — read fresh, at call time, by the
+     * `__()`/`_x()`/`_n()`/`_nx()` closures registered in
+     * {@see registerBundledHelpers()}, exactly the way `default_locale` is
+     * read fresh by the TypographyExtension resolver (see that method's
+     * docblock for why that's safe: one `Styleguide` instance per HTTP
+     * request). Defaults to `default_locale` — an absent `?locale=` renders
+     * exactly as it did before this feature existed.
+     */
+    private string $requestLocale;
+    /**
      * Names of the observation-carrying functions (`component_*`/`page_*`)
      * that lost their registration to something already present on the
      * supplied Twig environment — populated in {@see registerBundledHelpers()},
@@ -138,6 +154,7 @@ final class Styleguide
      *   namespaces?: array<string,string>,
      *   dist_path?: string,
      *   auth?: callable(array<string,mixed>):bool,
+     *   translations_path?: string|null,
      * } $config
      *
      * `dist_path` is @internal for tests only (points `dispatchSpa()` at a
@@ -226,6 +243,13 @@ final class Styleguide
             // for the recommended alternative (web-server-level HTTP Basic Auth) on
             // publicly reachable deployments.
             'auth' => null,
+            // Absolute path to a directory of compiled `.mo` catalogues, one
+            // per locale (`cs_CZ.mo`, `en_US.mo`, …). Null (the default)
+            // means no real translator — `__()`/`_x()`/`_n()`/`_nx()` stay
+            // the identity stubs, i.e. today's behaviour. See
+            // `docs/superpowers/specs/2026-08-11-styleguide-language-switching-design.md`
+            // in tailwind-base for the design this key implements.
+            'translations_path' => null,
         ];
 
         // Load styleguide.yaml content config (favicon, iframe.css/js/fonts, etc.)
@@ -237,6 +261,19 @@ final class Styleguide
         // throwaway temp dir so writing a synthetic index.html fixture doesn't
         // corrupt the package's real built dist/). Consumers never set this.
         $this->distRoot = (string) ($config['dist_path'] ?? (__DIR__ . '/../dist'));
+
+        $translationsPath = $this->config['translations_path'];
+        if ($translationsPath !== null) {
+            if (!is_string($translationsPath) || $translationsPath === '') {
+                throw new \InvalidArgumentException(
+                    "Styleguide: config key 'translations_path' must be null or a non-empty string",
+                );
+            }
+            $this->translationCatalog = new \Parisek\Styleguide\Translation\TranslationCatalog($translationsPath);
+        }
+        // Every render starts on default_locale — dispatchRender() narrows
+        // this to the request's own `?locale=` once the route is parsed.
+        $this->requestLocale = (string) $this->config['default_locale'];
 
         $this->twig = $this->config['twig'] instanceof Environment
             ? $this->attachLoaders($this->config['twig'], $config['templates_path'])
@@ -462,6 +499,21 @@ final class Styleguide
             if ($bootstrap['typography_config'] !== '') {
                 $config['typography_config']
                     = self::resolveYamlPath($bootstrap['typography_config'], $baseDir);
+            }
+        }
+        if (array_key_exists('translations_path', $bootstrap)) {
+            if (!is_string($bootstrap['translations_path'])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.translations_path' must be a string, got %s",
+                    $path,
+                    get_debug_type($bootstrap['translations_path']),
+                ));
+            }
+            // Same "explicit empty string opts out, same as absent" shape as
+            // typography_config above.
+            if ($bootstrap['translations_path'] !== '') {
+                $config['translations_path']
+                    = self::resolveYamlPath($bootstrap['translations_path'], $baseDir);
             }
         }
         if (array_key_exists('namespaces', $bootstrap)) {
@@ -894,29 +946,66 @@ final class Styleguide
         // real `__()` / `_x()` / `_n()` / `_nx()` BEFORE constructing
         // `Styleguide` (their pre-registration wins because our
         // `tryAddFunction` then swallows the duplicate-name exception).
-        // Non-WP projects get the passthrough so component templates that
-        // wrap strings in `_x()` don't need to branch on WP availability.
-        // Signatures match the WP originals so templates passing extra
-        // context / domain / number arguments don't trip ArgumentCountError.
-        self::tryAddFunction($twig, new TwigFunction(
-            '__',
-            static fn(string $text, string $domain = 'default'): string => $text,
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
-            '_x',
-            static fn(string $text, string $context = '', string $domain = 'default'): string => $text,
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
-            '_n',
-            static fn(string $single, string $plural, int $number = 1, string $domain = 'default'): string
-                => $number === 1 ? $single : $plural,
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
-            '_nx',
-            static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string {
-                return sprintf($number === 1 ? $single : $plural, $number);
-            },
-        ));
+        // Non-WP projects get either the `.mo`-backed reader below (when
+        // `translations_path` is configured) or this passthrough, so
+        // component templates that wrap strings in `_x()` don't need to
+        // branch on WP availability either way. Signatures match the WP
+        // originals so templates passing extra context / domain / number
+        // arguments don't trip ArgumentCountError.
+        //
+        // `$this->requestLocale` is read fresh, inside each closure, at call
+        // time — not captured up front — for the same reason the
+        // TypographyExtension locale resolver above does that: one
+        // `Styleguide` instance serves exactly one HTTP request, so there's
+        // no cross-request bleed, and dispatchRender() only knows the
+        // request's `?locale=` after the route is parsed, which happens
+        // after this registration runs.
+        $catalog = $this->translationCatalog;
+        if ($catalog !== null) {
+            self::tryAddFunction($twig, new TwigFunction(
+                '__',
+                fn(string $text, string $domain = 'default'): string
+                    => $catalog->lookup($this->requestLocale, $text),
+            ));
+            self::tryAddFunction($twig, new TwigFunction(
+                '_x',
+                fn(string $text, string $context = '', string $domain = 'default'): string
+                    => $catalog->lookup($this->requestLocale, $text, $context),
+            ));
+            self::tryAddFunction($twig, new TwigFunction(
+                '_n',
+                fn(string $single, string $plural, int $number = 1, string $domain = 'default'): string
+                    => $catalog->lookupPlural($this->requestLocale, $single, $plural, $number),
+            ));
+            self::tryAddFunction($twig, new TwigFunction(
+                '_nx',
+                fn(string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string
+                    => sprintf(
+                        $catalog->lookupPlural($this->requestLocale, $single, $plural, $number, $context),
+                        $number,
+                    ),
+            ));
+        } else {
+            self::tryAddFunction($twig, new TwigFunction(
+                '__',
+                static fn(string $text, string $domain = 'default'): string => $text,
+            ));
+            self::tryAddFunction($twig, new TwigFunction(
+                '_x',
+                static fn(string $text, string $context = '', string $domain = 'default'): string => $text,
+            ));
+            self::tryAddFunction($twig, new TwigFunction(
+                '_n',
+                static fn(string $single, string $plural, int $number = 1, string $domain = 'default'): string
+                    => $number === 1 ? $single : $plural,
+            ));
+            self::tryAddFunction($twig, new TwigFunction(
+                '_nx',
+                static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string {
+                    return sprintf($number === 1 ? $single : $plural, $number);
+                },
+            ));
+        }
 
         // Typography-aware translation aliases (`…t` suffix = "translate +
         // typography"). Each calls the matching translator and pipes the result
@@ -2234,6 +2323,14 @@ final class Styleguide
             // only (not IconsCatalog::build(), which reads every icon file
             // from disk; too heavy for every SPA shell load).
             'hasIcons' => !empty($this->yamlConfig['icons']['groups']),
+            // Every discovered `.mo` catalogue code (e.g. "cs_CZ") — the
+            // exact identifiers `TranslationCatalog::availableLocales()`
+            // exposes and the render route's own `?locale=` accepts, so the
+            // SPA switcher and the server never disagree on what a "locale"
+            // string looks like. Empty when `translations_path` isn't
+            // configured — the switcher then has nothing to offer, matching
+            // today's behaviour of no catalogue ever being selectable.
+            'locales' => $this->translationCatalog?->availableLocales() ?? [],
         ];
         $configJson = json_encode(
             $config,
@@ -2285,7 +2382,45 @@ final class Styleguide
             // map so component/page templates that look up styleguide.* also work.
             'styleguide' => $this->yamlConfig,
         ];
-        $langcode = substr((string) $this->config['default_locale'], 0, 2) ?: 'en';
+        // `?locale=` overrides the request's translation/langcode locale for
+        // this render only — absent, unresolvable, or ambiguous falls back
+        // to `default_locale`, i.e. exactly today's behaviour with no
+        // exception (design doc § URL and SPA). Resolution/ambiguity is
+        // TranslationCatalog's job even when the requested code doesn't
+        // resolve to a real catalogue file — an unresolvable code still
+        // degrades to default_locale rather than 404ing, matching the
+        // gettext-fallback philosophy the reader itself uses.
+        $requestedLocale = is_string($route['locale'] ?? null) ? $route['locale'] : null;
+        if ($requestedLocale !== null) {
+            if ($this->translationCatalog !== null) {
+                try {
+                    $resolved = $this->translationCatalog->resolveLocaleCode($requestedLocale);
+                } catch (\RuntimeException $e) {
+                    // Ambiguous two-letter code (e.g. "pt" against pt_BR/pt_PT) —
+                    // fail loudly rather than silently rendering a wrong locale,
+                    // per the design doc. A render request is the one place this
+                    // can surface to a human, since entries()/lookup() alone
+                    // would otherwise swallow it into "no such catalogue".
+                    http_response_code(400);
+                    header('Content-Type: text/plain; charset=utf-8');
+                    echo $e->getMessage();
+                    return;
+                }
+                if ($resolved !== null) {
+                    $this->requestLocale = $resolved;
+                }
+            } else {
+                // No catalogue configured — there's nothing to resolve
+                // against or disagree with, so the (already syntactically
+                // whitelisted, see Router::whitelistLocale()) requested code
+                // drives `<html lang>`/`langcode` directly. Translation
+                // itself stays inert (identity stubs), matching the
+                // "no translations_path -> no behaviour change beyond this"
+                // contract.
+                $this->requestLocale = $requestedLocale;
+            }
+        }
+        $langcode = substr($this->requestLocale, 0, 2) ?: 'en';
 
         if (in_array($route['kind'], ['component', 'page', 'doc'], true)) {
             // Resolve human-readable component name from parsed metadata, if available.

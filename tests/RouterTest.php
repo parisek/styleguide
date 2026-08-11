@@ -446,4 +446,56 @@ final class RouterTest extends TestCase
         self::assertNull(Router::whitelistVariant('a/b'));
         self::assertNull(Router::whitelistVariant(['secondary'])); // never trust raw — non-string is rejected
     }
+
+    #[Test]
+    public function whitelist_locale_accepts_locale_shaped_codes_and_rejects_everything_else(): void
+    {
+        self::assertSame('cs', Router::whitelistLocale('cs'));
+        self::assertSame('cs_CZ', Router::whitelistLocale('cs_CZ'));
+        self::assertSame('pt-BR', Router::whitelistLocale('pt-BR'));
+        self::assertNull(Router::whitelistLocale(null));
+        self::assertNull(Router::whitelistLocale(''));
+        self::assertNull(Router::whitelistLocale('c')); // below the 2-char floor
+        self::assertNull(Router::whitelistLocale('has space'));
+        self::assertNull(Router::whitelistLocale('../../etc'));
+        self::assertNull(Router::whitelistLocale(['cs'])); // never trust raw — non-string is rejected
+    }
+
+    #[Test]
+    public function render_route_carries_whitelisted_locale_from_query_string(): void
+    {
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light', 'locale' => 'cs_CZ'],
+            Router::parse('/styleguide/render/component/hero?locale=cs_CZ'),
+        );
+        // Absent -> no `locale` key at all (not an empty-string default) —
+        // downstream (Styleguide::dispatchRender()) falls back to
+        // default_locale exactly as it did before this feature existed.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
+            Router::parse('/styleguide/render/component/hero'),
+        );
+        // Syntactically invalid -> also no key, never a 404/error at the
+        // router layer; resolution against real catalogues is TranslationCatalog's job.
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'hero', 'theme' => 'light'],
+            Router::parse('/styleguide/render/component/hero?locale=has%20space'),
+        );
+    }
+
+    #[Test]
+    public function render_route_combines_theme_variant_and_locale_independently(): void
+    {
+        self::assertSame(
+            [
+                'type' => 'render',
+                'kind' => 'component',
+                'slug' => 'multi',
+                'theme' => 'dark',
+                'variant' => 'secondary',
+                'locale' => 'sk_SK',
+            ],
+            Router::parse('/styleguide/render/component/multi?theme=dark&variant=secondary&locale=sk_SK'),
+        );
+    }
 }

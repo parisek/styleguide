@@ -26,6 +26,16 @@ export function applyDocumentChrome(config, doc = document) {
     // #sg-config), so it's stamped here from the same payload.
     doc.documentElement.dataset.defaultLocale = config.locale;
 
+    // Every discovered `.mo` catalogue code, stamped the same way as
+    // data-default-locale above — a JSON array (data-* attributes only hold
+    // strings) so lib/contentLocale.js's readDiscoveredLocales() can parse
+    // it back client-side. Empty/missing `config.locales` degrades to `[]`,
+    // matching a project with no `translations_path` configured: the
+    // switcher then has nothing to offer, same as today.
+    doc.documentElement.dataset.locales = JSON.stringify(
+        Array.isArray(config.locales) ? config.locales : [],
+    );
+
     // Title seed — before the router/i18n/catalog stores exist to drive the
     // route-aware syncTitle() in main.js, dist/index.html's static
     // <title>Styleguide</title> would be the visible tab title for however

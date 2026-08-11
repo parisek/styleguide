@@ -19,8 +19,14 @@ import { flattenFieldsTree } from '../lib/fieldsTree.js';
 // useRoute()/useRouter() (vue-router injection, only available inside a
 // mounted component's setup()), so it's computed one level up and threaded
 // through here as plain refs -- same "shared-scope illusion" pattern type/
-// slug already use.
-export function useViewportPreset({ type, slug, variant = ref(null), setVariant = () => {} }) {
+// slug already use. `contentLocale` (useContentLocale()'s resolved value —
+// URL > localStorage > YAML default) follows the identical rule for the
+// identical reason; default to a ref of `''` (never equals a real
+// default_locale, so buildIframeSrc()'s `?locale=` append never fires) so a
+// router-free construction renders exactly like today.
+export function useViewportPreset({
+    type, slug, variant = ref(null), setVariant = () => {}, contentLocale = ref(''),
+}) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
 
@@ -183,6 +189,24 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         // Only appended when set, same omit-the-default-case shape as theme
         // above -- the historical no-variant render URL is unchanged.
         if (variantIdOverride) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variantIdOverride)}`;
+        // Design decision: ONE switch drives both the SPA chrome's own UI
+        // language AND the rendered content's locale (design doc §
+        // "Chrome vs content language"). `contentLocale` is
+        // useContentLocale()'s already-resolved value — URL `?locale=` on
+        // the SPA's own address bar, else the visitor's stored switcher
+        // choice, else the YAML `default_locale` (see
+        // lib/contentLocale.js's precedence resolver + its own tests).
+        // Appended only when it differs from the server's own
+        // default_locale, so the historical no-`?locale=` URL shape is
+        // unchanged for a visitor who never touches the switcher, and a
+        // project with no `translations_path` configured sees no behaviour
+        // change at all (the query param is simply inert server-side — see
+        // Router.php).
+        const defaultLocale = document.documentElement.dataset.defaultLocale || '';
+        const resolvedContentLocale = contentLocale.value;
+        if (defaultLocale && resolvedContentLocale && resolvedContentLocale !== defaultLocale) {
+            src += (src.includes('?') ? '&' : '?') + `locale=${encodeURIComponent(resolvedContentLocale)}`;
+        }
         return src;
     }
 

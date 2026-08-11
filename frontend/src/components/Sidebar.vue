@@ -18,11 +18,20 @@ import HealthWarningBadge from './HealthWarningBadge.vue';
 // wiring, title sync).
 import { readSpaConfig } from '../lib/config.js';
 import { GENERIC_FAVICON } from '../lib/documentChrome.js';
+import { readDiscoveredLocales } from '../lib/contentLocale.js';
+import { useContentLocale } from '../composables/useContentLocale.js';
 
 const catalog = useCatalogStore();
 const ui = useUiStore();
 const i18n = useI18nStore();
 const theme = useThemeStore();
+// Same switcher click drives both: i18n.load() (chrome UI strings — falls
+// back to English when the picked locale is outside the chrome's own
+// SUPPORTED set) and setContentLocale() (which catalogue the iframe
+// renders). Both persist under the same shared 'sg-locale' storage key —
+// see lib/contentLocale.js's doc comment for why the two used to be split
+// and why that split was collapsed back into one.
+const { setContentLocale } = useContentLocale();
 const route = useRoute();
 const router = useRouter();
 
@@ -103,8 +112,16 @@ function items(section) {
 const docItems = computed(() => filterItems(catalog.docEntries, ui.searchQuery));
 const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_styleguide !== false), ui.searchQuery));
 
+// The switcher's offered set is every DISCOVERED `.mo` catalogue (server-
+// exposed via <html data-locales>, see lib/contentLocale.js's
+// readDiscoveredLocales() + lib/documentChrome.js) — not the chrome's own
+// closed SUPPORTED set (stores/i18n.js), so Slovak/Polish/Italian content
+// stays reachable from the UI even though the chrome itself has no strings
+// for them yet (i18n.load() falls back to English chrome text for those).
+// Empty when the project configures no `translations_path` — same as
+// having nothing to switch to.
 function supportedLocales() {
-    return ['cs', 'en'];
+    return readDiscoveredLocales();
 }
 </script>
 
@@ -424,7 +441,7 @@ function supportedLocales() {
                 <span v-for="(loc, idx) in supportedLocales()" :key="loc">
                     <span v-show="idx > 0" class="text-zinc-400 dark:text-zinc-600">·</span>
                     <button
-                        @click="i18n.load(loc)"
+                        @click="i18n.load(loc); setContentLocale(loc)"
                         :class="i18n.locale === loc ? 'text-zinc-900 dark:text-zinc-50 font-semibold' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'"
                     >{{ loc }}</button>
                 </span>

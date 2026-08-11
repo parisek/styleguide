@@ -42,7 +42,7 @@ final class Router
      *        `theme` key when the query string itself asked for one — see
      *        {@see self::resolveTheme()} for why cookie fallback lives in
      *        `synthesizeEmbeddedRoute()` instead.
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string}|null
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string,locale?:string}|null
      */
     public static function parse(string $uri, array $cookies = []): ?array
     {
@@ -84,6 +84,10 @@ final class Router
             $variant = self::whitelistVariant($query['variant'] ?? null);
             if ($variant !== null) {
                 $route['variant'] = $variant;
+            }
+            $locale = self::whitelistLocale($query['locale'] ?? null);
+            if ($locale !== null) {
+                $route['locale'] = $locale;
             }
             return $route;
         }
@@ -135,6 +139,22 @@ final class Router
     public static function whitelistVariant(mixed $raw): ?string
     {
         return is_string($raw) && preg_match('/^[a-z0-9-]+$/', $raw) === 1 ? $raw : null;
+    }
+
+    /**
+     * Whitelist an arbitrary (query-string-sourced, therefore untrusted)
+     * `?locale=` value SYNTACTICALLY only — same shape as
+     * {@see self::whitelistVariant()}: `null` means "no locale on this
+     * request" (falls back to `default_locale`, per the design doc), never
+     * a rejection. Whether the code actually resolves to a discovered `.mo`
+     * catalogue — including the ambiguous-two-letter-code failure — is
+     * `TranslationCatalog`'s job downstream, not this syntax check.
+     * Catalogue basenames are conventionally `xx_YY` or a bare `xx`, so the
+     * pattern allows letters, digits, underscore and hyphen only.
+     */
+    public static function whitelistLocale(mixed $raw): ?string
+    {
+        return is_string($raw) && preg_match('/^[A-Za-z0-9_-]{2,35}$/', $raw) === 1 ? $raw : null;
     }
 
     /**

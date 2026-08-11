@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { ref } from 'vue';
 import { useViewportPreset } from './useViewportPreset.js';
@@ -41,6 +41,39 @@ describe('useViewportPreset', () => {
         const slug = ref(null);
         const vp = useViewportPreset({ type, slug });
         expect(vp.iframeSrc.value).toBe('/styleguide/render/icons/index');
+    });
+
+    it('iframeSrc appends ?locale= when the resolved content locale differs from the server default', () => {
+        document.documentElement.dataset.defaultLocale = 'en';
+        try {
+            const type = ref('component');
+            const slug = ref('hero');
+            const contentLocale = ref('cs');
+            const vp = useViewportPreset({ type, slug, contentLocale });
+            expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero?locale=cs');
+        } finally {
+            delete document.documentElement.dataset.defaultLocale;
+        }
+    });
+
+    it('iframeSrc omits ?locale= when the resolved content locale matches the server default (historical URL shape)', () => {
+        document.documentElement.dataset.defaultLocale = 'en';
+        try {
+            const type = ref('component');
+            const slug = ref('hero');
+            const contentLocale = ref('en');
+            const vp = useViewportPreset({ type, slug, contentLocale });
+            expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero');
+        } finally {
+            delete document.documentElement.dataset.defaultLocale;
+        }
+    });
+
+    it('iframeSrc omits ?locale= entirely when the server never stamped a default locale (pre-feature / no translations_path)', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero');
     });
 
     it('iframeSrc appends ?theme=dark when the iframe theme toggle is dark', () => {

@@ -8,6 +8,47 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Locale switching** — `translations_path` config key (constructor array and
+  `bootstrap.translations_path` in `styleguide.yaml`) points at a directory of
+  compiled `.mo` catalogues. When set, `__()`/`_x()`/`_n()`/`_nx()` become real
+  gettext-backed translators (pure-PHP `.mo` reader, no new Composer
+  dependency) instead of identity stubs — a consumer that pre-registers its
+  own translator (e.g. WordPress's real `__()`) is unaffected, exactly as
+  before. The render endpoint (`/styleguide/render/<kind>/<slug>`) accepts an
+  additive `?locale=<code>` query param selecting the catalogue for that one
+  render — content strings AND `<html lang>`/`langcode`, one switch for both;
+  absent → `default_locale`, i.e. unchanged behaviour. A bare two-letter code
+  resolves to the one discovered catalogue whose filename starts with it;
+  ambiguity (`pt` matching both `pt_BR.mo` and `pt_PT.mo`) is a `400` naming
+  the conflict rather than a silent pick. The SPA's existing chrome language
+  switcher now also drives the iframe's `?locale=`, so machine consumers of
+  the render URL (visual-regression harvesters, screenshot scripts) see the
+  same locale a human toggling the switcher sees. **Cache consequence:** a
+  render URL now returns different content per `?locale=` — any cache in
+  front of the styleguide must include `locale` in its key, same as
+  `?theme=`/`?variant=`. On the SPA side, the switcher's choice now persists
+  per-visitor across page loads via the chrome switcher's own `sg-locale`
+  localStorage key — one visitor choice drives both the chrome strings and
+  the rendered content, and a value written under the earlier
+  `styleguide:locale` key is migrated on first read. Precedence is the SPA's
+  own `?locale=` query param, then the stored value, then
+  `bootstrap.default_locale`; a stale stored value (catalogue
+  renamed/removed) falls back to the YAML default and clears itself. The
+  stored value is mirrored in a module-level ref, so a switcher click updates
+  the preview immediately instead of waiting for the next navigation. This
+  layer is entirely client-side — the server never reads localStorage, so a
+  direct render request with no `?locale=` always resolves to
+  `default_locale` alone, keeping `visual:harvest`/`visual:compare` captures
+  reproducible. An empty `msgstr` — gettext's own encoding of "not
+  translated", which every compiler emits for a skipped string — falls back
+  to the source string rather than rendering as nothing; the catalogue audit
+  (`entries()`) still reports missing and empty separately, so the
+  translation gap stays visible without the label disappearing from the page
+  while it is open. See `docs/API.md` § Locale switching and the design doc
+  referenced there.
+
 ## [1.12.0] - 2026-08-09
 
 ### Added

@@ -11,6 +11,7 @@ beforeEach(() => {
     document.head.innerHTML = '<link rel="icon" id="sg-favicon-tag" href="">';
     document.title = 'placeholder';
     delete document.documentElement.dataset.defaultLocale;
+    delete document.documentElement.dataset.locales;
 });
 
 describe('applyDocumentChrome — favicon link', () => {
@@ -44,6 +45,23 @@ describe('applyDocumentChrome — default locale', () => {
     it('stamps config.locale onto <html data-default-locale>', () => {
         applyDocumentChrome(makeConfig({ locale: 'en' }));
         expect(document.documentElement.dataset.defaultLocale).toBe('en');
+    });
+});
+
+describe('applyDocumentChrome — discovered locales', () => {
+    it('stamps config.locales onto <html data-locales> as a JSON-encoded array', () => {
+        applyDocumentChrome(makeConfig({ locales: ['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT'] }));
+        expect(JSON.parse(document.documentElement.dataset.locales)).toEqual(['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT']);
+    });
+
+    it('stamps an empty array when config.locales is missing (no translations_path configured)', () => {
+        applyDocumentChrome(makeConfig());
+        expect(JSON.parse(document.documentElement.dataset.locales)).toEqual([]);
+    });
+
+    it('stamps an empty array when config.locales is present but not an array', () => {
+        applyDocumentChrome(makeConfig({ locales: 'cs_CZ' }));
+        expect(JSON.parse(document.documentElement.dataset.locales)).toEqual([]);
     });
 });
 

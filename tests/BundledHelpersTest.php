@@ -714,4 +714,89 @@ final class BundledHelpersTest extends TestCase
 
         self::assertInstanceOf(Styleguide::class, $sg);
     }
+
+    #[Test]
+    public function translations_path_wires_real_translators_reading_the_default_locale(): void
+    {
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'default_locale' => 'cs',
+        ]);
+        $twig = self::twigOf($sg);
+
+        $tpl = $twig->createTemplate('{{ __("Full name") }}|{{ _x("Submit", "sloneek") }}');
+        self::assertSame('Jméno a příjmení|Odeslat', $tpl->render());
+    }
+
+    #[Test]
+    public function translations_path_plural_lookup_reads_the_catalogues_own_plural_forms_rule(): void
+    {
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'default_locale' => 'cs',
+        ]);
+        $twig = self::twigOf($sg);
+
+        $tpl = $twig->createTemplate(
+            '{{ _n("%d item", "%d items", 1) }}|{{ _n("%d item", "%d items", 2) }}|{{ _n("%d item", "%d items", 5) }}',
+        );
+        self::assertSame('%d položka|%d položky|%d položek', $tpl->render());
+    }
+
+    #[Test]
+    public function translations_path_falls_back_to_the_msgid_without_erroring_on_a_missing_translation(): void
+    {
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'default_locale' => 'cs',
+        ]);
+        $twig = self::twigOf($sg);
+
+        $tpl = $twig->createTemplate('{{ __("Never translated at all") }}');
+        self::assertSame('Never translated at all', $tpl->render());
+    }
+
+    #[Test]
+    public function project_preregistered_translator_wins_even_when_translations_path_is_set(): void
+    {
+        // The design decision that makes this a non-breaking minor release:
+        // a WordPress consumer's real __() (or any pre-registered one) must
+        // keep winning regardless of whether translations_path is also
+        // configured — tryAddFunction()'s duplicate-swallow doesn't change
+        // based on which "real" translator this package would have supplied.
+        $env = new Environment(new ArrayLoader());
+        $env->addFunction(new TwigFunction('__', static fn(string $t, string $d = 'default'): string => 'WP:' . $t));
+
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'default_locale' => 'cs',
+            'twig' => $env,
+        ]);
+        $twig = self::twigOf($sg);
+
+        $tpl = $twig->createTemplate('{{ __("Full name") }}');
+        self::assertSame('WP:Full name', $tpl->render());
+    }
+
+    #[Test]
+    public function no_translations_path_keeps_the_identity_stubs(): void
+    {
+        // Sanity check that configuring nothing new (no translations_path)
+        // renders exactly as before this feature existed.
+        $twig = self::twigOf(self::newStyleguide());
+        $tpl = $twig->createTemplate('{{ __("Full name") }}');
+        self::assertSame('Full name', $tpl->render());
+    }
 }
