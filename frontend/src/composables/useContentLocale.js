@@ -1,8 +1,7 @@
 import { computed, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
-import { SUPPORTED } from '../stores/i18n.js';
 import {
-    readStoredLocale, writeStoredLocale, clearStoredLocale, resolveContentLocale,
+    readStoredLocale, writeStoredLocale, clearStoredLocale, resolveContentLocale, readDiscoveredLocales,
 } from '../lib/contentLocale.js';
 
 // Wires lib/contentLocale.js's pure precedence resolver (URL > localStorage
@@ -30,7 +29,7 @@ export function useContentLocale() {
             urlLocale,
             storedLocale,
             defaultLocale,
-            isKnown: (loc) => SUPPORTED.includes(loc),
+            isKnown: (loc) => readDiscoveredLocales().includes(loc),
         });
         return locale;
     });
@@ -49,7 +48,7 @@ export function useContentLocale() {
             urlLocale,
             storedLocale,
             defaultLocale,
-            isKnown: (loc) => SUPPORTED.includes(loc),
+            isKnown: (loc) => readDiscoveredLocales().includes(loc),
         });
         if (clearStale) clearStoredLocale();
     });

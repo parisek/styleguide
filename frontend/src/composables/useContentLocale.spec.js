@@ -38,10 +38,16 @@ async function mountContentLocale(initialPath = '/component/hero') {
 beforeEach(() => {
     localStorage.clear();
     document.documentElement.dataset.defaultLocale = 'en';
+    // Discovered set the "known" checks below resolve against -- mirrors a
+    // project with translations_path configured for cs/en (the two the
+    // pre-existing suite exercised) so those cases keep asserting the same
+    // thing; sk_SK/pl_PL/it_IT cover the newly-reachable-locale cases.
+    document.documentElement.dataset.locales = JSON.stringify(['cs', 'en', 'sk_SK', 'pl_PL', 'it_IT']);
 });
 
 afterEach(() => {
     delete document.documentElement.dataset.defaultLocale;
+    delete document.documentElement.dataset.locales;
 });
 
 describe('useContentLocale', () => {
@@ -84,5 +90,30 @@ describe('useContentLocale', () => {
         await nextTick();
         expect(router.currentRoute.value.query.locale).toBe('en');
         expect(contentLocale.value).toBe('en');
+    });
+
+    it('a stored locale outside the chrome-only set (sk_SK) resolves fine as long as it is a discovered catalogue', async () => {
+        localStorage.setItem(STORAGE_KEY, 'sk_SK');
+        const { contentLocale } = await mountContentLocale();
+        expect(contentLocale.value).toBe('sk_SK');
+        // Never cleared -- sk_SK IS in data-locales. Chrome-string coverage
+        // (stores/i18n.js's SUPPORTED) is a separate concern this
+        // composable never gates content-locale resolution on.
+        expect(localStorage.getItem(STORAGE_KEY)).toBe('sk_SK');
+    });
+
+    it('a stored locale absent from the discovered set is treated as stale even though it looks like a real code', async () => {
+        localStorage.setItem(STORAGE_KEY, 'fr_FR');
+        const { contentLocale } = await mountContentLocale();
+        expect(contentLocale.value).toBe('en');
+        expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
+    it('migrates a pre-collapse styleguide:locale value into the shared sg-locale key on first read', async () => {
+        localStorage.setItem('styleguide:locale', 'sk_SK');
+        const { contentLocale } = await mountContentLocale();
+        expect(contentLocale.value).toBe('sk_SK');
+        expect(localStorage.getItem(STORAGE_KEY)).toBe('sk_SK');
+        expect(localStorage.getItem('styleguide:locale')).toBeNull();
     });
 });

@@ -64,6 +64,8 @@ beforeEach(() => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: false, addEventListener: vi.fn(), addListener: vi.fn() }));
     localStorage.clear();
     stubSgConfig();
+    delete document.documentElement.dataset.locales;
+    delete document.documentElement.dataset.defaultLocale;
 });
 
 describe('Sidebar', () => {
@@ -285,5 +287,37 @@ describe('Sidebar', () => {
         const basicSectionAfter = basicButton.element.closest('div');
         expect(basicSectionAfter.style.display).not.toBe('none');
         expect(wrapper.text()).toContain('Gizmo');
+    });
+});
+
+describe('Sidebar — locale switcher', () => {
+    it('renders no switcher entries when the project discovers no catalogues (no translations_path)', async () => {
+        const { wrapper } = await mountSidebar();
+        expect(wrapper.text()).not.toContain('cs_CZ');
+        expect(wrapper.findAll('button').some((b) => b.text() === 'en')).toBe(false);
+    });
+
+    it('lists every discovered locale, not just the chrome-only cs/en set', async () => {
+        document.documentElement.dataset.locales = JSON.stringify(['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT']);
+        const { wrapper } = await mountSidebar();
+        const labels = wrapper.findAll('button').map((b) => b.text()).filter((t) => t.length > 0);
+        for (const loc of ['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT']) {
+            expect(labels).toContain(loc);
+        }
+    });
+
+    it('clicking a discovered locale outside the chrome SUPPORTED set loads English chrome strings and switches content locale', async () => {
+        document.documentElement.dataset.locales = JSON.stringify(['cs_CZ', 'en_US', 'sk_SK']);
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nav: { overview: 'Overview' } }) });
+        const { wrapper } = await mountSidebar();
+
+        const skButton = wrapper.findAll('button').find((b) => b.text() === 'sk_SK');
+        expect(skButton).toBeTruthy();
+        await skButton.trigger('click');
+        await flushPromises();
+
+        expect(fetch).toHaveBeenCalledWith('/styleguide/assets/locales/en.json', { cache: 'no-cache' });
+        expect(useI18nStore().locale).toBe('sk_SK');
+        expect(localStorage.getItem('sg-locale')).toBe('sk_SK');
     });
 });

@@ -2323,6 +2323,14 @@ final class Styleguide
             // only (not IconsCatalog::build(), which reads every icon file
             // from disk; too heavy for every SPA shell load).
             'hasIcons' => !empty($this->yamlConfig['icons']['groups']),
+            // Every discovered `.mo` catalogue code (e.g. "cs_CZ") — the
+            // exact identifiers `TranslationCatalog::availableLocales()`
+            // exposes and the render route's own `?locale=` accepts, so the
+            // SPA switcher and the server never disagree on what a "locale"
+            // string looks like. Empty when `translations_path` isn't
+            // configured — the switcher then has nothing to offer, matching
+            // today's behaviour of no catalogue ever being selectable.
+            'locales' => $this->translationCatalog?->availableLocales() ?? [],
         ];
         $configJson = json_encode(
             $config,

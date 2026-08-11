@@ -136,6 +136,67 @@ final class SpaConfigTest extends TestCase
         // Sidebar icons-entry gate (#87) — the shared fixture yaml carries no
         // `icons:` block, so the flag must be present and false.
         self::assertFalse($config['hasIcons']);
+        // No `translations_path` configured in this runner's bootstrap —
+        // the discovered-locale list must be present and empty, matching
+        // today's behaviour of nothing being switchable.
+        self::assertSame([], $config['locales']);
+    }
+
+    #[Test]
+    public function exposes_every_discovered_translations_path_catalogue_as_locales(): void
+    {
+        $translationsPath = realpath(__DIR__ . '/fixtures/translations');
+        self::assertNotFalse($translationsPath, 'fixtures/translations directory missing');
+
+        $autoload = realpath(__DIR__ . '/../vendor/autoload.php');
+        self::assertNotFalse($autoload, 'vendor/autoload.php missing');
+
+        // Separate runner script (rather than reusing $this->runnerScript)
+        // so this one test can pass `translations_path`, without every
+        // other test in the suite having to account for it too.
+        $runnerScript = $this->distRoot . '/run-styleguide-with-translations.php';
+        file_put_contents(
+            $runnerScript,
+            <<<PHP
+            <?php
+            declare(strict_types=1);
+            require '{$autoload}';
+            \$_SERVER['REQUEST_URI'] = \$argv[2];
+            (new \\Parisek\\Styleguide\\Styleguide([
+                'templates_path' => '{$this->fixturesRoot}/templates',
+                'static_path' => '{$this->fixturesRoot}',
+                'config_yaml' => '{$this->fixturesRoot}/styleguide.yaml',
+                'default_locale' => 'cs',
+                'translations_path' => '{$translationsPath}',
+                'dist_path' => \$argv[1],
+            ]))->run();
+            PHP,
+        );
+
+        $this->writeIndexHtml('<html><head><script id="sg-config" type="application/json">{}</script></head><body></body></html>');
+
+        $cmd = sprintf(
+            '%s %s %s %s',
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg($runnerScript),
+            escapeshellarg($this->distRoot),
+            escapeshellarg('/styleguide/'),
+        );
+        $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+        self::assertIsResource($proc);
+        $stdout = (string) stream_get_contents($pipes[1]);
+        $stderr = (string) stream_get_contents($pipes[2]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $exit = proc_close($proc);
+
+        self::assertSame(0, $exit, "stderr: $stderr");
+        preg_match('/<script id="sg-config" type="application\/json">(\{.*?\})<\/script>/s', $stdout, $m);
+        self::assertNotEmpty($m, "sg-config element not found in: $stdout");
+        $config = json_decode($m[1], true, flags: JSON_THROW_ON_ERROR);
+
+        // tests/fixtures/translations/*.mo — sorted, per TranslationCatalog::discover().
+        self::assertSame(['be_TEST', 'cs_CZ', 'en_US', 'pt_BR', 'pt_PT'], $config['locales']);
     }
 
     #[Test]
