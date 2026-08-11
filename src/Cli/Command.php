@@ -217,24 +217,33 @@ final class Command
             return 2;
         }
         $cssFile = $this->resolvePath(ltrim($cssSource, '/'), $staticPath);
-        if (!is_file($cssFile)) {
+        if (!isset($flags['check']) && !is_file($cssFile)) {
             fwrite($stderr, sprintf("Stylesheet not found at %s — build the CSS first.\n", $cssFile));
+            return 2;
+        }
+
+        $outTemplates = isset($bootstrap['templates_path']) && is_string($bootstrap['templates_path'])
+            ? $this->resolvePath((string) $bootstrap['templates_path'], $baseDir)
+            : $baseDir . '/templates';
+        $out = $flags['out'] ?? $outTemplates . '/' . MaintenanceRenderer::OUTPUT_RELATIVE;
+        if (!is_string($out) || $out === '') {
+            fwrite($stderr, "--out must be a file path.\n");
             return 2;
         }
 
         $templatesPath = isset($bootstrap['templates_path']) && is_string($bootstrap['templates_path'])
             ? $this->resolvePath((string) $bootstrap['templates_path'], $baseDir)
             : $baseDir . '/templates';
-        $out = $flags['out'] ?? $templatesPath . '/' . MaintenanceRenderer::OUTPUT_RELATIVE;
-        if (!is_string($out) || $out === '') {
-            fwrite($stderr, "--out must be a file path.\n");
-            return 2;
-        }
 
         try {
             $styleguide = Styleguide::fromYaml($configPath, ['default_locale' => $locale]);
-            $renderer = new MaintenanceRenderer($styleguide);
-            $html = $renderer->render((string) file_get_contents($cssFile), substr($locale, 0, 2) ?: 'en');
+            $renderer = new MaintenanceRenderer($styleguide, $templatesPath);
+
+            if (isset($flags['check'])) {
+                return $this->checkOutage($renderer, $out, $locale, $stdout, $stderr);
+            }
+
+            $html = $renderer->render((string) file_get_contents($cssFile), substr($locale, 0, 2) ?: 'en', $locale);
         } catch (\Throwable $e) {
             // A failed offline render is a build error, not a broken page:
             // report it and write nothing, so a stale but working file on disk
@@ -283,6 +292,56 @@ final class Command
             (int) round(strlen($html) / 1024),
             $renderer->template(),
         ));
+        return 0;
+    }
+
+    /**
+     * `--check`: is the committed screen still current?
+     *
+     * Compares the fingerprint written into the file against the fingerprint
+     * of the inputs as they stand now. Cheap on purpose — it reads a handful
+     * of templates and one catalogue, so it can run in CI with no Node, no
+     * built stylesheet and no browser.
+     *
+     * @param resource $stdout
+     * @param resource $stderr
+     */
+    private function checkOutage(
+        MaintenanceRenderer $renderer,
+        string $out,
+        string $locale,
+        $stdout,
+        $stderr,
+    ): int {
+        if (!is_file($out)) {
+            fwrite($stderr, sprintf("%s does not exist — run `maintenance:render`.\n", $out));
+            return 1;
+        }
+
+        $found = MaintenanceRenderer::fingerprintOf((string) file_get_contents($out));
+
+        if (null === $found) {
+            // Rendered by a version that predates fingerprinting. Treat it as
+            // stale rather than as passing: "cannot tell" and "fine" are
+            // different answers, and only one of them is safe here.
+            fwrite($stderr, sprintf("%s carries no fingerprint — re-render it once to start checking.\n", $out));
+            return 1;
+        }
+
+        $expected = $renderer->fingerprint($locale);
+
+        if ($found !== $expected) {
+            fwrite($stderr, sprintf(
+                "%s is stale: templates or translations changed since it was rendered.\n"
+                . "  in the file: %s\n  expected:    %s\nRun `maintenance:render` and commit the result.\n",
+                $out,
+                $found,
+                $expected,
+            ));
+            return 1;
+        }
+
+        fwrite($stdout, sprintf("%s is current (%s).\n", $out, $found));
         return 0;
     }
 
@@ -376,6 +435,9 @@ final class Command
                                  (default: iframe.css from styleguide.yaml).
           --out=<path>           maintenance:render only — output file (default:
                                  <templates_path>/component/maintenance/maintenance.html).
+          --check                maintenance:render only — report whether the rendered
+                                 file still matches the templates and translations it
+                                 came from. Writes nothing. Non-zero when stale.
           -h, --help             Show this help.
 
         Examples:

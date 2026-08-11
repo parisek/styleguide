@@ -299,6 +299,94 @@ final class MaintenanceRenderTest extends TestCase
     }
 
     #[Test]
+    public function check_passes_on_a_freshly_rendered_file(): void
+    {
+        $this->runCli(['maintenance:render', '--config=' . $this->tempDir . '/styleguide.yaml']);
+
+        [$exit, $stdout] = $this->runCli([
+            'maintenance:render',
+            '--config=' . $this->tempDir . '/styleguide.yaml',
+            '--check',
+        ]);
+
+        self::assertSame(0, $exit);
+        self::assertStringContainsString('is current', $stdout);
+    }
+
+    #[Test]
+    public function check_fails_after_the_page_changes(): void
+    {
+        $this->runCli(['maintenance:render', '--config=' . $this->tempDir . '/styleguide.yaml']);
+        file_put_contents(
+            $this->tempDir . '/templates/page/maintenance/maintenance.twig',
+            "<p class=\"outage\">Back at six</p>\n",
+        );
+
+        [$exit, , $stderr] = $this->runCli([
+            'maintenance:render',
+            '--config=' . $this->tempDir . '/styleguide.yaml',
+            '--check',
+        ]);
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('is stale', $stderr);
+    }
+
+    #[Test]
+    public function check_ignores_the_stylesheet(): void
+    {
+        // The screen inlines the project's compiled CSS, so fingerprinting the
+        // output would go stale on every unrelated style change and make the
+        // check a chore every pull request pays. Content decides staleness;
+        // presentation does not.
+        $this->runCli(['maintenance:render', '--config=' . $this->tempDir . '/styleguide.yaml']);
+        file_put_contents($this->tempDir . '/dist/css/style.css', '.outage{color:blue}');
+
+        [$exit] = $this->runCli([
+            'maintenance:render',
+            '--config=' . $this->tempDir . '/styleguide.yaml',
+            '--check',
+        ]);
+
+        self::assertSame(0, $exit);
+    }
+
+    #[Test]
+    public function check_needs_no_built_stylesheet(): void
+    {
+        // So it can run in CI with no Node and no build step.
+        $this->runCli(['maintenance:render', '--config=' . $this->tempDir . '/styleguide.yaml']);
+        unlink($this->tempDir . '/dist/css/style.css');
+
+        [$exit] = $this->runCli([
+            'maintenance:render',
+            '--config=' . $this->tempDir . '/styleguide.yaml',
+            '--check',
+        ]);
+
+        self::assertSame(0, $exit);
+    }
+
+    #[Test]
+    public function check_treats_an_unfingerprinted_file_as_stale(): void
+    {
+        // "Cannot tell" and "fine" are different answers, and only one of them
+        // is safe for a file nobody looks at until an outage.
+        $out = $this->tempDir . '/templates/' . MaintenanceRenderer::OUTPUT_RELATIVE;
+        mkdir(dirname($out), 0777, true);
+        file_put_contents($out, '<!doctype html><html><body>rendered before fingerprints</body></html>');
+
+        [$exit, , $stderr] = $this->runCli([
+            'maintenance:render',
+            '--config=' . $this->tempDir . '/styleguide.yaml',
+            '--check',
+        ]);
+
+        self::assertSame(1, $exit);
+        self::assertStringContainsString('no fingerprint', $stderr);
+    }
+
+    #[Test]
     public function a_project_without_the_page_fails_without_writing(): void
     {
         unlink($this->tempDir . '/templates/page/maintenance/maintenance.twig');

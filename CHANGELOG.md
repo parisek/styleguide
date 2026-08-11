@@ -8,6 +8,28 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`maintenance:render --check`** reports whether the committed outage screen
+  still matches the templates and translations it was rendered from. Exit `0`
+  current, `1` stale. It writes nothing and needs no built stylesheet, so it
+  runs in CI with no Node and no build step.
+
+  The render now writes a fingerprint into the file (`<!-- @screen-fingerprint
+  … -->` after `</html>`), computed over the maintenance component and page
+  templates, the `.mo` catalogue for the rendered locale, the document shell,
+  and `MaintenanceRenderer::RENDERER_VERSION` — the last so that a package
+  upgrade which changes the shell cannot leave every committed screen looking
+  current while rendering differently.
+
+  **The compiled stylesheet is deliberately excluded.** A fingerprint over the
+  output would go stale on every unrelated CSS change and make the check a
+  chore every pull request pays. The trade: a design-token change that alters
+  the screen's colour or type does not invalidate the fingerprint — re-render
+  after touching tokens. A file rendered before this release carries no
+  fingerprint and is reported stale rather than passing, because "cannot tell"
+  and "fine" are different answers.
+
 ## [1.13.1] - 2026-08-11
 ### Fixed
 
