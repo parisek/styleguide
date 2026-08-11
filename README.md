@@ -25,6 +25,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 | **Cross-references** | Chip panel above each preview: components list "Used in: …", pages list "Components used: …", click to navigate. Driven by per-template `usage:` YAML metadata. |
 | **REST endpoints** | `/styleguide/api/components`, `/api/pages`, `/api/docs`, `/api/fields` return JSON for consumers (the SPA itself, plus any external tooling). |
 | **Open in new tab** | Each render can be opened standalone — the iframe template auto-reveals a "← back to styleguide" navbar only when it detects it's NOT inside an iframe. |
+| **Outage screen** | `maintenance:render` renders the project's maintenance page to one self-contained HTML file for a CMS drop-in to serve while the CMS itself is down — a deploy, a core update, an unreachable database. Nothing renders at that moment, so the screen has to exist beforehand. See *Outage screen* below. |
 | **Asset serving** | `AssetServer` serves the bundled SPA + locale files from `vendor/parisek/styleguide/dist/` with path-traversal guard, ETag, and immutable cache headers for hashed filenames. |
 
 The whole package is ~8 PHP classes plus prebuilt JS/CSS — no Node.js required in production.
@@ -87,6 +88,42 @@ require __DIR__ . '/vendor/autoload.php';
 ```
 
 `run()` parses `$_SERVER['REQUEST_URI']`. If the URI starts with `/styleguide`, it dispatches (SPA, asset, render, or JSON endpoint) and **exits**. Otherwise it returns silently and the rest of your `index.php` continues to handle non-styleguide URLs.
+
+### `fromYaml()` — declare the project once
+
+The array constructor stays the primitive, but a project usually has more than
+one thing that renders it: the HTTP entry point, and any CLI that works against
+the same tree (`maintenance:render`, a fixture audit, a screenshot script).
+`Styleguide::fromYaml()` reads the paths from a `bootstrap:` block in
+`styleguide.yaml`, so they are declared once instead of restated per caller:
+
+```yaml
+# styleguide.yaml
+bootstrap:
+  templates_path: templates
+  static_path: .
+  default_locale: cs_CZ
+  translations_path: translations
+```
+
+```php
+Styleguide::fromYaml(__DIR__ . '/styleguide.yaml', [
+    'twig_context' => ['templateUrl' => rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')],
+])->run();
+```
+
+Relative `bootstrap.*` paths resolve against **the YAML file's own directory** —
+not the caller's `__DIR__`, and not the process's working directory — so the
+same config produces the same absolute paths over HTTP and from a CLI invoked
+anywhere.
+
+What belongs where is enforced, not merely documented. Project truth
+(`templates_path`, `static_path`, `default_locale`, `base_url`,
+`typography_config`, `namespaces`) goes in the YAML. Run truth — `templateUrl`,
+computed from `$_SERVER` and quietly wrong on a CLI process, plus `twig`,
+`twig_options`, `auth` — can only arrive through `$overrides`; putting one in
+the YAML throws rather than being silently honoured. Full rules:
+[`docs/API.md`](docs/API.md) § `bootstrap:`.
 
 ### Constructor config
 
@@ -431,6 +468,9 @@ vendor/bin/styleguide list --type=doc            # doc entries
 vendor/bin/styleguide show button                # one component, full detail
 vendor/bin/styleguide show landing --type=page   # one page
 vendor/bin/styleguide show intro --type=doc      # one doc entry
+vendor/bin/styleguide lint                       # metadata quality report
+vendor/bin/styleguide maintenance:render         # render the outage screen
+vendor/bin/styleguide maintenance:render --check # is the rendered screen still current?
 ```
 
 The CLI wraps `ComponentParser` — it returns the same normalised records as `GET /styleguide/api/components`, but without a running webserver. Run it from the consumer's repo root, or set `STYLEGUIDE_TEMPLATES=<path>` / pass `--templates=<path>` to override the templates directory location.
@@ -546,6 +586,102 @@ Replacing a bespoke, hand-rolled styleguide with this package? See
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for a step-by-step guide, including
 worked per-project notes for the fleet's Tailwind/SCSS, Drupal-Twig, and
 Bootstrap 5 stacks.
+
+---
+
+## Outage screen
+
+A CMS shows a fallback screen exactly when it cannot render one. WordPress reads
+`.maintenance` in `wp_maintenance()` before plugins and theme load, and reaches
+`wp-content/db-error.php` with no database at all. At that moment there is no
+theme, no template engine and no translation catalogue — so the screen has to be
+a finished file before the outage starts.
+
+```bash
+vendor/bin/styleguide maintenance:render --css=/dist/css/style.min.css
+```
+
+It renders the project's `@page/maintenance/maintenance.twig` inside a document
+shell and writes
+`<templates_path>/component/maintenance/maintenance.html` — beside the component
+it renders, so the committed artefact and the template whose change makes it
+stale share one listing.
+
+Configuration comes from `styleguide.yaml`: `bootstrap:` locates the templates,
+the static root and the `.mo` catalogues, and `iframe.css` names the stylesheet.
+Pass `--css` when the project builds a separate minified stylesheet — the
+default inlines whatever `iframe.css` points at.
+
+| Flag | Default |
+|---|---|
+| `--config=<path>` | `./styleguide.yaml`, then `./static/styleguide.yaml` |
+| `--locale=<code>` | `bootstrap.default_locale`, then `project.locale`, then `en` |
+| `--css=<path>` | the first entry of `iframe.css`, resolved under `static_path` |
+| `--out=<path>` | `<templates_path>/component/maintenance/maintenance.html` |
+| `--check` | off — see *Staleness* below |
+
+**The project supplies `page/maintenance/maintenance.twig`.** Its absence is an
+error rather than an empty document: `page_*()` logs a miss and substitutes an
+alert block, which would write a file that looks rendered and shows an error
+banner during the one outage it exists for.
+
+### Self-containment is the contract
+
+The file is served by a drop-in with no web server behind it worth trusting, so
+it may reach for nothing:
+
+- the stylesheet is inlined;
+- every `@font-face` rule is stripped, and every remaining `url()` that is not a
+  `data:` URI becomes `none` — a background image or a vendor spinner reaches
+  for the same unreachable server a font would;
+- the packaged shell carries no script, no font, and its own layout rules
+  (a template inside a Composer package is not scanned by the project's Tailwind
+  build, so borrowing utilities from it would leave the screen unstyled).
+
+**One file, one language.** A drop-in runs before anything that knows about
+languages, so it cannot choose. Render another with `--locale` and `--out`.
+
+### Staleness — `--check`
+
+The rendered file is committed, and nothing about a committed artefact stops
+somebody editing the template beside it and forgetting the render.
+
+```bash
+vendor/bin/styleguide maintenance:render --check
+```
+
+Exit `0` current, `1` stale, absent, or rendered before fingerprints existed. It
+writes nothing and needs no built stylesheet, so it runs in CI with no Node and
+no build step.
+
+The fingerprint covers the screen's **content and structure** — the two
+templates, the `.mo` catalogue for the rendered locale, the document shell, and
+`MaintenanceRenderer::RENDERER_VERSION`. It deliberately excludes the compiled
+stylesheet the file inlines: a fingerprint over the output would go stale on
+every unrelated CSS change and make the check a chore every pull request pays.
+
+The trade is worth knowing before you rely on it: **a design-token change that
+alters the screen's colour or type does not invalidate the fingerprint.**
+Re-render after touching tokens.
+
+### Overriding the shell
+
+A file at `<templates_path>/maintenance-document.twig` wins over the packaged
+one. It receives `stylesheet` (already stripped) and `langcode`, and renders
+`page_maintenance()` itself.
+
+The packaged shell sets the document title through a contextless
+`__('The site is briefly unavailable')` — a project translates it by adding that
+msgid to its catalogue; untranslated it falls back to English in the browser tab
+only.
+
+### Serving it
+
+Rendering is this package's half. Something has to install the drop-ins that
+send the file — on WordPress, `parisek/timber-kit` >= 1.31 does it with
+`wp timber-kit outage-screen install`. Full API reference for
+`MaintenanceRenderer` and the `Styleguide::renderTemplate()` / `hasTemplate()`
+primitives behind it: [`docs/API.md`](docs/API.md) § Offline outage render.
 
 ---
 
