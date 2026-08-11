@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue';
 import { useUiStore } from '../stores/ui.js';
 import { useCatalogStore } from '../stores/catalog.js';
+import { useI18nStore } from '../stores/i18n.js';
 import {
     VIEWPORTS, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX,
     findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
@@ -23,6 +24,7 @@ import { flattenFieldsTree } from '../lib/fieldsTree.js';
 export function useViewportPreset({ type, slug, variant = ref(null), setVariant = () => {} }) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
+    const i18n = useI18nStore();
 
     const currentItem = computed(() => (slug.value ? catalog.find(type.value, slug.value) : null));
 
@@ -183,6 +185,21 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         // Only appended when set, same omit-the-default-case shape as theme
         // above -- the historical no-variant render URL is unchanged.
         if (variantIdOverride) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variantIdOverride)}`;
+        // Design decision: ONE switch drives both the SPA chrome's own UI
+        // language AND the rendered content's locale (design doc §
+        // "Chrome vs content language"). The chrome switcher already exists
+        // (stores/i18n.js, `?lang=` / the sidebar language toggle) — this
+        // reuses ITS selection rather than adding a second control. Only
+        // appended when it differs from the server's own default_locale
+        // (stamped on <html data-default-locale> by documentChrome.js at
+        // boot), so the historical no-`?locale=` URL shape is unchanged for
+        // a visitor who never touches the switcher, and a project with no
+        // `translations_path` configured sees no behaviour change at all
+        // (the query param is simply inert server-side — see Router.php).
+        const defaultLocale = document.documentElement.dataset.defaultLocale || '';
+        if (defaultLocale && i18n.locale && i18n.locale !== defaultLocale) {
+            src += (src.includes('?') ? '&' : '?') + `locale=${encodeURIComponent(i18n.locale)}`;
+        }
         return src;
     }
 

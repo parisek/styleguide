@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { setActivePinia, createPinia } from 'pinia';
 import { ref } from 'vue';
 import { useViewportPreset } from './useViewportPreset.js';
 import { useUiStore } from '../stores/ui.js';
 import { useCatalogStore } from '../stores/catalog.js';
+import { useI18nStore } from '../stores/i18n.js';
 
 beforeEach(() => {
     // iframeTheme (ui.js) round-trips through localStorage via usePersistedRef
@@ -41,6 +42,43 @@ describe('useViewportPreset', () => {
         const slug = ref(null);
         const vp = useViewportPreset({ type, slug });
         expect(vp.iframeSrc.value).toBe('/styleguide/render/icons/index');
+    });
+
+    it('iframeSrc appends ?locale= when the chrome language switcher differs from the server default', async () => {
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+        document.documentElement.dataset.defaultLocale = 'en';
+        try {
+            const type = ref('component');
+            const slug = ref('hero');
+            const i18n = useI18nStore();
+            await i18n.load('cs');
+            const vp = useViewportPreset({ type, slug });
+            expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero?locale=cs');
+        } finally {
+            delete document.documentElement.dataset.defaultLocale;
+        }
+    });
+
+    it('iframeSrc omits ?locale= when the chrome language matches the server default (historical URL shape)', async () => {
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+        document.documentElement.dataset.defaultLocale = 'en';
+        try {
+            const type = ref('component');
+            const slug = ref('hero');
+            const i18n = useI18nStore();
+            await i18n.load('en');
+            const vp = useViewportPreset({ type, slug });
+            expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero');
+        } finally {
+            delete document.documentElement.dataset.defaultLocale;
+        }
+    });
+
+    it('iframeSrc omits ?locale= entirely when the server never stamped a default locale (pre-feature / no translations_path)', () => {
+        const type = ref('component');
+        const slug = ref('hero');
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.iframeSrc.value).toBe('/styleguide/render/component/hero');
     });
 
     it('iframeSrc appends ?theme=dark when the iframe theme toggle is dark', () => {

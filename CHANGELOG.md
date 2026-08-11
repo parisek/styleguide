@@ -8,6 +8,29 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Locale switching** — `translations_path` config key (constructor array and
+  `bootstrap.translations_path` in `styleguide.yaml`) points at a directory of
+  compiled `.mo` catalogues. When set, `__()`/`_x()`/`_n()`/`_nx()` become real
+  gettext-backed translators (pure-PHP `.mo` reader, no new Composer
+  dependency) instead of identity stubs — a consumer that pre-registers its
+  own translator (e.g. WordPress's real `__()`) is unaffected, exactly as
+  before. The render endpoint (`/styleguide/render/<kind>/<slug>`) accepts an
+  additive `?locale=<code>` query param selecting the catalogue for that one
+  render — content strings AND `<html lang>`/`langcode`, one switch for both;
+  absent → `default_locale`, i.e. unchanged behaviour. A bare two-letter code
+  resolves to the one discovered catalogue whose filename starts with it;
+  ambiguity (`pt` matching both `pt_BR.mo` and `pt_PT.mo`) is a `400` naming
+  the conflict rather than a silent pick. The SPA's existing chrome language
+  switcher now also drives the iframe's `?locale=`, so machine consumers of
+  the render URL (visual-regression harvesters, screenshot scripts) see the
+  same locale a human toggling the switcher sees. **Cache consequence:** a
+  render URL now returns different content per `?locale=` — any cache in
+  front of the styleguide must include `locale` in its key, same as
+  `?theme=`/`?variant=`. See `docs/API.md` § Locale switching and the design
+  doc referenced there.
+
 ## [1.12.0] - 2026-08-09
 
 ### Added
