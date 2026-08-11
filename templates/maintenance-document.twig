@@ -19,6 +19,19 @@
 	<title>{{ __('The site is briefly unavailable') }}</title>
 	<style>{{ stylesheet|raw }}</style>
 	<style>
+		/* The shell carries its own layout. The utilities it would otherwise
+		   need (min-h-svh, flex) come from the project's Tailwind build, which
+		   scans the project's templates — not this file, which lives inside a
+		   Composer package. A downstream project therefore never generates
+		   them, and the screen renders flush to the top of the window instead
+		   of centred. Owning three declarations here removes that dependency
+		   entirely. */
+		body {
+			display: flex;
+			flex-direction: column;
+			min-height: 100svh;
+		}
+
 		/* No webfont is referenced on purpose — a file that must always load
 		   cannot wait for one. The inlined stylesheet still names the brand
 		   family, so redefine the token and make the system stack the
@@ -28,7 +41,7 @@
 		}
 	</style>
 </head>
-<body class="flex flex-col min-h-svh">
+<body>
 	{{ page_maintenance() }}
 </body>
 </html>
