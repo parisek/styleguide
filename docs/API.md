@@ -572,6 +572,7 @@ in the same listing as the template whose change makes it stale.
 | `--locale=<code>` | `bootstrap.default_locale`, then `project.locale`, then `en` |
 | `--css=<path>` | the first entry of `iframe.css`, resolved under `static_path` |
 | `--out=<path>` | `<templates_path>/component/maintenance/maintenance.html` |
+| `--check` | off — see § Staleness below |
 
 **The project supplies `page/maintenance/maintenance.twig`.** Its absence is an
 error (exit `1`) rather than an empty document: `page_*()` logs a miss and
@@ -594,6 +595,34 @@ previous artefact is untouched**: the render goes to a sibling temp file and is
 moved into place with a rename, so a full disk or a crash mid-write cannot
 leave a truncated screen behind.
 
+### Staleness — `--check` (added 1.14.0)
+
+The rendered file is committed, and nothing about a committed artefact stops
+somebody editing the template beside it and forgetting the render. `--check`
+answers whether the file on disk still matches what it came from:
+
+```
+vendor/bin/styleguide maintenance:render --check
+```
+
+Exit `0` current, `1` stale or absent or unfingerprinted. It writes nothing and
+needs no built stylesheet, so it runs in CI with no Node and no build step.
+
+**What counts as a change.** The fingerprint covers the screen's *content and
+structure*: the maintenance component and page templates, the `.mo` catalogue
+for the rendered locale, the document shell, and `MaintenanceRenderer`'s own
+`RENDERER_VERSION`. It deliberately does **not** cover the compiled stylesheet
+the file inlines — a fingerprint over the output would go stale on every
+unrelated CSS change and make the check a chore every pull request pays.
+
+The trade is worth stating plainly: **a design-token change that alters the
+screen's colour or type does not invalidate the fingerprint.** Re-render after
+touching tokens.
+
+A file rendered before 1.14.0 carries no fingerprint and is reported stale
+rather than passing — "cannot tell" and "fine" are different answers, and only
+one of them is safe for a page nobody looks at until an outage.
+
 ### `Parisek\Styleguide\MaintenanceRenderer` (`@api`)
 
 The same render without the CLI, for a project that wires it into its own
@@ -613,6 +642,9 @@ $html = (new MaintenanceRenderer(Styleguide::fromYaml($config)))
 | `stripExternalUrls(string $css): string` | Static. Leaves `data:` URIs alone. |
 | `PAGE_TEMPLATE`, `PACKAGE_TEMPLATE`, `PROJECT_TEMPLATE` | The three template names above. |
 | `OUTPUT_RELATIVE` | Default output path, relative to `templates_path`. |
+| `fingerprint(string $locale = ''): string` | 32 hex chars over the inputs above. |
+| `fingerprintOf(string $html): ?string` | Static. Reads the marker back out of a rendered file. |
+| `RENDERER_VERSION` | Bump when a change to the class alters its output. |
 
 **Overriding the shell.** A file at `<templates_path>/maintenance-document.twig`
 wins over the packaged one. It receives `stylesheet` (already stripped) and

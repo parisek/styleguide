@@ -60,13 +60,105 @@ final class MaintenanceRenderer
      */
     public const PROJECT_TEMPLATE = '@project/maintenance-document.twig';
 
-    public function __construct(private Styleguide $styleguide) {}
+    /**
+     * Bumped when a change to this class alters the rendered output.
+     *
+     * The fingerprint below is built from the project's own files; a package
+     * upgrade that changes the shell or the CSS handling would otherwise leave
+     * every committed screen looking current while rendering differently. That
+     * exact miss happened once (1.13.0 moved the shell's layout inline), which
+     * is why the version is part of the input rather than an afterthought.
+     */
+    public const RENDERER_VERSION = 1;
+
+    /**
+     * How the fingerprint is written into the rendered file, and found again.
+     */
+    public const FINGERPRINT_MARKER = '@screen-fingerprint';
+
+    public function __construct(private Styleguide $styleguide, private string $templatesPath = '') {}
+
+    /**
+     * Fingerprint of everything that decides what the screen SAYS.
+     *
+     * Deliberately not a hash of the output: the output also carries the
+     * project's compiled stylesheet, so a fingerprint over it would go stale
+     * on every unrelated CSS change and turn a staleness check into a chore
+     * every pull request has to pay. What it covers is the screen's content
+     * and structure — the templates, the catalogue, the shell, this class's
+     * own output version.
+     *
+     * The trade is explicit and worth stating where a reader will meet it: a
+     * design-token change that alters the screen's colour or type does NOT
+     * invalidate the fingerprint. Re-render after touching tokens.
+     */
+    public function fingerprint(string $locale = ''): string
+    {
+        $parts = [ 'renderer:' . self::RENDERER_VERSION ];
+
+        foreach ($this->fingerprintFiles($locale) as $label => $path) {
+            $parts[] = $label . ':' . (is_file($path) ? hash_file('sha256', $path) : 'absent');
+        }
+
+        return substr(hash('sha256', implode("\n", $parts)), 0, 32);
+    }
+
+    /**
+     * Files the fingerprint is built from, keyed by a stable label.
+     *
+     * Sorted by label, so the order can never depend on the filesystem's.
+     *
+     * @return array<string, string>
+     */
+    private function fingerprintFiles(string $locale): array
+    {
+        $files = [];
+        $root  = rtrim($this->templatesPath, '/');
+
+        if ('' !== $root) {
+            foreach (['component/maintenance', 'page/maintenance'] as $dir) {
+                foreach (glob($root . '/' . $dir . '/*.{twig,yaml,yml}', GLOB_BRACE) ?: [] as $path) {
+                    // The rendered .html lives in one of these directories and
+                    // is the thing being checked — hashing it into its own
+                    // fingerprint would make every file agree with itself.
+                    $files[$dir . '/' . basename($path)] = $path;
+                }
+            }
+
+            $override = $root . '/maintenance-document.twig';
+            if (is_file($override)) {
+                $files['shell'] = $override;
+            }
+        }
+
+        if (!isset($files['shell'])) {
+            $files['shell'] = __DIR__ . '/../templates/' . self::PACKAGE_TEMPLATE;
+        }
+
+        if ('' !== $locale) {
+            $files['catalogue'] = $root . '/../translations/' . $locale . '.mo';
+        }
+
+        ksort($files);
+
+        return $files;
+    }
+
+    /**
+     * Reads the fingerprint out of a rendered file, or null when absent.
+     */
+    public static function fingerprintOf(string $html): ?string
+    {
+        return preg_match('/' . preg_quote(self::FINGERPRINT_MARKER, '/') . ' ([0-9a-f]{32})/', $html, $m) === 1
+            ? $m[1]
+            : null;
+    }
 
     /**
      * @param string $css Stylesheet source to inline, already read from disk.
      * @param string $langcode Two-letter code for the document's `lang` attribute.
      */
-    public function render(string $css, string $langcode): string
+    public function render(string $css, string $langcode, string $locale = ''): string
     {
         if (!$this->styleguide->hasTemplate(self::PAGE_TEMPLATE)) {
             throw new \RuntimeException(sprintf(
@@ -75,10 +167,20 @@ final class MaintenanceRenderer
             ));
         }
 
-        return $this->styleguide->renderTemplate($this->template(), [
+        $html = $this->styleguide->renderTemplate($this->template(), [
             'stylesheet' => self::selfContain($css),
             'langcode' => $langcode,
         ]);
+
+        // Appended after </html> rather than inserted into the shell: a
+        // comment before the doctype puts old browsers into quirks mode, and
+        // a project overriding the shell must not have to remember to carry
+        // the marker.
+        return rtrim($html, "\n") . sprintf(
+            "\n<!-- %s %s -->\n",
+            self::FINGERPRINT_MARKER,
+            $this->fingerprint($locale),
+        );
     }
 
     /**
