@@ -1,7 +1,6 @@
 import { ref, computed, watch } from 'vue';
 import { useUiStore } from '../stores/ui.js';
 import { useCatalogStore } from '../stores/catalog.js';
-import { useI18nStore } from '../stores/i18n.js';
 import {
     VIEWPORTS, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX,
     findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
@@ -20,11 +19,16 @@ import { flattenFieldsTree } from '../lib/fieldsTree.js';
 // useRoute()/useRouter() (vue-router injection, only available inside a
 // mounted component's setup()), so it's computed one level up and threaded
 // through here as plain refs -- same "shared-scope illusion" pattern type/
-// slug already use.
-export function useViewportPreset({ type, slug, variant = ref(null), setVariant = () => {} }) {
+// slug already use. `contentLocale` (useContentLocale()'s resolved value —
+// URL > localStorage > YAML default) follows the identical rule for the
+// identical reason; default to a ref of `''` (never equals a real
+// default_locale, so buildIframeSrc()'s `?locale=` append never fires) so a
+// router-free construction renders exactly like today.
+export function useViewportPreset({
+    type, slug, variant = ref(null), setVariant = () => {}, contentLocale = ref(''),
+}) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
-    const i18n = useI18nStore();
 
     const currentItem = computed(() => (slug.value ? catalog.find(type.value, slug.value) : null));
 
@@ -187,18 +191,21 @@ export function useViewportPreset({ type, slug, variant = ref(null), setVariant 
         if (variantIdOverride) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variantIdOverride)}`;
         // Design decision: ONE switch drives both the SPA chrome's own UI
         // language AND the rendered content's locale (design doc §
-        // "Chrome vs content language"). The chrome switcher already exists
-        // (stores/i18n.js, `?lang=` / the sidebar language toggle) — this
-        // reuses ITS selection rather than adding a second control. Only
-        // appended when it differs from the server's own default_locale
-        // (stamped on <html data-default-locale> by documentChrome.js at
-        // boot), so the historical no-`?locale=` URL shape is unchanged for
-        // a visitor who never touches the switcher, and a project with no
-        // `translations_path` configured sees no behaviour change at all
-        // (the query param is simply inert server-side — see Router.php).
+        // "Chrome vs content language"). `contentLocale` is
+        // useContentLocale()'s already-resolved value — URL `?locale=` on
+        // the SPA's own address bar, else the visitor's stored switcher
+        // choice, else the YAML `default_locale` (see
+        // lib/contentLocale.js's precedence resolver + its own tests).
+        // Appended only when it differs from the server's own
+        // default_locale, so the historical no-`?locale=` URL shape is
+        // unchanged for a visitor who never touches the switcher, and a
+        // project with no `translations_path` configured sees no behaviour
+        // change at all (the query param is simply inert server-side — see
+        // Router.php).
         const defaultLocale = document.documentElement.dataset.defaultLocale || '';
-        if (defaultLocale && i18n.locale && i18n.locale !== defaultLocale) {
-            src += (src.includes('?') ? '&' : '?') + `locale=${encodeURIComponent(i18n.locale)}`;
+        const resolvedContentLocale = contentLocale.value;
+        if (defaultLocale && resolvedContentLocale && resolvedContentLocale !== defaultLocale) {
+            src += (src.includes('?') ? '&' : '?') + `locale=${encodeURIComponent(resolvedContentLocale)}`;
         }
         return src;
     }

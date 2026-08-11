@@ -6,6 +6,7 @@ import { useCatalogStore } from './stores/catalog.js';
 import { routeInfo } from './lib/routeInfo.js';
 import { useViewportPreset } from './composables/useViewportPreset.js';
 import { useVariant } from './composables/useVariant.js';
+import { useContentLocale } from './composables/useContentLocale.js';
 import Sidebar from './components/Sidebar.vue';
 import ViewportToolbar from './components/ViewportToolbar.vue';
 import FieldsDrawer from './components/FieldsDrawer.vue';
@@ -32,6 +33,13 @@ const currentEntry = computed(() => (routeSlug.value ? catalog.find(routeType.va
 // internally), keeping useViewportPreset.spec.js's router-free construction
 // working unchanged.
 const { variant, setVariant } = useVariant(currentEntry);
+// Same useRoute()-inside-setup() constraint as useVariant() above — computed
+// here and threaded into useViewportPreset() as a plain ref, not called
+// from inside it, so useViewportPreset.spec.js's router-free construction
+// keeps working. `setContentLocale` is exposed via `viewport` below (not
+// consumed by useViewportPreset() itself) so Sidebar.vue's switcher can call
+// it without needing its own useRoute() access.
+const { contentLocale, setContentLocale } = useContentLocale();
 // Provided one level above <RouterView/>, not inside PreviewView.vue — the
 // legacy DOM's toolbar/description/usage/link/fields chrome are siblings of
 // the route-specific body inside the SAME `x-data="preview"` scope, not
@@ -39,8 +47,10 @@ const { variant, setVariant } = useVariant(currentEntry);
 // /overview and /foundations). See Task 7 brief Step 9 for the full
 // rationale. PreviewPane.vue/FieldsDrawer.vue/UsagePanel.vue/LinkBar.vue
 // (Tasks 8-10) inject this same instance through <RouterView/>.
-const viewport = useViewportPreset({ type: routeType, slug: routeSlug, variant, setVariant });
-provide('viewport', viewport);
+const viewport = useViewportPreset({
+    type: routeType, slug: routeSlug, variant, setVariant, contentLocale,
+});
+provide('viewport', { ...viewport, setContentLocale });
 </script>
 
 <template>

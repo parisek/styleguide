@@ -1,6 +1,9 @@
 import { defineStore } from 'pinia';
 
-const SUPPORTED = ['cs', 'en'];
+// Exported so other modules (contentLocale's `isKnown`, Sidebar.vue's
+// switcher options) share this one list instead of each hardcoding their
+// own copy that could drift out of step.
+export const SUPPORTED = ['cs', 'en'];
 const STORAGE_KEY = 'sg-locale';
 
 function detectLocale() {

@@ -28,8 +28,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   same locale a human toggling the switcher sees. **Cache consequence:** a
   render URL now returns different content per `?locale=` — any cache in
   front of the styleguide must include `locale` in its key, same as
-  `?theme=`/`?variant=`. See `docs/API.md` § Locale switching and the design
-  doc referenced there.
+  `?theme=`/`?variant=`. On the SPA side, the switcher's choice now persists
+  per-visitor across page loads via a namespaced localStorage key
+  (`styleguide:locale`, distinct from the pre-existing chrome-UI `sg-locale`
+  key) — precedence is the SPA's own `?locale=` query param, then the stored
+  value, then `bootstrap.default_locale`; a stale stored value (catalogue
+  renamed/removed) falls back to the YAML default and clears itself. This
+  layer is entirely client-side — the server never reads localStorage, so a
+  direct render request with no `?locale=` always resolves to
+  `default_locale` alone, keeping `visual:harvest`/`visual:compare` captures
+  reproducible. See `docs/API.md` § Locale switching and the design doc
+  referenced there.
 
 ## [1.12.0] - 2026-08-09
 
