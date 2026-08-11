@@ -25,10 +25,15 @@ require __DIR__ . '/../../vendor/autoload.php';
 use Parisek\Styleguide\Styleguide;
 
 (new Styleguide([
-    'templates_path' => __DIR__ . '/templates',
-    'static_path'    => __DIR__,
-    'config_yaml'    => __DIR__ . '/styleguide.yaml',
-    'default_locale' => 'cs',
+    'templates_path'     => __DIR__ . '/templates',
+    'static_path'        => __DIR__,
+    'config_yaml'        => __DIR__ . '/styleguide.yaml',
+    'default_locale'     => 'cs',
+    // Wired so the e2e suite exercises the real switcher shape (every
+    // discovered `.mo` catalogue) instead of a fixture with nothing to
+    // discover — reuses tests/fixtures/translations/*.mo, the same
+    // catalogues StyleguideLocaleTest and SpaConfigTest already read.
+    'translations_path' => __DIR__ . '/translations',
 ]))->run();
 
 // Styleguide::run() exits on /styleguide/* routes. Any other URL means the

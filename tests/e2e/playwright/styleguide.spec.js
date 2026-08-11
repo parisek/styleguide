@@ -117,14 +117,28 @@ test.describe('Styleguide SPA', () => {
         await expect(dialog).toBeHidden();
     });
 
-    test('switching locale to en updates strings and <html lang>', async ({ page }) => {
-        // Replaces smoke-browser.sh section 5. `exact: true` matters here:
+    test('switching locale to en_US updates strings and <html lang>', async ({ page }) => {
+        // Replaces smoke-browser.sh section 5. The switcher now lists every
+        // DISCOVERED `.mo` catalogue (tests/fixtures/translations/*.mo,
+        // wired in tests/fixtures/index.php), not a hardcoded chrome-only
+        // ['cs', 'en'] -- so the button carries the full catalogue code
+        // 'en_US', not the bare 'en'. `exact: true` still matters:
         // Playwright's non-exact name match is a case-insensitive substring
-        // test, and "Dokumentace" contains "en" (dokum-EN-tace), so the
-        // loose match resolves to two buttons (strict-mode violation).
+        // test.
         await page.goto('/styleguide/');
-        await page.getByRole('button', { name: 'en', exact: true }).click();
-        await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+        await page.getByRole('button', { name: 'en_US', exact: true }).click();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'en_US');
+        await expect(page.getByText('Overview')).toBeVisible();
+    });
+
+    test('switching to a discovered locale outside the chrome set still falls back to English chrome text', async ({ page }) => {
+        // be_TEST is a real discovered catalogue (tests/fixtures/translations/)
+        // with no chrome strings of its own (stores/i18n.js's SUPPORTED is
+        // only ['cs', 'en']) -- proves the switcher offers it anyway and the
+        // chrome degrades to English rather than refusing the pick.
+        await page.goto('/styleguide/');
+        await page.getByRole('button', { name: 'be_TEST', exact: true }).click();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'be_TEST');
         await expect(page.getByText('Overview')).toBeVisible();
     });
 
