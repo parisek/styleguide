@@ -29,15 +29,24 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   render URL now returns different content per `?locale=` — any cache in
   front of the styleguide must include `locale` in its key, same as
   `?theme=`/`?variant=`. On the SPA side, the switcher's choice now persists
-  per-visitor across page loads via a namespaced localStorage key
-  (`styleguide:locale`, distinct from the pre-existing chrome-UI `sg-locale`
-  key) — precedence is the SPA's own `?locale=` query param, then the stored
-  value, then `bootstrap.default_locale`; a stale stored value (catalogue
-  renamed/removed) falls back to the YAML default and clears itself. This
+  per-visitor across page loads via the chrome switcher's own `sg-locale`
+  localStorage key — one visitor choice drives both the chrome strings and
+  the rendered content, and a value written under the earlier
+  `styleguide:locale` key is migrated on first read. Precedence is the SPA's
+  own `?locale=` query param, then the stored value, then
+  `bootstrap.default_locale`; a stale stored value (catalogue
+  renamed/removed) falls back to the YAML default and clears itself. The
+  stored value is mirrored in a module-level ref, so a switcher click updates
+  the preview immediately instead of waiting for the next navigation. This
   layer is entirely client-side — the server never reads localStorage, so a
   direct render request with no `?locale=` always resolves to
   `default_locale` alone, keeping `visual:harvest`/`visual:compare` captures
-  reproducible. See `docs/API.md` § Locale switching and the design doc
+  reproducible. An empty `msgstr` — gettext's own encoding of "not
+  translated", which every compiler emits for a skipped string — falls back
+  to the source string rather than rendering as nothing; the catalogue audit
+  (`entries()`) still reports missing and empty separately, so the
+  translation gap stays visible without the label disappearing from the page
+  while it is open. See `docs/API.md` § Locale switching and the design doc
   referenced there.
 
 ## [1.12.0] - 2026-08-09

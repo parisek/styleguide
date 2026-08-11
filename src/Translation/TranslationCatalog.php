@@ -163,7 +163,16 @@ final class TranslationCatalog
             return $msgid;
         }
         $entry = $mo->find($msgid, $context);
-        return $entry !== null ? $entry['msgstr'] : $msgid;
+        if ($entry === null || $entry['msgstr'] === '') {
+            // An empty msgstr is gettext's own encoding of "not translated" —
+            // every compiler emits one for a string the translator skipped.
+            // Returning it verbatim deletes the visible text: the source
+            // string disappears from the page instead of showing through
+            // untranslated. entries() keeps the missing-vs-empty distinction
+            // for the catalogue audit, so nothing is lost by falling back.
+            return $msgid;
+        }
+        return $entry['msgstr'];
     }
 
     /**
@@ -189,7 +198,11 @@ final class TranslationCatalog
             return $fallback;
         }
         $index = PluralForms::compile($mo->pluralForms())($number);
-        return $entry['plurals'][$index] ?? $entry['plurals'][array_key_last($entry['plurals'])];
+        $variant = $entry['plurals'][$index] ?? $entry['plurals'][array_key_last($entry['plurals'])];
+
+        // Same rule as the singular path: an empty variant means the
+        // translator skipped that form, not that the form renders as nothing.
+        return $variant === '' ? $fallback : $variant;
     }
 
     /**

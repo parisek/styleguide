@@ -98,6 +98,46 @@ final class TranslationCatalogTest extends TestCase
     }
 
     #[Test]
+    public function an_empty_msgstr_shows_the_source_string_rather_than_nothing(): void
+    {
+        // Gettext encodes "not translated" as an empty msgstr, and every
+        // compiler emits one for a string the translator skipped. Returning it
+        // verbatim deleted the visible text: the label disappeared from the
+        // page instead of showing through in the source language.
+        $catalog = new TranslationCatalog(self::FIXTURES);
+
+        self::assertSame('Empty on purpose', $catalog->lookup('cs', 'Empty on purpose'));
+    }
+
+    #[Test]
+    public function an_empty_plural_variant_falls_back_to_the_source_string(): void
+    {
+        $catalog = new TranslationCatalog(self::FIXTURES);
+
+        self::assertSame(
+            'Empty on purpose',
+            $catalog->lookupPlural('cs', 'Empty on purpose', 'Empty on purposes', 1),
+        );
+    }
+
+    #[Test]
+    public function the_catalogue_audit_still_sees_the_empty_entry(): void
+    {
+        // The fallback must not cost the audit its signal: an empty msgstr is
+        // still a translation gap worth reporting, it just must not blank the
+        // page while the gap is open.
+        $catalog = new TranslationCatalog(self::FIXTURES);
+
+        $empty = array_values(array_filter(
+            $catalog->entries('cs'),
+            static fn(array $e): bool => $e['msgid'] === 'Empty on purpose',
+        ));
+
+        self::assertCount(1, $empty);
+        self::assertSame('', $empty[0]['msgstr']);
+    }
+
+    #[Test]
     public function context_qualified_lookup_only_matches_the_matching_context(): void
     {
         $catalog = new TranslationCatalog(self::FIXTURES);

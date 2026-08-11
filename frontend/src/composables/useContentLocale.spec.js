@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { createRouter, createMemoryHistory } from 'vue-router';
 import { defineComponent, h, nextTick } from 'vue';
-import { useContentLocale } from './useContentLocale.js';
+import { useContentLocale, syncStoredLocale } from './useContentLocale.js';
 import { STORAGE_KEY } from '../lib/contentLocale.js';
 
 function makeRouter() {
@@ -19,6 +19,12 @@ function makeRouter() {
 // useRoute()) runs inside real router-aware setup() context -- same pattern
 // as useVariant.spec.js.
 async function mountContentLocale(initialPath = '/component/hero') {
+    // The stored value lives in a module-level ref (so a switcher click is
+    // reactive and shared between Sidebar and App). These tests drive
+    // localStorage directly, so the mirror is re-read here rather than
+    // holding whatever the previous test left in it.
+    syncStoredLocale();
+
     const router = makeRouter();
     await router.push(initialPath);
     await router.isReady();
@@ -115,5 +121,46 @@ describe('useContentLocale', () => {
         expect(contentLocale.value).toBe('sk_SK');
         expect(localStorage.getItem(STORAGE_KEY)).toBe('sk_SK');
         expect(localStorage.getItem('styleguide:locale')).toBeNull();
+    });
+
+    it('a switcher click updates the resolved locale without a navigation', async () => {
+        // localStorage is not a reactive source. Reading it straight from the
+        // computed left nothing to recompute on, so the click persisted the
+        // new locale and the iframe URL kept serving the old one until the
+        // visitor navigated or reloaded.
+        const { contentLocale, setContentLocale } = await mountContentLocale();
+        expect(contentLocale.value).toBe('en');
+
+        setContentLocale('cs');
+        await nextTick();
+
+        expect(contentLocale.value).toBe('cs');
+        expect(localStorage.getItem(STORAGE_KEY)).toBe('cs');
+    });
+
+    it('a click in one instance is seen by another, because the switcher and the preview are separate callers', async () => {
+        // Sidebar owns the switcher, App owns the iframe URL, and each calls
+        // useContentLocale() itself. A per-instance mirror would leave the
+        // preview holding its own stale copy.
+        const sidebar = await mountContentLocale();
+        const preview = await mountContentLocale();
+
+        sidebar.setContentLocale('cs');
+        await nextTick();
+
+        expect(preview.contentLocale.value).toBe('cs');
+    });
+
+    it('an explicit ?locale= still outranks a later switcher click', async () => {
+        // Precedence is unchanged by the mirror: the URL is the deterministic
+        // signal shared links and the visual harvester depend on.
+        const { contentLocale, setContentLocale } = await mountContentLocale('/component/hero?locale=sk_SK');
+        expect(contentLocale.value).toBe('sk_SK');
+
+        setContentLocale('cs');
+        await nextTick();
+
+        expect(contentLocale.value).toBe('sk_SK');
+        expect(localStorage.getItem(STORAGE_KEY)).toBe('cs');
     });
 });
