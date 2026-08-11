@@ -10,6 +10,31 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **Offline outage render** — `styleguide maintenance:render` writes the
+  project's maintenance screen to one self-contained HTML file
+  (`<templates_path>/component/maintenance/maintenance.html` by default —
+  beside the component it renders, so the committed artefact and its template
+  share a listing) for a CMS drop-in to serve while the CMS is down. A fallback screen is needed exactly when the CMS
+  cannot render one: WordPress reads `.maintenance` before plugins and theme
+  load, and reaches `wp-content/db-error.php` with no database at all. The
+  command takes its whole configuration from `styleguide.yaml` — `bootstrap:`
+  for the paths and the catalogues, `iframe.css` for the stylesheet to inline
+  — so nothing is restated on the command line. The stylesheet is inlined,
+  every `@font-face` rule is stripped, and the shipped shell references no
+  script and no font: the file must reach for nothing while the site is down.
+  The project supplies `page/maintenance/maintenance.twig`; its absence fails
+  the command rather than writing a document with an error banner in it. A
+  project needing different markup ships its own
+  `<templates_path>/maintenance-document.twig`. On any failure nothing is
+  written, so a stale but working file survives. Also available without the
+  CLI as `Parisek\Styleguide\MaintenanceRenderer`. See `docs/API.md`
+  § Offline outage render. Refs portadesign/tailwind-base#569.
+- **`Styleguide::renderTemplate()` / `hasTemplate()`** — the narrow public
+  primitives behind offline renders: render an arbitrary template on the
+  configured environment, and probe whether a template name resolves.
+  `renderObserved()` cannot serve that case — it renders a catalogue entry and
+  records a call trace, while an offline render needs neither.
+
 - **Locale switching** — `translations_path` config key (constructor array and
   `bootstrap.translations_path` in `styleguide.yaml`) points at a directory of
   compiled `.mo` catalogues. When set, `__()`/`_x()`/`_n()`/`_nx()` become real

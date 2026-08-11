@@ -2196,6 +2196,38 @@ final class Styleguide
     }
 
     /**
+     * Render one template on the configured environment.
+     *
+     * The narrow primitive behind offline renders — output written to a file
+     * instead of an HTTP response, by a CLI command rather than a request.
+     * `renderObserved()` cannot serve them: it renders a catalogue entry and
+     * records a call trace, while an offline render needs an arbitrary
+     * template (a document shell around a page) and no trace at all.
+     *
+     * The environment is the fully wired one: `component_*`/`page_*`,
+     * `create_attribute()`, `placeholder()`, and — when `translations_path`
+     * is configured — the real `.mo`-backed `__()`/`_x()`/`_n()`/`_nx()`
+     * resolving against `default_locale`.
+     *
+     * @param array<string, mixed> $context
+     */
+    public function renderTemplate(string $name, array $context = []): string
+    {
+        return $this->twig->render($name, $context + (array) $this->config['twig_context']);
+    }
+
+    /**
+     * Whether a template name resolves on the configured environment.
+     *
+     * Callers use it to prefer a project template over a packaged default
+     * without catching a loader exception as flow control.
+     */
+    public function hasTemplate(string $name): bool
+    {
+        return $this->twig->getLoader()->exists($name);
+    }
+
+    /**
      * Dispatch the current request to the appropriate handler.
      *
      * Returns silently when the URI doesn't belong to /styleguide/* — the project's
