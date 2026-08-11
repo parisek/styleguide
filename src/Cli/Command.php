@@ -202,7 +202,10 @@ final class Command
             return 2;
         }
 
-        $out = $flags['out'] ?? $staticPath . '/maintenance.html';
+        $templatesPath = isset($bootstrap['templates_path']) && is_string($bootstrap['templates_path'])
+            ? $this->resolvePath((string) $bootstrap['templates_path'], $baseDir)
+            : $baseDir . '/templates';
+        $out = $flags['out'] ?? $templatesPath . '/' . MaintenanceRenderer::OUTPUT_RELATIVE;
         if (!is_string($out) || $out === '') {
             fwrite($stderr, "--out must be a file path.\n");
             return 2;
@@ -287,8 +290,8 @@ final class Command
                                  (default: bootstrap.default_locale, then project.locale).
           --css=<path>           maintenance:render only — stylesheet to inline
                                  (default: iframe.css from styleguide.yaml).
-          --out=<path>           maintenance:render only — output file
-                                 (default: <static_path>/maintenance.html).
+          --out=<path>           maintenance:render only — output file (default:
+                                 <templates_path>/component/maintenance/maintenance.html).
           -h, --help             Show this help.
 
         Examples:

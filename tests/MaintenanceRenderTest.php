@@ -39,6 +39,7 @@ final class MaintenanceRenderTest extends TestCase
     private function scaffold(): void
     {
         mkdir($this->tempDir . '/templates/page/maintenance', 0777, true);
+        mkdir($this->tempDir . '/templates/component/maintenance', 0777, true);
         mkdir($this->tempDir . '/dist/css', 0777, true);
 
         file_put_contents(
@@ -137,7 +138,7 @@ final class MaintenanceRenderTest extends TestCase
     #[Test]
     public function cli_writes_the_file_and_reports_what_it_wrote(): void
     {
-        $out = $this->tempDir . '/maintenance.html';
+        $out = $this->tempDir . '/templates/' . MaintenanceRenderer::OUTPUT_RELATIVE;
 
         [$exit, $stdout, $stderr] = $this->runCli([
             'maintenance:render',
@@ -156,7 +157,7 @@ final class MaintenanceRenderTest extends TestCase
     #[Test]
     public function a_missing_stylesheet_leaves_an_earlier_file_alone(): void
     {
-        $out = $this->tempDir . '/maintenance.html';
+        $out = $this->tempDir . '/templates/' . MaintenanceRenderer::OUTPUT_RELATIVE;
         file_put_contents($out, 'previous render');
         unlink($this->tempDir . '/dist/css/style.css');
 
@@ -185,6 +186,6 @@ final class MaintenanceRenderTest extends TestCase
         // Caught before rendering: page_*() would otherwise log the miss and
         // substitute an alert block, writing a file that shows an error banner.
         self::assertStringContainsString('has nothing to render', $stderr);
-        self::assertFileDoesNotExist($this->tempDir . '/maintenance.html');
+        self::assertFileDoesNotExist($this->tempDir . '/templates/' . MaintenanceRenderer::OUTPUT_RELATIVE);
     }
 }

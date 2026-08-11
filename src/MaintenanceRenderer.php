@@ -28,6 +28,16 @@ namespace Parisek\Styleguide;
 final class MaintenanceRenderer
 {
     /**
+     * Where the rendered file lands, relative to `templates_path`.
+     *
+     * Next to the component it renders, not in a build directory: the
+     * artefact is committed and reviewed like any other file of that
+     * component, and whoever edits the template sees the stale output in the
+     * same listing.
+     */
+    public const OUTPUT_RELATIVE = 'component/maintenance/maintenance.html';
+
+    /**
      * The screen itself, supplied by the project.
      *
      * Checked before rendering, because a missing page does not throw:

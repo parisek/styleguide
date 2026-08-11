@@ -562,14 +562,16 @@ vendor/bin/styleguide maintenance:render
 Reads `styleguide.yaml` — `bootstrap:` locates the templates, the static root
 and the `.mo` catalogues, `iframe.css` names the stylesheet — renders the
 project's `@page/maintenance/maintenance.twig` inside a document shell, and
-writes `<static_path>/maintenance.html`.
+writes `<templates_path>/component/maintenance/maintenance.html` — next to the
+component it renders, not in a build directory, so the committed artefact sits
+in the same listing as the template whose change makes it stale.
 
 | Flag | Default |
 |---|---|
 | `--config=<path>` | `./styleguide.yaml`, then `./static/styleguide.yaml` |
 | `--locale=<code>` | `bootstrap.default_locale`, then `project.locale`, then `en` |
 | `--css=<path>` | the first entry of `iframe.css`, resolved under `static_path` |
-| `--out=<path>` | `<static_path>/maintenance.html` |
+| `--out=<path>` | `<templates_path>/component/maintenance/maintenance.html` |
 
 **The project supplies `page/maintenance/maintenance.twig`.** Its absence is an
 error (exit `1`) rather than an empty document: `page_*()` logs a miss and
@@ -606,6 +608,7 @@ $html = (new MaintenanceRenderer(Styleguide::fromYaml($config)))
 | `template(): string` | Which shell this render uses — the project's, when it has one. |
 | `stripFontFaces(string $css): string` | Static, side-effect free. |
 | `PAGE_TEMPLATE`, `PACKAGE_TEMPLATE`, `PROJECT_TEMPLATE` | The three template names above. |
+| `OUTPUT_RELATIVE` | Default output path, relative to `templates_path`. |
 
 **Overriding the shell.** A file at `<templates_path>/maintenance-document.twig`
 wins over the packaged one. It receives `stylesheet` (already stripped) and

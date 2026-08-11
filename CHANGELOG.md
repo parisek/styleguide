@@ -12,8 +12,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 - **Offline outage render** — `styleguide maintenance:render` writes the
   project's maintenance screen to one self-contained HTML file
-  (`<static_path>/maintenance.html` by default) for a CMS drop-in to serve
-  while the CMS is down. A fallback screen is needed exactly when the CMS
+  (`<templates_path>/component/maintenance/maintenance.html` by default —
+  beside the component it renders, so the committed artefact and its template
+  share a listing) for a CMS drop-in to serve while the CMS is down. A fallback screen is needed exactly when the CMS
   cannot render one: WordPress reads `.maintenance` before plugins and theme
   load, and reaches `wp-content/db-error.php` with no database at all. The
   command takes its whole configuration from `styleguide.yaml` — `bootstrap:`
