@@ -28,8 +28,7 @@ final class PluralFormsNode
         private readonly ?self $a = null,
         private readonly ?self $b = null,
         private readonly ?self $c = null,
-    ) {
-    }
+    ) {}
 
     public static function variable(): self
     {

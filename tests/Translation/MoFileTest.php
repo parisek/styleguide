@@ -91,7 +91,7 @@ final class MoFileTest extends TestCase
     public function throws_on_an_unrecognised_magic_number(): void
     {
         $this->expectException(\RuntimeException::class);
-        MoFile::fromString("not a mo file at all, way too short");
+        MoFile::fromString('not a mo file at all, way too short');
     }
 
     #[Test]

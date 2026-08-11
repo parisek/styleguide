@@ -56,7 +56,10 @@ final class ComponentParserTest extends TestCase
 
         // Assert the FULL set in weight order rather than just a count — this
         // documents the canonical fixture roster and catches any sort
-        // regression precisely. Weights: Another 10, Sample 20, Multi 30
+        // regression precisely. Weights: Another 10, Sample 20, Translated
+        // sample 20 (locale-switching fixture, tests/StyleguideLocaleTest.php
+        // — same weight as Sample, alphabetical tie-break puts it right
+        // after), Multi 30
         // (Phase-4 variant-discovery fixture), Only Variants 35 (v1.1.0 —
         // ships ONLY named variant siblings, no bare styleguide.twig; see
         // the has_default_variant tests below), With fields 50 (no explicit
@@ -70,7 +73,7 @@ final class ComponentParserTest extends TestCase
         // sort on `name` (see parseAll()'s usort()), and "Defkit Card" sorts
         // before "With fields" alphabetically.
         self::assertSame(
-            ['Another', 'Sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
+            ['Another', 'Sample', 'Translated sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );
