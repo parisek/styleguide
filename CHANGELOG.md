@@ -7,6 +7,20 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive.md).
 
 ## [Unreleased]
+### Fixed
+
+- **`maintenance:render` left `@font-face` in the artefact on any Tailwind
+  build.** The scanner that locates the at-rule honoured backslash escapes
+  only inside strings, not outside them. CSS escapes identifiers too, and
+  Tailwind leans on that: `content-[""]` compiles to the selector
+  `.before\:content-\[\"\"\]`, whose quotes are escaped characters rather
+  than delimiters. One of them opened a string that ran to the end of the
+  file, so every `@font-face` after it went unseen — and shipped inside a
+  document whose entire contract is that it requests nothing.
+
+  Found by rendering a real project's stylesheet after 1.13.0 was released,
+  not by the suite: every fixture was hand-written and none carried an
+  escaped selector. The regression test uses the shape from that build.
 
 ## [1.13.0] - 2026-08-11
 ### Added

@@ -183,16 +183,35 @@ final class MaintenanceRenderer
                 }
                 continue;
             }
-            if ($char === '"' || $char === "'") {
-                $quote = $char;
-                continue;
-            }
+            // Comments are tested BEFORE quotes, and the order is the whole
+            // point: a comment is opaque, so an apostrophe inside one ("the
+            // browser's own default", "don't rely on this") is prose, not a
+            // string delimiter. Testing quotes first opened a string that
+            // never closed and swallowed the rest of the stylesheet, so every
+            // later @font-face went unseen — the exact inversion of the bug
+            // this scanner was written to fix. A real Tailwind build carries
+            // such a comment; the fixtures did not.
             if ($char === '/' && substr($css, $i, 2) === '/*') {
                 $close = strpos($css, '*/', $i + 2);
                 if ($close === false) {
                     return null;
                 }
                 $i = $close + 1;
+                continue;
+            }
+            // Outside a string, a backslash escapes the next character —
+            // CSS's own identifier-escape rule. Tailwind leans on it hard:
+            // `content-[""]` compiles to the selector
+            // `.before\:content-\[\"\"\]`, where the quotes are escaped
+            // characters, not delimiters. Skipping the escape is what stops
+            // one of them opening a string that runs to the end of the file
+            // and hides every @font-face after it.
+            if ($char === '\\') {
+                $i++;
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
                 continue;
             }
             if ($char === '@' && strncasecmp(substr($css, $i, $needle), $name, $needle) === 0) {
@@ -207,7 +226,9 @@ final class MaintenanceRenderer
      * Offset of the `}` closing the block that opens at `$brace`.
      *
      * Skips over quoted strings so a brace inside a value cannot end the
-     * block early. Returns null when the stylesheet is truncated.
+     * block early, and honours escapes outside them for the same reason
+     * {@see self::findAtRule()} does — an escaped quote in a selector must
+     * not open a string. Returns null when the stylesheet is truncated.
      */
     private static function endOfBlock(string $css, int $brace): ?int
     {
@@ -224,7 +245,9 @@ final class MaintenanceRenderer
                 }
                 continue;
             }
-            if ($char === '"' || $char === "'") {
+            if ($char === '\\') {
+                $i++;
+            } elseif ($char === '"' || $char === "'") {
                 $quote = $char;
             } elseif ($char === '{') {
                 $depth++;
