@@ -183,9 +183,19 @@ When a change adds, renames, removes, or alters the default of any of the follow
 | A field in an `/api/*` response | `docs/API.md` — the matching `ts` shape |
 | A Twig function / filter | `docs/API.md` (§ Twig functions & filters) |
 | A `Styleguide` constructor config key | `docs/API.md` (§ PHP API) **and** `README.md` § Bootstrap |
+| A CLI command, subcommand or flag on `vendor/bin/styleguide` | `docs/API.md` (§ CLI) **and** the command block in `README.md` § Command-line |
+| A public class or method a consumer can call (`@api`) | `docs/API.md` (§ PHP API) **and** `README.md`, unless no consumer would ever reach for it directly |
 | Any consumer-visible behaviour | `CHANGELOG.md` `[Unreleased]` (+ `README.md` if it changes how consumers wire things) |
 | An `@api`-marked surface | re-confirm the breaking / non-breaking note in `docs/API.md` still holds |
 | An architectural decision (API contract shape, doctrine choice, boundary) | add an ADR in `docs/adr/` (see `docs/adr/README.md`) |
+
+Those last two rows are not hypothetical: the whole outage-screen feature —
+a CLI subcommand, two flags and three public methods — shipped across 1.13 and
+1.14 into `CHANGELOG.md` and `docs/API.md` while `README.md` never learned it
+existed. The rule was already here; the table had no row that matched, so every
+individual PR looked compliant. A missing row in a table is visible where a
+missing paragraph is not, which is also why the README lists commands as a
+block rather than describing them one by one.
 
 Internal-only work (refactors, test tooling, static-analysis fixes) needs no doc change beyond an optional `CHANGELOG.md` note. When unsure whether a surface is public, check the `@api` / `@internal` markers in `src/` and the SemVer tables in `docs/API.md`.
 
