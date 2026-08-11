@@ -35,11 +35,15 @@ final class MaintenanceRenderTest extends TestCase
 
     /**
      * A minimal project: one page, one stylesheet, one config file.
+     *
+     * The output directory (`templates/component/maintenance/`) is deliberately
+     * NOT created here. A project owns the page template and nothing else, so
+     * creating it made every test render into a case the command never meets in
+     * the wild — and hid that the command could not create it either.
      */
     private function scaffold(): void
     {
         mkdir($this->tempDir . '/templates/page/maintenance', 0777, true);
-        mkdir($this->tempDir . '/templates/component/maintenance', 0777, true);
         mkdir($this->tempDir . '/dist/css', 0777, true);
 
         file_put_contents(
@@ -124,6 +128,34 @@ final class MaintenanceRenderTest extends TestCase
     }
 
     #[Test]
+    public function the_name_inside_a_comment_is_not_an_at_rule(): void
+    {
+        // Searching the raw text matched here, and the scan for the rule body
+        // then took the next opening brace it found — which belongs to .a, so
+        // a valid rule was deleted and the comment left behind. The default
+        // --css inlines the unminified stylesheet, comments and all.
+        $css = '/* @font-face rules live below */.a{color:red}';
+
+        self::assertSame($css, MaintenanceRenderer::stripFontFaces($css));
+    }
+
+    #[Test]
+    public function the_name_inside_a_quoted_value_is_not_an_at_rule(): void
+    {
+        $css = '.a{content:"@font-face"}.b{color:red}';
+
+        self::assertSame($css, MaintenanceRenderer::stripFontFaces($css));
+    }
+
+    #[Test]
+    public function a_real_rule_after_a_decoy_comment_is_still_stripped(): void
+    {
+        $css = '/* @font-face */@font-face{src:url(/x.woff2)}.a{color:red}';
+
+        self::assertSame('/* @font-face */.a{color:red}', MaintenanceRenderer::stripFontFaces($css));
+    }
+
+    #[Test]
     public function external_urls_become_none_and_data_uris_survive(): void
     {
         $css = '.spinner{background:url(../images/loading.gif)}'
@@ -204,9 +236,28 @@ final class MaintenanceRenderTest extends TestCase
     }
 
     #[Test]
-    public function a_missing_stylesheet_leaves_an_earlier_file_alone(): void
+    public function the_output_directory_is_created_when_it_does_not_exist(): void
     {
         $out = $this->tempDir . '/templates/' . MaintenanceRenderer::OUTPUT_RELATIVE;
+        self::assertDirectoryDoesNotExist(dirname($out));
+
+        [$exit, , $stderr] = $this->runCli([
+            'maintenance:render',
+            '--config=' . $this->tempDir . '/styleguide.yaml',
+        ]);
+
+        self::assertSame(0, $exit, $stderr);
+        self::assertFileExists($out);
+    }
+
+    #[Test]
+    public function a_missing_stylesheet_leaves_an_earlier_file_alone(): void
+    {
+        // This case needs an earlier artefact, so it creates the directory the
+        // scaffold no longer does — an explicit precondition of this test, not
+        // a shape every render starts from.
+        $out = $this->tempDir . '/templates/' . MaintenanceRenderer::OUTPUT_RELATIVE;
+        mkdir(dirname($out), 0777, true);
         file_put_contents($out, 'previous render');
         unlink($this->tempDir . '/dist/css/style.css');
 

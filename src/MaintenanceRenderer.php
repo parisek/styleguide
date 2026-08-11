@@ -160,12 +160,47 @@ final class MaintenanceRenderer
 
     /**
      * Offset of an at-rule name, matched case-insensitively, or null.
+     *
+     * Comments and quoted strings are skipped, so the name only matches where
+     * a browser would read it as an at-rule. A plain `stripos()` also matched
+     * it inside a CSS comment — and the caller then took the next opening brace
+     * it could find, which belongs to an unrelated rule, and deleted that rule
+     * instead. The default `--css` inlines the unminified stylesheet, which is
+     * exactly the one that still carries comments.
      */
     private static function findAtRule(string $css, string $name, int $offset): ?int
     {
-        $position = stripos($css, $name, $offset);
+        $length = strlen($css);
+        $needle = strlen($name);
+        $quote = null;
+        for ($i = $offset; $i < $length; $i++) {
+            $char = $css[$i];
+            if ($quote !== null) {
+                if ($char === '\\') {
+                    $i++;
+                } elseif ($char === $quote) {
+                    $quote = null;
+                }
+                continue;
+            }
+            if ($char === '"' || $char === "'") {
+                $quote = $char;
+                continue;
+            }
+            if ($char === '/' && substr($css, $i, 2) === '/*') {
+                $close = strpos($css, '*/', $i + 2);
+                if ($close === false) {
+                    return null;
+                }
+                $i = $close + 1;
+                continue;
+            }
+            if ($char === '@' && strncasecmp(substr($css, $i, $needle), $name, $needle) === 0) {
+                return $i;
+            }
+        }
 
-        return $position === false ? null : $position;
+        return null;
     }
 
     /**

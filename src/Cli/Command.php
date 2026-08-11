@@ -223,12 +223,27 @@ final class Command
             return 1;
         }
 
+        // The default target sits in component/maintenance/, a directory the
+        // project has no reason to own yet — only page/maintenance/ carries a
+        // template it writes itself. Creating it is what makes the default path
+        // work on a project that never rendered the screen before. The test
+        // scaffold used to create it by hand, which hid the gap.
+        $outDir = dirname($out);
+        if (!is_dir($outDir) && !@mkdir($outDir, 0755, true) && !is_dir($outDir)) {
+            fwrite($stderr, sprintf("Could not create %s.\n", $outDir));
+            return 1;
+        }
+
         // Write beside the target, then rename. A rename is atomic on the
         // same filesystem, so a full disk or a crash mid-write leaves the
         // previous artefact intact — the contract this command documents.
         // file_put_contents() straight onto $out would truncate it first and
         // could then report a short write as success.
-        $temp = $out . '.tmp';
+        //
+        // The temp name carries the pid: two renders of the same target would
+        // otherwise share one temp file, and the loser's unlink takes the
+        // winner's pending write with it.
+        $temp = sprintf('%s.%d.tmp', $out, getmypid());
         $written = file_put_contents($temp, $html);
         if ($written !== strlen($html)) {
             @unlink($temp);
