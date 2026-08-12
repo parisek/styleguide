@@ -8,6 +8,39 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **BREAKING — `_nx()` no longer substitutes the number.** It now returns the
+  selected plural form, exactly as WordPress's `_nx()` does, leaving the
+  substitution to the caller (`sprintf`, or `|format` in Twig). It previously ran
+  `sprintf($form, $number)` itself, so `_nx('%d day', '%d days', 5, …)` rendered
+  `5 days` in the styleguide and `%d days` on the live site.
+
+  That split is the one thing the `…t` helpers were introduced to prevent (#21:
+  *"same signatures as the WP originals … so authoring stays portable across
+  CMSes"*), and `_nx` was the only translator breaking it — `__`, `_x` and `_n`
+  all mirrored WordPress already. Two sibling functions differing only by a
+  `context` argument behaved differently on substitution, with no way for an
+  author to notice: both outputs look plausible on their own.
+
+  Fixed in all three places it appeared: the catalogue-backed `_nx`, the
+  identity-stub `_nx`, and the fallback expression inside `_nxt` — which now
+  matches `_nt`'s.
+
+  **Migration.** A template relying on the old behaviour renders a literal `%d`
+  after upgrading — but it already rendered `%d` on the production site, so the
+  fix surfaces an existing defect rather than introducing one. Add `|format(n)`
+  at the call site, which is what the same template needs under WordPress anyway.
+  Templates written correctly for production stop double-substituting.
+
+  Found in `sloneek`, wiring a client-side countdown whose plural form has to be
+  chosen per tick in the browser: the `%d` the JavaScript substitutes survived in
+  the styleguide but not on the site.
+
+  The existing signature test could not catch this — its strings carry no
+  placeholder, and `sprintf('many', 2) === 'many'`. The regression test uses `%d`
+  and was confirmed to fail against the unfixed code.
+
 ## [1.14.0] - 2026-08-11
 
 ### Added

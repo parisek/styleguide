@@ -75,6 +75,36 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function plural_stubs_return_the_form_and_never_substitute_the_number(): void
+    {
+        // WordPress's `_n()` / `_nx()` return the selected form and leave the
+        // substitution to the caller (`sprintf`, or `|format` in Twig). `_nx`
+        // used to run `sprintf($form, $number)` itself, so the same call
+        // rendered "5 days" here and "%d days" on the live site — breaking the
+        // portability promise the `…t` helpers were introduced under.
+        //
+        // The test above cannot see it: its strings carry no placeholder, and
+        // `sprintf('many', 2) === 'many'`. A `%d` is what makes the difference
+        // observable, which is why this case is separate rather than folded in.
+        $twig = self::twigOf(self::newStyleguide());
+
+        $render = static fn(string $expr): string
+            => $twig->createTemplate('{{ ' . $expr . ' }}')->render();
+
+        self::assertSame('%d days', $render('_n("%d day", "%d days", 5, "domain")'), '_n leaves %d alone');
+        self::assertSame('%d days', $render('_nx("%d day", "%d days", 5, "ctx", "domain")'), '_nx leaves %d alone');
+        self::assertSame('%d day', $render('_nx("%d day", "%d days", 1, "ctx", "domain")'), '_nx still picks the singular');
+
+        // The two differ only by the context argument they accept, never by
+        // what they do to the string.
+        self::assertSame(
+            $render('_n("%d day", "%d days", 5, "domain")'),
+            $render('_nx("%d day", "%d days", 5, "", "domain")'),
+            '_n and _nx agree on the same number',
+        );
+    }
+
+    #[Test]
     public function registers_bundled_extensions_including_dump(): void
     {
         $twig = self::twigOf(self::newStyleguide());

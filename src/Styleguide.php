@@ -980,10 +980,7 @@ final class Styleguide
             self::tryAddFunction($twig, new TwigFunction(
                 '_nx',
                 fn(string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string
-                    => sprintf(
-                        $catalog->lookupPlural($this->requestLocale, $single, $plural, $number, $context),
-                        $number,
-                    ),
+                    => $catalog->lookupPlural($this->requestLocale, $single, $plural, $number, $context),
             ));
         } else {
             self::tryAddFunction($twig, new TwigFunction(
@@ -1001,9 +998,8 @@ final class Styleguide
             ));
             self::tryAddFunction($twig, new TwigFunction(
                 '_nx',
-                static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string {
-                    return sprintf($number === 1 ? $single : $plural, $number);
-                },
+                static fn(string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string
+                    => $number === 1 ? $single : $plural,
             ));
         }
 
@@ -1046,7 +1042,7 @@ final class Styleguide
         self::tryAddFunction($twig, new TwigFunction(
             '_nxt',
             static function (string $single, string $plural, int $number, string $context, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(self::invokeTwigFunction($twig, '_nx', [$single, $plural, $number, $context, $domain], sprintf($number === 1 ? $single : $plural, $number)));
+                return $typography(self::invokeTwigFunction($twig, '_nx', [$single, $plural, $number, $context, $domain], $number === 1 ? $single : $plural));
             },
             ['is_safe' => ['html']],
         ));
