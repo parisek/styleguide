@@ -780,6 +780,29 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function translations_path_plural_lookup_never_substitutes_the_number(): void
+    {
+        // The catalogue-backed `_nx` is a second closure from the one the stub
+        // test covers, and it is where the `sprintf` actually shipped. Without
+        // this case the fix is asserted only on the identity stubs, which is
+        // the branch a real consumer never reaches — every project that wires
+        // `translations_path` gets the closure exercised here instead.
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'default_locale' => 'cs',
+        ]);
+        $twig = self::twigOf($sg);
+
+        $tpl = $twig->createTemplate(
+            '{{ _nx("%d item", "%d items", 1, "") }}|{{ _nx("%d item", "%d items", 2, "") }}|{{ _nx("%d item", "%d items", 5, "") }}',
+        );
+        self::assertSame('%d položka|%d položky|%d položek', $tpl->render());
+    }
+
+    #[Test]
     public function translations_path_falls_back_to_the_msgid_without_erroring_on_a_missing_translation(): void
     {
         $sg = new Styleguide([
