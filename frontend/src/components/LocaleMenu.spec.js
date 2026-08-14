@@ -248,3 +248,73 @@ describe('LocaleMenu — keyboard', () => {
             .toBe('sg-locale-opt-sk_SK');
     });
 });
+
+describe('LocaleMenu — defects found in review', () => {
+    it('keeps the keyboard-active option in view when the list scrolls', async () => {
+        // The panel caps its height, so with 15 locales an arrow key can push
+        // aria-activedescendant outside the scrollport — the attribute moves
+        // but the user sees nothing happen.
+        const many = ['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT', 'de_DE', 'fr_FR', 'es_ES',
+            'pt_PT', 'nl_NL', 'sv_SE', 'da_DK', 'fi_FI', 'hu_HU', 'ro_RO'];
+        const wrapper = mountMenu(many);
+        // jsdom implements no layout, so scrollIntoView does not exist on the
+        // prototype — install a spy to stand in for it.
+        const scrollIntoView = vi.fn();
+        Element.prototype.scrollIntoView = scrollIntoView;
+
+        await trigger(wrapper).trigger('click');
+        await flushPromises();
+        scrollIntoView.mockClear();
+
+        await wrapper.get('[role="listbox"]').trigger('keydown', { key: 'End' });
+        await flushPromises();
+
+        expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+    });
+
+    it('closes when focus moves into the preview iframe', async () => {
+        // Pointer events inside an iframe never reach the parent document, in
+        // any phase — so the outside-click listener alone cannot see them.
+        // Focus crossing the boundary is the signal that does surface.
+        const wrapper = mountMenu(['cs_CZ', 'en_US']);
+        await trigger(wrapper).trigger('click');
+        expect(wrapper.find('[role="listbox"]').exists()).toBe(true);
+
+        const iframe = document.createElement('iframe');
+        document.body.appendChild(iframe);
+        iframe.focus();
+        Object.defineProperty(document, 'activeElement', { value: iframe, configurable: true });
+        window.dispatchEvent(new Event('blur'));
+        await flushPromises();
+
+        expect(wrapper.find('[role="listbox"]').exists()).toBe(false);
+        iframe.remove();
+    });
+
+    it('stays open when the whole window loses focus to another app', async () => {
+        // Only an iframe-shaped blur should close it; tabbing away to another
+        // application must not throw away the visitor's open menu.
+        const wrapper = mountMenu(['cs_CZ', 'en_US']);
+        await trigger(wrapper).trigger('click');
+
+        Object.defineProperty(document, 'activeElement', { value: document.body, configurable: true });
+        window.dispatchEvent(new Event('blur'));
+        await flushPromises();
+
+        expect(wrapper.find('[role="listbox"]').exists()).toBe(true);
+    });
+
+    it('links the trigger to the popup it controls, and does not claim to be a combobox', async () => {
+        // Focus MOVES into the listbox here, which a combobox is not supposed
+        // to do — so this is a disclosure button, and it must name the element
+        // it expands.
+        const wrapper = mountMenu(['cs_CZ', 'en_US']);
+        const btn = trigger(wrapper);
+        expect(btn.attributes('role')).toBeUndefined();
+        expect(btn.attributes('aria-haspopup')).toBe('listbox');
+
+        await btn.trigger('click');
+        expect(trigger(wrapper).attributes('aria-controls'))
+            .toBe(wrapper.get('[role="listbox"]').attributes('id'));
+    });
+});

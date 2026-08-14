@@ -33,9 +33,29 @@ const activeIndex = ref(0);
 
 const label = computed(() => shortLabel(i18n.locale, locales));
 
+const LISTBOX_ID = 'sg-locale-listbox';
+
 function optionId(locale) {
     return `sg-locale-opt-${locale}`;
 }
+
+// The panel caps its height, so with a long list an arrow key can move
+// aria-activedescendant outside the scrollport: the attribute changes, a
+// screen reader announces the new option, and a sighted keyboard user sees
+// nothing move. `block: 'nearest'` scrolls the minimum needed, so walking
+// down the list doesn't yank the panel around on every step.
+watch(activeIndex, () => {
+    if (!open.value) return;
+    nextTick(() => {
+        // Optional call, not just optional chaining on the element: jsdom
+        // implements no layout and ships no scrollIntoView at all, so the
+        // component's own specs would otherwise throw on a purely cosmetic
+        // scroll. Same "a missing DOM capability must not break the render"
+        // posture as lib/contentLocale.js.
+        document.getElementById(optionId(locales[activeIndex.value]))
+            ?.scrollIntoView?.({ block: 'nearest' });
+    });
+});
 
 function isSelected(locale) {
     return i18n.locale === locale;
@@ -101,9 +121,12 @@ function onTriggerKeydown(event) {
     }
 }
 
-// Capture phase: a pointerdown inside the preview <iframe>'s own chrome, or
-// on a control that stops propagation, would otherwise never bubble here and
-// the menu would stay stuck open behind the user's next click.
+// Capture phase, so a control that stops propagation on its own pointerdown
+// can't leave the menu stuck open behind the user's next click.
+//
+// This CANNOT see clicks landing in the preview <iframe>: pointer events fire
+// in the iframe's own document and never cross into this one, in any phase.
+// onWindowBlur() below covers that case.
 function onDocumentPointerDown(event) {
     if (triggerRef.value?.contains(event.target)) return;
     if (listboxRef.value?.contains(event.target)) return;
@@ -113,18 +136,32 @@ function onDocumentPointerDown(event) {
     closeMenu({ restoreFocus: false });
 }
 
+// The one signal a click inside the preview iframe DOES raise in this
+// document: focus leaves the window, and activeElement becomes the <iframe>
+// that took it. Narrowed to that shape on purpose — a plain window blur also
+// fires when the visitor switches to another application, and throwing away
+// their open menu for alt-tabbing would be its own bug.
+function onWindowBlur() {
+    if (document.activeElement?.tagName === 'IFRAME') {
+        closeMenu({ restoreFocus: false });
+    }
+}
+
 // Bound only while open, so a closed switcher costs the document no
 // listener at all — this component is mounted for the whole session.
 watch(open, (isOpen) => {
     if (isOpen) {
         document.addEventListener('pointerdown', onDocumentPointerDown, true);
+        window.addEventListener('blur', onWindowBlur);
     } else {
         document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+        window.removeEventListener('blur', onWindowBlur);
     }
 });
 
 onBeforeUnmount(() => {
     document.removeEventListener('pointerdown', onDocumentPointerDown, true);
+    window.removeEventListener('blur', onWindowBlur);
 });
 </script>
 
@@ -137,9 +174,9 @@ onBeforeUnmount(() => {
             ref="triggerRef"
             data-testid="locale-trigger"
             type="button"
-            role="combobox"
             aria-haspopup="listbox"
             :aria-expanded="open ? 'true' : 'false'"
+            :aria-controls="open ? LISTBOX_ID : undefined"
             :aria-label="i18n.t('locale.switch')"
             :title="i18n.t('locale.switch')"
             class="flex items-center gap-1 font-mono text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-500"
@@ -168,6 +205,7 @@ onBeforeUnmount(() => {
              the panel running off the top of the viewport. -->
         <ul
             v-if="open"
+            :id="LISTBOX_ID"
             ref="listboxRef"
             role="listbox"
             tabindex="0"
