@@ -8,6 +8,32 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **The sidebar locale switcher is now a dropdown.** It used to render every
+  discovered catalogue as a `·`-separated row of raw codes (`cs_CZ · en_US
+  it_IT pl_PL sk_SK`), which ran out of the 288px sidebar at five locales and
+  had no answer at all for a project that ships fifteen. The footer now shows
+  a single short code (`CS`) and opens a scrollable list on click.
+
+  The panel drops **upward** — the switcher is pinned to the bottom edge of
+  the sidebar, so there is never room below it — and caps its height at
+  `min(60vh, 20rem)`, so a long list scrolls inside the panel instead of
+  running off the top of the viewport.
+
+  Each entry is labelled with the language's own name (Čeština, Polski,
+  日本語) from a map the package ships, alongside the raw catalogue code so a
+  developer can still tell which `.mo` file a row belongs to. A code the map
+  does not know is shown verbatim rather than as a placeholder.
+
+  A project that discovers **one** catalogue (or none) now renders no switcher
+  at all, where it previously rendered a lone code as a button that switched
+  nothing.
+
+  What a click does is unchanged: chrome UI strings still fall back to English
+  outside the chrome's own `cs`/`en` set, the content locale still switches,
+  and the choice still persists under the same `sg-locale` key.
+
 ## [1.14.0] - 2026-08-11
 
 ### Added

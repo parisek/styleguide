@@ -94,5 +94,8 @@
         "warnings_title": "Some templates failed to parse — click for details",
         "dialog_title": "Templates that failed to parse",
         "dialog_close": "Close"
+    },
+    "locale": {
+        "switch": "Change language"
     }
 }

@@ -118,15 +118,15 @@ test.describe('Styleguide SPA', () => {
     });
 
     test('switching locale to en_US updates strings and <html lang>', async ({ page }) => {
-        // Replaces smoke-browser.sh section 5. The switcher now lists every
+        // Replaces smoke-browser.sh section 5. The switcher lists every
         // DISCOVERED `.mo` catalogue (tests/fixtures/translations/*.mo,
         // wired in tests/fixtures/index.php), not a hardcoded chrome-only
-        // ['cs', 'en'] -- so the button carries the full catalogue code
-        // 'en_US', not the bare 'en'. `exact: true` still matters:
-        // Playwright's non-exact name match is a case-insensitive substring
-        // test.
+        // ['cs', 'en'] -- so the entry carries the full catalogue code
+        // 'en_US', not the bare 'en'. Since the switcher became a dropdown
+        // the codes are behind the trigger, so open it before picking.
         await page.goto('/styleguide/');
-        await page.getByRole('button', { name: 'en_US', exact: true }).click();
+        await page.getByTestId('locale-trigger').click();
+        await page.getByRole('option', { name: /en_US/ }).click();
         await expect(page.locator('html')).toHaveAttribute('lang', 'en_US');
         await expect(page.getByText('Overview')).toBeVisible();
     });
@@ -137,9 +137,52 @@ test.describe('Styleguide SPA', () => {
         // only ['cs', 'en']) -- proves the switcher offers it anyway and the
         // chrome degrades to English rather than refusing the pick.
         await page.goto('/styleguide/');
-        await page.getByRole('button', { name: 'be_TEST', exact: true }).click();
+        await page.getByTestId('locale-trigger').click();
+        // be_TEST has no entry in lib/localeNames.js's endonym map, so the
+        // row is labelled with the raw code -- which is the documented
+        // fallback, not a gap.
+        await page.getByRole('option', { name: /be_TEST/ }).click();
         await expect(page.locator('html')).toHaveAttribute('lang', 'be_TEST');
         await expect(page.getByText('Overview')).toBeVisible();
+    });
+
+    test('two catalogues sharing a language keep their region on the trigger', async ({ page }) => {
+        // tests/fixtures/translations/ ships both pt_PT and pt_BR. A bare
+        // 'PT' on the closed trigger would be the same label for both, so
+        // the switcher could not say which one is live. Region-qualified
+        // only in this collision case -- 'CS' below stays two characters.
+        await page.goto('/styleguide/');
+        const trigger = page.getByTestId('locale-trigger');
+        await expect(trigger).toHaveText(/^CS/);
+
+        await trigger.click();
+        await page.getByRole('option', { name: /pt_BR/ }).click();
+        await expect(page.locator('html')).toHaveAttribute('lang', 'pt_BR');
+        await expect(trigger).toHaveText(/^PT-BR/);
+
+        await trigger.click();
+        await page.getByRole('option', { name: /pt_PT/ }).click();
+        await expect(trigger).toHaveText(/^PT-PT/);
+    });
+
+    test('the locale dropdown opens upward and closes on Escape', async ({ page }) => {
+        // The switcher is pinned to the sidebar's bottom edge, so a panel
+        // that opened downward would render off-screen. Assert the panel's
+        // bottom sits at or above the trigger's top rather than asserting a
+        // class name -- this is the behaviour, the class is the mechanism.
+        await page.goto('/styleguide/');
+        const trigger = page.getByTestId('locale-trigger');
+        await trigger.click();
+
+        const listbox = page.getByRole('listbox');
+        await expect(listbox).toBeVisible();
+        const panel = await listbox.boundingBox();
+        const button = await trigger.boundingBox();
+        expect(panel.y + panel.height).toBeLessThanOrEqual(button.y + 1);
+
+        await page.keyboard.press('Escape');
+        await expect(listbox).toBeHidden();
+        await expect(trigger).toBeFocused();
     });
 
     test('drag-resizing the Custom-preset handle changes the emulated width', async ({ page }) => {

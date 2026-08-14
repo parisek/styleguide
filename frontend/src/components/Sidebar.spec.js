@@ -291,29 +291,45 @@ describe('Sidebar', () => {
 });
 
 describe('Sidebar — locale switcher', () => {
-    it('renders no switcher entries when the project discovers no catalogues (no translations_path)', async () => {
+    it('renders no switcher at all when the project discovers no catalogues (no translations_path)', async () => {
         const { wrapper } = await mountSidebar();
+        expect(wrapper.find('[data-testid="locale-trigger"]').exists()).toBe(false);
         expect(wrapper.text()).not.toContain('cs_CZ');
-        expect(wrapper.findAll('button').some((b) => b.text() === 'en')).toBe(false);
     });
 
-    it('lists every discovered locale, not just the chrome-only cs/en set', async () => {
+    it('collapses every discovered locale behind one trigger instead of a row that overflows', async () => {
+        // The flat `·`-separated row this replaced ran out of the 288px
+        // sidebar at five locales; the whole point of the menu is that the
+        // closed footer shows exactly one short label regardless of count.
         document.documentElement.dataset.locales = JSON.stringify(['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT']);
         const { wrapper } = await mountSidebar();
-        const labels = wrapper.findAll('button').map((b) => b.text()).filter((t) => t.length > 0);
-        for (const loc of ['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT']) {
-            expect(labels).toContain(loc);
+
+        expect(wrapper.findAll('[role="option"]')).toHaveLength(0);
+        await wrapper.get('[data-testid="locale-trigger"]').trigger('click');
+        expect(wrapper.findAll('[role="option"]')).toHaveLength(5);
+    });
+
+    it('lists every discovered locale by name, not just the chrome-only cs/en set', async () => {
+        document.documentElement.dataset.locales = JSON.stringify(['cs_CZ', 'en_US', 'sk_SK', 'pl_PL', 'it_IT']);
+        const { wrapper } = await mountSidebar();
+        await wrapper.get('[data-testid="locale-trigger"]').trigger('click');
+
+        const labels = wrapper.findAll('[data-testid="locale-name"]').map((o) => o.text());
+        for (const name of ['Čeština', 'English', 'Slovenčina', 'Polski', 'Italiano']) {
+            expect(labels).toContain(name);
         }
     });
 
-    it('clicking a discovered locale outside the chrome SUPPORTED set loads English chrome strings and switches content locale', async () => {
+    it('picking a discovered locale outside the chrome SUPPORTED set loads English chrome strings and switches content locale', async () => {
         document.documentElement.dataset.locales = JSON.stringify(['cs_CZ', 'en_US', 'sk_SK']);
         global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nav: { overview: 'Overview' } }) });
         const { wrapper } = await mountSidebar();
 
-        const skButton = wrapper.findAll('button').find((b) => b.text() === 'sk_SK');
-        expect(skButton).toBeTruthy();
-        await skButton.trigger('click');
+        await wrapper.get('[data-testid="locale-trigger"]').trigger('click');
+        const slovak = wrapper.findAll('[role="option"]')
+            .find((o) => o.get('[data-testid="locale-name"]').text() === 'Slovenčina');
+        expect(slovak).toBeTruthy();
+        await slovak.trigger('click');
         await flushPromises();
 
         expect(fetch).toHaveBeenCalledWith('/styleguide/assets/locales/en.json', { cache: 'no-cache' });
