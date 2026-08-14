@@ -66,8 +66,8 @@ In the consumer's `composer.json` (already wired in `tailwind-base`):
     }
 },
 "scripts": {
-    "styleguide:local":  "@composer require parisek/styleguide:dev-local --no-interaction",
-    "styleguide:remote": "@composer require parisek/styleguide:^1.0 --no-interaction"
+    "styleguide:local":  "@composer require parisek/styleguide:'dev-local as 1.999.0' --no-interaction",
+    "styleguide:remote": "@composer require parisek/styleguide:'^1.15' --no-interaction"
 }
 ```
 
@@ -83,7 +83,11 @@ composer styleguide:local      # vendor/parisek/styleguide → symlink to ../sty
 composer styleguide:remote     # vendor/parisek/styleguide → extracted v1.x from Packagist
 ```
 
-The single line that changes in `composer.json` is `"parisek/styleguide": "dev-local"` ↔ `"^1.0"`. `composer.lock` updates too. Both are intended to land in commits when needed.
+Why the `as 1.999.0` alias: a bare `dev-local` is a branch version, and a branch version satisfies no numeric constraint. Sibling packages do put numeric constraints on this one — `parisek/definition-kit` requires `parisek/styleguide ^1.11` — so without the alias `styleguide:local` dies on a conflict and Composer reverts `composer.json` and `composer.lock`, leaving the switch looking like it silently did nothing. The alias makes the local copy satisfy any `^1.x` constraint, which is why it is a deliberately absurd `1.999.0` rather than the current release: aliasing to `1.15.0` would break again the moment a constraint moved to `^1.16`.
+
+Keep `styleguide:remote` on the current release line. It carried `^1.10.1` long after the consumer's own constraint had moved to `^1.14`, which turned "switch back to the published package" into a silent four-version downgrade.
+
+The single line that changes in `composer.json` is `"parisek/styleguide": "dev-local as 1.999.0"` ↔ `"^1.15"`. `composer.lock` updates too. Both are intended to land in commits when needed.
 
 After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/styleguide/`. PHP/Twig changes are picked up on the next request to the consumer. For frontend changes, run `cd frontend && npm run watch` so `dist/` rebuilds on save and the consumer's iframe chrome stays current.
 
