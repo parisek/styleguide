@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-08-14
+
 ### Changed
 
 - **The sidebar locale switcher is now a dropdown.** It used to render every
