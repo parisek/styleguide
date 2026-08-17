@@ -141,11 +141,11 @@ final class IframeEntryResolutionTest extends TestCase
 
         self::assertSame(
             'https://cdn.example.com/dist/js/script.js',
-            $this->resolve('https://cdn.example.com/dist/js/script.js')
+            $this->resolve('https://cdn.example.com/dist/js/script.js'),
         );
         self::assertSame(
             '//cdn.example.com/dist/js/script.js',
-            $this->resolve('//cdn.example.com/dist/js/script.js')
+            $this->resolve('//cdn.example.com/dist/js/script.js'),
         );
     }
 
@@ -158,7 +158,7 @@ final class IframeEntryResolutionTest extends TestCase
 
         self::assertSame(
             '/dist/js/script.B7fm2cuz.min.js?v=1#top',
-            $this->resolve('/dist/js/script.js?v=1#top')
+            $this->resolve('/dist/js/script.js?v=1#top'),
         );
     }
 
@@ -178,7 +178,7 @@ final class IframeEntryResolutionTest extends TestCase
         file_put_contents($parent . '/unrelated.min.js', '/* another build */');
         file_put_contents(
             $parent . '/.vite/manifest.json',
-            json_encode(['src/js/script.js' => ['file' => 'unrelated.min.js', 'isEntry' => true]])
+            json_encode(['src/js/script.js' => ['file' => 'unrelated.min.js', 'isEntry' => true]]),
         );
 
         $resolved = $this->resolve('/dist/js/');
