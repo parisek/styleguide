@@ -214,4 +214,22 @@ final class IframeEntryResolutionTest extends TestCase
 
         self::assertSame(['css' => '/dist/css/style.css'], $method->invoke($styleguide, ['css' => '/dist/css/style.css']));
     }
+
+    /**
+     * Only the logical entry is rewritten, not any file beside the manifest.
+     *
+     * The decision used to be made from the URL's DIRECTORY alone, so a second
+     * bundle sitting next to the manifest was silently replaced by the first.
+     * `main.js` is the case that matters in practice — `sync-styleguide` still
+     * emits it as an alternative to `script.js`.
+     */
+    #[Test]
+    public function a_different_bundle_in_the_same_directory_is_left_alone(): void
+    {
+        touch($this->js . '/script.B7fm2cuz.min.js');
+        $this->writeManifest(['src/js/script.js' => ['file' => 'script.B7fm2cuz.min.js', 'isEntry' => true]]);
+
+        self::assertSame('/dist/js/admin.js', $this->resolve('/dist/js/admin.js'));
+        self::assertSame('/dist/js/main.js', $this->resolve('/dist/js/main.js'));
+    }
 }

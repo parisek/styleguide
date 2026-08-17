@@ -1747,6 +1747,15 @@ final class Styleguide
             return $iframe;
         }
 
+        // Only the LOGICAL entry is rewritten. The decision was made from the
+        // URL's directory alone, so `/dist/js/admin.js` beside a valid manifest
+        // became the script entry's hash — a second bundle silently replaced by
+        // the first. `main.js`, which `sync-styleguide` still emits as an
+        // alternative, hit the same path.
+        if (basename($path) !== basename(self::VITE_ENTRY_KEY)) {
+            return $iframe;
+        }
+
         $relative = ltrim($path, '/');
         $directory = dirname($relative);
         // A bare `/script.js` has no directory to look beside. Resolving it
