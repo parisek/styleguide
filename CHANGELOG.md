@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-08-17
+
 ### Fixed
 
 - **`iframe.js` now resolves through the Vite manifest**, so a consumer whose
