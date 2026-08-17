@@ -1724,13 +1724,35 @@ final class Styleguide
             return $iframe;
         }
 
+        // Root-relative only — the same gate `cachebust` applies, and omitting
+        // it was a real defect: a LOCAL manifest rewrote
+        // `https://cdn.example.com/dist/js/script.js` to a local hash, because
+        // only the path was ever inspected. `//host/path` is caught by the
+        // second test; it is protocol-relative, i.e. also remote.
+        if (!str_starts_with($url, '/') || str_starts_with($url, '//')) {
+            return $iframe;
+        }
+
         $staticPath = (string) ($this->config['static_path'] ?? '');
         if ($staticPath === '') {
             return $iframe;
         }
 
-        $relative = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        // A trailing slash means the URL names a directory, not a file. Without
+        // this, `/dist/js/` is read as though `js` were the filename and the
+        // search moves up to `/dist/.vite` — where an unrelated manifest would
+        // be free to rewrite it.
+        if ($path === '' || str_ends_with($path, '/')) {
+            return $iframe;
+        }
+
+        $relative = ltrim($path, '/');
         $directory = dirname($relative);
+        // A bare `/script.js` has no directory to look beside. Resolving it
+        // would mean searching every level from `static_path` upward for any
+        // manifest at all, which is how an unrelated ancestor build gets
+        // selected. Left unresolved deliberately.
         if ($directory === '.' || $directory === '') {
             return $iframe;
         }
@@ -1745,7 +1767,11 @@ final class Styleguide
             if (is_readable($manifest)) {
                 $built = self::entryFileFromManifest($manifest, $jsDir);
                 if ($built !== null) {
-                    $iframe['js'] = rtrim(dirname($url), '/') . '/' . $built;
+                    // Carry the query and fragment across. A consumer may have
+                    // put a cache-buster or an anchor on the yaml value, and
+                    // dropping it silently changes the URL it asked for.
+                    $suffix = substr($url, strlen($path));
+                    $iframe['js'] = rtrim(dirname($path), '/') . '/' . $built . $suffix;
                     return $iframe;
                 }
                 return $iframe;
@@ -1769,7 +1795,17 @@ final class Styleguide
      */
     private static function entryFileFromManifest(string $manifest, string $jsDir): ?string
     {
-        $decoded = json_decode((string) file_get_contents($manifest), true);
+        // Silenced deliberately, and only here: `is_readable()` was checked a
+        // moment ago, so the remaining failure is the file vanishing in
+        // between. This renders an HTML document, where a PHP warning is
+        // corrupted output rather than a log line — and the `false` return is
+        // already handled below.
+        $raw = @file_get_contents($manifest);
+        if ($raw === false) {
+            return null;
+        }
+
+        $decoded = json_decode($raw, true);
         if (!is_array($decoded)) {
             return null;
         }

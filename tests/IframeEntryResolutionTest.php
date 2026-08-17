@@ -112,13 +112,82 @@ final class IframeEntryResolutionTest extends TestCase
         self::assertSame('/dist/js/script.js', $this->resolve());
     }
 
-    /** `is_file()` resolves `..`, so a path value would escape the bundle directory. */
+    /**
+     * `is_file()` resolves `..`, so a path value would escape the bundle
+     * directory. The target is CREATED here on purpose: without it the test
+     * passes because the file is missing, not because `basename()` rejected the
+     * path, and it would keep passing with the containment check deleted.
+     */
     #[Test]
     public function a_file_value_that_escapes_the_directory_is_ignored(): void
     {
-        $this->writeManifest(['src/js/script.js' => ['file' => '../../evil.js', 'isEntry' => true]]);
+        $outside = dirname($this->js) . '/evil.js';
+        file_put_contents($outside, '/* elsewhere */');
 
-        self::assertSame('/dist/js/script.js', $this->resolve());
+        $this->writeManifest(['src/js/script.js' => ['file' => '../evil.js', 'isEntry' => true]]);
+        $resolved = $this->resolve();
+
+        unlink($outside);
+
+        self::assertSame('/dist/js/script.js', $resolved);
+    }
+
+    /** A remote bundle is never rewritten from a local manifest. */
+    #[Test]
+    public function an_external_url_is_left_alone(): void
+    {
+        touch($this->js . '/script.B7fm2cuz.min.js');
+        $this->writeManifest(['src/js/script.js' => ['file' => 'script.B7fm2cuz.min.js', 'isEntry' => true]]);
+
+        self::assertSame(
+            'https://cdn.example.com/dist/js/script.js',
+            $this->resolve('https://cdn.example.com/dist/js/script.js')
+        );
+        self::assertSame(
+            '//cdn.example.com/dist/js/script.js',
+            $this->resolve('//cdn.example.com/dist/js/script.js')
+        );
+    }
+
+    /** A query string or fragment the consumer wrote survives the substitution. */
+    #[Test]
+    public function it_carries_a_query_and_fragment_across(): void
+    {
+        touch($this->js . '/script.B7fm2cuz.min.js');
+        $this->writeManifest(['src/js/script.js' => ['file' => 'script.B7fm2cuz.min.js', 'isEntry' => true]]);
+
+        self::assertSame(
+            '/dist/js/script.B7fm2cuz.min.js?v=1#top',
+            $this->resolve('/dist/js/script.js?v=1#top')
+        );
+    }
+
+    /**
+     * A directory URL names no file, so nothing beside it may claim to be one.
+     *
+     * The manifest one level UP is written on purpose. `/dist/js/` would
+     * otherwise be read as though `js` were the filename, and the search would
+     * move to `/dist/.vite` — so without a manifest there this test passes on
+     * its absence and would keep passing with the guard deleted.
+     */
+    #[Test]
+    public function a_directory_url_is_left_alone(): void
+    {
+        $parent = dirname($this->js);
+        mkdir($parent . '/.vite', 0777, true);
+        file_put_contents($parent . '/unrelated.min.js', '/* another build */');
+        file_put_contents(
+            $parent . '/.vite/manifest.json',
+            json_encode(['src/js/script.js' => ['file' => 'unrelated.min.js', 'isEntry' => true]])
+        );
+
+        $resolved = $this->resolve('/dist/js/');
+
+        unlink($parent . '/.vite/manifest.json');
+        unlink($parent . '/unrelated.min.js');
+        rmdir($parent . '/.vite');
+
+        self::assertSame('/dist/js/', $resolved);
     }
 
     /** A stylesheet under the script key is never served as the script. */
