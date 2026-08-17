@@ -1686,6 +1686,112 @@ final class Styleguide
     }
 
     /**
+     * The manifest key both runtimes look up for the built JS entry.
+     *
+     * The Vite INPUT path, which is what Vite writes the record under. Same
+     * string as `StarterBase::ENTRY_MANIFEST_KEY` in `parisek/timber-kit` and
+     * `VITE_ENTRY_KEY` in tailwind-base's `sync-styleguide` — three places
+     * decide which file is the entry, and they must not disagree.
+     */
+    private const VITE_ENTRY_KEY = 'src/js/script.js';
+
+    /**
+     * Substitute the built filename for the logical one in `iframe.js`.
+     *
+     * `styleguide.yaml` names `/dist/js/script.js`. Once the consumer's build
+     * hashes its entry that file does not exist, and the iframe loads nothing —
+     * silently, because the shell still renders and the missing script is a
+     * 404 nobody watches.
+     *
+     * WHY THE YAML KEEPS THE LOGICAL NAME. The hash changes on every build, so
+     * a yaml holding it is stale the moment anyone rebuilds without re-running
+     * `sync-styleguide`. One place knows the hash — the manifest beside the
+     * bundle — and every consumer resolves through it.
+     *
+     * Returns the config unchanged whenever anything is unclear: no
+     * `static_path`, no manifest, a manifest that does not name this entry, or
+     * a named file that is not on disk. A theme that has not rebuilt keeps
+     * working exactly as before, which is what lets this ship ahead of the
+     * build change.
+     *
+     * @param array<string, mixed> $iframe
+     * @return array<string, mixed>
+     */
+    private function resolveIframeEntry(array $iframe): array
+    {
+        $url = $iframe['js'] ?? null;
+        if (!is_string($url) || trim($url) === '') {
+            return $iframe;
+        }
+
+        $staticPath = (string) ($this->config['static_path'] ?? '');
+        if ($staticPath === '') {
+            return $iframe;
+        }
+
+        $relative = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
+        $directory = dirname($relative);
+        if ($directory === '.' || $directory === '') {
+            return $iframe;
+        }
+
+        // Walk up from static_path the same way `cachebust` does — the yaml path
+        // is docroot-relative and the docroot sits somewhere above us.
+        $dir = $staticPath;
+        for ($i = 0; $i < 6 && $dir !== '' && $dir !== '/' && $dir !== '.'; $i++) {
+            $jsDir = $dir . '/' . $directory;
+            $manifest = $jsDir . '/.vite/manifest.json';
+
+            if (is_readable($manifest)) {
+                $built = self::entryFileFromManifest($manifest, $jsDir);
+                if ($built !== null) {
+                    $iframe['js'] = rtrim(dirname($url), '/') . '/' . $built;
+                    return $iframe;
+                }
+                return $iframe;
+            }
+
+            $dir = dirname($dir);
+        }
+
+        return $iframe;
+    }
+
+    /**
+     * Read the built entry filename out of a Vite manifest.
+     *
+     * Mirrors `StarterBase::isUsableEntryFile()`: a bare filename, a `.js`
+     * suffix, and present on disk. This decides what to SERVE and that one
+     * decides what to ENQUEUE — a manifest either would refuse has to be
+     * refused by both, or the disagreement is itself the defect.
+     *
+     * @return string|null Filename inside `$jsDir`, or null when unusable.
+     */
+    private static function entryFileFromManifest(string $manifest, string $jsDir): ?string
+    {
+        $decoded = json_decode((string) file_get_contents($manifest), true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $record = $decoded[self::VITE_ENTRY_KEY] ?? null;
+        if (!is_array($record) || empty($record['isEntry'])) {
+            return null;
+        }
+
+        $file = $record['file'] ?? '';
+        if (!is_string($file) || $file === '' || basename($file) !== $file) {
+            return null;
+        }
+
+        if (!str_ends_with(strtolower($file), '.js') || !is_file($jsDir . '/' . $file)) {
+            return null;
+        }
+
+        return $file;
+    }
+
+    /**
      * Layer the package's template paths onto an existing Twig environment.
      *
      * The project's existing loader keeps every namespace it already owns
@@ -1820,7 +1926,7 @@ final class Styleguide
 
         $renderConfig = [
             'project' => $this->yamlConfig['project'] ?? [],
-            'iframe' => $this->yamlConfig['iframe'] ?? [],
+            'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
             'styleguide' => $this->yamlConfig,
         ];
         if ($variant !== null) {
@@ -2408,7 +2514,7 @@ final class Styleguide
     {
         $config = [
             'project' => $this->yamlConfig['project'] ?? [],
-            'iframe' => $this->yamlConfig['iframe'] ?? [],
+            'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
             // The foundations body reads from `styleguide.colors`, `styleguide.logo`,
             // `styleguide.typography`, `styleguide.labels` — surface the whole yaml
             // map so component/page templates that look up styleguide.* also work.
