@@ -8,6 +8,31 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **`iframe.js` now resolves through the Vite manifest**, so a consumer whose
+  build hashes its JS entry keeps a working styleguide. `styleguide.yaml` names
+  a logical `/dist/js/script.js`; once the entry carries a content hash that
+  file does not exist and the iframe loads **no JavaScript at all** — silently,
+  because the shell still renders and the missing script is a 404 nobody
+  watches.
+
+  The yaml keeps the logical name on purpose: the hash changes on every build,
+  so a yaml holding it is stale the moment anyone rebuilds without re-running
+  `sync-styleguide`. One place knows the hash — `dist/js/.vite/manifest.json`
+  beside the bundle — and it is keyed by the Vite input path, the same key
+  `StarterBase::ENTRY_MANIFEST_KEY` uses in `parisek/timber-kit`.
+
+  **Backwards compatible by construction.** No `static_path`, no manifest, a
+  manifest that does not name this entry, or a named file that is not on disk —
+  every one leaves the configured path untouched. A theme that has not rebuilt
+  behaves exactly as before.
+
+  Only the logical entry is rewritten, only for root-relative URLs, and the
+  query and fragment survive the substitution: a remote bundle
+  (`https://cdn.example.com/…`), a sibling bundle (`/dist/js/admin.js`,
+  `/dist/js/main.js`) and a directory URL are all left alone.
+
 ## [1.15.0] - 2026-08-14
 
 ### Changed
