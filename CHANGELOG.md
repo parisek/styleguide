@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-08-24
+
 ### Fixed
 
 - **A manifest-resolved `iframe.js` is no longer cache-busted.** 1.16.0 made
