@@ -1696,6 +1696,22 @@ final class Styleguide
     private const VITE_ENTRY_KEY = 'src/js/script.js';
 
     /**
+     * Whether a built entry filename carries a content hash.
+     *
+     * Mirrors `Parisek\TimberKit\StarterBase::isContentHashedEntryFile()` so the
+     * two runtimes agree on what "already immutable" means. Matches
+     * `script.B-Kb6C8P.min.js` and `script.B-Kb6C8P.js`; rejects a plain
+     * `script.js`, which needs its cache-busting query.
+     *
+     * Applied only to the JS entry — never to CSS or font URLs, where a
+     * two-dot name would match this shape without being content-addressed.
+     */
+    private static function isContentHashedEntryFile(string $file): bool
+    {
+        return preg_match('/\.[A-Za-z0-9_-]{8,}(?:\.min)?\.js$/', $file) === 1;
+    }
+
+    /**
      * Substitute the built filename for the logical one in `iframe.js`.
      *
      * `styleguide.yaml` names `/dist/js/script.js`. Once the consumer's build
@@ -1791,18 +1807,26 @@ final class Styleguide
                     // `script.<hash>.min.js?v=…` and `script.<hash>.min.js`,
                     // 120879 B each, on every preview load.
                     //
-                    // Flagged here rather than sniffed in `cachebust`, because
-                    // only this method KNOWS the name came from a manifest.
-                    // Pattern-matching a hash out of a filename would also fire
-                    // on an ordinary name that happens to look like one (a
-                    // `.css` with two dots), and a false positive there means no
-                    // cache-busting at all — a stale asset, which is worse than
-                    // the duplicate this removes.
+                    // Being manifest-resolved is NOT the same as being hashed.
+                    // `entryFileFromManifest()` accepts any existing `.js`
+                    // basename, and a consumer may keep `entryFileNames:
+                    // 'script.js'` while still emitting a manifest — that file
+                    // resolves, carries no hash, and would then never be busted
+                    // again. Stale JavaScript under a long `max-age` is a worse
+                    // failure than the duplicate request this removes, so the
+                    // filename is checked rather than assumed.
                     //
-                    // `parisek/timber-kit` reaches the same outcome for the
-                    // WordPress enqueue (`StarterBase::enqueue_theme_script()`,
-                    // `$hashed ? null : $ver`).
-                    $iframe['js_hashed'] = true;
+                    // The check is confined to the JS ENTRY, which is the same
+                    // narrow input `parisek/timber-kit` inspects
+                    // (`StarterBase::isContentHashedEntryFile()`, then
+                    // `$hashed ? null : $ver`). It deliberately does NOT live in
+                    // `cachebust`: that filter also runs on `iframe.css` and
+                    // font stylesheets, where an ordinary two-dot name matches
+                    // the same shape and a false positive would strip busting
+                    // from an asset that needs it.
+                    if (self::isContentHashedEntryFile($built)) {
+                        $iframe['js_hashed'] = true;
+                    }
                     return $iframe;
                 }
                 return $iframe;

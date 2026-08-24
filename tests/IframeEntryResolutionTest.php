@@ -95,6 +95,34 @@ final class IframeEntryResolutionTest extends TestCase
         );
     }
 
+    public function testDoesNotFlagAManifestEntryThatCarriesNoHash(): void
+    {
+        // A consumer may keep `entryFileNames: 'script.js'` and still emit a
+        // manifest. That file resolves fine, but it is not content-addressed,
+        // so it must keep going through |cachebust — otherwise every later
+        // build serves stale JS under the same immutable-looking URL.
+        $this->writeManifest(['src/js/script.js' => ['file' => 'script.js', 'isEntry' => true]]);
+        touch($this->js . '/script.js');
+
+        $resolved = $this->resolveAll('/dist/js/script.js');
+
+        self::assertSame('/dist/js/script.js', $resolved['js']);
+        self::assertArrayNotHasKey(
+            'js_hashed',
+            $resolved,
+            'Manifest-resolved is not the same as content-hashed; an unhashed entry still needs busting.',
+        );
+    }
+
+    public function testFlagsAHashedEntryWithoutTheMinInfix(): void
+    {
+        // Development builds hash without `.min`. Both shapes are immutable.
+        $this->writeManifest(['src/js/script.js' => ['file' => 'script.B-Kb6C8P.js', 'isEntry' => true]]);
+        touch($this->js . '/script.B-Kb6C8P.js');
+
+        self::assertTrue($this->resolveAll('/dist/js/script.js')['js_hashed'] ?? false);
+    }
+
     public function testDoesNotFlagAnEntryItLeftAlone(): void
     {
         // No manifest: the logical path stays, and it still needs cache-busting.

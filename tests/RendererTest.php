@@ -40,6 +40,59 @@ final class RendererTest extends TestCase
         $this->renderer = new Renderer($twig, ['content' => ['title' => 'Hello']]);
     }
 
+    /**
+     * A Renderer whose `cachebust` filter MARKS what it touches, so a test can
+     * tell whether the template ran it. The shared fixture passes the URL
+     * through unchanged, which makes the busted and unbusted outputs identical
+     * and leaves the `js_hashed` branch in render-cell.twig unobservable.
+     */
+    private function markingRenderer(): Renderer
+    {
+        $loader = new FilesystemLoader();
+        $loader->addPath(__DIR__ . '/../templates');
+        $loader->addPath(__DIR__ . '/fixtures/templates', 'project');
+
+        $twig = new Environment($loader, ['cache' => false]);
+        $twig->addFilter(new TwigFilter('cachebust', static fn(mixed $u): mixed => $u . '?v=BUSTED'));
+        $twig->addExtension(new \Parisek\Twig\AttributeExtension());
+
+        return new Renderer($twig, ['content' => ['title' => 'Hello']]);
+    }
+
+    /**
+     * @param array<string, mixed> $iframe
+     */
+    private function renderWithIframe(array $iframe): string
+    {
+        return $this->markingRenderer()->render('component', 'sample', [
+            'project' => ['name' => 'TestProject', 'favicon' => '/favicon.svg'],
+            'iframe' => $iframe,
+        ], 'cs');
+    }
+
+    #[Test]
+    public function a_hashed_entry_is_not_cache_busted(): void
+    {
+        // The whole point of the hashed entry: a chunk importing it names the
+        // file with no query, so adding one here gives the browser two URLs for
+        // one file and it downloads the bundle twice.
+        $html = $this->renderWithIframe([
+            'js' => '/dist/js/script.B-Kb6C8P.min.js',
+            'js_hashed' => true,
+        ]);
+
+        self::assertStringContainsString('src="/dist/js/script.B-Kb6C8P.min.js"', $html);
+        self::assertStringNotContainsString('?v=BUSTED', $html);
+    }
+
+    #[Test]
+    public function an_unhashed_entry_is_still_cache_busted(): void
+    {
+        $html = $this->renderWithIframe(['js' => '/dist/js/script.js']);
+
+        self::assertStringContainsString('src="/dist/js/script.js?v=BUSTED"', $html);
+    }
+
     #[Test]
     public function renders_component_with_iframe_chrome(): void
     {

@@ -18,9 +18,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   with one, and the whole bundle was fetched and parsed twice on every preview
   load (measured on tailwind-base: 120879 B each). `resolveIframeEntry()` now
   flags a manifest-resolved entry and the template skips the filter. The flag
-  is set where the substitution happens rather than sniffed out of the
-  filename: a false positive on an ordinary name means no cache-busting at
-  all, which is worse than the duplicate it removes.
+  is set only when the built filename actually carries a content hash —
+  manifest-resolved is not the same as hashed, and a consumer that keeps
+  `entryFileNames: 'script.js'` while still emitting a manifest must go on
+  being cache-busted.
 
 ## [1.16.0] - 2026-08-17
 
