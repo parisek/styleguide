@@ -8,6 +8,20 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A manifest-resolved `iframe.js` is no longer cache-busted.** 1.16.0 made
+  `iframe.js` resolve through the Vite manifest, but `render-cell.twig` still
+  ran the result through `|cachebust` — so an already content-hashed filename
+  got `?v=<mtime>` appended and the browser saw two URLs for one file. The
+  chunk that imports the entry names it without a query, the shell named it
+  with one, and the whole bundle was fetched and parsed twice on every preview
+  load (measured on tailwind-base: 120879 B each). `resolveIframeEntry()` now
+  flags a manifest-resolved entry and the template skips the filter. The flag
+  is set where the substitution happens rather than sniffed out of the
+  filename: a false positive on an ordinary name means no cache-busting at
+  all, which is worse than the duplicate it removes.
+
 ## [1.16.0] - 2026-08-17
 
 ### Fixed

@@ -60,6 +60,54 @@ final class IframeEntryResolutionTest extends TestCase
         return $method->invoke($styleguide, ['js' => $url])['js'];
     }
 
+    /**
+     * The whole resolved array, for assertions about `js_hashed` rather than
+     * just the rewritten URL.
+     *
+     * @return array<string, mixed>
+     */
+    private function resolveAll(string $url): array
+    {
+        $styleguide = (new ReflectionClass(Styleguide::class))->newInstanceWithoutConstructor();
+
+        $config = (new ReflectionClass($styleguide))->getProperty('config');
+        $config->setAccessible(true);
+        $config->setValue($styleguide, ['static_path' => $this->static]);
+
+        $method = new ReflectionMethod($styleguide, 'resolveIframeEntry');
+        $method->setAccessible(true);
+
+        return $method->invoke($styleguide, ['js' => $url]);
+    }
+
+    public function testFlagsAResolvedEntryAsHashedSoItIsNotCacheBusted(): void
+    {
+        $this->writeManifest(['src/js/script.js' => ['file' => 'script.B-Kb6C8P.min.js', 'isEntry' => true]]);
+        touch($this->js . '/script.B-Kb6C8P.min.js');
+
+        $resolved = $this->resolveAll('/dist/js/script.js');
+
+        self::assertSame('/dist/js/script.B-Kb6C8P.min.js', $resolved['js']);
+        self::assertTrue(
+            $resolved['js_hashed'] ?? false,
+            'A manifest-resolved entry must be flagged so render-cell.twig skips |cachebust; '
+            . 'appending ?v= gives the browser a second URL for one immutable file.',
+        );
+    }
+
+    public function testDoesNotFlagAnEntryItLeftAlone(): void
+    {
+        // No manifest: the logical path stays, and it still needs cache-busting.
+        $resolved = $this->resolveAll('/dist/js/script.js');
+
+        self::assertSame('/dist/js/script.js', $resolved['js']);
+        self::assertArrayNotHasKey(
+            'js_hashed',
+            $resolved,
+            'An unresolved entry carries no hash, so it must keep going through |cachebust.',
+        );
+    }
+
     private function writeManifest(array $records): void
     {
         file_put_contents($this->js . '/.vite/manifest.json', json_encode($records, JSON_UNESCAPED_SLASHES));

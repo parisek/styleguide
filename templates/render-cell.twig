@@ -74,7 +74,11 @@
 	   iframe must not depend on the consumer bundling a JS framework (#79). #}
 	{% if foundations_js_url %}<script type="module" src="{{ foundations_js_url|e }}"></script>{% endif %}
 	{# Hlavní bundled JS — loaded as ES module (Vite builds top-level `export`/`import` statements). #}
-	{% if iframe.js %}<script type="module" src="{{ iframe.js|cachebust|e }}"></script>{% endif %}
+	{# `js_hashed` is set by resolveIframeEntry() when the filename came from the Vite
+	   manifest, i.e. it already carries a content hash. Busting it would add a query
+	   and give the browser a second URL for one file — see that method for the
+	   measurement. #}
+	{% if iframe.js %}<script type="module" src="{{ (iframe.js_hashed ? iframe.js : iframe.js|cachebust)|e }}"></script>{% endif %}
 </head>
 {# The consumer's global `iframe.body_class` (and any per-entry
    `component.body_class`) is a site-wide styling hook meant for

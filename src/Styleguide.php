@@ -1781,6 +1781,28 @@ final class Styleguide
                     // dropping it silently changes the URL it asked for.
                     $suffix = substr($url, strlen($path));
                     $iframe['js'] = rtrim(dirname($path), '/') . '/' . $built . $suffix;
+                    // The built name carries a content hash, so the URL is
+                    // already immutable and `cachebust` must leave it alone.
+                    // Appending `?v=<mtime>` on top produces a SECOND url for
+                    // one file: the chunk that imports the entry names it
+                    // without a query, the shell names it with one, and the
+                    // browser fetches and parses the whole bundle twice.
+                    // Measured on tailwind-base after the entry was hashed:
+                    // `script.<hash>.min.js?v=…` and `script.<hash>.min.js`,
+                    // 120879 B each, on every preview load.
+                    //
+                    // Flagged here rather than sniffed in `cachebust`, because
+                    // only this method KNOWS the name came from a manifest.
+                    // Pattern-matching a hash out of a filename would also fire
+                    // on an ordinary name that happens to look like one (a
+                    // `.css` with two dots), and a false positive there means no
+                    // cache-busting at all — a stale asset, which is worse than
+                    // the duplicate this removes.
+                    //
+                    // `parisek/timber-kit` reaches the same outcome for the
+                    // WordPress enqueue (`StarterBase::enqueue_theme_script()`,
+                    // `$hashed ? null : $ver`).
+                    $iframe['js_hashed'] = true;
                     return $iframe;
                 }
                 return $iframe;
