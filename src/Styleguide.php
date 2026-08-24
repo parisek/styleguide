@@ -1696,6 +1696,22 @@ final class Styleguide
     private const VITE_ENTRY_KEY = 'src/js/script.js';
 
     /**
+     * Whether a built entry filename carries a content hash.
+     *
+     * Mirrors `Parisek\TimberKit\StarterBase::isContentHashedEntryFile()` so the
+     * two runtimes agree on what "already immutable" means. Matches
+     * `script.B-Kb6C8P.min.js` and `script.B-Kb6C8P.js`; rejects a plain
+     * `script.js`, which needs its cache-busting query.
+     *
+     * Applied only to the JS entry — never to CSS or font URLs, where a
+     * two-dot name would match this shape without being content-addressed.
+     */
+    private static function isContentHashedEntryFile(string $file): bool
+    {
+        return preg_match('/\.[A-Za-z0-9_-]{8,}(?:\.min)?\.js$/', $file) === 1;
+    }
+
+    /**
      * Substitute the built filename for the logical one in `iframe.js`.
      *
      * `styleguide.yaml` names `/dist/js/script.js`. Once the consumer's build
@@ -1781,6 +1797,36 @@ final class Styleguide
                     // dropping it silently changes the URL it asked for.
                     $suffix = substr($url, strlen($path));
                     $iframe['js'] = rtrim(dirname($path), '/') . '/' . $built . $suffix;
+                    // The built name carries a content hash, so the URL is
+                    // already immutable and `cachebust` must leave it alone.
+                    // Appending `?v=<mtime>` on top produces a SECOND url for
+                    // one file: the chunk that imports the entry names it
+                    // without a query, the shell names it with one, and the
+                    // browser fetches and parses the whole bundle twice.
+                    // Measured on tailwind-base after the entry was hashed:
+                    // `script.<hash>.min.js?v=…` and `script.<hash>.min.js`,
+                    // 120879 B each, on every preview load.
+                    //
+                    // Being manifest-resolved is NOT the same as being hashed.
+                    // `entryFileFromManifest()` accepts any existing `.js`
+                    // basename, and a consumer may keep `entryFileNames:
+                    // 'script.js'` while still emitting a manifest — that file
+                    // resolves, carries no hash, and would then never be busted
+                    // again. Stale JavaScript under a long `max-age` is a worse
+                    // failure than the duplicate request this removes, so the
+                    // filename is checked rather than assumed.
+                    //
+                    // The check is confined to the JS ENTRY, which is the same
+                    // narrow input `parisek/timber-kit` inspects
+                    // (`StarterBase::isContentHashedEntryFile()`, then
+                    // `$hashed ? null : $ver`). It deliberately does NOT live in
+                    // `cachebust`: that filter also runs on `iframe.css` and
+                    // font stylesheets, where an ordinary two-dot name matches
+                    // the same shape and a false positive would strip busting
+                    // from an asset that needs it.
+                    if (self::isContentHashedEntryFile($built)) {
+                        $iframe['js_hashed'] = true;
+                    }
                     return $iframe;
                 }
                 return $iframe;
