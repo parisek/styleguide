@@ -833,4 +833,26 @@ final class ComponentParserTest extends TestCase
 
         self::assertSame([], $parser->listDirectories('doc'));
     }
+
+    #[Test]
+    public function a_prose_comment_in_a_partial_raises_no_catalogue_warning(): void
+    {
+        $root = sys_get_temp_dir() . '/sg-partial-rt-' . bin2hex(random_bytes(6));
+        mkdir($root . '/page/_partials', 0777, true);
+        file_put_contents(
+            $root . '/page/_partials/header-absolute.twig',
+            "{# Announcement window: shown from: 1. 9. to 30. 9. #}\n<header></header>\n",
+        );
+
+        $parser = new ComponentParser($root);
+        $items = $parser->parseAll('page');
+
+        unlink($root . '/page/_partials/header-absolute.twig');
+        rmdir($root . '/page/_partials');
+        rmdir($root . '/page');
+        rmdir($root);
+
+        self::assertSame([], $items);
+        self::assertSame([], $parser->getWarnings());
+    }
 }

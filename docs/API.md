@@ -208,6 +208,8 @@ None of these keys are read by the array constructor (`Styleguide::__construct()
 
 The first `{# … #}` comment in each component / page / doc Twig template is parsed as YAML.
 
+A sibling `<id>.yaml` wins over the comment when present. A template under an underscore-prefixed directory (`page/_partials/`) is a partial: its first comment is read as metadata only when it opens with `name:`. Any other comment there is a note, not YAML.
+
 | Key | Required | Type | Default | Purpose |
 |---|---|---|---|---|
 | `name` | yes | `string` | — | Human-readable label; without this, the parser drops the component |

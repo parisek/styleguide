@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A note in a partial no longer breaks as YAML.** A template under an
+  underscore-prefixed directory (`page/_partials/header-absolute.twig`) has no
+  metadata block, so its explanatory comment is the first one in the file. The
+  runtime and `styleguide lint` parsed that prose as YAML and reported
+  "Unable to parse at line 1", quoting it, in a file whose Twig was fine. In a
+  partial, the first comment is now metadata only when it opens with `name:`.
+  A broken `name:` block still fails, and a template outside a partial
+  directory is parsed as before.
+
 ## [1.16.1] - 2026-08-24
 
 ### Fixed
