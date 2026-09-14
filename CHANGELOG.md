@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.16.2] - 2026-09-14
+
 ### Fixed
 
 - **A note in a partial no longer breaks as YAML.** A template under an
