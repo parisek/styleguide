@@ -524,7 +524,24 @@ class ComponentParser
             }
         }
 
+        // A partial is not a catalogue entry, so its first comment is usually
+        // a note to the next reader, not metadata. Parsing that prose as YAML
+        // failed with "Unable to parse at line 1" in a file whose Twig was
+        // fine. Only a comment that opens with `name:` is a metadata block by
+        // intent; that one keeps its loud failure.
+        if (self::isPartialPath($this->relativePath($twigFile)) && !self::commentOpensWithName($twigContent)) {
+            return [false, $twigFile];
+        }
+
         return [$this->parseTwigComment($twigContent), $twigFile];
+    }
+
+    private static function commentOpensWithName(string $content): bool
+    {
+        // Same "first comment" the parser reads, then check how it opens.
+        $start = strpos($content, '{#');
+
+        return $start !== false && preg_match('/^{#\s*name\s*:/', substr($content, $start)) === 1;
     }
 
     /**

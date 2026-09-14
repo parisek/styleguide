@@ -406,4 +406,71 @@ final class LinterTest extends TestCase
             'message' => 'msg',
         ], $finding->toArray());
     }
+
+    /**
+     * @param array<string, string> $files relative path => content
+     * @return array{0: string, 1: list<LintFinding>}
+     */
+    private function lintTree(array $files): array
+    {
+        $root = sys_get_temp_dir() . '/sg-partial-' . bin2hex(random_bytes(6));
+        foreach ($files as $rel => $content) {
+            @mkdir(dirname($root . '/' . $rel), 0777, true);
+            file_put_contents($root . '/' . $rel, $content);
+        }
+
+        return [$root, (new Linter($root))->run()];
+    }
+
+    private function removeTree(string $root): void
+    {
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($root, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($it as $f) {
+            $f->isDir() ? rmdir($f->getPathname()) : unlink($f->getPathname());
+        }
+        rmdir($root);
+    }
+
+    #[Test]
+    public function a_prose_comment_in_a_partial_is_not_read_as_metadata(): void
+    {
+        // A partial has no metadata block, so its explanatory note is the first
+        // comment in the file. Parsed as YAML it failed with "Unable to parse
+        // at line 1", quoting the prose, in a file whose Twig was fine.
+        [$root, $findings] = $this->lintTree([
+            'page/_partials/header-absolute.twig' => "{# Announcement window: shown from: 1. 9. to 30. 9. #}\n<header></header>\n",
+        ]);
+        $this->removeTree($root);
+
+        self::assertSame([], $findings);
+    }
+
+    #[Test]
+    public function the_same_prose_outside_a_partial_is_still_invalid_metadata(): void
+    {
+        // The exemption is scoped to partials. A catalogue template whose first
+        // comment is not valid YAML is still a real, reportable defect.
+        [$root, $findings] = $this->lintTree([
+            'page/landing/landing.twig' => "{# Announcement window: shown from: 1. 9. to 30. 9. #}\n<main></main>\n",
+        ]);
+        $this->removeTree($root);
+
+        self::assertCount(1, $this->findingsFor($findings, 'metadata-yaml-invalid'));
+    }
+
+    #[Test]
+    public function a_partial_comment_that_starts_with_name_is_still_parsed(): void
+    {
+        // A comment starting with `name:` is a metadata block by intent, so a
+        // broken one must keep failing loudly, partial or not.
+        [$root, $findings] = $this->lintTree([
+            'page/_partials/broken.twig' => "{#\nname: Broken\ndescription: a: b: c\n#}\n<div></div>\n",
+        ]);
+        $this->removeTree($root);
+
+        self::assertCount(1, $this->findingsFor($findings, 'metadata-yaml-invalid'));
+    }
 }
