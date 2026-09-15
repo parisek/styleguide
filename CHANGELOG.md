@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Symfony 6.4 is now the lowest supported line.** `symfony/twig-bridge` and
+  `symfony/var-dumper` drop `^5.4 || ^6.2`, and `symfony/yaml` drops `^6.0`.
+  6.0 and 6.2 are end of life, 5.4 gets security fixes only, and CI tested
+  none of them. The constraints are now `^6.4 || ^7.0 || ^8.0`. 6.4 stays: it
+  is the LTS line, with security fixes until November 2027. The test suite
+  passes on symfony 6.4.0 and on 7.4.
+
 ## [1.16.2] - 2026-09-14
 
 ### Fixed
