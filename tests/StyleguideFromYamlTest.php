@@ -490,6 +490,19 @@ final class StyleguideFromYamlTest extends TestCase
     }
 
     #[Test]
+    public function an_empty_source_locale_in_the_array_config_opts_out_like_the_yaml_one(): void
+    {
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/nonexistent.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'source_locale' => '',
+        ]);
+        self::assertSame('', $this->readConfig($sg)['source_locale']);
+    }
+
+    #[Test]
     public function wrongly_typed_source_locale_fails_clearly_naming_the_key(): void
     {
         mkdir($this->tempDir . '/templates');

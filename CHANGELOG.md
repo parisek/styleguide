@@ -19,6 +19,12 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   catalogues and renders it with the msgids unchanged. A real `.mo` of the same
   code wins. `null` (or an empty string in YAML) opts out.
 
+  The source locale is resolved **last**: a discovered catalogue wins an
+  exact match, a prefix match and a case-insensitive name clash. So a project
+  with `en_GB.mo` and `default_locale: en` keeps resolving `en` to `en_GB`
+  instead of hitting an ambiguity error, and an `en_us.mo` replaces the
+  synthetic `en_US` rather than sitting beside it.
+
   Consumer-visible: every project with `translations_path` and one catalogue
   now gets a two-entry switcher (e.g. `CS` / `EN`). The empty `en_US.mo`
   workaround is no longer needed.

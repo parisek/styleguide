@@ -278,9 +278,11 @@ final class Styleguide
                 );
             }
             $sourceLocale = $this->config['source_locale'];
-            if ($sourceLocale !== null && (!is_string($sourceLocale) || $sourceLocale === '')) {
+            // An empty string opts out, exactly like null and like the YAML
+            // form — one contract for both ways of writing the config.
+            if ($sourceLocale !== null && !is_string($sourceLocale)) {
                 throw new \InvalidArgumentException(
-                    "Styleguide: config key 'source_locale' must be null or a non-empty string",
+                    "Styleguide: config key 'source_locale' must be null or a string",
                 );
             }
             $this->translationCatalog = new \Parisek\Styleguide\Translation\TranslationCatalog(

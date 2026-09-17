@@ -50,13 +50,22 @@ final class TranslationCatalog
     /** @var list<string> every offered locale code: discovered catalogues plus the source locale, sorted */
     private array $locales;
 
+    /** @var string|null the source locale, once it survived the case-insensitive catalogue check */
+    private ?string $sourceLocale = null;
+
     public function __construct(
         private readonly string $translationsPath,
         ?string $sourceLocale = null,
     ) {
         $this->catalogueFiles = self::discover($this->translationsPath);
         $locales = array_keys($this->catalogueFiles);
-        if ($sourceLocale !== null && $sourceLocale !== '' && !isset($this->catalogueFiles[$sourceLocale])) {
+        // Case-insensitive, because resolveLocaleCode() matches that way:
+        // an `en_us.mo` next to `source_locale: en_US` is one locale, and it
+        // is the one with the file.
+        $discoveredLower = array_map('strtolower', $locales);
+        if ($sourceLocale !== null && $sourceLocale !== ''
+            && !in_array(strtolower($sourceLocale), $discoveredLower, true)) {
+            $this->sourceLocale = $sourceLocale;
             $locales[] = $sourceLocale;
             sort($locales);
         }
@@ -118,7 +127,10 @@ final class TranslationCatalog
         $prefix = strtolower($requested) . '_';
         $exactLower = strtolower($requested);
         $matches = [];
-        foreach ($this->locales as $code) {
+        // Discovered catalogues only. The source locale is handled after
+        // this block, so it can neither shadow a real catalogue nor make a
+        // previously unique prefix ambiguous.
+        foreach (array_keys($this->catalogueFiles) as $code) {
             $lower = strtolower($code);
             if ($lower === $exactLower || str_starts_with($lower, $prefix)) {
                 $matches[] = $code;
@@ -126,6 +138,13 @@ final class TranslationCatalog
         }
 
         if (count($matches) === 0) {
+            // Last resort: the source locale, matched the same way.
+            if ($this->sourceLocale !== null) {
+                $lower = strtolower($this->sourceLocale);
+                if ($lower === $exactLower || str_starts_with($lower, $prefix)) {
+                    return $this->sourceLocale;
+                }
+            }
             return null;
         }
         if (count($matches) > 1) {
