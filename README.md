@@ -141,7 +141,7 @@ the YAML throws rather than being silently honoured. Full rules:
 | `namespaces` | no | `[]` | Extra Twig namespaces (`<name> => <absolute path>`) for paths that live outside `templates_path` and aren't covered by the auto-registered conventional namespaces. |
 | `auth` | no | `null` | Optional `callable(array $route): bool` gate checked once per request, before any dispatch (SPA, render, JSON API, or asset). Return `false` to reject with a plain-text `403 Forbidden`; return `true` (or omit the key entirely) to allow. Receives the parsed route array (`type`, plus `slug`/`kind`/`endpoint`/`path`/`theme` depending on route type). Requests loaded inside the styleguide's own iframe (`Sec-Fetch-Dest: iframe`) are re-typed to `type: 'render'` (carrying `kind: 'component'`/`'page'`/`'doc'`/`'foundations'`) before the callable ever sees them — don't gate solely on `type === 'component'`, or every iframe-embedded component render will fall through as `'render'` and bypass that branch. A non-`null`, non-callable value throws `InvalidArgumentException` at construction time (fail loudly at boot) rather than silently allowing every request; a callable that throws is treated as a denial (fail closed) and logged via `error_log()`, never surfaced to the caller. For publicly reachable deployments, HTTP Basic Auth at the web-server level is usually simpler and more robust than an in-PHP callable — reach for `auth` when the check needs request context only PHP has access to (e.g. a signed query token, a session check your framework already performs). |
 | `translations_path` | no | `null` | Absolute path to a directory of compiled `.mo` catalogues, one per locale (`cs_CZ.mo`, `en_US.mo`, …). When set, `__()`/`_x()`/`_n()`/`_nx()` become real gettext-backed translators instead of identity stubs; a consumer that pre-registers its own translator still wins, unaffected. The render endpoint then accepts `?locale=<code>` to select the catalogue per request — see *Locale switching* below. |
-| `source_locale` | no | `'en_US'` | The language the msgids are written in. It has no `.mo` of its own, so it is listed in the locale switcher next to the discovered catalogues and `?locale=<code>` renders it with the msgids unchanged. Never competes with a real catalogue: a `.mo` matching it case-insensitively replaces it, and prefix resolution consults the discovered catalogues first (`en` still resolves to `en_GB.mo`). Only read when `translations_path` is set; `null` or `''` opts out. |
+| `source_locale` | no | `'en_US'` | The language the msgids are written in. It has no `.mo` of its own, so it is listed in the locale switcher next to the discovered catalogues and `?locale=<code>` renders it with the msgids unchanged. Never competes with a real catalogue: a `.mo` matching it case-insensitively replaces it, and resolution consults the discovered catalogues first (`en` still resolves to `en_GB.mo`) — a source locale a request could not reach is not offered at all. Must be a code the render route accepts (letters, digits, `_`, `-`, 2–35 chars). Only read when `translations_path` is set; `null` or `''` opts out. |
 
 ### Locale switching
 
@@ -173,7 +173,10 @@ It is deliberately the last resort in locale resolution: a discovered
 catalogue wins both an exact and a prefix match, so adding a source locale
 can never turn a code that used to resolve into an ambiguity error. A `.mo`
 whose name matches it case-insensitively (`en_us.mo` against `en_US`)
-replaces it entirely.
+replaces it entirely. And a source locale the discovered catalogues would
+answer instead — a bare `en` next to `en_GB.mo` — is not listed either: a
+switcher entry that silently renders someone else's catalogue is worse than
+no entry, so such a project states its region (`en_US`) to get one.
 
 **Cache consequence:** a render URL now returns different content per `?locale=` — any cache sitting in front of the styleguide must include `locale` in its key, same as it already must for `?theme=`/`?variant=`. Full contract: `docs/API.md` § Locale switching.
 

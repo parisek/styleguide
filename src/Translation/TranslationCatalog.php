@@ -66,8 +66,18 @@ final class TranslationCatalog
         if ($sourceLocale !== null && $sourceLocale !== ''
             && !in_array(strtolower($sourceLocale), $discoveredLower, true)) {
             $this->sourceLocale = $sourceLocale;
-            $locales[] = $sourceLocale;
-            sort($locales);
+            // Only offer it when a request for it actually reaches it.
+            // `source_locale: en` beside `en_GB.mo` resolves to the
+            // catalogue (discovered wins, deliberately), so listing `en`
+            // would advertise a switcher entry that silently renders
+            // en_GB — an unreachable choice is worse than an absent one.
+            // Such a project states its region (`en_US`) to get the entry.
+            if ($this->resolveLocaleCode($sourceLocale) === $sourceLocale) {
+                $locales[] = $sourceLocale;
+                sort($locales);
+            } else {
+                $this->sourceLocale = null;
+            }
         }
         $this->locales = $locales;
     }

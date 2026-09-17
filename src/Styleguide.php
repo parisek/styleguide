@@ -285,6 +285,18 @@ final class Styleguide
                     "Styleguide: config key 'source_locale' must be null or a string",
                 );
             }
+            // A code the render route would refuse could be listed in the
+            // switcher and then never selected (`?locale=` runs through
+            // Router::whitelistLocale() first), so an unusable value fails
+            // here instead of shipping a dead entry.
+            if (is_string($sourceLocale) && $sourceLocale !== ''
+                && Router::whitelistLocale($sourceLocale) === null) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide: config key 'source_locale' must be a locale code the render route "
+                        . "accepts (letters, digits, '_' or '-', 2-35 characters), got \"%s\"",
+                    $sourceLocale,
+                ));
+            }
             $this->translationCatalog = new \Parisek\Styleguide\Translation\TranslationCatalog(
                 $translationsPath,
                 $sourceLocale,

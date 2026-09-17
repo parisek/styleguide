@@ -503,6 +503,26 @@ final class StyleguideFromYamlTest extends TestCase
     }
 
     #[Test]
+    public function a_source_locale_the_render_route_would_refuse_fails_fast(): void
+    {
+        foreach ([' en_US', 'e', 'en_US.mo', 'en US'] as $bad) {
+            try {
+                new Styleguide([
+                    'templates_path' => __DIR__ . '/fixtures/templates',
+                    'static_path' => __DIR__ . '/fixtures',
+                    'config_yaml' => __DIR__ . '/fixtures/nonexistent.yaml',
+                    'translations_path' => __DIR__ . '/fixtures/translations',
+                    'source_locale' => $bad,
+                ]);
+                self::fail(sprintf('source_locale "%s" should have been refused', $bad));
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('source_locale', $e->getMessage());
+                self::assertStringContainsString($bad, $e->getMessage());
+            }
+        }
+    }
+
+    #[Test]
     public function wrongly_typed_source_locale_fails_clearly_naming_the_key(): void
     {
         mkdir($this->tempDir . '/templates');
@@ -514,7 +534,9 @@ final class StyleguideFromYamlTest extends TestCase
         YAML);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('bootstrap.source_locale');
+        // The full sentence, so a message that stops naming `null` as
+        // accepted (which it is) fails here.
+        $this->expectExceptionMessage("key 'bootstrap.source_locale' must be a string or null, got array");
         Styleguide::fromYaml($yaml);
     }
 

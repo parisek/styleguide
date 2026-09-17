@@ -23,7 +23,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   exact match, a prefix match and a case-insensitive name clash. So a project
   with `en_GB.mo` and `default_locale: en` keeps resolving `en` to `en_GB`
   instead of hitting an ambiguity error, and an `en_us.mo` replaces the
-  synthetic `en_US` rather than sitting beside it.
+  synthetic `en_US` rather than sitting beside it. A source locale the
+  catalogues would answer instead (a bare `en` beside `en_GB.mo`) is not
+  listed at all — an unreachable switcher entry is worse than an absent one —
+  and a value the render route would refuse fails at construction time
+  rather than shipping a dead entry.
 
   Consumer-visible: every project with `translations_path` and one catalogue
   now gets a two-entry switcher (e.g. `CS` / `EN`). The empty `en_US.mo`

@@ -326,6 +326,9 @@ final class TranslationCatalogTest extends TestCase
             $catalog = new TranslationCatalog($dir, 'en');
             self::assertSame('en_GB', $catalog->resolveLocaleCode('en'));
             self::assertSame('Jméno a příjmení', $catalog->lookup('en', 'Full name'));
+            // …and it is not advertised either: a switcher entry that
+            // resolves to someone else's catalogue is worse than none.
+            self::assertSame(['cs_CZ', 'en_GB'], $catalog->availableLocales());
         } finally {
             unlink($dir . '/en_GB.mo');
             self::removeDir($dir);
