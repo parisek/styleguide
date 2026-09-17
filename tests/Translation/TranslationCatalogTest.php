@@ -315,6 +315,24 @@ final class TranslationCatalogTest extends TestCase
     }
 
     #[Test]
+    public function a_two_letter_source_locale_still_loses_to_a_discovered_catalogue(): void
+    {
+        // `source_locale: en` next to en_GB.mo: the request "en" must reach
+        // the real catalogue, not the synthetic source — "discovered first"
+        // has to hold for the exact form too, not only for prefixes.
+        $dir = self::dirWith(['cs_CZ']);
+        copy(self::FIXTURES . '/cs_CZ.mo', $dir . '/en_GB.mo');
+        try {
+            $catalog = new TranslationCatalog($dir, 'en');
+            self::assertSame('en_GB', $catalog->resolveLocaleCode('en'));
+            self::assertSame('Jméno a příjmení', $catalog->lookup('en', 'Full name'));
+        } finally {
+            unlink($dir . '/en_GB.mo');
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
     public function an_empty_source_locale_is_the_same_as_none(): void
     {
         $dir = self::dirWith(['cs_CZ']);

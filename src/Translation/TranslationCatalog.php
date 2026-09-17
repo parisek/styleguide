@@ -116,11 +116,14 @@ final class TranslationCatalog
         }
         $requested = str_ends_with(strtolower($requested), '.mo') ? substr($requested, 0, -3) : $requested;
 
-        // Exact match (case-sensitive — catalogue codes are conventionally
-        // `xx_YY`) wins outright, ambiguity or not: an exact "cs_CZ" request
-        // must resolve to cs_CZ.mo even if some OTHER short code also
-        // happens to prefix-match it.
-        if (in_array($requested, $this->locales, true)) {
+        // Exact match against a DISCOVERED catalogue (case-sensitive —
+        // catalogue codes are conventionally `xx_YY`) wins outright,
+        // ambiguity or not: an exact "cs_CZ" request must resolve to
+        // cs_CZ.mo even if some OTHER short code also happens to
+        // prefix-match it. The source locale is deliberately not consulted
+        // here: a two-letter `source_locale: en` must not shadow the
+        // `en_GB.mo` a request for "en" used to reach.
+        if (isset($this->catalogueFiles[$requested])) {
             return $requested;
         }
 

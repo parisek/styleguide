@@ -377,7 +377,7 @@ final class Styleguide
      *         `bootstrap.templates_path` / `bootstrap.static_path` string, contains a forbidden
      *         run-truth key (see {@see self::RUN_TRUTH_KEYS} for the exhaustive list, top-level and
      *         nested alike), or has a present-but-optional key (`default_locale`, `base_url`, `typography_config`,
-     *         `namespaces`, `namespaces.*`, `twig_context`) of the wrong type. Each message names the
+     *         `translations_path`, `source_locale`, `namespaces`, `namespaces.*`, `twig_context`) of the wrong type. Each message names the
      *         file and the specific problem — this method never falls back to a guessed default for
      *         a required key and never coerces or silently drops a malformed optional one, because a
      *         guessed `templates_path` that's wrong, or a forbidden key that's quietly ignored, is a
@@ -538,7 +538,7 @@ final class Styleguide
         if (array_key_exists('source_locale', $bootstrap)) {
             if ($bootstrap['source_locale'] !== null && !is_string($bootstrap['source_locale'])) {
                 throw new \InvalidArgumentException(sprintf(
-                    "Styleguide::fromYaml(): '%s' key 'bootstrap.source_locale' must be a string, got %s",
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.source_locale' must be a string or null, got %s",
                     $path,
                     get_debug_type($bootstrap['source_locale']),
                 ));
