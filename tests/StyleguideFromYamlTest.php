@@ -501,7 +501,7 @@ final class StyleguideFromYamlTest extends TestCase
         YAML);
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("bootstrap.source_locale");
+        $this->expectExceptionMessage('bootstrap.source_locale');
         Styleguide::fromYaml($yaml);
     }
 
