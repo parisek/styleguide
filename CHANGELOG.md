@@ -29,9 +29,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   and a value the render route would refuse fails at construction time
   rather than shipping a dead entry.
 
-  Consumer-visible: every project with `translations_path` and one catalogue
-  now gets a two-entry switcher (e.g. `CS` / `EN`). The empty `en_US.mo`
-  workaround is no longer needed.
+  Consumer-visible: a project with `translations_path` and one catalogue
+  gets a two-entry switcher (e.g. `CS` / `EN`) — unless it opts out, already
+  ships a catalogue of the same code, or names a source locale the
+  catalogues answer instead. The empty `en_US.mo` workaround is no longer
+  needed.
 
 ### Changed
 
