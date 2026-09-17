@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-09-17
+
 ### Added
 
 - **The source language shows up in the locale switcher.** The msgids are
