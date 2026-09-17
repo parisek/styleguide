@@ -200,6 +200,66 @@ final class SpaConfigTest extends TestCase
     }
 
     #[Test]
+    public function offers_the_source_locale_next_to_a_single_catalogue(): void
+    {
+        $translationsPath = $this->distRoot . '/translations-cs-only';
+        mkdir($translationsPath);
+        copy(__DIR__ . '/fixtures/translations/cs_CZ.mo', $translationsPath . '/cs_CZ.mo');
+
+        try {
+            self::assertSame(['cs_CZ', 'en_US'], $this->locales($translationsPath, null));
+            self::assertSame(['cs_CZ'], $this->locales($translationsPath, "'source_locale' => null,"));
+        } finally {
+            // tearDown() only clears flat files in distRoot.
+            unlink($translationsPath . '/cs_CZ.mo');
+            rmdir($translationsPath);
+        }
+    }
+
+    /**
+     * @return list<string> the `locales` of #sg-config for a bootstrap with
+     *                      only `translations_path` (+ an extra config line)
+     */
+    private function locales(string $translationsPath, ?string $extraConfig): array
+    {
+        $autoload = realpath(__DIR__ . '/../vendor/autoload.php');
+        $runnerScript = $this->distRoot . '/run-styleguide-source-locale-' . bin2hex(random_bytes(4)) . '.php';
+        $extra = $extraConfig ?? '';
+        file_put_contents(
+            $runnerScript,
+            <<<PHP
+            <?php
+            declare(strict_types=1);
+            require '{$autoload}';
+            \$_SERVER['REQUEST_URI'] = \$argv[2];
+            (new \\Parisek\\Styleguide\\Styleguide([
+                'templates_path' => '{$this->fixturesRoot}/templates',
+                'static_path' => '{$this->fixturesRoot}',
+                'config_yaml' => '{$this->fixturesRoot}/styleguide.yaml',
+                'default_locale' => 'cs',
+                'translations_path' => '{$translationsPath}',
+                {$extra}
+                'dist_path' => \$argv[1],
+            ]))->run();
+            PHP,
+        );
+        $this->writeIndexHtml('<html><head><script id="sg-config" type="application/json">{}</script></head><body></body></html>');
+
+        $cmd = sprintf(
+            '%s %s %s %s',
+            escapeshellarg(PHP_BINARY),
+            escapeshellarg($runnerScript),
+            escapeshellarg($this->distRoot),
+            escapeshellarg('/styleguide/'),
+        );
+        $stdout = (string) shell_exec($cmd);
+        preg_match('/<script id="sg-config" type="application\/json">(\{.*?\})<\/script>/s', $stdout, $m);
+        self::assertNotEmpty($m, "sg-config element not found in: $stdout");
+        $config = json_decode($m[1], true, flags: JSON_THROW_ON_ERROR);
+        return $config['locales'];
+    }
+
+    #[Test]
     public function throws_when_dist_index_html_is_missing_the_sg_config_injection_point(): void
     {
         $this->writeIndexHtml('<html><head><title>Styleguide</title></head><body></body></html>');

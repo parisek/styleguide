@@ -186,4 +186,176 @@ final class TranslationCatalogTest extends TestCase
         $catalog = new TranslationCatalog(self::FIXTURES);
         self::assertSame([], $catalog->entries('xx_XX'));
     }
+
+    /**
+     * A directory holding only the given catalogues copied from the shared
+     * fixtures, so a test can model "source language has no .mo".
+     *
+     * @param list<string> $locales
+     */
+    private static function dirWith(array $locales): string
+    {
+        $dir = sys_get_temp_dir() . '/styleguide-source-locale-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        foreach ($locales as $locale) {
+            copy(self::FIXTURES . "/{$locale}.mo", "{$dir}/{$locale}.mo");
+        }
+        return $dir;
+    }
+
+    private static function removeDir(string $dir): void
+    {
+        array_map('unlink', glob($dir . '/*.mo') ?: []);
+        rmdir($dir);
+    }
+
+    #[Test]
+    public function source_locale_is_offered_without_a_catalogue_of_its_own(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            $catalog = new TranslationCatalog($dir, 'en_US');
+            self::assertSame(['cs_CZ', 'en_US'], $catalog->availableLocales());
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function source_locale_resolves_and_renders_the_msgids_unchanged(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            $catalog = new TranslationCatalog($dir, 'en_US');
+            self::assertSame('en_US', $catalog->resolveLocaleCode('en_US'));
+            self::assertSame('en_US', $catalog->resolveLocaleCode('en'));
+            self::assertSame('Full name', $catalog->lookup('en_US', 'Full name'));
+            self::assertSame('items', $catalog->lookupPlural('en', 'item', 'items', 3));
+            self::assertSame([], $catalog->entries('en_US'));
+            // The real catalogue is unaffected.
+            self::assertSame('Jméno a příjmení', $catalog->lookup('cs_CZ', 'Full name'));
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function a_real_catalogue_for_the_source_locale_wins_and_is_listed_once(): void
+    {
+        $catalog = new TranslationCatalog(self::FIXTURES, 'en_US');
+        self::assertSame(['be_TEST', 'cs_CZ', 'en_US', 'pt_BR', 'pt_PT'], $catalog->availableLocales());
+        self::assertSame(
+            (new TranslationCatalog(self::FIXTURES))->lookup('en_US', 'Full name'),
+            $catalog->lookup('en_US', 'Full name'),
+        );
+    }
+
+    #[Test]
+    public function a_discovered_catalogue_wins_the_prefix_over_the_source_locale(): void
+    {
+        $dir = self::dirWith(['cs_CZ', 'pt_BR']);
+        try {
+            $catalog = new TranslationCatalog($dir, 'pt_PT');
+            // No ambiguity error: a real catalogue answers the prefix, and
+            // the source locale stays reachable by its full code.
+            self::assertSame('pt_BR', $catalog->resolveLocaleCode('pt'));
+            self::assertSame('pt_PT', $catalog->resolveLocaleCode('pt_PT'));
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function ambiguity_between_two_discovered_catalogues_still_throws_with_a_source_locale(): void
+    {
+        $catalog = new TranslationCatalog(self::FIXTURES, 'en_US');
+        $this->expectException(\RuntimeException::class);
+        $catalog->resolveLocaleCode('pt');
+    }
+
+    #[Test]
+    public function source_locale_never_makes_an_existing_prefix_ambiguous(): void
+    {
+        // A project with en_GB.mo and default_locale "en" resolved "en" to
+        // en_GB before source_locale existed. The default en_US must not turn
+        // that into an ambiguity error — a discovered catalogue wins the
+        // prefix, the source locale is only a last resort.
+        $dir = self::dirWith(['cs_CZ']);
+        copy(self::FIXTURES . '/en_US.mo', $dir . '/en_GB.mo');
+        try {
+            $catalog = new TranslationCatalog($dir, 'en_US');
+            self::assertSame(['cs_CZ', 'en_GB', 'en_US'], $catalog->availableLocales());
+            self::assertSame('en_GB', $catalog->resolveLocaleCode('en'));
+            self::assertSame('en_US', $catalog->resolveLocaleCode('en_US'));
+            self::assertSame('en_GB', $catalog->resolveLocaleCode('en_GB'));
+        } finally {
+            unlink($dir . '/en_GB.mo');
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function a_case_variant_catalogue_of_the_source_locale_wins_and_is_listed_once(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        // Czech strings under an English filename: a lookup that returns
+        // them proves the file won over the synthetic source locale.
+        copy(self::FIXTURES . '/cs_CZ.mo', $dir . '/en_us.mo');
+        try {
+            $catalog = new TranslationCatalog($dir, 'en_US');
+            self::assertSame(['cs_CZ', 'en_us'], $catalog->availableLocales());
+            // Both spellings reach the real catalogue, not the synthetic source.
+            self::assertSame('en_us', $catalog->resolveLocaleCode('en_US'));
+            self::assertSame('en_us', $catalog->resolveLocaleCode('en'));
+            self::assertSame('Jméno a příjmení', $catalog->lookup('en_US', 'Full name'));
+        } finally {
+            unlink($dir . '/en_us.mo');
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function a_two_letter_source_locale_still_loses_to_a_discovered_catalogue(): void
+    {
+        // `source_locale: en` next to en_GB.mo: the request "en" must reach
+        // the real catalogue, not the synthetic source — "discovered first"
+        // has to hold for the exact form too, not only for prefixes.
+        $dir = self::dirWith(['cs_CZ']);
+        copy(self::FIXTURES . '/cs_CZ.mo', $dir . '/en_GB.mo');
+        try {
+            $catalog = new TranslationCatalog($dir, 'en');
+            self::assertSame('en_GB', $catalog->resolveLocaleCode('en'));
+            self::assertSame('Jméno a příjmení', $catalog->lookup('en', 'Full name'));
+            // …and it is not advertised either: a switcher entry that
+            // resolves to someone else's catalogue is worse than none.
+            self::assertSame(['cs_CZ', 'en_GB'], $catalog->availableLocales());
+        } finally {
+            unlink($dir . '/en_GB.mo');
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function an_empty_source_locale_is_the_same_as_none(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            self::assertSame(['cs_CZ'], (new TranslationCatalog($dir, ''))->availableLocales());
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function no_source_locale_keeps_the_discovered_list_only(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            $catalog = new TranslationCatalog($dir);
+            self::assertSame(['cs_CZ'], $catalog->availableLocales());
+            self::assertNull($catalog->resolveLocaleCode('en'));
+        } finally {
+            self::removeDir($dir);
+        }
+    }
 }

@@ -460,6 +460,86 @@ final class StyleguideFromYamlTest extends TestCase
         self::assertIsArray($sg->inventory());
     }
 
+    #[Test]
+    public function source_locale_defaults_to_en_us_and_reads_from_bootstrap(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $default = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+        YAML);
+        self::assertSame('en_US', $this->readConfig(Styleguide::fromYaml($default))['source_locale']);
+
+        $custom = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          source_locale: cs_CZ
+        YAML, 'custom.yaml');
+        self::assertSame('cs_CZ', $this->readConfig(Styleguide::fromYaml($custom))['source_locale']);
+
+        // An explicit empty string opts out, same shape as typography_config.
+        $off = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          source_locale: ''
+        YAML, 'off.yaml');
+        self::assertNull($this->readConfig(Styleguide::fromYaml($off))['source_locale']);
+    }
+
+    #[Test]
+    public function an_empty_source_locale_in_the_array_config_opts_out_like_the_yaml_one(): void
+    {
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/nonexistent.yaml',
+            'translations_path' => __DIR__ . '/fixtures/translations',
+            'source_locale' => '',
+        ]);
+        self::assertSame('', $this->readConfig($sg)['source_locale']);
+    }
+
+    #[Test]
+    public function a_source_locale_the_render_route_would_refuse_fails_fast(): void
+    {
+        foreach ([' en_US', 'e', 'en_US.mo', 'en US'] as $bad) {
+            try {
+                new Styleguide([
+                    'templates_path' => __DIR__ . '/fixtures/templates',
+                    'static_path' => __DIR__ . '/fixtures',
+                    'config_yaml' => __DIR__ . '/fixtures/nonexistent.yaml',
+                    'translations_path' => __DIR__ . '/fixtures/translations',
+                    'source_locale' => $bad,
+                ]);
+                self::fail(sprintf('source_locale "%s" should have been refused', $bad));
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('source_locale', $e->getMessage());
+                self::assertStringContainsString($bad, $e->getMessage());
+            }
+        }
+    }
+
+    #[Test]
+    public function wrongly_typed_source_locale_fails_clearly_naming_the_key(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          source_locale: [en_US]
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        // The full sentence, so a message that stops naming `null` as
+        // accepted (which it is) fails here.
+        $this->expectExceptionMessage("key 'bootstrap.source_locale' must be a string or null, got array");
+        Styleguide::fromYaml($yaml);
+    }
+
     /**
      * @return array<string, mixed>
      */

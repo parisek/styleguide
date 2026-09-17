@@ -26,6 +26,12 @@ namespace Parisek\Styleguide\Translation;
  * than silently picking one — see the design doc § Locale code
  * normalisation.
  *
+ * Source locale: the language the msgids are written in never has a
+ * catalogue of its own, so discovery alone would never offer it. When a
+ * `$sourceLocale` is given, it is listed and resolvable like a discovered
+ * catalogue, and every lookup against it falls back to the msgid. A real
+ * `.mo` of the same code wins.
+ *
  * Fallback on any miss (unknown locale, missing msgid, unparsable file) is
  * gettext's own: return the msgid unchanged. No exception, no log line —
  * an incomplete catalogue must never break a render.
@@ -41,9 +47,39 @@ final class TranslationCatalog
     /** @var array<string, true> locale codes that failed to parse — cached to avoid re-throwing/re-reading every call */
     private array $broken = [];
 
-    public function __construct(private readonly string $translationsPath)
-    {
+    /** @var list<string> every offered locale code: discovered catalogues plus the source locale, sorted */
+    private array $locales;
+
+    /** @var string|null the source locale, once it survived the case-insensitive catalogue check */
+    private ?string $sourceLocale = null;
+
+    public function __construct(
+        private readonly string $translationsPath,
+        ?string $sourceLocale = null,
+    ) {
         $this->catalogueFiles = self::discover($this->translationsPath);
+        $locales = array_keys($this->catalogueFiles);
+        // Case-insensitive, because resolveLocaleCode() matches that way:
+        // an `en_us.mo` next to `source_locale: en_US` is one locale, and it
+        // is the one with the file.
+        $discoveredLower = array_map('strtolower', $locales);
+        if ($sourceLocale !== null && $sourceLocale !== ''
+            && !in_array(strtolower($sourceLocale), $discoveredLower, true)) {
+            $this->sourceLocale = $sourceLocale;
+            // Only offer it when a request for it actually reaches it.
+            // `source_locale: en` beside `en_GB.mo` resolves to the
+            // catalogue (discovered wins, deliberately), so listing `en`
+            // would advertise a switcher entry that silently renders
+            // en_GB — an unreachable choice is worse than an absent one.
+            // Such a project states its region (`en_US`) to get the entry.
+            if ($this->resolveLocaleCode($sourceLocale) === $sourceLocale) {
+                $locales[] = $sourceLocale;
+                sort($locales);
+            } else {
+                $this->sourceLocale = null;
+            }
+        }
+        $this->locales = $locales;
     }
 
     /**
@@ -68,11 +104,12 @@ final class TranslationCatalog
     }
 
     /**
-     * @return string[] every discovered locale code (catalogue basename), sorted
+     * @return string[] every discovered locale code (catalogue basename), plus
+     *                  the source locale when one was given, sorted
      */
     public function availableLocales(): array
     {
-        return array_keys($this->catalogueFiles);
+        return $this->locales;
     }
 
     /**
@@ -89,10 +126,13 @@ final class TranslationCatalog
         }
         $requested = str_ends_with(strtolower($requested), '.mo') ? substr($requested, 0, -3) : $requested;
 
-        // Exact match (case-sensitive — catalogue codes are conventionally
-        // `xx_YY`) wins outright, ambiguity or not: an exact "cs_CZ" request
-        // must resolve to cs_CZ.mo even if some OTHER short code also
-        // happens to prefix-match it.
+        // Exact match against a DISCOVERED catalogue (case-sensitive —
+        // catalogue codes are conventionally `xx_YY`) wins outright,
+        // ambiguity or not: an exact "cs_CZ" request must resolve to
+        // cs_CZ.mo even if some OTHER short code also happens to
+        // prefix-match it. The source locale is deliberately not consulted
+        // here: a two-letter `source_locale: en` must not shadow the
+        // `en_GB.mo` a request for "en" used to reach.
         if (isset($this->catalogueFiles[$requested])) {
             return $requested;
         }
@@ -100,6 +140,9 @@ final class TranslationCatalog
         $prefix = strtolower($requested) . '_';
         $exactLower = strtolower($requested);
         $matches = [];
+        // Discovered catalogues only. The source locale is handled after
+        // this block, so it can neither shadow a real catalogue nor make a
+        // previously unique prefix ambiguous.
         foreach (array_keys($this->catalogueFiles) as $code) {
             $lower = strtolower($code);
             if ($lower === $exactLower || str_starts_with($lower, $prefix)) {
@@ -108,6 +151,13 @@ final class TranslationCatalog
         }
 
         if (count($matches) === 0) {
+            // Last resort: the source locale, matched the same way.
+            if ($this->sourceLocale !== null) {
+                $lower = strtolower($this->sourceLocale);
+                if ($lower === $exactLower || str_starts_with($lower, $prefix)) {
+                    return $this->sourceLocale;
+                }
+            }
             return null;
         }
         if (count($matches) > 1) {
@@ -128,7 +178,9 @@ final class TranslationCatalog
     private function catalogueFor(string $locale): ?MoFile
     {
         $resolved = $this->resolveLocaleCode($locale);
-        if ($resolved === null) {
+        if ($resolved === null || !isset($this->catalogueFiles[$resolved])) {
+            // Unknown, or the source locale: no file, so every lookup
+            // falls back to the msgid.
             return null;
         }
         if (isset($this->broken[$resolved])) {

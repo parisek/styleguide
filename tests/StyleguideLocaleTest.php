@@ -159,4 +159,34 @@ final class StyleguideLocaleTest extends TestCase
         self::assertStringContainsString('lang="cs"', $html);
         self::assertStringContainsString('Submit', $html);
     }
+
+    #[Test]
+    public function source_locale_renders_the_msgids_with_its_own_lang(): void
+    {
+        $dir = sys_get_temp_dir() . '/styleguide-locale-source-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        copy(__DIR__ . '/fixtures/translations/cs_CZ.mo', $dir . '/cs_CZ.mo');
+        try {
+            $sg = $this->newStyleguide([
+                'translations_path' => $dir,
+                'default_locale' => 'cs',
+            ]);
+            $html = $this->renderRoute($sg, [
+                'type' => 'render',
+                'kind' => 'component',
+                'slug' => 'translated-sample',
+                'theme' => 'light',
+                'locale' => 'en_US',
+            ]);
+
+            // Default source_locale en_US has no catalogue: identity
+            // translation, but the render still switches to English.
+            self::assertStringContainsString('lang="en"', $html);
+            self::assertStringContainsString('Submit', $html);
+            self::assertStringNotContainsString('Odeslat', $html);
+        } finally {
+            unlink($dir . '/cs_CZ.mo');
+            rmdir($dir);
+        }
+    }
 }
