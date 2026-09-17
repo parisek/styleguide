@@ -155,6 +155,7 @@ final class Styleguide
      *   dist_path?: string,
      *   auth?: callable(array<string,mixed>):bool,
      *   translations_path?: string|null,
+     *   source_locale?: string|null,
      * } $config
      *
      * `dist_path` is @internal for tests only (points `dispatchSpa()` at a
@@ -250,6 +251,13 @@ final class Styleguide
             // `docs/superpowers/specs/2026-08-11-styleguide-language-switching-design.md`
             // in tailwind-base for the design this key implements.
             'translations_path' => null,
+            // The language the msgids are written in. It never has a `.mo`
+            // of its own, so without this the locale switcher could never
+            // offer it and `?locale=` could never select it. Listed next to
+            // the discovered catalogues and rendered with the msgids
+            // unchanged. Only read when `translations_path` is set; null
+            // opts out.
+            'source_locale' => 'en_US',
         ];
 
         // Load styleguide.yaml content config (favicon, iframe.css/js/fonts, etc.)
@@ -269,7 +277,16 @@ final class Styleguide
                     "Styleguide: config key 'translations_path' must be null or a non-empty string",
                 );
             }
-            $this->translationCatalog = new \Parisek\Styleguide\Translation\TranslationCatalog($translationsPath);
+            $sourceLocale = $this->config['source_locale'];
+            if ($sourceLocale !== null && (!is_string($sourceLocale) || $sourceLocale === '')) {
+                throw new \InvalidArgumentException(
+                    "Styleguide: config key 'source_locale' must be null or a non-empty string",
+                );
+            }
+            $this->translationCatalog = new \Parisek\Styleguide\Translation\TranslationCatalog(
+                $translationsPath,
+                $sourceLocale,
+            );
         }
         // Every render starts on default_locale — dispatchRender() narrows
         // this to the request's own `?locale=` once the route is parsed.
@@ -515,6 +532,19 @@ final class Styleguide
                 $config['translations_path']
                     = self::resolveYamlPath($bootstrap['translations_path'], $baseDir);
             }
+        }
+        if (array_key_exists('source_locale', $bootstrap)) {
+            if ($bootstrap['source_locale'] !== null && !is_string($bootstrap['source_locale'])) {
+                throw new \InvalidArgumentException(sprintf(
+                    "Styleguide::fromYaml(): '%s' key 'bootstrap.source_locale' must be a string, got %s",
+                    $path,
+                    get_debug_type($bootstrap['source_locale']),
+                ));
+            }
+            // Empty string or null opts out, same shape as typography_config.
+            $config['source_locale'] = ($bootstrap['source_locale'] ?? '') === ''
+                ? null
+                : $bootstrap['source_locale'];
         }
         if (array_key_exists('namespaces', $bootstrap)) {
             if (!is_array($bootstrap['namespaces']) || array_is_list($bootstrap['namespaces'])) {
@@ -2558,7 +2588,8 @@ final class Styleguide
             // SPA switcher and the server never disagree on what a "locale"
             // string looks like. Empty when `translations_path` isn't
             // configured — the switcher then has nothing to offer, matching
-            // today's behaviour of no catalogue ever being selectable.
+            // today's behaviour of no catalogue ever being selectable. The
+            // source locale (`source_locale`) is included without a file.
             'locales' => $this->translationCatalog?->availableLocales() ?? [],
         ];
         $configJson = json_encode(

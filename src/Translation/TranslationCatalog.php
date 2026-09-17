@@ -26,6 +26,12 @@ namespace Parisek\Styleguide\Translation;
  * than silently picking one — see the design doc § Locale code
  * normalisation.
  *
+ * Source locale: the language the msgids are written in never has a
+ * catalogue of its own, so discovery alone would never offer it. When a
+ * `$sourceLocale` is given, it is listed and resolvable like a discovered
+ * catalogue, and every lookup against it falls back to the msgid. A real
+ * `.mo` of the same code wins.
+ *
  * Fallback on any miss (unknown locale, missing msgid, unparsable file) is
  * gettext's own: return the msgid unchanged. No exception, no log line —
  * an incomplete catalogue must never break a render.
@@ -41,9 +47,20 @@ final class TranslationCatalog
     /** @var array<string, true> locale codes that failed to parse — cached to avoid re-throwing/re-reading every call */
     private array $broken = [];
 
-    public function __construct(private readonly string $translationsPath)
-    {
+    /** @var list<string> every offered locale code: discovered catalogues plus the source locale, sorted */
+    private array $locales;
+
+    public function __construct(
+        private readonly string $translationsPath,
+        ?string $sourceLocale = null,
+    ) {
         $this->catalogueFiles = self::discover($this->translationsPath);
+        $locales = array_keys($this->catalogueFiles);
+        if ($sourceLocale !== null && $sourceLocale !== '' && !isset($this->catalogueFiles[$sourceLocale])) {
+            $locales[] = $sourceLocale;
+            sort($locales);
+        }
+        $this->locales = $locales;
     }
 
     /**
@@ -68,11 +85,12 @@ final class TranslationCatalog
     }
 
     /**
-     * @return string[] every discovered locale code (catalogue basename), sorted
+     * @return string[] every discovered locale code (catalogue basename), plus
+     *                  the source locale when one was given, sorted
      */
     public function availableLocales(): array
     {
-        return array_keys($this->catalogueFiles);
+        return $this->locales;
     }
 
     /**
@@ -93,14 +111,14 @@ final class TranslationCatalog
         // `xx_YY`) wins outright, ambiguity or not: an exact "cs_CZ" request
         // must resolve to cs_CZ.mo even if some OTHER short code also
         // happens to prefix-match it.
-        if (isset($this->catalogueFiles[$requested])) {
+        if (in_array($requested, $this->locales, true)) {
             return $requested;
         }
 
         $prefix = strtolower($requested) . '_';
         $exactLower = strtolower($requested);
         $matches = [];
-        foreach (array_keys($this->catalogueFiles) as $code) {
+        foreach ($this->locales as $code) {
             $lower = strtolower($code);
             if ($lower === $exactLower || str_starts_with($lower, $prefix)) {
                 $matches[] = $code;
@@ -128,7 +146,9 @@ final class TranslationCatalog
     private function catalogueFor(string $locale): ?MoFile
     {
         $resolved = $this->resolveLocaleCode($locale);
-        if ($resolved === null) {
+        if ($resolved === null || !isset($this->catalogueFiles[$resolved])) {
+            // Unknown, or the source locale: no file, so every lookup
+            // falls back to the msgid.
             return null;
         }
         if (isset($this->broken[$resolved])) {

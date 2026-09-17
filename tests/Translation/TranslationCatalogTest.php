@@ -186,4 +186,93 @@ final class TranslationCatalogTest extends TestCase
         $catalog = new TranslationCatalog(self::FIXTURES);
         self::assertSame([], $catalog->entries('xx_XX'));
     }
+
+    /**
+     * A directory holding only the given catalogues copied from the shared
+     * fixtures, so a test can model "source language has no .mo".
+     *
+     * @param list<string> $locales
+     */
+    private static function dirWith(array $locales): string
+    {
+        $dir = sys_get_temp_dir() . '/styleguide-source-locale-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        foreach ($locales as $locale) {
+            copy(self::FIXTURES . "/{$locale}.mo", "{$dir}/{$locale}.mo");
+        }
+        return $dir;
+    }
+
+    private static function removeDir(string $dir): void
+    {
+        array_map('unlink', glob($dir . '/*.mo') ?: []);
+        rmdir($dir);
+    }
+
+    #[Test]
+    public function source_locale_is_offered_without_a_catalogue_of_its_own(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            $catalog = new TranslationCatalog($dir, 'en_US');
+            self::assertSame(['cs_CZ', 'en_US'], $catalog->availableLocales());
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function source_locale_resolves_and_renders_the_msgids_unchanged(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            $catalog = new TranslationCatalog($dir, 'en_US');
+            self::assertSame('en_US', $catalog->resolveLocaleCode('en_US'));
+            self::assertSame('en_US', $catalog->resolveLocaleCode('en'));
+            self::assertSame('Full name', $catalog->lookup('en_US', 'Full name'));
+            self::assertSame('items', $catalog->lookupPlural('en', 'item', 'items', 3));
+            self::assertSame([], $catalog->entries('en_US'));
+            // The real catalogue is unaffected.
+            self::assertSame('Jméno a příjmení', $catalog->lookup('cs_CZ', 'Full name'));
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function a_real_catalogue_for_the_source_locale_wins_and_is_listed_once(): void
+    {
+        $catalog = new TranslationCatalog(self::FIXTURES, 'en_US');
+        self::assertSame(['be_TEST', 'cs_CZ', 'en_US', 'pt_BR', 'pt_PT'], $catalog->availableLocales());
+        self::assertSame(
+            (new TranslationCatalog(self::FIXTURES))->lookup('en_US', 'Full name'),
+            $catalog->lookup('en_US', 'Full name'),
+        );
+    }
+
+    #[Test]
+    public function source_locale_takes_part_in_prefix_ambiguity(): void
+    {
+        $dir = self::dirWith(['cs_CZ', 'pt_BR']);
+        try {
+            $catalog = new TranslationCatalog($dir, 'pt_PT');
+            $this->expectException(\RuntimeException::class);
+            $catalog->resolveLocaleCode('pt');
+        } finally {
+            self::removeDir($dir);
+        }
+    }
+
+    #[Test]
+    public function no_source_locale_keeps_the_discovered_list_only(): void
+    {
+        $dir = self::dirWith(['cs_CZ']);
+        try {
+            $catalog = new TranslationCatalog($dir);
+            self::assertSame(['cs_CZ'], $catalog->availableLocales());
+            self::assertNull($catalog->resolveLocaleCode('en'));
+        } finally {
+            self::removeDir($dir);
+        }
+    }
 }

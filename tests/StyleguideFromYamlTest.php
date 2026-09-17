@@ -460,6 +460,51 @@ final class StyleguideFromYamlTest extends TestCase
         self::assertIsArray($sg->inventory());
     }
 
+    #[Test]
+    public function source_locale_defaults_to_en_us_and_reads_from_bootstrap(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $default = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+        YAML);
+        self::assertSame('en_US', $this->readConfig(Styleguide::fromYaml($default))['source_locale']);
+
+        $custom = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          source_locale: cs_CZ
+        YAML, 'custom.yaml');
+        self::assertSame('cs_CZ', $this->readConfig(Styleguide::fromYaml($custom))['source_locale']);
+
+        // An explicit empty string opts out, same shape as typography_config.
+        $off = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          source_locale: ''
+        YAML, 'off.yaml');
+        self::assertNull($this->readConfig(Styleguide::fromYaml($off))['source_locale']);
+    }
+
+    #[Test]
+    public function wrongly_typed_source_locale_fails_clearly_naming_the_key(): void
+    {
+        mkdir($this->tempDir . '/templates');
+        $yaml = $this->writeYaml(<<<YAML
+        bootstrap:
+          templates_path: templates
+          static_path: .
+          source_locale: [en_US]
+        YAML);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("bootstrap.source_locale");
+        Styleguide::fromYaml($yaml);
+    }
+
     /**
      * @return array<string, mixed>
      */

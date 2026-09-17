@@ -141,6 +141,7 @@ the YAML throws rather than being silently honoured. Full rules:
 | `namespaces` | no | `[]` | Extra Twig namespaces (`<name> => <absolute path>`) for paths that live outside `templates_path` and aren't covered by the auto-registered conventional namespaces. |
 | `auth` | no | `null` | Optional `callable(array $route): bool` gate checked once per request, before any dispatch (SPA, render, JSON API, or asset). Return `false` to reject with a plain-text `403 Forbidden`; return `true` (or omit the key entirely) to allow. Receives the parsed route array (`type`, plus `slug`/`kind`/`endpoint`/`path`/`theme` depending on route type). Requests loaded inside the styleguide's own iframe (`Sec-Fetch-Dest: iframe`) are re-typed to `type: 'render'` (carrying `kind: 'component'`/`'page'`/`'doc'`/`'foundations'`) before the callable ever sees them — don't gate solely on `type === 'component'`, or every iframe-embedded component render will fall through as `'render'` and bypass that branch. A non-`null`, non-callable value throws `InvalidArgumentException` at construction time (fail loudly at boot) rather than silently allowing every request; a callable that throws is treated as a denial (fail closed) and logged via `error_log()`, never surfaced to the caller. For publicly reachable deployments, HTTP Basic Auth at the web-server level is usually simpler and more robust than an in-PHP callable — reach for `auth` when the check needs request context only PHP has access to (e.g. a signed query token, a session check your framework already performs). |
 | `translations_path` | no | `null` | Absolute path to a directory of compiled `.mo` catalogues, one per locale (`cs_CZ.mo`, `en_US.mo`, …). When set, `__()`/`_x()`/`_n()`/`_nx()` become real gettext-backed translators instead of identity stubs; a consumer that pre-registers its own translator still wins, unaffected. The render endpoint then accepts `?locale=<code>` to select the catalogue per request — see *Locale switching* below. |
+| `source_locale` | no | `'en_US'` | The language the msgids are written in. It has no `.mo` of its own, so it is listed in the locale switcher next to the discovered catalogues and `?locale=<code>` renders it with the msgids unchanged. A real catalogue of the same code wins. Only read when `translations_path` is set; `null` opts out. |
 
 ### Locale switching
 
@@ -160,6 +161,13 @@ The render endpoint then accepts `?locale=<code>` — a full catalogue code (`cs
 ```
 
 selects the catalogue for that one render — content strings AND `<html lang>`/the `langcode` Twig context value, one switch for both. Absent → `default_locale`, i.e. unchanged behaviour whether or not `translations_path` is even set. The SPA's existing chrome language switcher reuses its own selection to drive the iframe's `?locale=` too, so a screenshot/harvest script hitting the same URL a human sees never falls out of sync with it.
+
+**The source language is offered too.** The msgids are written in one language
+(English on every fleet project), and that language never has a catalogue, so
+discovery alone would leave it out of the switcher. `source_locale` (default
+`en_US`) lists it next to the discovered catalogues and renders it with the
+msgids unchanged — no empty `en_US.mo` needed. Set it to the real source
+language, or `null` to opt out.
 
 **Cache consequence:** a render URL now returns different content per `?locale=` — any cache sitting in front of the styleguide must include `locale` in its key, same as it already must for `?theme=`/`?variant=`. Full contract: `docs/API.md` § Locale switching.
 

@@ -8,6 +8,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **The source language shows up in the locale switcher.** The msgids are
+  written in one language (English on every fleet project), and that language
+  never has a `.mo` of its own, so the switcher could never offer it and
+  `?locale=` could never select it: a project with `cs_CZ.mo` alone showed no
+  switcher at all. New config key `source_locale` (also `bootstrap.source_locale`
+  in `styleguide.yaml`), default `en_US`, lists it next to the discovered
+  catalogues and renders it with the msgids unchanged. A real `.mo` of the same
+  code wins. `null` (or an empty string in YAML) opts out.
+
+  Consumer-visible: every project with `translations_path` and one catalogue
+  now gets a two-entry switcher (e.g. `CS` / `EN`). The empty `en_US.mo`
+  workaround is no longer needed.
+
 ### Changed
 
 - **Symfony 6.4 is now the lowest supported line.** `symfony/twig-bridge` and
