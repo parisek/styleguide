@@ -45,6 +45,24 @@ final class AssetServerTest extends TestCase
     }
 
     #[Test]
+    public function rejects_sibling_directory_sharing_the_root_prefix(): void
+    {
+        // A bare `str_starts_with($file, $distRoot)` passes here: the resolved
+        // path `…/fixtures/asset-server-sibling/secret.txt` really does start
+        // with `…/fixtures/asset-server`. The traversal test above never
+        // caught it, because `../composer.json` fails that prefix check
+        // honestly — only a sibling whose NAME extends the root's slips past.
+        $server = new AssetServer($this->distRoot);
+        ob_start();
+        $server->serve('../asset-server-sibling/secret.txt');
+        $output = (string) ob_get_clean();
+        // Content first: this is the assertion that names the actual harm.
+        self::assertStringNotContainsString('leaked-sibling-content', $output);
+        self::assertSame(404, http_response_code());
+        http_response_code(200);
+    }
+
+    #[Test]
     public function serves_existing_file_with_etag(): void
     {
         $server = new AssetServer($this->distRoot);

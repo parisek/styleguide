@@ -12,7 +12,7 @@ namespace Parisek\Styleguide;
  *
  * Serves static assets from the package's dist/ directory.
  *
- * - Path-traversal guard via realpath() + str_starts_with()
+ * - Path-traversal guard via realpath() + {@see isContained()}
  * - Detects hashed filenames (styleguide.abc12345.js) and applies immutable cache
  * - ETag support for conditional requests
  */
@@ -33,7 +33,7 @@ final class AssetServer
     {
         $file = realpath($this->distRoot . '/' . ltrim($path, '/'));
 
-        if ($file === false || !str_starts_with($file, $this->distRoot) || !is_file($file)) {
+        if ($file === false || !$this->isContained($file) || !is_file($file)) {
             http_response_code(404);
             return;
         }
@@ -64,6 +64,27 @@ final class AssetServer
     public function isHashedFilename(string $basename): bool
     {
         return (bool) preg_match('/\.[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/', $basename);
+    }
+
+    /**
+     * True when a resolved path lies inside the asset root.
+     *
+     * The separator is what makes this correct. A bare
+     * `str_starts_with($real, $this->distRoot)` also accepts a SIBLING whose
+     * name merely extends the root's — for root `…/dist`, the resolved path
+     * `…/dist-old/secret.txt` passes the prefix test while living outside the
+     * root entirely. `serve()` builds its path from caller-supplied input and
+     * `ltrim()` strips only leading slashes, so `../dist-old/secret.txt`
+     * reaches exactly that. Plain traversal (`../composer.json`) was never the
+     * hole; a same-prefix neighbour was.
+     *
+     * Same rule as {@see PathGuard::isContained()}, kept local because that
+     * one is private to its own class.
+     */
+    private function isContained(string $real): bool
+    {
+        return $real === $this->distRoot
+            || str_starts_with($real, $this->distRoot . DIRECTORY_SEPARATOR);
     }
 
     private function mimeType(string $file): string
