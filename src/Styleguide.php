@@ -1438,8 +1438,11 @@ final class Styleguide
      * ignore-annotations / `assert()` for narrowing.
      *
      * @param list<mixed> $args
+     *
+     * @internal Reachable from StyleguideRuntime; widened from private for the
+     *           Twig runtime. Not a consumer surface.
      */
-    private static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
+    public static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
     {
         $callable = $twig->getFunction($name)?->getCallable();
 
@@ -1624,8 +1627,11 @@ final class Styleguide
      * (`component_header_menu` → `@component/header-menu/header-menu.twig`).
      * @param array<string, mixed> $content
      * @param array<string, mixed> $context
+     *
+     * @internal Reachable from StyleguideRuntime; widened from private for the
+     *           Twig runtime. Not a consumer surface.
      */
-    private static function renderNamespaced(
+    public static function renderNamespaced(
         Environment $env,
         array $context,
         string $namespace,

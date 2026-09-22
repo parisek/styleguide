@@ -287,8 +287,11 @@ final class Renderer
      *   `ParseException` rather than silently constructing anything.
      *
      * @return array<string, mixed>
+     *
+     * @internal Reachable from StyleguideRuntime; widened from private for the
+     *           Twig runtime. Not a consumer surface.
      */
-    private function resolveStyleguideData(?string $ref = null): array
+    public function resolveStyleguideData(?string $ref = null): array
     {
         if ($this->templatesPath === null || $this->currentKind === null || $this->currentSlug === null) {
             throw new \RuntimeException(
