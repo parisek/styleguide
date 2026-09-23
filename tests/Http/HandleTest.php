@@ -266,6 +266,60 @@ final class HandleTest extends TestCase
     }
 
     #[Test]
+    public function a_nested_handle_does_not_change_the_outer_renders_locale(): void
+    {
+        // Resetting the locale per render fixed SEQUENTIAL calls; a review
+        // pointed out that nested ones were still wrong. A consumer's Twig
+        // callback can re-enter handle() on the same instance — the package
+        // already treats that shape as supported, which is why Renderer and
+        // RenderObserver stack rather than assign — and the inner request's
+        // locale stayed active when the outer template resumed.
+        //
+        // The fixture translates, renders through the inner instance in a
+        // DIFFERENT locale, then translates again. Both translations must match.
+        $holder = new \stdClass();
+        $holder->sg = null;
+
+        $twig = new \Twig\Environment(new \Twig\Loader\ArrayLoader([]));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'nested_render',
+            static function () use ($holder): string {
+                $inner = $holder->sg->handle(
+                    new Request('/styleguide/render/component/translated-sample?locale=cs_CZ'),
+                );
+
+                return (string) $inner?->body;
+            },
+            ['is_safe' => ['html']],
+        ));
+
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => __DIR__ . '/../fixtures',
+            'config_yaml' => __DIR__ . '/../fixtures/nonexistent.yaml',
+            'translations_path' => __DIR__ . '/../fixtures/translations',
+            'default_locale' => 'en',
+            'twig' => $twig,
+        ]);
+        $holder->sg = $sg;
+
+        $result = $sg->handle(new Request('/styleguide/render/component/nested-locale'));
+
+        self::assertNotNull($result);
+        $html = (string) $result->body;
+
+        preg_match('/before:(.*?)\|inner:/s', $html, $before);
+        preg_match('/\|after:(.*?)$/s', $html, $after);
+
+        self::assertNotEmpty($before[1] ?? '');
+        self::assertSame(
+            trim($before[1]),
+            trim(strip_tags($after[1] ?? '')),
+            'the nested render left its locale active in the outer document',
+        );
+    }
+
+    #[Test]
     public function a_corrupt_build_is_its_own_exception_type(): void
     {
         // The type is what lets run() catch exactly this and nothing else.

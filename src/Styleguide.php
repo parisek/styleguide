@@ -2980,177 +2980,190 @@ final class Styleguide
      */
     private function dispatchRender(array $route): Http\Result
     {
-        // Every render starts from default_locale. `?locale=` narrows it below,
-        // for this render only — and before handle() existed, "for this render
-        // only" was enforced by run() ending the process. A reusable object has
-        // no such luck: without this line a request carrying ?locale=cs_CZ left
-        // the instance Czech, and the next render without a locale silently
-        // inherited it. Found by review, not by the tests, because every locale
-        // test builds a fresh Styleguide.
-        $this->requestLocale = (string) $this->config['default_locale'];
+        // Save and restore, not just reset. A consumer's Twig callback can
+        // re-enter handle() on this same instance — the package already treats
+        // that shape as supported, which is why Renderer and RenderObserver
+        // both stack rather than assign. Resetting alone left the INNER
+        // request's locale active when the outer template resumed, so its
+        // remaining translations rendered in the wrong language. Found by
+        // review; sequential calls were isolated, nested ones were not.
+        $previousLocale = $this->requestLocale;
 
-        $config = [
-            'project' => $this->yamlConfig['project'] ?? [],
-            'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
-            // The foundations body reads from `styleguide.colors`, `styleguide.logo`,
-            // `styleguide.typography`, `styleguide.labels` — surface the whole yaml
-            // map so component/page templates that look up styleguide.* also work.
-            'styleguide' => $this->yamlConfig,
-        ];
-        // `?locale=` overrides the request's translation/langcode locale for
-        // this render only — absent, unresolvable, or ambiguous falls back
-        // to `default_locale`, i.e. exactly today's behaviour with no
-        // exception (design doc § URL and SPA). Resolution/ambiguity is
-        // TranslationCatalog's job even when the requested code doesn't
-        // resolve to a real catalogue file — an unresolvable code still
-        // degrades to default_locale rather than 404ing, matching the
-        // gettext-fallback philosophy the reader itself uses.
-        $requestedLocale = is_string($route['locale'] ?? null) ? $route['locale'] : null;
-        if ($requestedLocale !== null) {
-            if ($this->translationCatalog !== null) {
-                try {
-                    $resolved = $this->translationCatalog->resolveLocaleCode($requestedLocale);
-                } catch (\RuntimeException $e) {
-                    // Ambiguous two-letter code (e.g. "pt" against pt_BR/pt_PT) —
-                    // fail loudly rather than silently rendering a wrong locale,
-                    // per the design doc. A render request is the one place this
-                    // can surface to a human, since entries()/lookup() alone
-                    // would otherwise swallow it into "no such catalogue".
-                    return Http\Result::text(
-                        $e->getMessage(),
-                        400,
-                        ['Content-Type' => 'text/plain; charset=utf-8'],
-                    );
-                }
-                if ($resolved !== null) {
-                    $this->requestLocale = $resolved;
-                }
-            } else {
-                // No catalogue configured — there's nothing to resolve
-                // against or disagree with, so the (already syntactically
-                // whitelisted, see Router::whitelistLocale()) requested code
-                // drives `<html lang>`/`langcode` directly. Translation
-                // itself stays inert (identity stubs), matching the
-                // "no translations_path -> no behaviour change beyond this"
-                // contract.
-                $this->requestLocale = $requestedLocale;
-            }
-        }
-        $langcode = substr($this->requestLocale, 0, 2) ?: 'en';
+        try {
+            // Every render starts from default_locale. `?locale=` narrows it below,
+            // for this render only — and before handle() existed, "for this render
+            // only" was enforced by run() ending the process. A reusable object has
+            // no such luck: without this line a request carrying ?locale=cs_CZ left
+            // the instance Czech, and the next render without a locale silently
+            // inherited it. Found by review, not by the tests, because every locale
+            // test builds a fresh Styleguide.
+            $this->requestLocale = (string) $this->config['default_locale'];
 
-        if (in_array($route['kind'], ['component', 'page', 'doc'], true)) {
-            // Resolve human-readable component name from parsed metadata, if available.
-            $meta = $this->parser->parse($route['kind'], $route['slug']);
-            if ($meta !== null && !empty($meta['name'])) {
-                $config['component_name'] = $meta['name'];
+            $config = [
+                'project' => $this->yamlConfig['project'] ?? [],
+                'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
+                // The foundations body reads from `styleguide.colors`, `styleguide.logo`,
+                // `styleguide.typography`, `styleguide.labels` — surface the whole yaml
+                // map so component/page templates that look up styleguide.* also work.
+                'styleguide' => $this->yamlConfig,
+            ];
+            // `?locale=` overrides the request's translation/langcode locale for
+            // this render only — absent, unresolvable, or ambiguous falls back
+            // to `default_locale`, i.e. exactly today's behaviour with no
+            // exception (design doc § URL and SPA). Resolution/ambiguity is
+            // TranslationCatalog's job even when the requested code doesn't
+            // resolve to a real catalogue file — an unresolvable code still
+            // degrades to default_locale rather than 404ing, matching the
+            // gettext-fallback philosophy the reader itself uses.
+            $requestedLocale = is_string($route['locale'] ?? null) ? $route['locale'] : null;
+            if ($requestedLocale !== null) {
+                if ($this->translationCatalog !== null) {
+                    try {
+                        $resolved = $this->translationCatalog->resolveLocaleCode($requestedLocale);
+                    } catch (\RuntimeException $e) {
+                        // Ambiguous two-letter code (e.g. "pt" against pt_BR/pt_PT) —
+                        // fail loudly rather than silently rendering a wrong locale,
+                        // per the design doc. A render request is the one place this
+                        // can surface to a human, since entries()/lookup() alone
+                        // would otherwise swallow it into "no such catalogue".
+                        return Http\Result::text(
+                            $e->getMessage(),
+                            400,
+                            ['Content-Type' => 'text/plain; charset=utf-8'],
+                        );
+                    }
+                    if ($resolved !== null) {
+                        $this->requestLocale = $resolved;
+                    }
+                } else {
+                    // No catalogue configured — there's nothing to resolve
+                    // against or disagree with, so the (already syntactically
+                    // whitelisted, see Router::whitelistLocale()) requested code
+                    // drives `<html lang>`/`langcode` directly. Translation
+                    // itself stays inert (identity stubs), matching the
+                    // "no translations_path -> no behaviour change beyond this"
+                    // contract.
+                    $this->requestLocale = $requestedLocale;
+                }
             }
-            // Per-entry <body> class (component/page/doc) — forwarded to
-            // render-cell where it merges after the global `iframe.body_class`.
-            if ($meta !== null && !empty($meta['body_class'])) {
-                $config['body_class'] = $meta['body_class'];
+            $langcode = substr($this->requestLocale, 0, 2) ?: 'en';
+
+            if (in_array($route['kind'], ['component', 'page', 'doc'], true)) {
+                // Resolve human-readable component name from parsed metadata, if available.
+                $meta = $this->parser->parse($route['kind'], $route['slug']);
+                if ($meta !== null && !empty($meta['name'])) {
+                    $config['component_name'] = $meta['name'];
+                }
+                // Per-entry <body> class (component/page/doc) — forwarded to
+                // render-cell where it merges after the global `iframe.body_class`.
+                if ($meta !== null && !empty($meta['body_class'])) {
+                    $config['body_class'] = $meta['body_class'];
+                }
+                // Render mode is forwarded only for components — pages and docs
+                // render their own full layout and don't go through render-cell's
+                // inset wrapper.
+                if ($meta !== null && $route['kind'] === 'component') {
+                    $config['render'] = $meta['render'] ?? 'inset';
+                }
+                // File-convention variant (v0.9.0) — Router::parse() has already
+                // syntactically whitelisted this; Renderer re-validates existence
+                // against the actual styleguide.<variant>.twig files and falls
+                // back to the default variant for anything that doesn't resolve.
+                if (isset($route['variant']) && is_string($route['variant'])) {
+                    $config['variant'] = $route['variant'];
+                }
+            } elseif ($route['kind'] === 'foundations') {
+                $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
+                // foundations.twig uses Tailwind utility classes the consumer's
+                // own `iframe.css` doesn't generate (the consumer scans only its
+                // own templates/, not vendor/). The package ships a dedicated
+                // dist/foundations.[hash].css built from frontend/foundations.css
+                // that scans the foundations template, and render-cell.twig
+                // links it alongside iframe.css for foundations renders.
+                $cssUrl = $this->resolveFoundationsCssUrl();
+                if ($cssUrl !== null) {
+                    $config['foundations_css_url'] = $cssUrl;
+                }
+                $jsUrl = $this->resolveFoundationsJsUrl();
+                if ($jsUrl !== null) {
+                    $config['foundations_js_url'] = $jsUrl;
+                }
+                // Foundations consumes the normalized palette shape (legacy
+                // `shades:` map and free-form `swatches:` list both accepted —
+                // see ColorPalettes). Only the foundations render is remapped;
+                // component/page/doc renders keep the raw yaml `colors` so
+                // consumer templates reading styleguide.colors are untouched.
+                $normalizedColors = ColorPalettes::normalize($this->yamlConfig['colors'] ?? null);
+                // Both audits below resolve consumer-authored paths against
+                // `static_path` on disk. Some of those paths are necessarily
+                // real browser URLs (every `site.webmanifest` icon `src` — the
+                // browser fetches the manifest), so they carry this base and
+                // have to be stripped back before the filesystem sees them.
+                $assetBase = (string) (($this->config['twig_context']['templateUrl'] ?? '') ?: '');
+                $config['styleguide'] = array_merge($this->yamlConfig, [
+                    'colors' => $normalizedColors,
+                    'colors_contrast' => ColorPalettes::contrastMatrix($normalizedColors),
+                    // Server-side favicon audit (#73) — existence, real pixel
+                    // dimensions, manifest validation. Null when the yaml block
+                    // is absent entirely (FaviconAudit::run() still returns its
+                    // full shape with every entry 'unconfigured'/null, but the
+                    // template gates the whole section on `styleguide.favicon`
+                    // being present, matching every other optional section here).
+                    'favicon_audit' => FaviconAudit::run(
+                        (string) ($this->config['static_path'] ?? ''),
+                        (array) ($this->yamlConfig['favicon'] ?? []),
+                        $assetBase,
+                    ),
+                    // Server-side Open Graph image audit (#74) — existence,
+                    // real pixel dimensions, aspect ratio, file size. Unlike
+                    // favicon_audit, this one is *not* gated on the yaml key
+                    // being present — the template's `#og-image` section
+                    // always renders (empty-state prompt when unconfigured),
+                    // since an OG image is expected on every project and
+                    // must not silently vanish from the audit surface.
+                    'og_image_audit' => OgImageAudit::run(
+                        (string) ($this->config['static_path'] ?? ''),
+                        $this->yamlConfig['og_image'] ?? null,
+                        $assetBase,
+                    ),
+                ]);
+            } elseif ($route['kind'] === 'icons') {
+                // Standalone icon-catalog page (#87) — a first-level DOKUMENTACE
+                // entry, sibling of foundations. Shares the package-shipped
+                // foundations CSS bundle (frontend/foundations.css @source-scans
+                // templates/icons.twig too), so no separate bundle is needed.
+                $config['component_name'] = (string) (
+                    ((array) ($this->yamlConfig['labels'] ?? []))['icons'] ?? 'Icons'
+                );
+                $cssUrl = $this->resolveFoundationsCssUrl();
+                if ($cssUrl !== null) {
+                    $config['foundations_css_url'] = $cssUrl;
+                }
+                $config['styleguide'] = array_merge($this->yamlConfig, [
+                    // Server-side icon catalog — inline-ready sanitized SVG
+                    // markup per yaml `icons:` entry. Null when the block is
+                    // absent/empty; the template renders its empty state then
+                    // (the sidebar entry itself is gated on `hasIcons`).
+                    'icons_catalog' => IconsCatalog::build(
+                        (string) ($this->config['static_path'] ?? ''),
+                        $this->yamlConfig['icons'] ?? null,
+                    ),
+                ]);
             }
-            // Render mode is forwarded only for components — pages and docs
-            // render their own full layout and don't go through render-cell's
-            // inset wrapper.
-            if ($meta !== null && $route['kind'] === 'component') {
-                $config['render'] = $meta['render'] ?? 'inset';
-            }
-            // File-convention variant (v0.9.0) — Router::parse() has already
-            // syntactically whitelisted this; Renderer re-validates existence
-            // against the actual styleguide.<variant>.twig files and falls
-            // back to the default variant for anything that doesn't resolve.
-            if (isset($route['variant']) && is_string($route['variant'])) {
-                $config['variant'] = $route['variant'];
-            }
-        } elseif ($route['kind'] === 'foundations') {
-            $config['component_name'] = (string) ($this->yamlConfig['project']['name'] ?? 'Foundations');
-            // foundations.twig uses Tailwind utility classes the consumer's
-            // own `iframe.css` doesn't generate (the consumer scans only its
-            // own templates/, not vendor/). The package ships a dedicated
-            // dist/foundations.[hash].css built from frontend/foundations.css
-            // that scans the foundations template, and render-cell.twig
-            // links it alongside iframe.css for foundations renders.
-            $cssUrl = $this->resolveFoundationsCssUrl();
-            if ($cssUrl !== null) {
-                $config['foundations_css_url'] = $cssUrl;
-            }
-            $jsUrl = $this->resolveFoundationsJsUrl();
-            if ($jsUrl !== null) {
-                $config['foundations_js_url'] = $jsUrl;
-            }
-            // Foundations consumes the normalized palette shape (legacy
-            // `shades:` map and free-form `swatches:` list both accepted —
-            // see ColorPalettes). Only the foundations render is remapped;
-            // component/page/doc renders keep the raw yaml `colors` so
-            // consumer templates reading styleguide.colors are untouched.
-            $normalizedColors = ColorPalettes::normalize($this->yamlConfig['colors'] ?? null);
-            // Both audits below resolve consumer-authored paths against
-            // `static_path` on disk. Some of those paths are necessarily
-            // real browser URLs (every `site.webmanifest` icon `src` — the
-            // browser fetches the manifest), so they carry this base and
-            // have to be stripped back before the filesystem sees them.
-            $assetBase = (string) (($this->config['twig_context']['templateUrl'] ?? '') ?: '');
-            $config['styleguide'] = array_merge($this->yamlConfig, [
-                'colors' => $normalizedColors,
-                'colors_contrast' => ColorPalettes::contrastMatrix($normalizedColors),
-                // Server-side favicon audit (#73) — existence, real pixel
-                // dimensions, manifest validation. Null when the yaml block
-                // is absent entirely (FaviconAudit::run() still returns its
-                // full shape with every entry 'unconfigured'/null, but the
-                // template gates the whole section on `styleguide.favicon`
-                // being present, matching every other optional section here).
-                'favicon_audit' => FaviconAudit::run(
-                    (string) ($this->config['static_path'] ?? ''),
-                    (array) ($this->yamlConfig['favicon'] ?? []),
-                    $assetBase,
-                ),
-                // Server-side Open Graph image audit (#74) — existence,
-                // real pixel dimensions, aspect ratio, file size. Unlike
-                // favicon_audit, this one is *not* gated on the yaml key
-                // being present — the template's `#og-image` section
-                // always renders (empty-state prompt when unconfigured),
-                // since an OG image is expected on every project and
-                // must not silently vanish from the audit surface.
-                'og_image_audit' => OgImageAudit::run(
-                    (string) ($this->config['static_path'] ?? ''),
-                    $this->yamlConfig['og_image'] ?? null,
-                    $assetBase,
-                ),
-            ]);
-        } elseif ($route['kind'] === 'icons') {
-            // Standalone icon-catalog page (#87) — a first-level DOKUMENTACE
-            // entry, sibling of foundations. Shares the package-shipped
-            // foundations CSS bundle (frontend/foundations.css @source-scans
-            // templates/icons.twig too), so no separate bundle is needed.
-            $config['component_name'] = (string) (
-                ((array) ($this->yamlConfig['labels'] ?? []))['icons'] ?? 'Icons'
+
+            return $this->renderer->render(
+                kind: $route['kind'],
+                slug: $route['slug'],
+                config: $config,
+                langcode: $langcode,
+                // Router::parse() / synthesizeEmbeddedRoute() always set this for
+                // `render`-type routes, but re-whitelist defensively — $route is a
+                // loosely-typed array<string,mixed>, not a value object.
+                theme: Router::whitelistTheme($route['theme'] ?? null),
             );
-            $cssUrl = $this->resolveFoundationsCssUrl();
-            if ($cssUrl !== null) {
-                $config['foundations_css_url'] = $cssUrl;
-            }
-            $config['styleguide'] = array_merge($this->yamlConfig, [
-                // Server-side icon catalog — inline-ready sanitized SVG
-                // markup per yaml `icons:` entry. Null when the block is
-                // absent/empty; the template renders its empty state then
-                // (the sidebar entry itself is gated on `hasIcons`).
-                'icons_catalog' => IconsCatalog::build(
-                    (string) ($this->config['static_path'] ?? ''),
-                    $this->yamlConfig['icons'] ?? null,
-                ),
-            ]);
+        } finally {
+            $this->requestLocale = $previousLocale;
         }
-
-        return $this->renderer->render(
-            kind: $route['kind'],
-            slug: $route['slug'],
-            config: $config,
-            langcode: $langcode,
-            // Router::parse() / synthesizeEmbeddedRoute() always set this for
-            // `render`-type routes, but re-whitelist defensively — $route is a
-            // loosely-typed array<string,mixed>, not a value object.
-            theme: Router::whitelistTheme($route['theme'] ?? null),
-        );
     }
 
     /**
