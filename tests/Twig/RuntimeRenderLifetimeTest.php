@@ -83,18 +83,19 @@ final class RuntimeRenderLifetimeTest extends TestCase
     #[Test]
     public function the_runtime_releases_the_renderer_once_the_render_finishes(): void
     {
-        // This is the one that tests the stand-down, and it needs reflection
-        // to see it: the effect is a dropped reference, not a changed answer.
-        // Without it the runtime holds a finished Renderer alive until the next
-        // render replaces it — harmless under one-request-per-process, wasteful
-        // in a worker.
+        // This is the one that tests the pop, and it needs reflection to see
+        // it: the effect is a dropped reference, not a changed answer. Without
+        // it the runtime holds a finished Renderer alive until the next render
+        // replaces it — harmless under one-request-per-process, wasteful in a
+        // worker.
         $sg = $this->styleguide();
         $runtime = $this->runtimeOf($sg);
 
         $sg->renderObserved('component', 'data-demo');
 
-        self::assertNull(
-            (new \ReflectionClass($runtime))->getProperty('renderer')->getValue($runtime),
+        self::assertSame(
+            [],
+            (new \ReflectionClass($runtime))->getProperty('renderers')->getValue($runtime),
         );
     }
 
