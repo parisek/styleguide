@@ -46,6 +46,18 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   is the LTS line, with security fixes until November 2027. The test suite
   passes on symfony 6.4.0 and on 7.4.
 
+### Fixed
+
+- **`AssetServer` no longer serves files from a sibling of the asset root.**
+  The containment check compared the resolved path against the root with a
+  bare `str_starts_with()`, without a separator, so a directory whose name
+  merely extended the root's passed it: for root `dist/`, a request resolving
+  into `dist-old/` or `dist.bak/` was served. Plain traversal was never
+  affected — `../composer.json` fails that prefix test honestly — so only a
+  same-prefix neighbour of `dist/`, such as a leftover of a manual deploy,
+  was reachable. The check now requires a directory separator, matching
+  `PathGuard`.
+
 ## [1.16.2] - 2026-09-14
 
 ### Fixed
