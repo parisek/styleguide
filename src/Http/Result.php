@@ -56,6 +56,22 @@ final class Result
     }
 
     /**
+     * A JSON body with the two headers every `/api/*` endpoint sends.
+     *
+     * Named rather than repeated at five call sites, because the pair is part
+     * of the contract: `no-cache` is not decoration — the catalogue changes
+     * whenever a template does, and a cached `/api/components` is a stale
+     * sidebar.
+     */
+    public static function json(string $body, int $status = 200): self
+    {
+        return new self($status, [
+            'Content-Type' => 'application/json; charset=utf-8',
+            'Cache-Control' => 'no-cache',
+        ], $body, null);
+    }
+
+    /**
      * No body at all — a `304`, or a `404` the package does not decorate.
      *
      * Distinct from `text('')`: an empty string is a body, and a caller

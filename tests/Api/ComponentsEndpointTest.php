@@ -17,9 +17,7 @@ final class ComponentsEndpointTest extends TestCase
         $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');
         $endpoint = new ComponentsEndpoint($parser);
 
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode((string) $output, true);
         self::assertIsArray($data);

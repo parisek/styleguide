@@ -24,9 +24,7 @@ final class DocsEndpointTest extends TestCase
         $parser = new ComponentParser($this->fixturesPath);
         $endpoint = new DocsEndpoint($parser);
 
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode($output, true);
         self::assertIsArray($data);

@@ -23,6 +23,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   iframe theme fallback, `Sec-Fetch-Dest` can turn an SPA route into a render
   route, and `If-None-Match` decides a `304`.
 
+  The five `/api/*` endpoints return a `Result` too, via `Result::json()`,
+  which carries the `Content-Type` and `Cache-Control: no-cache` pair all of
+  them send. Those headers had no test before — PHP's CLI SAPI never populates
+  `headers_list()`, so the header half of five endpoints was asserted nowhere.
+
 - **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
   The bundled Twig helpers are declared once, in an extension that holds no
   mutable state, with everything a request can move — the render observer, the

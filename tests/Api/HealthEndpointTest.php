@@ -28,9 +28,7 @@ final class HealthEndpointTest extends TestCase
         $parser = new ComponentParser($this->fixturesPath);
         $endpoint = new HealthEndpoint($parser);
 
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode($output, true);
         self::assertIsArray($data);
@@ -58,9 +56,7 @@ final class HealthEndpointTest extends TestCase
         );
 
         $endpoint = new HealthEndpoint($parser);
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode($output, true);
         self::assertNotEmpty($data['warnings']);
@@ -77,9 +73,8 @@ final class HealthEndpointTest extends TestCase
         // read as "the catalogue is fine" for days while eleven templates
         // rendered nothing. The field makes the scope readable from the
         // response instead of only from the docs.
-        ob_start();
-        (new HealthEndpoint(new ComponentParser(__DIR__ . '/../fixtures/templates')))->handle();
-        $data = json_decode((string) ob_get_clean(), true, flags: JSON_THROW_ON_ERROR);
+        $result = (new HealthEndpoint(new ComponentParser(__DIR__ . '/../fixtures/templates')))->handle();
+        $data = json_decode((string) $result->body, true, flags: JSON_THROW_ON_ERROR);
 
         self::assertSame('metadata', $data['checked']);
     }

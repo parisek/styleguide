@@ -17,9 +17,7 @@ final class FieldsEndpointTest extends TestCase
         $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');
         $endpoint = new FieldsEndpoint($parser);
 
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode((string) $output, true);
         self::assertIsArray($data);
@@ -51,9 +49,7 @@ final class FieldsEndpointTest extends TestCase
         $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');
         $endpoint = new FieldsEndpoint($parser);
 
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode((string) $output, true);
         self::assertIsArray($data);
@@ -68,9 +64,7 @@ final class FieldsEndpointTest extends TestCase
         $parser = new ComponentParser(__DIR__ . '/../fixtures/templates');
         $endpoint = new FieldsEndpoint($parser);
 
-        ob_start();
-        $endpoint->handle();
-        $output = ob_get_clean();
+        $output = $endpoint->handle()->body;
 
         $data = json_decode((string) $output, true);
         $card = current(array_filter($data, static fn(array $c): bool => $c['component_id'] === 'defkit-card'));
