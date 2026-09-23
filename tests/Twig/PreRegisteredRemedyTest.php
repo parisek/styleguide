@@ -264,6 +264,55 @@ final class PreRegisteredRemedyTest extends TestCase
     }
 
     #[Test]
+    public function a_second_styleguide_with_the_same_catalogue_adopts_and_renders(): void
+    {
+        // The regression the identity comparison caused. Every construction
+        // builds its own TranslationCatalog, so comparing the OBJECTS refused
+        // two identically configured instances along with the mismatched ones —
+        // banning the supported path in the act of guarding the unsupported
+        // one. The fingerprint compares the configuration instead.
+        //
+        // Non-null catalogue on purpose: with translations_path unset both
+        // sides were null and the bug was invisible.
+        $static = __DIR__ . '/../fixtures';
+        $config = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'translations_path' => __DIR__ . '/../fixtures/translations',
+            'default_locale' => 'cs',
+            'twig' => new Environment(new ArrayLoader()),
+        ];
+
+        new Styleguide($config);
+        $second = new Styleguide($config);
+
+        self::assertStringContainsString(
+            'Demo Title',
+            $second->renderObserved('component', 'data-demo')['html'],
+        );
+    }
+
+    #[Test]
+    public function a_second_styleguide_with_a_different_translations_path_is_refused(): void
+    {
+        $static = __DIR__ . '/../fixtures';
+        $base = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'default_locale' => 'cs',
+            'twig' => new Environment(new ArrayLoader()),
+        ];
+
+        new Styleguide($base + ['translations_path' => __DIR__ . '/../fixtures/translations']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('translation configuration differs');
+        new Styleguide($base);
+    }
+
+    #[Test]
     public function an_inner_render_by_the_other_instance_leaves_the_outer_resolvable(): void
     {
         // The cross-instance nesting a review reproduced. Both objects share

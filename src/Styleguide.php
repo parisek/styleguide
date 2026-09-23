@@ -371,6 +371,7 @@ final class Styleguide
                 $this->observer,
                 $this->translationCatalog,
                 fn(): string => $this->requestLocale,
+                $this->translationFingerprint(),
             );
         }
         $this->registerBundledHelpers($this->twig, $this->observer);
@@ -2098,6 +2099,29 @@ final class Styleguide
     }
 
     /**
+     * The translation configuration, as a value that can be compared.
+     *
+     * Only the three keys that change how a translator answers:
+     * `translations_path` decides which catalogues exist, `source_locale`
+     * decides which language the msgids are in, and `default_locale` is where
+     * every render starts before `?locale=` narrows it.
+     *
+     * Paths are resolved so two spellings of one directory compare equal;
+     * `realpath()` returning false (a configured path that is not there) falls
+     * back to the raw value, which still compares equal to itself.
+     */
+    private function translationFingerprint(): string
+    {
+        $path = (string) ($this->config['translations_path'] ?? '');
+
+        return implode('|', [
+            $path === '' ? '' : (realpath($path) ?: $path),
+            (string) ($this->config['source_locale'] ?? ''),
+            (string) $this->config['default_locale'],
+        ]);
+    }
+
+    /**
      * A `StyleguideRuntime` already reachable on this environment, if it is
      * one of ours to adopt.
      *
@@ -2145,7 +2169,7 @@ final class Styleguide
         //
         // So say so instead. Refusing is honest and leaves the consumer a
         // choice they can act on; carrying on would not.
-        if (!$resolved->answersTo($this->translationCatalog, (string) $this->config['default_locale'])) {
+        if (!$resolved->answersTo($this->translationFingerprint())) {
             throw new \RuntimeException(sprintf(
                 'Styleguide: this Twig environment already carries a %s from an earlier '
                 . "Styleguide whose translation configuration differs from this one's.\n\n"

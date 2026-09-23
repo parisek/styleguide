@@ -81,11 +81,18 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      *   answer in the previous locale. Reading through a resolver leaves one
      *   source of truth and nothing to keep in sync. `registerBundledExtensions()`
      *   already hands `TypographyExtension` its locale the same way.
+     *
+     * @param string $translationFingerprint
+     *   The translation configuration this runtime answers for, compared by
+     *   {@see answersTo()} when another `Styleguide` on the same environment
+     *   considers adopting it. A value rather than the objects, because the
+     *   objects are rebuilt per construction.
      */
     public function __construct(
         private readonly RenderObserver $observer,
         private readonly ?TranslationCatalog $catalog = null,
         private readonly ?\Closure $localeResolver = null,
+        private readonly string $translationFingerprint = '',
     ) {}
 
     public function pushRenderer(Renderer $renderer): void
@@ -111,10 +118,16 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      * live here, so adopting silently hands this object the earlier one's
      * translations — fine when the two configs match, which is the only reason
      * anyone constructs twice, and wrong without a word when they do not.
+     *
+     * Compares a fingerprint of the CONFIGURATION, not the objects. A review
+     * caught the first attempt comparing `TranslationCatalog` instances by
+     * identity: every construction builds a new one, so two objects configured
+     * identically never matched and the supported path was refused along with
+     * the unsupported one.
      */
-    public function answersTo(?TranslationCatalog $catalog, string $locale): bool
+    public function answersTo(string $fingerprint): bool
     {
-        return $this->catalog === $catalog && $this->locale() === $locale;
+        return $this->translationFingerprint === $fingerprint;
     }
 
     public function observer(): RenderObserver
