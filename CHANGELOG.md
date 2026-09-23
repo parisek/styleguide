@@ -10,6 +10,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Fixed
 
+- **The Symfony bundle serves `/styleguide/` instead of redirecting it.** The
+  bundle declared `/styleguide` and `/styleguide/{path}` with `path` requiring
+  at least one character, so the prefix with a trailing slash matched neither
+  and Symfony answered a `301` — where the library front controller had always
+  returned the page. `/styleguide/` is the URL people bookmark and the one the
+  SPA's history base is written with.
+
+  One route with an optional trailing-slash placeholder now serves both forms.
+  Two routes cannot: Symfony's redirectable matcher answers a trailing-slash
+  difference on the first route that nearly matches, without trying the route
+  that matches exactly, so whichever is declared second redirects. Making
+  `{path}` optional fails the same way from the other side.
+
+### Fixed
+
 - **The Symfony bundle now takes the asset base from the request.** `iframe.css`,
   `iframe.js`, `iframe.fonts[]`, the favicon and the logo are rebased onto
   `twig_context.templateUrl`, and the bundle had no way to supply it: that value

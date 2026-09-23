@@ -364,6 +364,31 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
+    public function the_prefix_is_served_with_and_without_its_trailing_slash(): void
+    {
+        // Both, in one test, because fixing either one alone moved the 301 to
+        // the other: Symfony's redirectable matcher answers a trailing-slash
+        // difference on the first route that nearly matches, without trying
+        // the route that matches exactly. A test covering only `/styleguide/`
+        // would have gone green on a version that redirected `/styleguide`.
+        //
+        // It matters because the library front controller served both
+        // directly, and `/styleguide/` is the URL people bookmark and the one
+        // the SPA's history base is written with. Found by serving real
+        // requests through both entry points and diffing them.
+        foreach (['/styleguide', '/styleguide/'] as $uri) {
+            $response = $this->kernel()->handle(Request::create($uri));
+
+            self::assertSame(200, $response->getStatusCode(), $uri);
+            self::assertStringContainsString(
+                'text/html',
+                (string) $response->headers->get('Content-Type'),
+                $uri,
+            );
+        }
+    }
+
+    #[Test]
     public function the_asset_base_comes_from_the_request(): void
     {
         // The gap this factory closes. `templateUrl` is run truth — fromYaml()
