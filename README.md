@@ -186,6 +186,33 @@ If your project's component templates use **functions or filters registered on a
 
 If your component templates are self-contained (no project-specific filters), omit `twig` — the package builds a pristine environment with just `@project` namespaced at `templates_path`.
 
+#### If your environment is already initialised
+
+The package registers its helpers onto the environment you pass, at the moment you construct `Styleguide`. Twig only allows that while the environment's extension set is still open. **Reading a single function or filter closes it** — and a framework that builds Twig as a compiled, lazily-booted service (Symfony, notably) may well have read one before your code runs.
+
+On a closed environment the registration cannot take effect, and what you see depends on what is already registered:
+
+- An extension the package wants is **missing** → construction throws `LogicException: … extensions have already been initialized`. The message names the extension, which misleads: the extension is not the problem, the closed environment is.
+- Every extension is **already present** → construction **succeeds** and the helpers are dropped one by one. `component_*`, `placeholder()`, `styleguide_data()` and `|cachebust` simply do not exist, a line per helper goes to `error_log()`, and the first symptom is an opaque Twig error far from the cause.
+
+The remedy is to register the helpers yourself, before anything reads from the environment:
+
+```php
+use Parisek\Styleguide\RenderObserver;
+use Parisek\Styleguide\Twig\StyleguideRuntime;
+use Parisek\Styleguide\Twig\StyleguideTwigExtension;
+use Twig\RuntimeLoader\FactoryRuntimeLoader;
+
+$runtime = new StyleguideRuntime(new RenderObserver());
+
+$twig->addExtension(new StyleguideTwigExtension(['static_path' => $staticPath]));
+$twig->addRuntimeLoader(new FactoryRuntimeLoader([
+    StyleguideRuntime::class => static fn (): StyleguideRuntime => $runtime,
+]));
+```
+
+`StyleguideTwigExtension` holds no mutable state, so it is safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, which Twig resolves lazily through the loader.
+
 ### Apache / Nginx rewrite
 
 The package handles routing in PHP, but the entry script needs to receive `/styleguide/*` requests. Apache:
