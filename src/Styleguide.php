@@ -10,6 +10,9 @@ use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\Error\LoaderError;
+use Twig\Extension\CoreExtension;
+use Twig\Extension\EscaperExtension;
+use Twig\Extension\OptimizerExtension;
 use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
 use Twig\RuntimeLoader\FactoryRuntimeLoader;
@@ -2601,7 +2604,15 @@ final class Styleguide
      * consumer-settable key (`dist_path` is a run-truth key for tests), so
      * doctor cannot read it from the YAML.
      *
-     * @return array{dist: string, paths: array<string, string>}
+     * `helpers` is read off the built environment rather than off
+     * {@see Twig\StyleguideTwigExtension}, because that extension is not the
+     * whole story: `registerBundledExtensions()` also adds `create_attribute()`,
+     * `|typography`, `dump()` and the Intl/String extras when their packages
+     * are installed. A review caught doctor claiming to list "every helper"
+     * while naming only the styleguide's own — so a consumer with its own
+     * `create_attribute()` was never warned.
+     *
+     * @return array{dist: string, paths: array<string, string>, helpers: list<string>}
      */
     public function diagnostics(): array
     {
@@ -2619,7 +2630,35 @@ final class Styleguide
             }
         }
 
-        return ['dist' => $this->distRoot, 'paths' => $paths];
+        // Twig's own language — `range()`, `max()`, `|join` and the rest —
+        // is subtracted by NAME rather than by skipping its extensions,
+        // because the helpers that matter most are not on an extension at
+        // all: in library mode the package adds them one at a time, which
+        // puts them on Twig's staging extension, and `getExtensions()` does
+        // not list that. Reading the environment and subtracting is the only
+        // way to see both halves.
+        $language = [];
+        foreach ([new CoreExtension(), new EscaperExtension(), new OptimizerExtension()] as $extension) {
+            foreach ($extension->getFunctions() as $function) {
+                $language[$function->getName() . '()'] = true;
+            }
+            foreach ($extension->getFilters() as $filter) {
+                $language['|' . $filter->getName()] = true;
+            }
+        }
+
+        $helpers = [];
+        foreach ($this->twig->getFunctions() as $function) {
+            $helpers[$function->getName() . '()'] = true;
+        }
+        foreach ($this->twig->getFilters() as $filter) {
+            $helpers['|' . $filter->getName()] = true;
+        }
+
+        $helpers = array_keys(array_diff_key($helpers, $language));
+        sort($helpers);
+
+        return ['dist' => $this->distRoot, 'paths' => $paths, 'helpers' => $helpers];
     }
 
     /**
@@ -2986,7 +3025,7 @@ final class Styleguide
         // original characters, so every legitimate value round-trips
         // unchanged while the breakout is closed.
         $html = (string) preg_replace(
-            '/<script id="sg-config" type="application\/json">.*?<\/script>/s',
+            CorruptBuildException::INJECTION_POINT_PATTERN,
             '<script id="sg-config" type="application/json">' . $configJson . '</script>',
             $html,
             1,

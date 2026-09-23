@@ -149,6 +149,18 @@ final class DoctorTest extends TestCase
     }
 
     #[Test]
+    public function an_injection_point_missing_its_type_attribute_is_reported_too(): void
+    {
+        // The runtime replaces a script tag carrying BOTH the id and the
+        // type. Checking for the id alone let a build through that
+        // CorruptBuildException would refuse — the two now share one pattern.
+        $messages = $this->distMessages('<html><head><script id="sg-config">{}</script></head></html>');
+
+        self::assertCount(1, $messages);
+        self::assertStringContainsString('#sg-config', $messages[0]);
+    }
+
+    #[Test]
     public function an_asset_the_build_no_longer_contains_is_reported(): void
     {
         // PHP never learns about this one: the shell is served, the browser
@@ -330,7 +342,13 @@ final class DoctorTest extends TestCase
 
         // The listing is the point of the check: a consumer with its own
         // `__()` needs the names before Twig locks its extension set.
-        foreach (['component_*()', 'page_*()', '__()', 'uniqueId()', '|cachebust', '|resizer'] as $name) {
+        // Including helpers that do NOT come from StyleguideTwigExtension.
+        // An earlier version listed only that extension's names and claimed
+        // to list every one, so a consumer with its own `create_attribute()`
+        // was never warned.
+        foreach (
+            ['component_*()', 'page_*()', '__()', 'uniqueId()', '|cachebust', '|resizer', 'create_attribute()'] as $name
+        ) {
             self::assertStringContainsString($name, $stdout);
         }
     }

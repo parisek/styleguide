@@ -16,9 +16,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   directory is absent is skipped silently, so a typo there never errors), a
   `dist/` that has lost its `#sg-config` injection point or references an asset
   the build no longer contains, a `base_url` nothing implements, an empty
-  catalogue. It also lists every Twig helper the package registers, so a
-  consumer writing its own `__()` sees the names before Twig locks its
-  extension set.
+  catalogue. It also lists every Twig helper on the environment bar Twig's own
+  language — the styleguide's own, plus the bundled extras
+  (`create_attribute()`, `|typography`, `dump()`, Intl, String) registered when
+  their packages are installed — so a consumer writing a helper of the same
+  name sees it before Twig locks its extension set.
 
   A YAML the library refuses is reported as one finding carrying the library's
   own message, and nothing further is checked — every other check needs the

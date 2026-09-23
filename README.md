@@ -723,7 +723,7 @@ only what would otherwise be found by deploying:
 | `dist` | The built SPA has lost its `#sg-config` injection point, or references an asset the build no longer contains. The first is a `500` on a live request; the second PHP never learns about at all, because the browser asks for the asset and the page goes blank. |
 | `base_url` | The key is set and nothing implements it. The mount point is `/styleguide`. |
 | `render` | The catalogue is empty — `templates_path` holds no fixture. |
-| `twig` | A notice listing every helper the package puts on the Twig environment, so a consumer writing its own `__()` or `component_*()` sees the names before Twig locks its extension set. |
+| `twig` | A notice listing every helper on the environment bar Twig's own language — the styleguide's `component_*()` and `__()`, and the bundled extras (`create_attribute()`, `\|typography`, `dump()`, Intl, String) that are registered when their packages are installed. A consumer writing a helper of the same name needs them before Twig locks its extension set. |
 
 Same exit codes as `lint`: `0` clean or notice-only, `1` when a warning or
 error is present, `2` for a usage error such as a `styleguide.yaml` that

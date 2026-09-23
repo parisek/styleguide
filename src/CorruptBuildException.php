@@ -22,4 +22,17 @@ namespace Parisek\Styleguide;
  * Extends `RuntimeException` so existing `catch (\RuntimeException)` in
  * consumer code keeps working.
  */
-final class CorruptBuildException extends \RuntimeException {}
+final class CorruptBuildException extends \RuntimeException
+{
+    /**
+     * The shape a usable `dist/index.html` must contain.
+     *
+     * Lives here, on the exception that names the condition, so the runtime
+     * that throws and `styleguide doctor` — which exists to report the same
+     * condition before a visitor meets it — cannot disagree about what
+     * "usable" means. A review found them disagreeing: doctor looked for the
+     * id alone, so a build missing the `type` attribute passed the diagnostic
+     * and then threw on the first request.
+     */
+    public const INJECTION_POINT_PATTERN = '/<script id="sg-config" type="application\/json">.*?<\/script>/s';
+}

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Cli;
 
+use Parisek\Styleguide\CorruptBuildException;
 use Parisek\Styleguide\Styleguide;
-use Parisek\Styleguide\Twig\StyleguideTwigExtension;
 use Twig\Error\LoaderError;
 
 /**
@@ -87,7 +87,7 @@ final class Doctor
             ...$this->checkDist($diagnostics['dist']),
             ...$this->checkBaseUrl($configPath),
             ...$this->checkRender($styleguide),
-            ...$this->reportHelpers(),
+            ...$this->reportHelpers($diagnostics['helpers']),
         ];
     }
 
@@ -142,10 +142,14 @@ final class Doctor
         $html = (string) file_get_contents($index);
         $findings = [];
 
-        if (!str_contains($html, 'id="sg-config"')) {
-            // The CorruptBuildException condition. Worth its own check
-            // because the exception only ever fires on a live request, which
-            // means a broken deploy is discovered by a visitor.
+        if (preg_match(CorruptBuildException::INJECTION_POINT_PATTERN, $html) !== 1) {
+            // The CorruptBuildException condition, tested against that
+            // exception's own pattern. Worth its own check because the
+            // exception only ever fires on a live request, which means a
+            // broken deploy is discovered by a visitor — and worth sharing
+            // the pattern because a review found the two disagreeing: a
+            // build whose script tag had lost its `type` attribute passed
+            // the diagnostic and then threw on the first request.
             $findings[] = new DoctorFinding(
                 LintSeverity::Error,
                 'dist',
@@ -279,21 +283,11 @@ final class Doctor
     }
 
     /**
+     * @param list<string> $names
      * @return list<DoctorFinding>
      */
-    private function reportHelpers(): array
+    private function reportHelpers(array $names): array
     {
-        $extension = new StyleguideTwigExtension([]);
-
-        $names = [];
-        foreach ($extension->getFunctions() as $function) {
-            $names[] = $function->getName() . '()';
-        }
-        foreach ($extension->getFilters() as $filter) {
-            $names[] = '|' . $filter->getName();
-        }
-        sort($names);
-
         return [new DoctorFinding(
             LintSeverity::Notice,
             'twig',
