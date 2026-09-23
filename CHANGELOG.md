@@ -8,6 +8,48 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
+  The bundled Twig helpers are declared once, in an extension that holds no
+  mutable state, with everything a request can move — the render observer, the
+  active `Renderer`, the resolved locale, the minted-id bag — in a Twig runtime
+  resolved lazily through a runtime loader.
+
+  This gives a consumer whose Twig environment is already initialised a way to
+  register the helpers themselves, before anything reads from it. Until now
+  that case could not be recovered from: the package registers at construction
+  time, Twig refuses once the extension set is closed, and the result is either
+  a `LogicException` naming the wrong culprit or — when every extension is
+  already present — the silent loss of every helper. See README § *If your
+  environment is already initialised*.
+
+  Library-mode wiring is unchanged. The helpers are still registered one name
+  at a time through the tolerant path, so a host's own `__()` still wins.
+
+### Changed
+
+- **`Renderer` no longer registers `styleguide_data()` itself** when given a
+  `StyleguideRuntime`. The runtime owns the function and `Renderer` announces
+  itself around each render, so it still resolves against whichever fixture is
+  rendering at call time. A `Renderer` built without a runtime — including
+  every direct `new Renderer($twig, $context)` caller — is untouched.
+
+### Fixed
+
+- **`AssetServer` no longer serves files from a sibling of the asset root.**
+  The containment check compared the resolved path against the root with a
+  bare `str_starts_with()`, without a separator, so a directory whose name
+  merely extended the root's passed it: for root `dist/`, a request resolving
+  into `dist-old/` or `dist.bak/` was served. Plain traversal was never
+  affected — `../composer.json` fails that prefix test honestly — so only a
+  same-prefix neighbour of `dist/`, such as a leftover of a manual deploy,
+  was reachable. The check now requires a directory separator, matching
+  `PathGuard`.
+
+  (Listed here, not under 1.17.0: the pull request merged after that tag, and
+  the squash landed its entry under the release header by accident.)
+
 ## [1.17.0] - 2026-09-17
 
 ### Added
@@ -45,18 +87,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   none of them. The constraints are now `^6.4 || ^7.0 || ^8.0`. 6.4 stays: it
   is the LTS line, with security fixes until November 2027. The test suite
   passes on symfony 6.4.0 and on 7.4.
-
-### Fixed
-
-- **`AssetServer` no longer serves files from a sibling of the asset root.**
-  The containment check compared the resolved path against the root with a
-  bare `str_starts_with()`, without a separator, so a directory whose name
-  merely extended the root's passed it: for root `dist/`, a request resolving
-  into `dist-old/` or `dist.bak/` was served. Plain traversal was never
-  affected — `../composer.json` fails that prefix test honestly — so only a
-  same-prefix neighbour of `dist/`, such as a leftover of a manual deploy,
-  was reachable. The check now requires a directory separator, matching
-  `PathGuard`.
 
 ## [1.16.2] - 2026-09-14
 

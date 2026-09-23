@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Parisek\Styleguide\Twig\StyleguideRuntime;
+use Parisek\Styleguide\Twig\StyleguideTwigExtension;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
+use Twig\RuntimeLoader\FactoryRuntimeLoader;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
@@ -63,6 +66,13 @@ final class Styleguide
     private AssetServer $assetServer;
     private string $distRoot;
     private RenderObserver $observer;
+
+    /**
+     * Everything the bundled helpers need that a request can move. Built
+     * before {@see registerBundledHelpers()} because the runtime loader it
+     * installs closes over this property.
+     */
+    private StyleguideRuntime $twigRuntime;
     /**
      * Non-null only when `translations_path` was supplied — discovers and
      * parses `.mo` catalogues on demand. See {@see \Parisek\Styleguide\Translation\TranslationCatalog}.
@@ -312,10 +322,20 @@ final class Styleguide
 
         $this->registerBundledExtensions($this->twig);
         $this->observer = new RenderObserver();
+        $this->twigRuntime = new StyleguideRuntime(
+            $this->observer,
+            $this->translationCatalog,
+            fn(): string => $this->requestLocale,
+        );
         $this->registerBundledHelpers($this->twig, $this->observer);
 
         $this->parser = new ComponentParser($config['templates_path']);
-        $this->renderer = new Renderer($this->twig, $this->config['twig_context'], $config['templates_path']);
+        $this->renderer = new Renderer(
+            $this->twig,
+            $this->config['twig_context'],
+            $config['templates_path'],
+            $this->twigRuntime,
+        );
         $this->assetServer = new AssetServer($this->distRoot);
     }
 
@@ -894,472 +914,295 @@ final class Styleguide
     }
 
     /**
-     * Register the generic Twig functions every styleguide consumer needs.
+     * Registers the bundled helpers onto a consumer-supplied environment, one
+     * at a time, tolerating collisions.
      *
-     * These were previously duplicated in each consuming project's entry
-     * script (one big `$twig->addFunction(...)` block per project). They
-     * encode the styleguide's own conventions — `component_*` resolves to
-     * `@component/<name>/<name>.twig`, `page_*` to `@page/<name>/<name>.twig`,
-     * `__` / `_x` / `_n` / `_nx` are identity stubs that WordPress consumers
-     * override with the real translation functions, `merge_resizer` flattens
-     * multi-source `<picture>` candidates into one indexed list, `uniqueId`
-     * mints an HTML-id-safe random token for components that need ARIA wiring
-     * without a caller-supplied id.
+     * The definitions themselves now live in {@see StyleguideTwigExtension}.
+     * This method is LIBRARY mode's registration strategy for them, not a
+     * second implementation of them.
      *
-     * Each helper is added only when the project hasn't already registered
-     * one with the same name — projects that need a customised version
-     * (e.g. real translation functions from WordPress's `__()` instead of
-     * the identity stub) keep their version; the package fills the rest.
-     *
-     * The `component_*` / `page_*` error fallbacks log via `error_log()`
-     * rather than `dump()` (Symfony VarDumper). The original
-     * `tailwind-base` code used `dump()` because its env had
-     * `DumpExtension` registered and `'debug' => TRUE`; calling `dump()`
-     * unguarded in a package that ships to arbitrary consumers would leak
-     * an HTML var-dump dump into the response on every miss, including
-     * in production. `error_log()` reaches the same audit trail without
-     * the side effect.
+     * It cannot simply call `addExtension()`. That throws on the first name a
+     * consumer already registered, and letting a host's own `__()` win is a
+     * documented contract, asserted in `tests/BundledHelpersTest.php`. A
+     * Symfony bundle registers the same extension class whole when the
+     * container compiles, where a collision SHOULD be a loud error — which is
+     * the difference between the two modes, and the only difference.
      */
     private function registerBundledHelpers(Environment $twig, RenderObserver $observer): void
     {
-        // Important: do NOT use `$twig->getFunction(...) === null` /
-        // `$twig->getFilter(...)` to gate registration. Reading either
-        // initializes Twig's extension set (`ExtensionSet::initExtensions()`
-        // sets `initialized = true`), after which `addFunction`/`addFilter`
-        // throw `LogicException: Unable to add ... as extensions have
-        // already been initialized.` Result: the "idempotent override"
-        // pattern would defeat itself the moment the first check ran.
-        //
-        // Instead we attempt registration unconditionally via
-        // {@see self::tryAdd…()}, which swallows every `LogicException` Twig
-        // throws from `addFunction()`/`addFilter()` — both the expected
-        // *duplicate-name* case (projects that pre-register any of these
-        // names on the shared env — real WP `__()` instead of identity stub,
-        // custom `placeholder`, etc. — keep their version) and the
-        // "extensions already initialized" case (Styleguide constructed
-        // against an env that was already locked, e.g. by a prior
-        // `getFunctions()` call). See {@see tryAddFunction()} for why we no
-        // longer try to tell the two apart.
-        //
-        // component_*/page_* go through the SAME swallow-duplicate
-        // tryAddFunction() as every other helper here — `run()`'s HTTP path
-        // must keep tolerating a consumer's pre-registered version exactly
-        // as it does today, and that tolerance is exactly what
-        // tryAddFunction() already provides. An earlier revision force-won
-        // this registration by reflecting into Twig's private
-        // `ExtensionSet`/`StagingExtension` internals to evict any
-        // pre-existing entry first. That was rejected on review: it
-        // relocated the exact hack this whole API exists to eliminate
-        // — a consumer no longer reaches into `parisek/styleguide`'s private
-        // state, but this package reached into `twig/twig`'s instead, a
-        // third-party dependency with its own release cycle, one step
-        // further from anyone who could fix a future internal-shape change.
-        //
-        // Instead: `tryAddFunction()`'s return value tells us whether OUR
-        // closure actually got wired in. When it didn't — the consumer
-        // pre-registered its own `component_*`/`page_*` on a shared
-        // environment before constructing `Styleguide`, or the extension set
-        // was already locked — the render observer ({@see RenderObserver})
-        // is provably not wired into this render, so `renderObserved()`
-        // records the collision in `$this->unobservableFunctions` and
-        // refuses outright (see {@see renderObserved()}) rather than
-        // silently returning an empty/partial trace. `run()`'s HTTP path
-        // doesn't consult `$this->unobservableFunctions` at all, so it is
-        // unaffected: whichever `component_*`/`page_*` won the registration
-        // race keeps rendering exactly as before.
-        if (!self::tryAddFunction($twig, new TwigFunction(
-            'component_*',
-            static function (Environment $env, array $context, string $template_name, array $content = []) use ($observer): string {
-                return self::renderNamespaced($env, $context, '@component', $template_name, $content, 'Component', $observer);
-            },
-            ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['html']],
-        ))) {
-            $this->unobservableFunctions[] = 'component_*';
-        }
-        if (!self::tryAddFunction($twig, new TwigFunction(
-            'page_*',
-            static function (Environment $env, array $context, string $template_name, array $content = []) use ($observer): string {
-                return self::renderNamespaced($env, $context, '@page', $template_name, $content, 'Page', $observer);
-            },
-            ['needs_environment' => true, 'needs_context' => true, 'is_safe' => ['html']],
-        ))) {
-            $this->unobservableFunctions[] = 'page_*';
+        $extension = new StyleguideTwigExtension($this->config);
+
+        $twig->addRuntimeLoader(new FactoryRuntimeLoader([
+            StyleguideRuntime::class => fn(): StyleguideRuntime => $this->twigRuntime,
+        ]));
+
+        foreach ($extension->getFunctions() as $function) {
+            $added = self::tryAddFunction($twig, $function);
+
+            // ONLY these two may enter $unobservableFunctions. The array is
+            // not a log of collisions: renderObserved() refuses outright
+            // whenever it is non-empty (see that method) and names its
+            // contents in the message. Recording, say, a consumer's own
+            // `placeholder` here would take renderObserved() away from a
+            // project whose wiring is perfectly fine. Only component_*/page_*
+            // carry the observer, so only their loss makes a trace
+            // untrustworthy.
+            if (!$added && in_array($function->getName(), ['component_*', 'page_*'], true)) {
+                $this->unobservableFunctions[] = $function->getName();
+            }
         }
 
-        // Identity translation stubs — WordPress consumers register the
-        // real `__()` / `_x()` / `_n()` / `_nx()` BEFORE constructing
-        // `Styleguide` (their pre-registration wins because our
-        // `tryAddFunction` then swallows the duplicate-name exception).
-        // Non-WP projects get either the `.mo`-backed reader below (when
-        // `translations_path` is configured) or this passthrough, so
-        // component templates that wrap strings in `_x()` don't need to
-        // branch on WP availability either way. Signatures match the WP
-        // originals so templates passing extra context / domain / number
-        // arguments don't trip ArgumentCountError.
-        //
-        // `$this->requestLocale` is read fresh, inside each closure, at call
-        // time — not captured up front — for the same reason the
-        // TypographyExtension locale resolver above does that: one
-        // `Styleguide` instance serves exactly one HTTP request, so there's
-        // no cross-request bleed, and dispatchRender() only knows the
-        // request's `?locale=` after the route is parsed, which happens
-        // after this registration runs.
-        $catalog = $this->translationCatalog;
-        if ($catalog !== null) {
-            self::tryAddFunction($twig, new TwigFunction(
-                '__',
-                fn(string $text, string $domain = 'default'): string
-                    => $catalog->lookup($this->requestLocale, $text),
-            ));
-            self::tryAddFunction($twig, new TwigFunction(
-                '_x',
-                fn(string $text, string $context = '', string $domain = 'default'): string
-                    => $catalog->lookup($this->requestLocale, $text, $context),
-            ));
-            self::tryAddFunction($twig, new TwigFunction(
-                '_n',
-                fn(string $single, string $plural, int $number = 1, string $domain = 'default'): string
-                    => $catalog->lookupPlural($this->requestLocale, $single, $plural, $number),
-            ));
-            self::tryAddFunction($twig, new TwigFunction(
-                '_nx',
-                fn(string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string
-                    => sprintf(
-                        $catalog->lookupPlural($this->requestLocale, $single, $plural, $number, $context),
-                        $number,
-                    ),
-            ));
-        } else {
-            self::tryAddFunction($twig, new TwigFunction(
-                '__',
-                static fn(string $text, string $domain = 'default'): string => $text,
-            ));
-            self::tryAddFunction($twig, new TwigFunction(
-                '_x',
-                static fn(string $text, string $context = '', string $domain = 'default'): string => $text,
-            ));
-            self::tryAddFunction($twig, new TwigFunction(
-                '_n',
-                static fn(string $single, string $plural, int $number = 1, string $domain = 'default'): string
-                    => $number === 1 ? $single : $plural,
-            ));
-            self::tryAddFunction($twig, new TwigFunction(
-                '_nx',
-                static function (string $single, string $plural, int $number, string $context = '', string $domain = 'default'): string {
-                    return sprintf($number === 1 ? $single : $plural, $number);
-                },
-            ));
+        foreach ($extension->getFilters() as $filter) {
+            self::tryAddFilter($twig, $filter);
         }
+    }
 
-        // Typography-aware translation aliases (`…t` suffix = "translate +
-        // typography"). Each calls the matching translator and pipes the result
-        // through the bundled `|typography` filter, so long-form copy gets
-        // consistent typographic treatment without `|typography` on every
-        // callsite — opt-in is a one-character template edit (`_x` -> `_xt`).
-        // Resolved via `getFunction()/getFilter()->getCallable()` at call time
-        // so the project's real translator (WP `_x()` etc.) and project-tuned
-        // typography settings compose in automatically when present; the
-        // identity stubs above are the fallback otherwise. `is_safe: ['html']`
-        // mirrors the `|typography` filter's own contract (it emits markup),
-        // so the aliases don't double-escape. See parisek/styleguide#21.
-        $typography = static function (string $value) use ($twig): string {
-            $callable = $twig->getFilter('typography')?->getCallable();
-            return is_callable($callable) ? (string) $callable($value) : $value;
-        };
-        self::tryAddFunction($twig, new TwigFunction(
-            '_xt',
-            static function (string $text, string $context, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(self::invokeTwigFunction($twig, '_x', [$text, $context, $domain], $text));
-            },
-            ['is_safe' => ['html']],
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
-            '__t',
-            static function (string $text, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(self::invokeTwigFunction($twig, '__', [$text, $domain], $text));
-            },
-            ['is_safe' => ['html']],
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
-            '_nt',
-            static function (string $single, string $plural, int $number, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(self::invokeTwigFunction($twig, '_n', [$single, $plural, $number, $domain], $number === 1 ? $single : $plural));
-            },
-            ['is_safe' => ['html']],
-        ));
-        self::tryAddFunction($twig, new TwigFunction(
-            '_nxt',
-            static function (string $single, string $plural, int $number, string $context, string $domain = 'default') use ($twig, $typography): string {
-                return $typography(self::invokeTwigFunction($twig, '_nx', [$single, $plural, $number, $context, $domain], sprintf($number === 1 ? $single : $plural, $number)));
-            },
-            ['is_safe' => ['html']],
-        ));
-
-        // HTML id mint — letter prefix because HTML4 forbade ids starting
-        // with a digit and CSS selectors like `#1foo` still need escaping,
-        // so a letter front keeps the result drop-in for both. The closure
-        // keeps a private collision set across calls within a single Twig
-        // env lifetime — same-render duplicates are vanishingly unlikely
-        // with bin2hex(random_bytes(3)) = 24 bits of entropy per call, but
-        // the bag is free insurance for templates that mint dozens of ids
-        // (galleries, accordions) on one page.
-        $uniqueIds = [];
-        self::tryAddFunction($twig, new TwigFunction(
-            'uniqueId',
-            static function () use (&$uniqueIds): string {
-                do {
-                    $id = chr(random_int(97, 122)) . bin2hex(random_bytes(3));
-                } while (isset($uniqueIds[$id]));
-                $uniqueIds[$id] = true;
-                return $id;
-            },
-        ));
-
-        self::tryAddFunction($twig, new TwigFunction(
-            'merge_resizer',
-            static function (mixed ...$items): array {
-                // Drop nulls / non-arrays before the loop. Twig templates
-                // routinely call merge_resizer(image_xl, image_md, image)
-                // where some sources are unset for a given record — those
-                // resolve to `null` and used to TypeError on the typed-
-                // variadic signature. array_values() re-indexes so the
-                // "last list contributes its fallback" semantics below
-                // refer to the last *real* list, not the last positional
-                // arg.
-                // Keep each surviving list's ORIGINAL 1-based call position
-                // alongside it. The diagnostic below names an argument, and
-                // a number counted after re-indexing points at the wrong
-                // one the moment any earlier argument was null:
-                // `merge_resizer($a, null, $bad, $fallback)` would report
-                // `$bad` as #2 when the author wrote it third.
-                $positions = [];
-                $lists = [];
-                $position = 0;
-                foreach ($items as $item) {
-                    $position++;
-                    if (is_array($item)) {
-                        $positions[] = $position;
-                        $lists[] = $item;
+    /**
+     * Body of the `merge_resizer()` function.
+     *
+     * @return list<mixed>
+     *
+     * @internal Declared in {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension}.
+     */
+    public static function mergeResizer(mixed ...$items): array
+    {
+        // Drop nulls / non-arrays before the loop. Twig templates
+        // routinely call merge_resizer(image_xl, image_md, image)
+        // where some sources are unset for a given record — those
+        // resolve to `null` and used to TypeError on the typed-
+        // variadic signature. array_values() re-indexes so the
+        // "last list contributes its fallback" semantics below
+        // refer to the last *real* list, not the last positional
+        // arg.
+        // Keep each surviving list's ORIGINAL 1-based call position
+        // alongside it. The diagnostic below names an argument, and
+        // a number counted after re-indexing points at the wrong
+        // one the moment any earlier argument was null:
+        // `merge_resizer($a, null, $bad, $fallback)` would report
+        // `$bad` as #2 when the author wrote it third.
+        $positions = [];
+        $lists = [];
+        $position = 0;
+        foreach ($items as $item) {
+            $position++;
+            if (is_array($item)) {
+                $positions[] = $position;
+                $lists[] = $item;
+            }
+        }
+        $items = $lists;
+        // Cache the last index once — `array_key_last()` is
+        // O(1) on an array but evaluating it inside the nested
+        // loop is wasted work on every image.
+        $lastKey = array_key_last($items);
+        $images = [];
+        foreach ($items as $key => $item) {
+            $kept = 0;
+            foreach ($item as $image) {
+                // All but the last list contribute only their
+                // media-queried entries (variants with `media`).
+                // The last list contributes everything — its
+                // medialess fallback becomes the `<img>` baseline.
+                if ($key !== $lastKey) {
+                    if (isset($image['media'])) {
+                        $images[] = $image;
+                        $kept++;
                     }
-                }
-                $items = $lists;
-                // Cache the last index once — `array_key_last()` is
-                // O(1) on an array but evaluating it inside the nested
-                // loop is wasted work on every image.
-                $lastKey = array_key_last($items);
-                $images = [];
-                foreach ($items as $key => $item) {
-                    $kept = 0;
-                    foreach ($item as $image) {
-                        // All but the last list contribute only their
-                        // media-queried entries (variants with `media`).
-                        // The last list contributes everything — its
-                        // medialess fallback becomes the `<img>` baseline.
-                        if ($key !== $lastKey) {
-                            if (isset($image['media'])) {
-                                $images[] = $image;
-                                $kept++;
-                            }
-                        } else {
-                            $images[] = $image;
-                            $kept++;
-                        }
-                    }
-                    // A non-final argument that arrived non-empty and
-                    // contributed NOTHING is always an authoring mistake,
-                    // never a legitimate state — and it fails silently: the
-                    // whole viewport layer disappears and the remaining one
-                    // stretches across every breakpoint. The symptom reads
-                    // as a CSS bug (wrong image at wrong width), so the
-                    // hunt starts nowhere near the template that caused it.
-                    //
-                    // Deliberately NOT reported: a partially-consumed
-                    // argument (some entries have `media`, some don't).
-                    // Dropping a non-final argument's fallback-shaped
-                    // entries is the documented contract, not a mistake —
-                    // warning there would flag correct templates.
-                    //
-                    // The message names symptom and rule, not a single
-                    // cause, because there are several ways to reach here
-                    // and the most tempting one-line remedy is wrong for
-                    // some of them. A single-tuple argument is the common
-                    // case (the last tuple of a `|resizer` call is the
-                    // unconditional fallback, so it never gets a `media`).
-                    // But two tuples are not sufficient either — the
-                    // non-final one also needs a non-empty numeric
-                    // breakpoint. And a pass-through case such as an
-                    // animated GIF (which `{@see self::resizerFilter()}`
-                    // returns untouched, by design) yields one medialess
-                    // entry no matter how many tuples were requested; that
-                    // argument cannot serve a non-final position at all.
-                    //
-                    // `error_log()` rather than a throw: a styleguide that
-                    // dies on a fixture typo is worse than one that renders
-                    // and complains, and this mirrors how the
-                    // `component_*` / `page_*` misses already report.
-                    if ($kept === 0 && $item !== [] && $key !== $lastKey) {
-                        error_log(sprintf(
-                            'merge_resizer(): argument #%d contributed no variants and was dropped — '
-                            . 'all %d of its entries lack a `media` key, and non-final arguments keep '
-                            . 'only media-queried ones. Give it at least one NON-LAST tuple with a '
-                            . 'non-empty numeric maxWidth (the last tuple of a `|resizer` call is always '
-                            . 'the medialess fallback). Sources that pass through `|resizer` untouched, '
-                            . 'such as animated GIFs, can only be used in the final position.',
-                            $positions[$key],
-                            count($item),
-                        ));
-                    }
-                }
-                return $images;
-            },
-        ));
-
-        // `placeholder` + `|resizer` ride together — both delegate to the
-        // bundled {@see Placeholder} class (lazy-loaded via the standard
-        // PSR-4 autoloader on first use). Projects that need a tuned
-        // palette / subject set register their own `placeholder` Twig
-        // function on the env before constructing `Styleguide`; the
-        // tryAddFunction below swallows the duplicate-name throw, so
-        // the project's version stays.
-        self::tryAddFunction($twig, new TwigFunction(
-            'placeholder',
-            static fn(array $opts = []): array => Placeholder::generate($opts),
-        ));
-        self::tryAddFilter($twig, new TwigFilter(
-            'resizer',
-            static function (mixed $value, mixed ...$sizes): mixed {
-                $first = $sizes[0] ?? null;
-                $isOrientationMap = count($sizes) === 1
-                    && is_array($first)
-                    && (
-                        array_key_exists('landscape', $first)
-                        || array_key_exists('portrait', $first)
-                        || array_key_exists('square', $first)
-                    );
-                if ($isOrientationMap) {
-                    if (!is_array($value)) {
-                        return $value;
-                    }
-                    $bucket = self::classifyAspect($value);
-                    // `landscape` is the documented fallback when the
-                    // matched bucket is empty / absent. Null-coalescing
-                    // alone isn't enough — it only kicks in on `null` /
-                    // absent keys, but `square => []` would short-circuit
-                    // to `[]` and skip the landscape fallback. Treat
-                    // empty-or-non-array as "no tuples in this bucket"
-                    // before deciding whether to fall through.
-                    $matched = $first[$bucket] ?? null;
-                    $tuples = (is_array($matched) && !empty($matched))
-                        ? $matched
-                        : ($first['landscape'] ?? null);
-                    if (!is_array($tuples) || empty($tuples)) {
-                        return $value;
-                    }
-                    return self::resizerFilter($value, ...$tuples);
-                }
-                // Tuples mode — historical behaviour.
-                return self::resizerFilter($value, ...$sizes);
-            },
-        ));
-
-        // Cache-buster for `iframe.css` / `iframe.js` / `iframe.fonts[]`
-        // URLs. The iframe loads the consumer's entry files (typically
-        // `dist/css/style.css` + `dist/js/script.js`) which are referenced
-        // in `styleguide.yaml` WITHOUT a build hash — so a long HTTP
-        // `Cache-Control: max-age=…` on those entry files keeps the browser
-        // serving the previous build's content, which then dynamically
-        // imports stale-hashed bundles → 404 → broken iframe scripts.
-        //
-        // Appending `?v=<file_mtime>` makes every rebuild's entry URL
-        // unique — browsers re-fetch on first request after a rebuild
-        // (filemtime changes), then cache aggressively until the next
-        // rebuild. Zero work for the consumer; works for WordPress,
-        // Drupal, and standalone layouts because the algorithm walks up
-        // from `static_path` to find the docroot the URL is rooted at.
-        //
-        // Pass-through cases: non-string values, empty strings, external
-        // http(s)://, data: / mailto: / tel:, anchor (`#…`), or any URL
-        // that doesn't resolve to a real file on disk. Existing query
-        // strings are preserved (the buster is appended with `&`).
-        $staticPath = (string) ($this->config['static_path'] ?? '');
-        self::tryAddFilter($twig, new TwigFilter(
-            'cachebust',
-            static function (mixed $url) use ($staticPath): mixed {
-                if (!is_string($url) || $url === '' || !str_starts_with($url, '/')) {
-                    return $url;
-                }
-                $relativeUrl = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
-                $dir = $staticPath;
-                // Walk up max 6 levels — covers `wp-content/themes/<theme>/static`
-                // (3 hops to docroot) and `web/themes/custom/<theme>/static`
-                // (3 hops). 6 leaves headroom for nested fork projects.
-                for ($i = 0; $i < 6 && $dir !== '' && $dir !== '/' && $dir !== '.'; $i++) {
-                    $candidate = $dir . '/' . $relativeUrl;
-                    if (is_file($candidate)) {
-                        $mtime = @filemtime($candidate);
-                        if ($mtime !== false) {
-                            $sep = str_contains($url, '?') ? '&' : '?';
-                            return $url . $sep . 'v=' . $mtime;
-                        }
-                    }
-                    $dir = dirname($dir);
-                }
-                return $url;
-            },
-        ));
-
-        self::tryAddFilter($twig, new TwigFilter(
-            'format_date',
-            /**
-             * Locale-light date formatter. Default output is the project's
-             * canonical "j. n. Y" (Czech short-date) layout; pass
-             * `'custom'` with a `format` to emit any PHP date() pattern.
-             * Accepts integer timestamps, numeric strings, or ISO/RFC
-             * strings that strtotime() can parse.
-             */
-            static function (int|string $timestamp, string $type = 'medium', string $format = ''): string {
-                if (is_string($timestamp) && !is_numeric($timestamp)) {
-                    // strtotime() returns false on parse failure; casting
-                    // false to int yields 0 → "1. 1. 1970", which is a
-                    // misleading "successful" output. Return the original
-                    // string so the caller can see what didn't parse.
-                    $parsed = strtotime($timestamp);
-                    if ($parsed === false) {
-                        return $timestamp;
-                    }
-                    $timestamp = $parsed;
                 } else {
-                    $timestamp = (int) $timestamp;
+                    $images[] = $image;
+                    $kept++;
                 }
-                if ($type === 'custom' && $format !== '') {
-                    return date($format, $timestamp);
-                }
-                return date('j. n. Y', $timestamp);
-            },
-        ));
+            }
+            // A non-final argument that arrived non-empty and
+            // contributed NOTHING is always an authoring mistake,
+            // never a legitimate state — and it fails silently: the
+            // whole viewport layer disappears and the remaining one
+            // stretches across every breakpoint. The symptom reads
+            // as a CSS bug (wrong image at wrong width), so the
+            // hunt starts nowhere near the template that caused it.
+            //
+            // Deliberately NOT reported: a partially-consumed
+            // argument (some entries have `media`, some don't).
+            // Dropping a non-final argument's fallback-shaped
+            // entries is the documented contract, not a mistake —
+            // warning there would flag correct templates.
+            //
+            // The message names symptom and rule, not a single
+            // cause, because there are several ways to reach here
+            // and the most tempting one-line remedy is wrong for
+            // some of them. A single-tuple argument is the common
+            // case (the last tuple of a `|resizer` call is the
+            // unconditional fallback, so it never gets a `media`).
+            // But two tuples are not sufficient either — the
+            // non-final one also needs a non-empty numeric
+            // breakpoint. And a pass-through case such as an
+            // animated GIF (which `{@see self::resizerFilter()}`
+            // returns untouched, by design) yields one medialess
+            // entry no matter how many tuples were requested; that
+            // argument cannot serve a non-final position at all.
+            //
+            // `error_log()` rather than a throw: a styleguide that
+            // dies on a fixture typo is worse than one that renders
+            // and complains, and this mirrors how the
+            // `component_*` / `page_*` misses already report.
+            if ($kept === 0 && $item !== [] && $key !== $lastKey) {
+                error_log(sprintf(
+                    'merge_resizer(): argument #%d contributed no variants and was dropped — '
+                    . 'all %d of its entries lack a `media` key, and non-final arguments keep '
+                    . 'only media-queried ones. Give it at least one NON-LAST tuple with a '
+                    . 'non-empty numeric maxWidth (the last tuple of a `|resizer` call is always '
+                    . 'the medialess fallback). Sources that pass through `|resizer` untouched, '
+                    . 'such as animated GIFs, can only be used in the final position.',
+                    $positions[$key],
+                    count($item),
+                ));
+            }
+        }
+        return $images;
+    }
 
-        self::tryAddFilter($twig, new TwigFilter(
-            'custom_price_format',
-            /**
-             * Formats a `{ number, currency_code }` shape into the
-             * project's canonical price string. CZK: `1 234 Kč`
-             * (integer, narrow-space group, suffix). EUR: `€ 1 234,56`
-             * (prefix, comma decimal, narrow-space group). Any other
-             * currency falls through to the raw number — the project's
-             * Twig template should never see an unknown currency, but a
-             * passthrough is safer than throwing inside a filter.
-             */
-            static function (mixed $value): mixed {
-                if (!is_array($value) || !isset($value['number'], $value['currency_code'])) {
-                    return $value;
+    /**
+     * Body of the `placeholder()` function.
+     *
+     * @param array<string, mixed> $opts
+     * @return list<array<string, mixed>>
+     *
+     * @internal Declared in {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension}.
+     */
+    public static function placeholder(array $opts = []): array
+    {
+        return Placeholder::generate($opts);
+    }
+
+    /**
+     * Body of the `|resizer` filter — the orientation-map entry point that
+     * dispatches into {@see resizerFilter()}.
+     *
+     * @internal Declared in {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension}.
+     */
+    public static function resizer(mixed $value, mixed ...$sizes): mixed
+    {
+        $first = $sizes[0] ?? null;
+        $isOrientationMap = count($sizes) === 1
+            && is_array($first)
+            && (
+                array_key_exists('landscape', $first)
+                || array_key_exists('portrait', $first)
+                || array_key_exists('square', $first)
+            );
+        if ($isOrientationMap) {
+            if (!is_array($value)) {
+                return $value;
+            }
+            $bucket = self::classifyAspect($value);
+            // `landscape` is the documented fallback when the
+            // matched bucket is empty / absent. Null-coalescing
+            // alone isn't enough — it only kicks in on `null` /
+            // absent keys, but `square => []` would short-circuit
+            // to `[]` and skip the landscape fallback. Treat
+            // empty-or-non-array as "no tuples in this bucket"
+            // before deciding whether to fall through.
+            $matched = $first[$bucket] ?? null;
+            $tuples = (is_array($matched) && !empty($matched))
+                ? $matched
+                : ($first['landscape'] ?? null);
+            if (!is_array($tuples) || empty($tuples)) {
+                return $value;
+            }
+            return self::resizerFilter($value, ...$tuples);
+        }
+        // Tuples mode — historical behaviour.
+        return self::resizerFilter($value, ...$sizes);
+    }
+
+    /**
+     * Body of the `|cachebust` filter. See the extended rationale on
+     * {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension::getFilters()}.
+     *
+     * `$staticPath` was a `use ($staticPath)` capture while this lived inside
+     * the registration method. It is a parameter now because the extension
+     * that declares the filter holds the config and binds it — the value is
+     * fixed at construction, so it never belonged in the runtime.
+     *
+     * @internal Declared in {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension}.
+     */
+    public static function cachebust(mixed $url, string $staticPath): mixed
+    {
+        if (!is_string($url) || $url === '' || !str_starts_with($url, '/')) {
+            return $url;
+        }
+        $relativeUrl = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
+        $dir = $staticPath;
+        // Walk up max 6 levels — covers `wp-content/themes/<theme>/static`
+        // (3 hops to docroot) and `web/themes/custom/<theme>/static`
+        // (3 hops). 6 leaves headroom for nested fork projects.
+        for ($i = 0; $i < 6 && $dir !== '' && $dir !== '/' && $dir !== '.'; $i++) {
+            $candidate = $dir . '/' . $relativeUrl;
+            if (is_file($candidate)) {
+                $mtime = @filemtime($candidate);
+                if ($mtime !== false) {
+                    $sep = str_contains($url, '?') ? '&' : '?';
+                    return $url . $sep . 'v=' . $mtime;
                 }
-                return match ($value['currency_code']) {
-                    'CZK' => number_format((float) $value['number'], 0, ',', ' ') . ' Kč',
-                    'EUR' => '€ ' . number_format((float) $value['number'], 2, ',', ' '),
-                    default => $value['number'],
-                };
-            },
-        ));
+            }
+            $dir = dirname($dir);
+        }
+        return $url;
+    }
+
+    /**
+     * Locale-light date formatter. Default output is the project's
+     * canonical "j. n. Y" (Czech short-date) layout; pass
+     * `'custom'` with a `format` to emit any PHP date() pattern.
+     * Accepts integer timestamps, numeric strings, or ISO/RFC
+     * strings that strtotime() can parse.
+     *
+     * @internal Body of the `|format_date` filter, declared in
+     *           {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension}.
+     */
+    public static function formatDate(int|string $timestamp, string $type = 'medium', string $format = ''): string
+    {
+        if (is_string($timestamp) && !is_numeric($timestamp)) {
+            // strtotime() returns false on parse failure; casting
+            // false to int yields 0 → "1. 1. 1970", which is a
+            // misleading "successful" output. Return the original
+            // string so the caller can see what didn't parse.
+            $parsed = strtotime($timestamp);
+            if ($parsed === false) {
+                return $timestamp;
+            }
+            $timestamp = $parsed;
+        } else {
+            $timestamp = (int) $timestamp;
+        }
+        if ($type === 'custom' && $format !== '') {
+            return date($format, $timestamp);
+        }
+        return date('j. n. Y', $timestamp);
+    }
+
+    /**
+     * Formats a `{ number, currency_code }` shape into the
+     * project's canonical price string. CZK: `1 234 Kč`
+     * (integer, narrow-space group, suffix). EUR: `€ 1 234,56`
+     * (prefix, comma decimal, narrow-space group). Any other
+     * currency falls through to the raw number — the project's
+     * Twig template should never see an unknown currency, but a
+     * passthrough is safer than throwing inside a filter.
+     *
+     * @internal Body of the `|custom_price_format` filter, declared in
+     *           {@see \Parisek\Styleguide\Twig\StyleguideTwigExtension}.
+     */
+    public static function customPriceFormat(mixed $value): mixed
+    {
+        if (!is_array($value) || !isset($value['number'], $value['currency_code'])) {
+            return $value;
+        }
+        return match ($value['currency_code']) {
+            'CZK' => number_format((float) $value['number'], 0, ',', ' ') . ' Kč',
+            'EUR' => '€ ' . number_format((float) $value['number'], 2, ',', ' '),
+            default => $value['number'],
+        };
     }
 
     /**
@@ -1438,8 +1281,11 @@ final class Styleguide
      * ignore-annotations / `assert()` for narrowing.
      *
      * @param list<mixed> $args
+     *
+     * @internal Reachable from StyleguideRuntime; widened from private for the
+     *           Twig runtime. Not a consumer surface.
      */
-    private static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
+    public static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
     {
         $callable = $twig->getFunction($name)?->getCallable();
 
@@ -1624,8 +1470,11 @@ final class Styleguide
      * (`component_header_menu` → `@component/header-menu/header-menu.twig`).
      * @param array<string, mixed> $content
      * @param array<string, mixed> $context
+     *
+     * @internal Reachable from StyleguideRuntime; widened from private for the
+     *           Twig runtime. Not a consumer surface.
      */
-    private static function renderNamespaced(
+    public static function renderNamespaced(
         Environment $env,
         array $context,
         string $namespace,
