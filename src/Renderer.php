@@ -901,18 +901,20 @@ final class Renderer
                 $previousSlug = $this->currentSlug;
                 $this->currentKind = $kind;
                 $this->currentSlug = $slug;
-                // Announce to the runtime for the duration of the render, and
-                // stand down in the same `finally` that restores the pointers
-                // above. Without the stand-down a long-running worker would
-                // let one request's fixture context answer the next request's
-                // `styleguide_data()`.
-                $this->twigRuntime?->setRenderer($this);
+                // Push onto the runtime's stack for the duration of the
+                // render and pop in the same `finally` that restores the
+                // pointers above. A stack, not a slot: renders nest, and two
+                // Styleguide objects sharing one environment share the runtime
+                // while owning different Renderers — a single slot let an inner
+                // render by another Renderer clear the outer one on its way
+                // out.
+                $this->twigRuntime?->pushRenderer($this);
                 try {
                     return $this->twig->render($path, $this->context);
                 } finally {
                     $this->currentKind = $previousKind;
                     $this->currentSlug = $previousSlug;
-                    $this->twigRuntime?->setRenderer($previousKind === null ? null : $this);
+                    $this->twigRuntime?->popRenderer();
                 }
             }
         }

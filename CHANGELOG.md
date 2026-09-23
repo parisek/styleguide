@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **`Parisek\Styleguide\Http\Request` and `Http\Result`.** The first leaf of a
+  request-in, result-out seam. `AssetServer::serve()` returns a `Result` — a
+  status, headers, and a body that is text or a file path — instead of calling
+  `http_response_code()`, `header()` and `readfile()` itself. `run()` emits it,
+  so its output is unchanged.
+
+  A file body stays a path rather than being read into memory, so a caller can
+  stream it. `If-None-Match` is a parameter now instead of a read of `$_SERVER`,
+  which makes the conditional request testable and lets a host application pass
+  its own header. `Request` carries four values, not a path: cookies hold the
+  iframe theme fallback, `Sec-Fetch-Dest` can turn an SPA route into a render
+  route, and `If-None-Match` decides a `304`.
+
 - **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
   The bundled Twig helpers are declared once, in an extension that holds no
   mutable state, with everything a request can move — the render observer, the
@@ -28,6 +41,25 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   at a time through the tolerant path, so a host's own `__()` still wins.
 
 ### Changed
+
+- **Breaking for a narrow case: constructing `Styleguide` against an
+  already-initialised Twig environment is now refused instead of succeeding
+  emptily.** Such a consumer previously got a `Styleguide` with none of its
+  helpers registered, plus a line per lost helper in `error_log()` — written
+  after the response had been served, into a file nobody watches. The first
+  symptom was an opaque Twig error far from the cause. The refusal lists what
+  was lost and points at the fix, which only exists as of this release (see
+  *Added*): register `StyleguideTwigExtension` before anything reads from the
+  environment.
+
+  The discrimination does not read Twig's message. Twig raises one exception
+  class both for a duplicate name and for a closed environment, and matching
+  the text would let an upstream copy edit start crashing consumers over an
+  ordinary collision — the fragility commit 494cbc7 removed on purpose.
+  Instead the package remembers which environments it has already registered
+  on, in a weak map, so a second construction recognises its own footprint.
+  Nothing is added to the environment and nothing initialises it. A host's own `__()`
+  still wins, and constructing twice against one environment still works.
 
 - **`Renderer` no longer registers `styleguide_data()` itself** when given a
   `StyleguideRuntime`. The runtime owns the function and `Renderer` announces

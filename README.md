@@ -190,28 +190,46 @@ If your component templates are self-contained (no project-specific filters), om
 
 The package registers its helpers onto the environment you pass, at the moment you construct `Styleguide`. Twig only allows that while the environment's extension set is still open. **Reading a single function or filter closes it** — and a framework that builds Twig as a compiled, lazily-booted service (Symfony, notably) may well have read one before your code runs.
 
-On a closed environment the registration cannot take effect, and what you see depends on what is already registered:
+On a closed environment the registration cannot take effect, so **construction is refused** rather than handing back a `Styleguide` with no helpers on it. The message lists what was lost and repeats the fix below.
 
-- An extension the package wants is **missing** → construction throws `LogicException: … extensions have already been initialized`. The message names the extension, which misleads: the extension is not the problem, the closed environment is.
-- Every extension is **already present** → construction **succeeds** and the helpers are dropped one by one. `component_*`, `placeholder()`, `styleguide_data()` and `|cachebust` simply do not exist, a line per helper goes to `error_log()`, and the first symptom is an opaque Twig error far from the cause.
+Earlier versions did not refuse. They succeeded, dropped every helper, and left a line per loss in `error_log()` — a file nobody watches, written after the response had been served. `component_*`, `placeholder()`, `styleguide_data()` and `|cachebust` simply did not exist, and the first symptom was an opaque Twig error a long way from the cause.
 
-The remedy is to register the helpers yourself, before anything reads from the environment:
+The refusal never reads Twig's wording to decide. Twig raises one exception class both for "this name is taken" and for "this environment is closed"; telling those apart by matching the message text would mean an upstream copy edit could start crashing consumers over an ordinary duplicate name. Instead the package remembers which environments it has already registered on, in a weak map, so a second construction recognises its own footprint. Nothing is added to the environment and nothing initialises it — two earlier designs did one or the other and were rejected on review. Constructing `Styleguide` twice against one environment refuses every name too, as duplicates, and is correctly left alone.
+
+The remedy is to register everything the package would have added yourself, before anything reads from the environment. **All of it** — the extensions as well as the helpers, since extensions are registered first and a closed environment refuses those too:
 
 ```php
-use Parisek\Styleguide\RenderObserver;
-use Parisek\Styleguide\Twig\StyleguideRuntime;
 use Parisek\Styleguide\Twig\StyleguideTwigExtension;
-use Twig\RuntimeLoader\FactoryRuntimeLoader;
 
-$runtime = new StyleguideRuntime(new RenderObserver());
+// The extensions the package registers for you when it can.
+//
+// Give TypographyExtension a locale resolver, as the package does. Without one
+// it falls back to the typography package's defaults, so `|typography` and the
+// `…t` translator aliases stop following the render's language — the same
+// caveat the `typography_config` row above describes for any hand-registered
+// instance.
+$twig->addExtension(new \Parisek\Twig\TypographyExtension(
+    $typographyConfig ?? '',
+    static fn (): string => $locale,
+));
+$twig->addExtension(new \Parisek\Twig\AttributeExtension());
+$twig->addExtension(new \Twig\Extra\Intl\IntlExtension());
+$twig->addExtension(new \Twig\Extra\String\StringExtension());
+$twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
+    new \Symfony\Component\VarDumper\Cloner\VarCloner(),
+));
 
+// The helpers.
 $twig->addExtension(new StyleguideTwigExtension(['static_path' => $staticPath]));
-$twig->addRuntimeLoader(new FactoryRuntimeLoader([
-    StyleguideRuntime::class => static fn (): StyleguideRuntime => $runtime,
-]));
 ```
 
-`StyleguideTwigExtension` holds no mutable state, so it is safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, which Twig resolves lazily through the loader.
+That is all. **Do not register a `StyleguideRuntime` or a runtime loader yourself** — `Styleguide` installs its own, and it has to be its own.
+
+`StyleguideTwigExtension` holds no mutable state, which is what makes it safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, and only `Styleguide` knows those values. A runtime loader can be added to an already-initialised environment, unlike a function, filter or extension, so `Styleguide` can still wire its own after your framework has closed the environment.
+
+An earlier version of this section did tell you to register a runtime. Construction succeeded and rendering was broken in two silent ways: Twig resolves runtime loaders in registration order, so the helpers reached *your* runtime, whose `Renderer` nothing ever set — `styleguide_data()` threw "no active render context" — and every `component_*` call was recorded into an observer `renderObserved()` does not read. Tests now render through this whole sequence rather than only constructing, because construction succeeding proved nothing.
+
+`Styleguide` recognises a pre-registered `StyleguideTwigExtension` and does not mistake the resulting duplicate names for a closed environment, nor for a reason to refuse observation.
 
 ### Apache / Nginx rewrite
 
