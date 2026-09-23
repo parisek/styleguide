@@ -1,0 +1,13 @@
+# The host application's project styleguide.yaml, as the Symfony bundle reads
+# it. Paths are relative to this file, which is what fromYaml() resolves
+# against — so the bundle's `config:` key is the only path a host has to give.
+bootstrap:
+  templates_path: ../templates
+  static_path: ..
+  default_locale: en
+project:
+  name: Bundle Fixture
+  slug: bundle-fixture
+iframe:
+  css: ''
+  js: ''

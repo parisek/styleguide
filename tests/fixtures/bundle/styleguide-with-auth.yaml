@@ -1,0 +1,9 @@
+# `auth` is run-truth: fromYaml() refuses it. That refusal is what keeps the
+# Symfony bundle from ever having a second security gate beside the host's
+# firewall — see StyleguideController's class comment.
+bootstrap:
+  templates_path: ../templates
+  static_path: ..
+  auth: something
+project:
+  name: Bundle Fixture
