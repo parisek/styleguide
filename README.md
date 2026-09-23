@@ -26,6 +26,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 | **REST endpoints** | `/styleguide/api/components`, `/api/pages`, `/api/docs`, `/api/fields` return JSON for consumers (the SPA itself, plus any external tooling). |
 | **Open in new tab** | Each render can be opened standalone — the iframe template auto-reveals a "← back to styleguide" navbar only when it detects it's NOT inside an iframe. |
 | **Outage screen** | `maintenance:render` renders the project's maintenance page to one self-contained HTML file for a CMS drop-in to serve while the CMS itself is down — a deploy, a core update, an unreachable database. Nothing renders at that moment, so the screen has to exist beforehand. See *Outage screen* below. |
+| **Configuration check** | `doctor` reports what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a `base_url` nothing implements, an empty catalogue. It answers the questions a developer would otherwise answer by deploying. See *Checking a configuration* below. |
 | **Asset serving** | `AssetServer` serves the bundled SPA + locale files from `vendor/parisek/styleguide/dist/` with path-traversal guard, ETag, and immutable cache headers for hashed filenames. |
 
 The whole package is ~8 PHP classes plus prebuilt JS/CSS — no Node.js required in production.
@@ -590,6 +591,7 @@ vendor/bin/styleguide show button                # one component, full detail
 vendor/bin/styleguide show landing --type=page   # one page
 vendor/bin/styleguide show intro --type=doc      # one doc entry
 vendor/bin/styleguide lint                       # metadata quality report
+vendor/bin/styleguide doctor                     # is this project's config sound?
 vendor/bin/styleguide maintenance:render         # render the outage screen
 vendor/bin/styleguide maintenance:render --check # is the rendered screen still current?
 ```
@@ -702,6 +704,35 @@ layer goes quiet without anyone deciding it should:
 
 A malformed or missing `--ignore` file exits `2` (usage error), never `0` —
 silently ignoring nothing would recreate the problem one level up.
+
+### `doctor` — is this project's configuration sound?
+
+```bash
+vendor/bin/styleguide doctor
+vendor/bin/styleguide doctor --config=static/styleguide.yaml
+vendor/bin/styleguide doctor --format=json --pretty
+```
+
+`lint` reads the templates. `doctor` reads the configuration, and reports
+only what would otherwise be found by deploying:
+
+| Check | What it catches |
+|---|---|
+| `config` | The YAML does not load. Reported as one finding with the library's own message, not as a stack trace — and nothing else is checked, because every other check needs the configuration this one could not produce. |
+| `paths` | A configured directory or file that does not exist. `static_path`, `translations_path`, `typography_config` and every `namespaces.*` entry. A namespace whose directory is absent is **skipped silently**, so a typo there never errors — the template using it just stops resolving. |
+| `dist` | The built SPA has lost its `#sg-config` injection point, or references an asset the build no longer contains. The first is a `500` on a live request; the second PHP never learns about at all, because the browser asks for the asset and the page goes blank. |
+| `base_url` | The key is set and nothing implements it. The mount point is `/styleguide`. |
+| `render` | The catalogue is empty — `templates_path` holds no fixture. |
+| `twig` | A notice listing every helper on the environment bar Twig's own language — the styleguide's `component_*()` and `__()`, and the bundled extras (`create_attribute()`, `\|typography`, `dump()`, Intl, String) that are registered when their packages are installed. A consumer writing a helper of the same name needs them before Twig locks its extension set. |
+
+Same exit codes as `lint`: `0` clean or notice-only, `1` when a warning or
+error is present, `2` for a usage error such as a `styleguide.yaml` that
+cannot be found. The helper listing is a notice, so a sound project exits `0`
+with output.
+
+`doctor` does not check a fixture's Twig. `renderObserved()` tolerates an
+unknown helper by design, so a broken template comes back rendered — `lint`
+is what walks the tree.
 
 Replacing a bespoke, hand-rolled styleguide with this package? See
 [`docs/MIGRATION.md`](docs/MIGRATION.md) for a step-by-step guide, including

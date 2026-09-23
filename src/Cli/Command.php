@@ -48,6 +48,10 @@ final class Command
             return $this->runMaintenanceRender($flags, $stdout, $stderr);
         }
 
+        if ($command === 'doctor') {
+            return $this->runDoctor($flags, $stdout, $stderr);
+        }
+
         $rawType = $flags['type'] ?? 'component';
         if (!is_string($rawType) || !in_array($rawType, self::ALLOWED_TYPES, true)) {
             fwrite($stderr, "Invalid --type. Allowed: component, page, doc.\n");
@@ -154,6 +158,66 @@ final class Command
         // is how a lint gate quietly stops meaning anything.
         if ($suppressed !== []) {
             fwrite($stderr, sprintf("%d finding(s) suppressed by the ignore list.\n", count($suppressed)));
+        }
+
+        foreach ($findings as $finding) {
+            if ($finding->severity->failsBuild()) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Report what this project's configuration will do at runtime.
+     *
+     * Same exit-code contract as `lint`: 0 clean, 1 findings that fail a
+     * build, 2 usage. `LintSeverity::failsBuild()` decides which is which, so
+     * a notice — the helper-name listing — never fails CI on its own.
+     *
+     * @param array<string,string|true> $flags
+     * @param resource $stdout
+     * @param resource $stderr
+     */
+    private function runDoctor(array $flags, $stdout, $stderr): int
+    {
+        $rawFormat = $flags['format'] ?? 'text';
+        if (!is_string($rawFormat) || !in_array($rawFormat, ['text', 'json'], true)) {
+            fwrite($stderr, "Invalid --format. Allowed: text, json.\n");
+            return 2;
+        }
+
+        $configPath = $this->resolveConfigPath($flags['config'] ?? null);
+        if ($configPath === null) {
+            fwrite($stderr, "styleguide.yaml not found. Use --config=<path>.\n");
+            return 2;
+        }
+
+        $findings = (new Doctor())->run($configPath);
+
+        if ($rawFormat === 'json') {
+            $payload = array_map(static fn(DoctorFinding $finding): array => $finding->toArray(), $findings);
+            // Same split as runLint(): an encode failure is this command's own
+            // exit 2, not "findings present".
+            if ($this->writeJson($payload, isset($flags['pretty']), $stdout, $stderr) !== 0) {
+                return 2;
+            }
+        } else {
+            fwrite($stdout, sprintf("Checked %s\n\n", $configPath));
+            foreach ($findings as $finding) {
+                fwrite($stdout, sprintf(
+                    "%-7s %-10s %s\n",
+                    strtoupper($finding->severity->value),
+                    $finding->check,
+                    $finding->message,
+                ));
+                if ($finding->remedy !== '') {
+                    // Indented under its finding rather than on the same line:
+                    // a remedy is a sentence or two, and a reader scanning for
+                    // what is wrong should be able to skip them.
+                    fwrite($stdout, sprintf("        %-10s %s\n", '', $finding->remedy));
+                }
+            }
         }
 
         foreach ($findings as $finding) {
@@ -414,6 +478,10 @@ final class Command
           maintenance:render  Render the outage screen to one self-contained HTML file
                               (inlined CSS, no webfont, no script) for a CMS drop-in
                               to serve while the site is down.
+          doctor              Report what this project's styleguide.yaml will do at
+                              runtime: a configured path that does not exist, a stale
+                              or unbuilt dist/, a `base_url` nothing implements, a
+                              catalogue that cannot render. Non-zero exit for CI.
           lint                Report metadata quality issues: unindexed templates, dead
                               `styleguide:` content, broken `usage:` refs, unknown `render:`
                               values, empty descriptions. Non-zero exit for CI.
@@ -421,13 +489,14 @@ final class Command
         Options:
           --type=component|page|doc  Select the catalogue type (default: component;
                                      lint scans all three when omitted).
-          --format=text|json     lint only — output format (default: text).
+          --format=text|json     lint and doctor only — output format (default: text).
           --templates=<path>     Override the templates/ directory location.
                                  Default: \$STYLEGUIDE_TEMPLATES, then ./templates.
           --ignore=<path>        lint only — ignore file. Default:
                                  <templates>/.styleguide-lintignore.yaml when present.
           --pretty               Indent JSON output (use for terminals).
-          --config=<path>        maintenance:render only — styleguide.yaml location.
+          --config=<path>        maintenance:render and doctor only — styleguide.yaml
+                                 location.
                                  Default: ./styleguide.yaml, then ./static/styleguide.yaml.
           --locale=<code>        maintenance:render only — catalogue to render
                                  (default: bootstrap.default_locale, then project.locale).
@@ -446,6 +515,8 @@ final class Command
           vendor/bin/styleguide show button
           vendor/bin/styleguide lint
           vendor/bin/styleguide lint --type=component --format=json
+          vendor/bin/styleguide doctor
+          vendor/bin/styleguide doctor --format=json --pretty
           vendor/bin/styleguide maintenance:render
           vendor/bin/styleguide maintenance:render --locale=en_US --css=/dist/css/style.min.css
 

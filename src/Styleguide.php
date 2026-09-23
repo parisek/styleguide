@@ -10,6 +10,9 @@ use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\Error\LoaderError;
+use Twig\Extension\CoreExtension;
+use Twig\Extension\EscaperExtension;
+use Twig\Extension\OptimizerExtension;
 use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
 use Twig\RuntimeLoader\FactoryRuntimeLoader;
@@ -2588,6 +2591,77 @@ final class Styleguide
     }
 
     /**
+     * @internal Resolved paths, for `styleguide doctor` only.
+     *
+     * Doctor has to check that every configured path actually exists, and the
+     * resolution rules — relative to the YAML's own directory, an empty string
+     * opting out, the conventional namespaces derived from `static_path` — live
+     * in `fromYaml()` and `registerConventionalNamespaces()`. Restating them in
+     * the CLI would let the diagnostic and the runtime disagree, which is the
+     * one thing a diagnostic must never do.
+     *
+     * `dist` is the root the SPA and its assets are served from. It is not a
+     * consumer-settable key (`dist_path` is a run-truth key for tests), so
+     * doctor cannot read it from the YAML.
+     *
+     * `helpers` is read off the built environment rather than off
+     * {@see Twig\StyleguideTwigExtension}, because that extension is not the
+     * whole story: `registerBundledExtensions()` also adds `create_attribute()`,
+     * `|typography`, `dump()` and the Intl/String extras when their packages
+     * are installed. A review caught doctor claiming to list "every helper"
+     * while naming only the styleguide's own — so a consumer with its own
+     * `create_attribute()` was never warned.
+     *
+     * @return array{dist: string, paths: array<string, string>, helpers: list<string>}
+     */
+    public function diagnostics(): array
+    {
+        $paths = [];
+        foreach (['templates_path', 'static_path', 'translations_path', 'typography_config'] as $key) {
+            $value = $this->config[$key] ?? null;
+            if (is_string($value) && $value !== '') {
+                $paths[$key] = $value;
+            }
+        }
+        $namespaces = is_array($this->config['namespaces'] ?? null) ? $this->config['namespaces'] : [];
+        foreach ($namespaces as $name => $path) {
+            if (is_string($name) && $name !== '' && is_string($path) && $path !== '') {
+                $paths['namespaces.' . $name] = $path;
+            }
+        }
+
+        // Twig's own language — `range()`, `max()`, `|join` and the rest —
+        // is subtracted by NAME rather than by skipping its extensions,
+        // because the helpers that matter most are not on an extension at
+        // all: in library mode the package adds them one at a time, which
+        // puts them on Twig's staging extension, and `getExtensions()` does
+        // not list that. Reading the environment and subtracting is the only
+        // way to see both halves.
+        $language = [];
+        foreach ([new CoreExtension(), new EscaperExtension(), new OptimizerExtension()] as $extension) {
+            foreach ($extension->getFunctions() as $function) {
+                $language[$function->getName() . '()'] = true;
+            }
+            foreach ($extension->getFilters() as $filter) {
+                $language['|' . $filter->getName()] = true;
+            }
+        }
+
+        $helpers = [];
+        foreach ($this->twig->getFunctions() as $function) {
+            $helpers[$function->getName() . '()'] = true;
+        }
+        foreach ($this->twig->getFilters() as $filter) {
+            $helpers['|' . $filter->getName()] = true;
+        }
+
+        $helpers = array_keys(array_diff_key($helpers, $language));
+        sort($helpers);
+
+        return ['dist' => $this->distRoot, 'paths' => $paths, 'helpers' => $helpers];
+    }
+
+    /**
      * @api Fixture inventory. Lists every renderable component/page/doc
      *      fixture the project's `templates_path` contains, in stable order
      *      — needed for a consumer's determinism assertion (two calls in the
@@ -2951,7 +3025,7 @@ final class Styleguide
         // original characters, so every legitimate value round-trips
         // unchanged while the breakout is closed.
         $html = (string) preg_replace(
-            '/<script id="sg-config" type="application\/json">.*?<\/script>/s',
+            CorruptBuildException::INJECTION_POINT_PATTERN,
             '<script id="sg-config" type="application/json">' . $configJson . '</script>',
             $html,
             1,

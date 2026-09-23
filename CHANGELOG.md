@@ -10,6 +10,25 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **`vendor/bin/styleguide doctor`.** Reports what a project's
+  `styleguide.yaml` will do at runtime. It checks only what nothing else
+  catches: a configured path that does not exist (a `namespaces.*` entry whose
+  directory is absent is skipped silently, so a typo there never errors), a
+  `dist/` that has lost its `#sg-config` injection point or references an asset
+  the build no longer contains, a `base_url` nothing implements, an empty
+  catalogue. It also lists every Twig helper on the environment bar Twig's own
+  language — the styleguide's own, plus the bundled extras
+  (`create_attribute()`, `|typography`, `dump()`, Intl, String) registered when
+  their packages are installed — so a consumer writing a helper of the same
+  name sees it before Twig locks its extension set.
+
+  A YAML the library refuses is reported as one finding carrying the library's
+  own message, and nothing further is checked — every other check needs the
+  configuration that call would have produced.
+
+  Same exit codes as `lint`: `0` clean or notice-only, `1` for a warning or
+  error, `2` for a usage error. See README § *`doctor`*.
+
 - **An optional Symfony bundle — `Bridge\Symfony\StyleguideBundle`.** The
   catalogue can now be served by a host application's own stack: its routing, its
   security, its access log, its error pages. Enable the bundle, point
