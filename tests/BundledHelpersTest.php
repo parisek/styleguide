@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Tests;
 
 use Parisek\Styleguide\Placeholder;
+use Parisek\Styleguide\RenderObserver;
 use Parisek\Styleguide\Styleguide;
+use Parisek\Styleguide\Twig\StyleguideRuntime;
+use Parisek\Styleguide\Twig\StyleguideTwigExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
+use Twig\RuntimeLoader\FactoryRuntimeLoader;
 use Twig\TwigFunction;
 
 final class BundledHelpersTest extends TestCase
@@ -763,14 +767,60 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function the_readme_remedy_is_not_mistaken_for_a_closed_environment(): void
+    {
+        // The regression this test exists for was the worst kind: the package
+        // refused the exact fix its own error message recommends. A consumer
+        // who registers StyleguideTwigExtension while the environment is open
+        // has every helper in place, so every subsequent add is a duplicate and
+        // nothing is accepted — the same signature a closed environment
+        // produces. Recognising the extension is what tells them apart.
+        //
+        // This is the README § "If your environment is already initialised"
+        // sequence, executed literally.
+        $env = new Environment(new ArrayLoader());
+        $runtime = new StyleguideRuntime(new RenderObserver());
+
+        // The extensions have to come too. Writing this test is what revealed
+        // that the README's remedy was incomplete: registering only
+        // StyleguideTwigExtension left construction dying one phase earlier,
+        // in registerBundledExtensions(), on a closed environment.
+        $env->addExtension(new \Parisek\Twig\TypographyExtension(''));
+        $env->addExtension(new \Parisek\Twig\AttributeExtension());
+        $env->addExtension(new \Twig\Extra\Intl\IntlExtension());
+        $env->addExtension(new \Twig\Extra\String\StringExtension());
+        $env->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
+            new \Symfony\Component\VarDumper\Cloner\VarCloner(),
+        ));
+
+        $env->addExtension(new StyleguideTwigExtension(['static_path' => __DIR__ . '/fixtures']));
+        $env->addRuntimeLoader(new FactoryRuntimeLoader([
+            StyleguideRuntime::class => static fn(): StyleguideRuntime => $runtime,
+        ]));
+        $env->getFunctions(); // the consumer's framework initialises it
+
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+
+        self::assertInstanceOf(Styleguide::class, $sg);
+    }
+
+    #[Test]
     public function repeated_construction_does_not_grow_the_function_set(): void
     {
         // A Codex review killed an earlier design that answered the same
-        // question by ADDING a randomly named probe function. On an open
-        // environment the probe succeeded and stayed, so every construction
-        // left another one behind — unbounded growth on a path the package
-        // calls supported. The check asks the environment a question now
-        // instead of leaving a mark, and this is what holds it to that.
+        // question by ADDING a randomly named probe function: on an open
+        // environment it succeeded and stayed, so every construction left
+        // another one behind.
+        //
+        // Counting through getFunctions() would defeat this test, as a first
+        // review noted — the call initialises the environment, after which no
+        // probe could be added anyway. Reflection reads the registration
+        // staging area instead, leaving the environment open throughout.
         $env = new Environment(new ArrayLoader());
         $config = [
             'templates_path' => __DIR__ . '/fixtures/templates',
@@ -779,14 +829,21 @@ final class BundledHelpersTest extends TestCase
             'twig' => $env,
         ];
 
+        $staged = static function (Environment $env): int {
+            $set = (new \ReflectionObject($env))->getProperty('extensionSet')->getValue($env);
+            $staging = (new \ReflectionObject($set))->getProperty('staging')->getValue($set);
+
+            return count($staging->getFunctions()) + count($staging->getFilters());
+        };
+
         new Styleguide($config);
-        $afterFirst = array_keys($env->getFunctions());
+        $afterFirst = $staged($env);
 
         for ($i = 0; $i < 5; $i++) {
             new Styleguide($config);
         }
 
-        self::assertSame($afterFirst, array_keys($env->getFunctions()));
+        self::assertSame($afterFirst, $staged($env));
     }
 
     #[Test]

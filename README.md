@@ -196,7 +196,7 @@ Earlier versions did not refuse. They succeeded, dropped every helper, and left 
 
 The refusal never reads Twig's wording to decide. Twig raises one exception class both for "this name is taken" and for "this environment is closed"; telling those apart by matching the message text would mean an upstream copy edit could start crashing consumers over an ordinary duplicate name. Instead the package remembers which environments it has already registered on, in a weak map, so a second construction recognises its own footprint. Nothing is added to the environment and nothing initialises it — two earlier designs did one or the other and were rejected on review. Constructing `Styleguide` twice against one environment refuses every name too, as duplicates, and is correctly left alone.
 
-The remedy is to register the helpers yourself, before anything reads from the environment:
+The remedy is to register everything the package would have added yourself, before anything reads from the environment. **All of it** — the extensions as well as the helpers, since extensions are registered first and a closed environment refuses those too:
 
 ```php
 use Parisek\Styleguide\RenderObserver;
@@ -204,6 +204,16 @@ use Parisek\Styleguide\Twig\StyleguideRuntime;
 use Parisek\Styleguide\Twig\StyleguideTwigExtension;
 use Twig\RuntimeLoader\FactoryRuntimeLoader;
 
+// The extensions the package registers for you when it can.
+$twig->addExtension(new \Parisek\Twig\TypographyExtension($typographyConfig ?? ''));
+$twig->addExtension(new \Parisek\Twig\AttributeExtension());
+$twig->addExtension(new \Twig\Extra\Intl\IntlExtension());
+$twig->addExtension(new \Twig\Extra\String\StringExtension());
+$twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
+    new \Symfony\Component\VarDumper\Cloner\VarCloner(),
+));
+
+// The helpers.
 $runtime = new StyleguideRuntime(new RenderObserver());
 
 $twig->addExtension(new StyleguideTwigExtension(['static_path' => $staticPath]));
@@ -213,6 +223,8 @@ $twig->addRuntimeLoader(new FactoryRuntimeLoader([
 ```
 
 `StyleguideTwigExtension` holds no mutable state, so it is safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, which Twig resolves lazily through the loader.
+
+`Styleguide` recognises a pre-registered `StyleguideTwigExtension` and does not mistake the resulting duplicate names for a closed environment. Without that check it refused the very fix this section describes; a test now executes this sequence literally so it cannot regress.
 
 ### Apache / Nginx rewrite
 

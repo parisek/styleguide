@@ -1397,14 +1397,30 @@ final class Styleguide
      * construction that is refused everywhere recognises its own footprint.
      * The map is weak, so it never keeps an environment alive.
      *
-     * The remaining ambiguity is a consumer who pre-registered all of our
-     * names themselves on an open environment; they would be refused. That is
-     * a documented trade-off rather than an accident — someone holding every
-     * name the package provides has replaced its whole surface, and the
-     * refusal names each one, so the message is still true and actionable.
+     * Two things therefore count as "these are our own names": a previous
+     * construction recorded in the map, and — caught late, by review — a
+     * pre-registered {@see StyleguideTwigExtension}, which is the remedy this
+     * whole refusal points consumers at. Without that second check the package
+     * refused the very fix it recommends.
+     *
+     * What remains is a consumer who hand-registered every one of our names
+     * without using the extension. They are refused, and the message lists
+     * each name, so it is still true and actionable — someone holding all of
+     * them has replaced the package's whole surface.
      */
     private function environmentRefusesEverything(Environment $twig): bool
     {
+        // The README's own remedy. A consumer who registered the extension
+        // while the environment was still open has every helper in place, so
+        // of course nothing here was accepted — every name is taken, by us.
+        // Refusing them would punish the exact fix this refusal points at.
+        //
+        // `hasExtension()` reads the extension list without initialising it,
+        // unlike `getFunction()`.
+        if ($twig->hasExtension(StyleguideTwigExtension::class)) {
+            return false;
+        }
+
         return !isset(self::$registeredEnvironments[$twig]);
     }
 
@@ -1437,8 +1453,15 @@ final class Styleguide
                 . 'environment refuses every registration once its extension set has been '
                 . 'initialised, and reading a single function or filter from it is enough to do '
                 . "that.\n\n"
-                . 'See README § "If your environment is already initialised" for how to register '
-                . "the package's helpers before that happens. Twig said: " . $e->getMessage(),
+                . 'If your framework initialises Twig before your code runs, register these '
+                . "yourself while it is still open, alongside StyleguideTwigExtension:\n\n"
+                . "    Parisek\Twig\TypographyExtension\n"
+                . "    Parisek\Twig\AttributeExtension\n"
+                . "    Twig\Extra\Intl\IntlExtension\n"
+                . "    Twig\Extra\String\StringExtension\n"
+                . "    Symfony\Bridge\Twig\Extension\DumpExtension\n\n"
+                . 'See README § "If your environment is already initialised". Twig said: '
+                . $e->getMessage(),
                 0,
                 $e,
             );
