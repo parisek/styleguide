@@ -130,11 +130,11 @@ final class StyleguideDataTest extends TestCase
         $htmlOne = $renderer->render('component', 'data-demo', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
-        ], 'en');
+        ], 'en')->body;
         $htmlTwo = $renderer->render('component', 'data-demo-2', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
-        ], 'en');
+        ], 'en')->body;
 
         self::assertSame('Demo Title', self::extractSgData($htmlOne)['title']);
         self::assertSame('Second Demo', self::extractSgData($htmlTwo)['title']);
@@ -265,15 +265,15 @@ final class StyleguideDataTest extends TestCase
         // PHP exception at this call site.
         $renderer = $this->newRenderer();
 
-        $html = $renderer->render('component', 'data-demo-missing', [
+        $result = $renderer->render('component', 'data-demo-missing', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
+        $html = (string) $result->body;
 
-        self::assertSame(500, http_response_code());
+        self::assertSame(500, $result->status);
         self::assertStringContainsString('Render error:', $html);
         self::assertStringContainsString('styleguide.data.yaml', $html);
-        http_response_code(200);
     }
 
     #[Test]
@@ -324,14 +324,14 @@ final class StyleguideDataTest extends TestCase
     {
         $renderer = $this->newRenderer();
 
-        $html = $renderer->render('component', 'data-demo-malformed', [
+        $result = $renderer->render('component', 'data-demo-malformed', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
+        $html = (string) $result->body;
 
-        self::assertSame(500, http_response_code());
+        self::assertSame(500, $result->status);
         self::assertStringContainsString('Render error:', $html);
-        http_response_code(200);
     }
 
     #[Test]
@@ -363,7 +363,7 @@ final class StyleguideDataTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
             'variant' => 'gallery-view',
-        ], 'en');
+        ], 'en')->body;
 
         self::assertSame('Gallery Set', self::extractSgData($html)['title']);
     }
@@ -545,7 +545,7 @@ final class StyleguideDataTest extends TestCase
         $html = $renderer->render('component', 'data-demo', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
-        ], 'en');
+        ], 'en')->body;
         self::assertStringContainsString('Demo Title', self::extractSgData($html)['title']);
 
         // Reach the SAME renderer's registered styleguide_data callable via
@@ -708,9 +708,9 @@ final class StyleguideDataTest extends TestCase
 
         // `variant` travels in the config array, not as a positional argument
         // (Renderer::render()'s 5th parameter is the theme).
-        $crossDefault = $renderer->render('page', 'data-consumer', $context, 'en');
-        $crossNamed = $renderer->render('page', 'data-consumer', $context + ['variant' => 'named-elsewhere'], 'en');
-        $own = $renderer->render('page', 'data-consumer', $context + ['variant' => 'own-wins'], 'en');
+        $crossDefault = $renderer->render('page', 'data-consumer', $context, 'en')->body;
+        $crossNamed = $renderer->render('page', 'data-consumer', $context + ['variant' => 'named-elsewhere'], 'en')->body;
+        $own = $renderer->render('page', 'data-consumer', $context + ['variant' => 'own-wins'], 'en')->body;
 
         self::assertSame('Demo Title', self::extractSgData($crossDefault)['title']);
         self::assertSame('Gallery Set', self::extractSgData($crossNamed)['title']);

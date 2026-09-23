@@ -56,6 +56,14 @@ final class Result
     }
 
     /**
+     * An HTML body, with the content type the render and SPA routes send.
+     */
+    public static function html(string $body, int $status = 200): self
+    {
+        return new self($status, ['Content-Type' => 'text/html; charset=utf-8'], $body, null);
+    }
+
+    /**
      * A JSON body with the two headers every `/api/*` endpoint sends.
      *
      * Named rather than repeated at five call sites, because the pair is part

@@ -28,6 +28,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   them send. Those headers had no test before — PHP's CLI SAPI never populates
   `headers_list()`, so the header half of five endpoints was asserted nowhere.
 
+  `Renderer::render()` returns a `Result` too, which is where it matters most:
+  its `404` and `500` were set with `http_response_code()` from inside the
+  method, so a caller holding the returned HTML had no way to learn which
+  status belonged to it. The status travels with the body now.
+
 - **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
   The bundled Twig helpers are declared once, in an extension that holds no
   mutable state, with everything a request can move — the render observer, the

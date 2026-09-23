@@ -67,7 +67,7 @@ final class RendererTest extends TestCase
         return $this->markingRenderer()->render('component', 'sample', [
             'project' => ['name' => 'TestProject', 'favicon' => '/favicon.svg'],
             'iframe' => $iframe,
-        ], 'cs');
+        ], 'cs')->body;
     }
 
     #[Test]
@@ -103,7 +103,7 @@ final class RendererTest extends TestCase
                 'js' => '/dist/script.js',
                 'fonts' => ['/fonts/stylesheet.css'],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<!DOCTYPE html>', $html);
         self::assertStringContainsString('lang="cs"', $html);
@@ -127,7 +127,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'iframe' => ['body_class' => 'antialiased'],
             'body_class' => 'bg-secondary-500 body-secondary',
-        ], 'cs');
+        ], 'cs')->body;
 
         // Global iframe.body_class first, then the per-entry body_class.
         self::assertStringContainsString('<body class="antialiased bg-secondary-500 body-secondary">', $html);
@@ -138,7 +138,7 @@ final class RendererTest extends TestCase
     {
         $html = $this->renderer->render('component', 'sample', [
             'iframe' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         // create_attribute filters empty entries — no stray class="" on <body>.
         self::assertStringContainsString('<body>', $html);
@@ -157,7 +157,7 @@ final class RendererTest extends TestCase
         $html = $this->rendererWithBase('')->render('foundations', '', [
             'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
             'styleguide' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<body>', $html);
         self::assertStringNotContainsString('<body class', $html);
@@ -171,7 +171,7 @@ final class RendererTest extends TestCase
         $html = $this->rendererWithBase('')->render('icons', 'index', [
             'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
             'styleguide' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<body>', $html);
         self::assertStringNotContainsString('<body class', $html);
@@ -200,7 +200,7 @@ final class RendererTest extends TestCase
                     ],
                 ],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('Base icons', $html);
         self::assertStringContainsString('data-icon="base-arrow"', $html);
@@ -217,7 +217,7 @@ final class RendererTest extends TestCase
         // block (the sidebar entry is gated on sg-config hasIcons).
         $html = $this->rendererWithBase('')->render('icons', 'index', [
             'styleguide' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('No icons: block configured', $html);
     }
@@ -234,7 +234,7 @@ final class RendererTest extends TestCase
         $html = $this->rendererWithBase('')->render('foundations', '', [
             'foundations_js_url' => '/styleguide/assets/foundations.ABCD1234.js',
             'styleguide' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString(
             '<script type="module" src="/styleguide/assets/foundations.ABCD1234.js"></script>',
@@ -252,7 +252,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringNotContainsString('foundations', $html);
         self::assertStringNotContainsString('<script type="module" src="', $html);
@@ -269,7 +269,7 @@ final class RendererTest extends TestCase
         // proves the opposite: the per-entry class DOES still apply for docs.
         $html = $this->renderer->render('doc', 'sample-doc', [
             'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<body>', $html);
         self::assertStringNotContainsString('<body class', $html);
@@ -288,7 +288,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('doc', 'sample-doc', [
             'iframe' => ['body_class' => 'bg-secondary-500 body-secondary text-white antialiased'],
             'body_class' => 'prose-invert',
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<body class="prose-invert">', $html);
     }
@@ -298,7 +298,7 @@ final class RendererTest extends TestCase
     {
         $html = $this->renderer->render('page', 'landing', [
             'iframe' => ['page_wrapper_class' => 'page-wrapper flex flex-col min-h-dvh'],
-        ], 'cs');
+        ], 'cs')->body;
 
         // The configured shell wraps the page body so the preview matches the
         // production layout's `<div class="page-wrapper …">`.
@@ -311,7 +311,7 @@ final class RendererTest extends TestCase
     {
         $html = $this->renderer->render('page', 'landing', [
             'iframe' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         // Empty (the default) keeps the package framework-agnostic — page body
         // renders with no styleguide-only wrapper div.
@@ -326,7 +326,7 @@ final class RendererTest extends TestCase
         // must not get the shell (it would leak into small previews).
         $html = $this->renderer->render('component', 'sample', [
             'iframe' => ['page_wrapper_class' => 'page-wrapper flex flex-col min-h-dvh'],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringNotContainsString('page-wrapper', $html);
         // Component still gets its own inset wrapper.
@@ -341,7 +341,7 @@ final class RendererTest extends TestCase
         // to blank to opt out gets the same result as omitting it.
         $html = $this->renderer->render('page', 'landing', [
             'iframe' => ['page_wrapper_class' => ''],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<div class="landing">Landing page</div>', $html);
         self::assertStringNotContainsString('page-wrapper', $html);
@@ -354,7 +354,7 @@ final class RendererTest extends TestCase
         // layout and must not inherit the page shell even when the key is set.
         $html = $this->renderer->render('doc', 'sample-doc', [
             'iframe' => ['page_wrapper_class' => 'page-wrapper flex flex-col min-h-dvh'],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringNotContainsString('page-wrapper', $html);
     }
@@ -367,7 +367,7 @@ final class RendererTest extends TestCase
         // future refactor that emits the class without the helper.
         $html = $this->renderer->render('page', 'landing', [
             'iframe' => ['page_wrapper_class' => 'shell" onmouseover="alert(1)'],
-        ], 'cs');
+        ], 'cs')->body;
 
         // The double-quote is entity-encoded, so the injected handler stays
         // inside the class value instead of becoming its own attribute.
@@ -381,7 +381,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
-        ], 'cs', 'dark');
+        ], 'cs', 'dark')->body;
 
         self::assertStringContainsString('<html lang="cs" class="is-styleguide-render dark">', $html);
         self::assertStringContainsString('color-scheme: dark', $html);
@@ -393,7 +393,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
-        ], 'cs'); // theme omitted → default
+        ], 'cs')->body; // theme omitted → default
 
         self::assertStringContainsString('<html lang="cs" class="is-styleguide-render">', $html);
         self::assertStringNotContainsString(' dark"', $html);
@@ -406,7 +406,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css', 'html_class' => 'notranslate'],
-        ], 'cs', 'dark');
+        ], 'cs', 'dark')->body;
 
         self::assertStringContainsString('<html lang="cs" class="is-styleguide-render notranslate dark">', $html);
     }
@@ -423,7 +423,7 @@ final class RendererTest extends TestCase
             $html = $this->renderer->render($kind, $slug, [
                 'project' => ['name' => 'TestProject'],
                 'iframe' => [],
-            ], 'cs');
+            ], 'cs')->body;
 
             self::assertStringContainsString('is-styleguide-render', $html, $kind . ' render');
         }
@@ -432,44 +432,45 @@ final class RendererTest extends TestCase
     #[Test]
     public function renders_404_for_missing_component(): void
     {
-        $html = $this->renderer->render('component', 'nonexistent', [
+        $result = $this->renderer->render('component', 'nonexistent', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
 
-        self::assertSame(404, http_response_code());
-        self::assertStringContainsString('404', $html);
-        self::assertStringContainsString('component/nonexistent', $html);
-        http_response_code(200);
+        // The status travels WITH the body now. It used to be set inside
+        // render404() as a side effect, so this had to read a process global
+        // and put it back afterwards — and a caller holding the HTML had no way
+        // to learn which status belonged to it.
+        self::assertSame(404, $result->status);
+        self::assertStringContainsString('404', (string) $result->body);
+        self::assertStringContainsString('component/nonexistent', (string) $result->body);
     }
 
     #[Test]
     public function renders_404_for_invalid_kind(): void
     {
-        $html = $this->renderer->render('invalid', 'whatever', [
+        $result = $this->renderer->render('invalid', 'whatever', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
 
-        self::assertSame(404, http_response_code());
-        self::assertStringContainsString('invalid/whatever', $html);
-        http_response_code(200);
+        self::assertSame(404, $result->status);
+        self::assertStringContainsString('invalid/whatever', (string) $result->body);
     }
 
     #[Test]
     public function render_error_sets_http_500_and_keeps_error_markup_visible(): void
     {
-        $html = $this->renderer->render('component', 'broken-sample', [
+        $result = $this->renderer->render('component', 'broken-sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
 
-        self::assertSame(500, http_response_code());
-        self::assertStringContainsString('Render error:', $html);
+        self::assertSame(500, $result->status);
+        self::assertStringContainsString('Render error:', (string) $result->body);
         // The underlying Twig message stays visible (existing errorMarkup()
-        // behaviour) — this test only pins the new status-code contract, not
+        // behaviour) — this test only pins the status-code contract, not
         // a new markup shape.
-        http_response_code(200);
     }
 
     #[Test]
@@ -477,13 +478,12 @@ final class RendererTest extends TestCase
     {
         // Guards against a sloppy refactor that moves the 500 call somewhere
         // that also fires for the 404 branch.
-        $this->renderer->render('component', 'nonexistent', [
+        $result = $this->renderer->render('component', 'nonexistent', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
 
-        self::assertSame(404, http_response_code());
-        http_response_code(200);
+        self::assertSame(404, $result->status);
     }
 
     #[Test]
@@ -493,7 +493,7 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
             'render' => 'bleed',
-        ], 'cs');
+        ], 'cs')->body;
 
         // No inset wrapper — the component renders edge-to-edge.
         self::assertStringNotContainsString('<div style="padding:1.5rem">', $html);
@@ -512,7 +512,7 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
             'render' => 'chrome',
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringNotContainsString('<div style="padding:1.5rem">', $html);
         self::assertStringContainsString('--header-height: 0px', $html);
@@ -528,13 +528,13 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
             'render' => 'bleed',
-        ], 'cs');
+        ], 'cs')->body;
 
         $overlayHtml = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
             'render' => 'overlay',
-        ], 'cs');
+        ], 'cs')->body;
 
         // overlay ≡ bleed at the iframe-wrapper level (see spec § Mode semantics).
         // The separate label exists for future UI surfacing; both modes must emit
@@ -549,7 +549,7 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
             // No 'render' key → normaliseRender → 'inset' (default).
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<div style="padding:1.5rem">', $html);
         // Inset must not inject the bleed/chrome/overlay CSS overrides.
@@ -565,7 +565,7 @@ final class RendererTest extends TestCase
             'iframe' => [
                 'css' => ['/dist/bundle.css', '/legacy/style.css'],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="stylesheet" href="/dist/bundle.css">', $html);
         self::assertStringContainsString('<link rel="stylesheet" href="/legacy/style.css">', $html);
@@ -584,7 +584,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/only.css'],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="stylesheet" href="/dist/only.css">', $html);
         self::assertSame(1, substr_count($html, 'rel="stylesheet"'));
@@ -596,7 +596,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['fonts' => '/fonts/single.css'],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="stylesheet" href="/fonts/single.css">', $html);
     }
@@ -609,7 +609,7 @@ final class RendererTest extends TestCase
             'iframe' => [
                 'fonts' => ['/fonts/a.css', '/fonts/b.css'],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="stylesheet" href="/fonts/a.css">', $html);
         self::assertStringContainsString('<link rel="stylesheet" href="/fonts/b.css">', $html);
@@ -628,7 +628,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('doc', 'sample-doc', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css'],
-        ], 'en');
+        ], 'en')->body;
 
         self::assertStringContainsString('Fixture body.', $html);
     }
@@ -636,15 +636,14 @@ final class RendererTest extends TestCase
     #[Test]
     public function missing_doc_is_404(): void
     {
-        $html = $this->renderer->render('doc', 'nonexistent', [
+        $result = $this->renderer->render('doc', 'nonexistent', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
         ], 'en');
 
-        self::assertSame(404, http_response_code());
-        self::assertStringContainsString('404', $html);
-        self::assertStringContainsString('doc/nonexistent', $html);
-        http_response_code(200);
+        self::assertSame(404, $result->status);
+        self::assertStringContainsString('404', (string) $result->body);
+        self::assertStringContainsString('doc/nonexistent', (string) $result->body);
     }
 
     #[Test]
@@ -730,7 +729,7 @@ final class RendererTest extends TestCase
                 'js' => '/dist/script.js',
                 'fonts' => ['/fonts/stylesheet.css'],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="stylesheet" href="' . $base . '/dist/style.css">', $html);
         self::assertStringContainsString('<link rel="stylesheet" href="' . $base . '/fonts/stylesheet.css">', $html);
@@ -745,7 +744,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject'],
             'iframe' => ['css' => '/dist/style.css', 'js' => '/dist/script.js'],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="stylesheet" href="/dist/style.css">', $html);
         self::assertStringContainsString('<script type="module" src="/dist/script.js"></script>', $html);
@@ -779,7 +778,7 @@ final class RendererTest extends TestCase
         $html = $this->rendererWithBase($base)->render('component', 'sample', [
             'project' => ['name' => 'TestProject', 'favicon' => '/images/touch/favicon.svg'],
             'iframe' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="icon" href="' . $base . '/images/touch/favicon.svg">', $html);
         self::assertStringContainsString('src="' . $base . '/images/touch/favicon.svg"', $html);
@@ -792,7 +791,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject', 'favicon' => '/images/touch/favicon.svg'],
             'iframe' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('<link rel="icon" href="/images/touch/favicon.svg">', $html);
     }
@@ -810,7 +809,7 @@ final class RendererTest extends TestCase
                     'main' => ['src' => '/images/logo.svg', 'alt' => 'Logo', 'label' => 'Main'],
                 ],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         // (#78) `logo.src` is a consumer-yaml value rendered into an `src`
         // attribute, so foundations.twig now pipes it through `|e('html_attr')`
@@ -854,7 +853,7 @@ final class RendererTest extends TestCase
                     'maskable_icon' => null,
                 ],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         // html_attr escaping encodes `/` as `&#x2F;` (browsers decode it back
         // inside an attribute) — assert the literal actually emitted.
@@ -885,7 +884,7 @@ final class RendererTest extends TestCase
                     'notes' => [],
                 ],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         $esc = static fn(string $u): string => str_replace('/', '&#x2F;', $u);
         self::assertStringContainsString('src="' . $esc($base . '/images/og-image.png') . '"', $html);
@@ -922,7 +921,7 @@ final class RendererTest extends TestCase
                     'notes' => [],
                 ],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         $esc = static fn(string $u): string => str_replace('/', '&#x2F;', $u);
         self::assertStringContainsString('src="' . $esc('/images/touch/favicon.svg') . '"', $html);
@@ -938,7 +937,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'sample', [
             'project' => ['name' => 'TestProject', 'favicon' => '/missing.svg'],
             'iframe' => [],
-        ], 'cs');
+        ], 'cs')->body;
 
         self::assertStringContainsString('src="/missing.svg"', $html);
         self::assertStringContainsString('onerror="this.onerror=null;this.src=', $html);
@@ -966,7 +965,7 @@ final class RendererTest extends TestCase
                     'notes' => [],
                 ],
             ],
-        ], 'cs');
+        ], 'cs')->body;
 
         // create_attribute() entity-encodes quotes in this bare test env
         // (no html_safe marking outside the real boot path — same quirk
@@ -989,7 +988,7 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
             'variant' => 'secondary',
-        ], 'en');
+        ], 'en')->body;
 
         self::assertStringContainsString('multi--secondary', $html);
         self::assertStringNotContainsString('multi--demo', $html);
@@ -1000,15 +999,14 @@ final class RendererTest extends TestCase
     {
         // A deleted/renamed variant file must not 404 a bookmarked deep link —
         // it falls through to the same default chain as no variant at all.
-        $html = $this->renderer->render('component', 'multi', [
+        $result = $this->renderer->render('component', 'multi', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
             'variant' => 'retired',
         ], 'en');
 
-        self::assertSame(200, http_response_code());
-        self::assertStringContainsString('multi--demo', $html);
-        http_response_code(200);
+        self::assertSame(200, $result->status);
+        self::assertStringContainsString('multi--demo', (string) $result->body);
     }
 
     #[Test]
@@ -1021,7 +1019,7 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
             'variant' => '../../etc/passwd',
-        ], 'en');
+        ], 'en')->body;
 
         self::assertStringContainsString('multi--demo', $html);
     }
@@ -1032,7 +1030,7 @@ final class RendererTest extends TestCase
         $html = $this->renderer->render('component', 'multi', [
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
-        ], 'en');
+        ], 'en')->body;
 
         self::assertStringContainsString('multi--demo', $html);
     }
@@ -1048,7 +1046,7 @@ final class RendererTest extends TestCase
             'project' => ['name' => 'TestProject'],
             'iframe' => [],
             'variant' => 'secondary',
-        ], 'en', 'dark');
+        ], 'en', 'dark')->body;
 
         self::assertStringContainsString('multi--secondary', $html, 'variant still resolves with theme set');
         self::assertStringContainsString(' dark"', $html, 'theme still stamps the <html> class with variant set');
