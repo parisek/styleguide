@@ -208,6 +208,38 @@ final class PreRegisteredRemedyTest extends TestCase
     }
 
     #[Test]
+    public function a_second_styleguide_on_one_environment_renders_through_correctly(): void
+    {
+        // Constructing twice against one environment is a supported pattern
+        // with a test of its own — but that test only checked loader-path
+        // idempotence. A Codex review pointed out that the SECOND object was
+        // unusable: Twig caches the first runtime a loader returns, so the
+        // second instance's own runtime was reached by nothing. Its Renderer
+        // announced itself to a runtime no helper consulted, and
+        // styleguide_data() threw.
+        //
+        // The second construction adopts the cached runtime now. This renders
+        // through the second object to prove it, which is the assertion the
+        // earlier tests were missing.
+        $static = __DIR__ . '/../fixtures';
+        $config = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'twig' => new Environment(new ArrayLoader()),
+        ];
+
+        new Styleguide($config);
+        $second = new Styleguide($config);
+
+        self::assertStringContainsString(
+            'Demo Title',
+            $second->renderObserved('component', 'data-demo')['html'],
+            'the second instance could not resolve its own sidecar',
+        );
+    }
+
+    #[Test]
     public function render_observed_does_not_refuse_our_own_pre_registered_helpers(): void
     {
         // `component_*` cannot be registered here — the extension already

@@ -343,12 +343,36 @@ final class Styleguide
             : $this->buildOwnTwig($config['templates_path']);
 
         $this->registerBundledExtensionsOrExplain($this->twig);
-        $this->observer = new RenderObserver();
-        $this->twigRuntime = new StyleguideRuntime(
-            $this->observer,
-            $this->translationCatalog,
-            fn(): string => $this->requestLocale,
-        );
+
+        // A runtime already on this environment, on an environment this
+        // package has registered on before, belongs to an earlier
+        // `Styleguide` built against it, and Twig has cached it — a loader
+        // registered later cannot displace it. Adopt it rather than building a
+        // second one nothing would ever reach: the helpers resolve to the
+        // cached instance, so a fresh runtime would leave `styleguide_data()`
+        // without an active `Renderer` and send observations to an observer
+        // `renderObserved()` does not read.
+        //
+        // The observer comes with it, so both objects record into one trace
+        // frame stack, which is what the shared environment already implies.
+        // What does NOT transfer is this instance's locale resolver and
+        // translation catalogue: the first construction's win. Identical
+        // configs — the reason anyone constructs twice — are unaffected;
+        // differing ones silently follow the first, which is the price of
+        // sharing an environment at all.
+        $adopted = $this->adoptableRuntime($this->twig);
+
+        if ($adopted !== null) {
+            $this->twigRuntime = $adopted;
+            $this->observer = $adopted->observer();
+        } else {
+            $this->observer = new RenderObserver();
+            $this->twigRuntime = new StyleguideRuntime(
+                $this->observer,
+                $this->translationCatalog,
+                fn(): string => $this->requestLocale,
+            );
+        }
         $this->registerBundledHelpers($this->twig, $this->observer);
         $this->refuseAForeignRuntime();
         $this->refuseALockedEnvironment();
@@ -2074,6 +2098,43 @@ final class Styleguide
     }
 
     /**
+     * A `StyleguideRuntime` already reachable on this environment, if it is
+     * one of ours to adopt.
+     *
+     * Called before the runtime loader is installed, so anything it finds was
+     * put there by an earlier construction against the same environment.
+     * Adopting is not a nicety: Twig caches the first runtime a loader returns,
+     * so a second instance's own runtime would never be reached by any helper.
+     *
+     * `null` covers both "nothing registered it" and "something registered
+     * something else" — the latter is {@see refuseAForeignRuntime()}'s business,
+     * which runs after the loader is in place and can compare against the
+     * instance this object actually ended up with.
+     */
+    private function adoptableRuntime(Environment $twig): ?StyleguideRuntime
+    {
+        self::$registeredEnvironments ??= new \WeakMap();
+
+        // Only a runtime WE put there is adoptable. Without this check a
+        // consumer's own loader would be adopted as well, which is the one
+        // thing {@see refuseAForeignRuntime()} exists to prevent — their
+        // runtime has no `Renderer` and no observer this object can reach, and
+        // silently adopting it would turn a refusal into the exact silent
+        // breakage the refusal was written for.
+        if (!isset(self::$registeredEnvironments[$twig])) {
+            return null;
+        }
+
+        try {
+            $resolved = $twig->getRuntime(StyleguideRuntime::class);
+        } catch (\Twig\Error\RuntimeError) {
+            return null;
+        }
+
+        return $resolved instanceof StyleguideRuntime ? $resolved : null;
+    }
+
+    /**
      * Refuse an environment whose `StyleguideRuntime` is somebody else's.
      *
      * Twig resolves runtime loaders in registration order and caches the first
@@ -2101,22 +2162,6 @@ final class Styleguide
         }
 
         if ($resolved === $this->twigRuntime) {
-            return;
-        }
-
-        // Not a foreign loader — our own, from an earlier construction on this
-        // same environment. Twig caches the first runtime a loader returns, so
-        // the first `Styleguide` keeps its instance and this one's is ignored.
-        //
-        // Tolerated, and a real limitation worth naming: on a shared
-        // environment the FIRST instance's observer and `Renderer` are the ones
-        // the helpers reach, so a second instance's `renderObserved()` reports
-        // the first's view. Refusing would break
-        // `repeated_construction_does_not_duplicate_paths`, a supported
-        // pattern, over a case nobody is known to hit — two live `Styleguide`
-        // objects sharing one environment. Making them genuinely independent is
-        // a separate piece of work, not a side effect of this refusal.
-        if (isset(self::$registeredEnvironments[$this->twig])) {
             return;
         }
 
