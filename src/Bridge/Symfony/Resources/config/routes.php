@@ -23,14 +23,42 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
  * and get `index.html` back; a segment-limited pattern would 404 on exactly the
  * deep links people bookmark and paste.
  *
+ * `/styleguide` and `/styleguide/` are BOTH served, by one route with an
+ * optional trailing-slash placeholder. Two separate routes cannot do it in
+ * either order: Symfony's redirectable matcher tolerates a trailing-slash
+ * difference on the first route that nearly matches and answers a 301 there
+ * and then, never reaching the route that matches exactly. Declare the bare
+ * prefix first and `/styleguide/` redirects; swap them and `/styleguide`
+ * does. An optional `{path}` fails the same way from the other side, because
+ * it makes `/styleguide` the canonical form.
+ *
+ * It matters because the library front controller served both directly, and
+ * `/styleguide/` is the URL people bookmark and the one the SPA's history
+ * base is written with. Reading the routing file would not have shown this;
+ * the response header naming
+ * `FrameworkBundle\Controller\RedirectController` did.
+ *
  * The prefix is read from the extension's constant rather than written here, so
  * the two cannot drift.
  */
 return static function (RoutingConfigurator $routes): void {
     $prefix = StyleguideExtension::SUPPORTED_PREFIX;
 
-    $routes->add('styleguide_root', $prefix)
+    // One route for `/styleguide` AND `/styleguide/`, not two.
+    //
+    // Two routes cannot work in either order. Symfony's redirectable matcher
+    // tolerates a trailing-slash difference on the FIRST route that nearly
+    // matches and returns a 301 there and then, without trying the route that
+    // matches exactly. So with `/styleguide` declared first, `/styleguide/`
+    // redirects; swap them and `/styleguide` redirects instead. An optional
+    // `{path}` has the same problem from the other side.
+    //
+    // An optional trailing-slash placeholder is the shape that matches both
+    // exactly, so neither redirects.
+    $routes->add('styleguide_root', $prefix . '{slash}')
         ->controller(StyleguideController::class)
+        ->requirements(['slash' => '/?'])
+        ->defaults(['slash' => ''])
         ->methods(['GET', 'HEAD']);
 
     $routes->add('styleguide', $prefix . '/{path}')
