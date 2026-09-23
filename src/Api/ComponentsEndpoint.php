@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Api;
 
 use Parisek\Styleguide\ComponentParser;
+use Parisek\Styleguide\Http\Result;
 
 /**
  * @internal Implementation detail of `Styleguide::run()`. Consumer-facing
@@ -17,13 +18,16 @@ final class ComponentsEndpoint
 {
     public function __construct(private ComponentParser $parser) {}
 
-    public function handle(): void
+    /**
+     * @see \Parisek\Styleguide\Http\Result — describes the response rather
+     *      than writing it, so a host application can serve this endpoint from
+     *      its own stack. `Styleguide::run()` emits the result unchanged.
+     */
+    public function handle(): Result
     {
-        header('Content-Type: application/json; charset=utf-8');
-        header('Cache-Control: no-cache');
-        echo json_encode(
+        return Result::json((string) json_encode(
             $this->parser->parseAll('component'),
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
-        );
+        ));
     }
 }

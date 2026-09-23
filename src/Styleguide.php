@@ -3174,12 +3174,21 @@ final class Styleguide
         };
 
         if ($endpoint === null) {
-            http_response_code(404);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['error' => 'Unknown API endpoint: ' . $route['endpoint']]);
+            // Note the asymmetry, carried over deliberately: the 404 sends
+            // Content-Type but NOT Cache-Control, where the five endpoints send
+            // both. Result::json() would add the second header and change the
+            // response, so this one is built by hand.
+            Http\Result::text(
+                (string) json_encode(['error' => 'Unknown API endpoint: ' . $route['endpoint']]),
+                404,
+                ['Content-Type' => 'application/json; charset=utf-8'],
+            )->emit();
+
             return;
         }
 
-        $endpoint->handle();
+        // Emitted here on the endpoint's behalf, as with assets. D4 moves
+        // emitting up into run() and returns these results instead.
+        $endpoint->handle()->emit();
     }
 }
