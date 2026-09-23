@@ -61,29 +61,45 @@ final class Renderer
      *   backward compatibility with direct `new Renderer($twig, $context)`
      *   callers, e.g. existing unit tests) means `styleguide_data()` always
      *   throws — see {@see resolveStyleguideData()}.
+     * @param \Parisek\Styleguide\Twig\StyleguideRuntime|null $twigRuntime
+     *   The runtime that answers `styleguide_data()`. This `Renderer` announces
+     *   itself to it around each render, so the function resolves against
+     *   whichever fixture is rendering at CALL time.
+     *
+     *   `null` keeps direct `new Renderer($twig, $context)` callers working —
+     *   the existing unit tests — and simply means nothing announces itself,
+     *   exactly as `$templatesPath === null` already means.
+     *
+     *   This replaces a `styleguide_data` Twig function that `Renderer`
+     *   registered on the environment itself, inside a try/catch that
+     *   swallowed both a duplicate name AND "extensions already initialized".
+     *   On a booted Symfony Twig service the second case meant the function
+     *   silently never existed.
      */
     public function __construct(
         private Environment $twig,
         private array $context = [],
         private ?string $templatesPath = null,
+        private ?\Parisek\Styleguide\Twig\StyleguideRuntime $twigRuntime = null,
     ) {
-        $this->registerDataFunction();
+        if ($twigRuntime === null) {
+            $this->registerDataFunction();
+        }
     }
 
     /**
-     * Registers the `styleguide_data()` Twig function bound to THIS
-     * `Renderer` instance via closure capture, so the callable can read
-     * whichever directory is "currently rendering" ({@see $currentKind} /
-     * {@see $currentSlug}) at CALL time rather than at registration time —
-     * the seam that makes a no-arg `styleguide_data()` call inside ANY
-     * component/page/doc fixture resolve to THAT fixture's own sidecar,
-     * without needing a fresh Twig function per render.
+     * Legacy registration for a `Renderer` built without a runtime.
      *
-     * Idempotent-add pattern mirrors `Styleguide::tryAddFunction()` (not
-     * reused directly — that method is private to `Styleguide` — but the
-     * same reasoning applies here: a project that pre-registers its own
-     * `styleguide_data` Twig function, or an env whose extensions are
-     * already initialized, must not crash `Renderer` construction).
+     * `Styleguide` always passes one, so this path is only reached by direct
+     * `new Renderer($twig, $context)` callers — the existing unit tests, and
+     * any consumer doing the same. Keeping it means this refactor changes
+     * nothing for them.
+     *
+     * It carries the original defect with it on purpose: the `catch` swallows
+     * a duplicate name AND "extensions already initialized", so on a locked
+     * environment the function silently never exists. That is precisely what
+     * the runtime path fixes; reproducing the old behaviour here is a
+     * compatibility shim, not an endorsement. New code should pass a runtime.
      */
     private function registerDataFunction(): void
     {
@@ -94,10 +110,7 @@ final class Renderer
                 static fn(?string $ref = null): array => $renderer->resolveStyleguideData($ref),
             ));
         } catch (\LogicException) {
-            // Duplicate function name, or "extensions already initialized"
-            // on a shared env — swallow-and-defer, same contract as
-            // Styleguide::tryAddFunction() (see that method's doc comment
-            // for why the two cases aren't distinguished).
+            // See the docblock above.
         }
     }
 
@@ -888,11 +901,18 @@ final class Renderer
                 $previousSlug = $this->currentSlug;
                 $this->currentKind = $kind;
                 $this->currentSlug = $slug;
+                // Announce to the runtime for the duration of the render, and
+                // stand down in the same `finally` that restores the pointers
+                // above. Without the stand-down a long-running worker would
+                // let one request's fixture context answer the next request's
+                // `styleguide_data()`.
+                $this->twigRuntime?->setRenderer($this);
                 try {
                     return $this->twig->render($path, $this->context);
                 } finally {
                     $this->currentKind = $previousKind;
                     $this->currentSlug = $previousSlug;
+                    $this->twigRuntime?->setRenderer($previousKind === null ? null : $this);
                 }
             }
         }

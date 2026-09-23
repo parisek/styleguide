@@ -59,10 +59,25 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      */
     private ?Renderer $renderer = null;
 
+    /**
+     * @param \Closure(): string|null $localeResolver
+     *   Returns the locale this render is in, invoked fresh on every
+     *   translator call. A resolver rather than a value because the locale is
+     *   only known after the route is parsed, which happens AFTER this runtime
+     *   is built — `dispatchRender()` narrows `Styleguide`'s own
+     *   `$requestLocale` from `?locale=`.
+     *
+     *   A setter would work too, and would be wrong: it would have to be
+     *   called beside every assignment to that property, and the day someone
+     *   adds a fourth assignment without the pairing, the translators quietly
+     *   answer in the previous locale. Reading through a resolver leaves one
+     *   source of truth and nothing to keep in sync. `registerBundledExtensions()`
+     *   already hands `TypographyExtension` its locale the same way.
+     */
     public function __construct(
         private readonly RenderObserver $observer,
         private readonly ?TranslationCatalog $catalog = null,
-        private string $requestLocale = 'en_US',
+        private readonly ?\Closure $localeResolver = null,
     ) {}
 
     public function setRenderer(?Renderer $renderer): void
@@ -70,14 +85,9 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
         $this->renderer = $renderer;
     }
 
-    /**
-     * Updated once the route is parsed and `?locale=` is known — which
-     * happens after helper registration, which is why the translators read
-     * this property at call time instead of capturing a value.
-     */
-    public function setRequestLocale(string $locale): void
+    private function locale(): string
     {
-        $this->requestLocale = $locale;
+        return $this->localeResolver === null ? 'en_US' : ($this->localeResolver)();
     }
 
     public function observer(): RenderObserver
@@ -151,12 +161,12 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
 
     public function translate(string $text, string $domain = 'default'): string
     {
-        return $this->catalog?->lookup($this->requestLocale, $text) ?? $text;
+        return $this->catalog?->lookup($this->locale(), $text) ?? $text;
     }
 
     public function translateWithContext(string $text, string $context = '', string $domain = 'default'): string
     {
-        return $this->catalog?->lookup($this->requestLocale, $text, $context) ?? $text;
+        return $this->catalog?->lookup($this->locale(), $text, $context) ?? $text;
     }
 
     public function translatePlural(
@@ -165,7 +175,7 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
         int $number = 1,
         string $domain = 'default',
     ): string {
-        return $this->catalog?->lookupPlural($this->requestLocale, $single, $plural, $number)
+        return $this->catalog?->lookupPlural($this->locale(), $single, $plural, $number)
             ?? ($number === 1 ? $single : $plural);
     }
 
@@ -176,7 +186,7 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
         string $context = '',
         string $domain = 'default',
     ): string {
-        $resolved = $this->catalog?->lookupPlural($this->requestLocale, $single, $plural, $number, $context)
+        $resolved = $this->catalog?->lookupPlural($this->locale(), $single, $plural, $number, $context)
             ?? ($number === 1 ? $single : $plural);
 
         return sprintf($resolved, $number);
