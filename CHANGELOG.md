@@ -8,8 +8,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
-## [1.18.1] - 2026-09-23
-
 ### Fixed
 
 - **The Symfony bundle serves `/styleguide/` instead of redirecting it.** The
@@ -24,6 +22,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   difference on the first route that nearly matches, without trying the route
   that matches exactly, so whichever is declared second redirects. Making
   `{path}` optional fails the same way from the other side.
+
+## [1.18.1] - 2026-09-23
 
 ### Fixed
 
