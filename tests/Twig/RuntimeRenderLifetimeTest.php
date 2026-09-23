@@ -150,6 +150,57 @@ final class RuntimeRenderLifetimeTest extends TestCase
     }
 
     #[Test]
+    public function the_minted_id_bag_does_not_grow_across_renders(): void
+    {
+        // Harmless while run() ended the process after one request; a reusable
+        // Styleguide behind handle() would have grown this array for the life
+        // of a worker, once per uniqueId() call, forever. Ids only need to be
+        // unique within one rendered document, so keeping earlier requests'
+        // buys nothing. Found by review.
+        $sg = $this->styleguide();
+        $runtime = $this->runtimeOf($sg);
+        $bag = (new \ReflectionClass($runtime))->getProperty('uniqueIds');
+
+        // The fixture mints two ids, which matters: an earlier version of this
+        // test rendered a fixture that mints NONE, so the bag was empty either
+        // way and the assertion proved nothing. A mutation that never clears
+        // the bag passed it.
+        $first = $sg->renderObserved('component', 'unique-id')['html'];
+        self::assertSame([], $bag->getValue($runtime), 'ids outlived the render that minted them');
+
+        $second = $sg->renderObserved('component', 'unique-id')['html'];
+        self::assertSame([], $bag->getValue($runtime));
+        self::assertNotSame($first, $second, 'the fixture should mint fresh ids each render');
+    }
+
+    #[Test]
+    public function ids_stay_unique_within_one_nested_render(): void
+    {
+        // The other half: clearing must happen at the OUTERMOST boundary only.
+        // A nested render is still one document, so the bag has to survive the
+        // inner render finishing.
+        $runtime = $this->runtimeOf($this->styleguide());
+        $bag = (new \ReflectionClass($runtime))->getProperty('uniqueIds');
+
+        $renderer = new \Parisek\Styleguide\Renderer(
+            new \Twig\Environment(new \Twig\Loader\ArrayLoader()),
+        );
+
+        $runtime->pushRenderer($renderer);
+        $outer = $runtime->uniqueId();
+
+        $runtime->pushRenderer($renderer);
+        $inner = $runtime->uniqueId();
+        $runtime->popRenderer();
+
+        self::assertArrayHasKey($outer, $bag->getValue($runtime), 'the inner pop cleared the outer bag');
+        self::assertNotSame($outer, $inner);
+
+        $runtime->popRenderer();
+        self::assertSame([], $bag->getValue($runtime));
+    }
+
+    #[Test]
     public function two_renders_in_one_process_each_resolve_their_own_sidecar(): void
     {
         // The cross-request case, collapsed into one process: if the first

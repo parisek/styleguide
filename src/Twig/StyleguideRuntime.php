@@ -37,11 +37,15 @@ use Twig\Extension\RuntimeExtensionInterface;
 final class StyleguideRuntime implements RuntimeExtensionInterface
 {
     /**
-     * Minted ids, kept across calls for one environment lifetime.
+     * Minted ids, kept for the duration of one render.
      *
      * `bin2hex(random_bytes(3))` is 24 bits per call, so a same-render
      * collision is vanishingly unlikely — the bag is free insurance for
      * templates that mint dozens of ids (galleries, accordions) on one page.
+     *
+     * Cleared when the outermost render finishes ({@see popRenderer()}),
+     * because uniqueness is only ever needed within one document. Nested
+     * renders share the bag, which is right: they produce one document.
      *
      * @var array<string, true>
      */
@@ -103,6 +107,16 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
     public function popRenderer(): void
     {
         array_pop($this->renderers);
+
+        // The outermost render just finished, so the minted ids have served
+        // their purpose: they only ever needed to be unique within ONE
+        // rendered document. Keeping them was harmless while run() ended the
+        // process after a single request; a reusable Styleguide behind
+        // handle() would have grown this array for the life of the worker,
+        // once per uniqueId() call, forever. Found by review.
+        if ($this->renderers === []) {
+            $this->uniqueIds = [];
+        }
     }
 
     private function locale(): string

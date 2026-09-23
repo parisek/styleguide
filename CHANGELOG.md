@@ -51,6 +51,12 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   other throw propagates with the response code untouched, as before. Extends
   `RuntimeException`, so existing `catch (\RuntimeException)` keeps working.
 
+- **`uniqueId()`'s collision bag is scoped to one render** instead of to the
+  environment's lifetime. Ids only ever need to be unique within a single
+  rendered document, and a `Styleguide` reused behind `handle()` would otherwise
+  have grown that array for the life of a worker, once per call. Nested renders
+  still share the bag — they produce one document.
+
 - **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
   The bundled Twig helpers are declared once, in an extension that holds no
   mutable state, with everything a request can move — the render observer, the
