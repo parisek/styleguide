@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 
@@ -275,6 +276,11 @@ final class BundleTest extends TestCase
         // in a subdirectory — routing matched (it uses pathInfo) and then
         // Router::parse() was handed `/index.php/styleguide/…`, did not
         // recognise it, and every single request 404'd.
+        //
+        // What this asserts is routing, not a usable catalogue under a
+        // subdirectory: the built shell still requests /styleguide/assets/…
+        // at the domain root. The endpoints answer; the shell needs the
+        // prefix where it was built for.
         $response = $this->kernel()->handle(Request::create(
             '/index.php/styleguide/api/components',
             server: ['SCRIPT_NAME' => '/index.php', 'SCRIPT_FILENAME' => '/index.php'],
@@ -371,13 +377,31 @@ final class BundleTest extends TestCase
         $response = $kernel->handle(Request::create('/styleguide/api/components'));
 
         self::assertSame(500, $response->getStatusCode());
+
+        // A 500 on its own would not prove the refusal: fromYaml() also throws
+        // InvalidArgumentException for a config file it cannot find, so a
+        // fixture path that rotted would keep this test green and leave the
+        // security property untested. Name the reason.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("key 'bootstrap.auth' is a run-truth value");
+
+        $kernel->handle(
+            Request::create('/styleguide/api/components'),
+            HttpKernelInterface::MAIN_REQUEST,
+            // Positional: Kernel::handle()'s third parameter is $catch.
+            false,
+        );
     }
 
     #[Test]
     public function the_bundle_cannot_be_given_an_auth_callable(): void
     {
-        // The library rule the above rests on, asserted directly.
+        // The library rule the above rests on, asserted directly. The message
+        // is asserted for the same reason as in the kernel test: the bare
+        // exception class does not distinguish a refused key from a missing
+        // file.
         $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("key 'bootstrap.auth' is a run-truth value");
 
         \Parisek\Styleguide\Styleguide::fromYaml(__DIR__ . '/../../fixtures/bundle/styleguide-with-auth.yaml');
     }
