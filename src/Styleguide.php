@@ -2131,7 +2131,34 @@ final class Styleguide
             return null;
         }
 
-        return $resolved instanceof StyleguideRuntime ? $resolved : null;
+        if (!$resolved instanceof StyleguideRuntime) {
+            return null;
+        }
+
+        // Adoption carries the FIRST construction's catalogue and locale
+        // resolver, because they live on the runtime. Identical configs — the
+        // only reason anyone constructs twice — are unaffected. Differing ones
+        // would render this object's pages with the other object's
+        // translations, silently, while its constructor reported success. A
+        // review called that what it is: accepting a configuration and then
+        // ignoring it.
+        //
+        // So say so instead. Refusing is honest and leaves the consumer a
+        // choice they can act on; carrying on would not.
+        if (!$resolved->answersTo($this->translationCatalog, (string) $this->config['default_locale'])) {
+            throw new \RuntimeException(sprintf(
+                'Styleguide: this Twig environment already carries a %s from an earlier '
+                . "Styleguide whose translation configuration differs from this one's.\n\n"
+                . 'Twig caches the first runtime a loader returns, so the two cannot both apply — '
+                . 'this object would render using the earlier one\'s catalogue and locale while '
+                . "reporting that its own were accepted.\n\n"
+                . 'Either construct both with the same `translations_path`, `default_locale` and '
+                . '`source_locale`, or give this one its own `Twig\Environment`.',
+                StyleguideRuntime::class,
+            ));
+        }
+
+        return $resolved;
     }
 
     /**

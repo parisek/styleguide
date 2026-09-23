@@ -240,6 +240,72 @@ final class PreRegisteredRemedyTest extends TestCase
     }
 
     #[Test]
+    public function a_second_styleguide_with_a_different_locale_is_refused(): void
+    {
+        // Adoption carries the first construction's catalogue and locale,
+        // because those live on the runtime. A review pointed out that the
+        // second object's constructor was therefore accepting a translation
+        // configuration and then ignoring it — silently rendering with the
+        // other object's translations. Refusing is the honest answer.
+        $static = __DIR__ . '/../fixtures';
+        $twig = new Environment(new ArrayLoader());
+        $base = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'twig' => $twig,
+        ];
+
+        new Styleguide($base + ['default_locale' => 'en']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('translation configuration differs');
+        new Styleguide($base + ['default_locale' => 'cs']);
+    }
+
+    #[Test]
+    public function an_inner_render_by_the_other_instance_leaves_the_outer_resolvable(): void
+    {
+        // The cross-instance nesting a review reproduced. Both objects share
+        // one runtime but own different Renderers. With a single renderer slot,
+        // the SECOND object's inner render overwrote the first's and then
+        // cleared it on the way out — because its own previousKind was null —
+        // so the outer template's next styleguide_data() found no context.
+        //
+        // A stack cannot get that wrong: whoever finishes pops only itself.
+        $static = __DIR__ . '/../fixtures';
+        $holder = new \stdClass();
+        $holder->inner = null;
+
+        $twig = new Environment(new ArrayLoader([]));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'nested_render',
+            static fn(): string => $holder->inner->renderObserved('component', 'data-demo')['html'],
+            ['is_safe' => ['html']],
+        ));
+
+        $config = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'twig' => $twig,
+        ];
+
+        $outer = new Styleguide($config);
+        $holder->inner = new Styleguide($config);
+
+        $html = $outer->renderObserved('component', 'data-nested')['html'];
+
+        self::assertStringContainsString('before:Outer fixture', $html);
+        self::assertStringContainsString('Demo Title', $html, 'the inner instance rendered nothing');
+        self::assertStringContainsString(
+            'after:Outer fixture',
+            $html,
+            "the inner instance's render cleared the outer one's context",
+        );
+    }
+
+    #[Test]
     public function render_observed_does_not_refuse_our_own_pre_registered_helpers(): void
     {
         // `component_*` cannot be registered here — the extension already

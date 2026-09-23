@@ -48,16 +48,24 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
     private array $uniqueIds = [];
 
     /**
-     * The `Renderer` currently rendering, or null between renders.
+     * The stack of `Renderer`s currently rendering, innermost last.
      *
-     * Deliberately a setter rather than a constructor argument: a `Renderer`
-     * is built per render and this runtime outlives it. `Renderer` sets it
-     * when a render begins and clears it in the same `finally` that restores
-     * its own current-fixture pointer — without that clear, a long-running
-     * worker would let one request's fixture context answer the next one's
-     * `styleguide_data()`.
+     * A stack rather than a single slot, which a review caught. Renders NEST —
+     * `renderObserved()` is re-entrant, and two `Styleguide` objects sharing
+     * one environment share this runtime while owning different `Renderer`s.
+     * With one slot, an inner render by a DIFFERENT `Renderer` overwrote the
+     * outer one and then cleared it on the way out, so the outer template's
+     * next `styleguide_data()` found no active context. A stack cannot get
+     * that wrong: whoever finishes pops only themselves.
+     *
+     * Empty between renders. `Renderer` pushes as a render begins and pops in
+     * the same `finally` that restores its own fixture pointers, so a
+     * long-running worker never lets one request's context answer the next
+     * one's.
+     *
+     * @var list<Renderer>
      */
-    private ?Renderer $renderer = null;
+    private array $renderers = [];
 
     /**
      * @param \Closure(): string|null $localeResolver
@@ -80,14 +88,33 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
         private readonly ?\Closure $localeResolver = null,
     ) {}
 
-    public function setRenderer(?Renderer $renderer): void
+    public function pushRenderer(Renderer $renderer): void
     {
-        $this->renderer = $renderer;
+        $this->renderers[] = $renderer;
+    }
+
+    public function popRenderer(): void
+    {
+        array_pop($this->renderers);
     }
 
     private function locale(): string
     {
         return $this->localeResolver === null ? 'en_US' : ($this->localeResolver)();
+    }
+
+    /**
+     * Would this runtime translate the same way as the given configuration?
+     *
+     * Asked by {@see Styleguide} before adopting a runtime an earlier
+     * construction left on a shared environment. The catalogue and the locale
+     * live here, so adopting silently hands this object the earlier one's
+     * translations — fine when the two configs match, which is the only reason
+     * anyone constructs twice, and wrong without a word when they do not.
+     */
+    public function answersTo(?TranslationCatalog $catalog, string $locale): bool
+    {
+        return $this->catalog === $catalog && $this->locale() === $locale;
     }
 
     public function observer(): RenderObserver
@@ -149,14 +176,14 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      */
     public function styleguideData(?string $ref = null): array
     {
-        if ($this->renderer === null) {
+        if ($this->renderers === []) {
             throw new \RuntimeException(
                 'styleguide_data(): no active render context. The function is only '
                 . 'callable from inside a fixture being rendered by Renderer.',
             );
         }
 
-        return $this->renderer->resolveStyleguideData($ref);
+        return $this->renderers[array_key_last($this->renderers)]->resolveStyleguideData($ref);
     }
 
     public function translate(string $text, string $domain = 'default'): string
