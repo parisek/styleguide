@@ -2099,26 +2099,41 @@ final class Styleguide
     }
 
     /**
-     * The translation configuration, as a value that can be compared.
+     * The configuration a runtime answers for, as a value that can be
+     * compared.
      *
-     * Only the three keys that change how a translator answers:
+     * Four keys change how a translator or a `…t` alias answers.
      * `translations_path` decides which catalogues exist, `source_locale`
-     * decides which language the msgids are in, and `default_locale` is where
-     * every render starts before `?locale=` narrows it.
+     * which language the msgids are in, `default_locale` where a render starts
+     * before `?locale=` narrows it — and `typography_config`, which a review
+     * caught being missed: the `…t` aliases pipe translated text through the
+     * environment's `typography` filter, and on a shared environment the first
+     * instance's `TypographyExtension` is the one that stays, because
+     * `hasExtension()` skips the second.
      *
-     * Paths are resolved so two spellings of one directory compare equal;
-     * `realpath()` returning false (a configured path that is not there) falls
-     * back to the raw value, which still compares equal to itself.
+     * Paths are resolved so two spellings of one directory compare equal.
+     * `realpath()` returning false — a configured path that is not there —
+     * falls back to the raw value, which still compares equal to itself.
+     *
+     * `json_encode` rather than joining on a delimiter, also from review: a
+     * path may legitimately contain the delimiter, which makes the field
+     * boundaries ambiguous and lets two different configurations produce one
+     * string.
      */
     private function translationFingerprint(): string
     {
-        $path = (string) ($this->config['translations_path'] ?? '');
+        $resolve = static function (mixed $value): string {
+            $path = (string) ($value ?? '');
 
-        return implode('|', [
-            $path === '' ? '' : (realpath($path) ?: $path),
+            return $path === '' ? '' : (realpath($path) ?: $path);
+        };
+
+        return json_encode([
+            $resolve($this->config['translations_path'] ?? null),
             (string) ($this->config['source_locale'] ?? ''),
             (string) $this->config['default_locale'],
-        ]);
+            $resolve($this->config['typography_config'] ?? null),
+        ], \JSON_THROW_ON_ERROR);
     }
 
     /**
@@ -2176,8 +2191,8 @@ final class Styleguide
                 . 'Twig caches the first runtime a loader returns, so the two cannot both apply — '
                 . 'this object would render using the earlier one\'s catalogue and locale while '
                 . "reporting that its own were accepted.\n\n"
-                . 'Either construct both with the same `translations_path`, `default_locale` and '
-                . '`source_locale`, or give this one its own `Twig\Environment`.',
+                . 'Either construct both with the same `translations_path`, `default_locale`, '
+                . '`source_locale` and `typography_config`, or give this one its own `Twig\Environment`.',
                 StyleguideRuntime::class,
             ));
         }

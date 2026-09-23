@@ -294,6 +294,52 @@ final class PreRegisteredRemedyTest extends TestCase
     }
 
     #[Test]
+    public function a_second_styleguide_with_a_different_typography_config_is_refused(): void
+    {
+        // Not obvious, and a review had to point it out: the `…t` aliases pipe
+        // translated text through the environment's `typography` filter, so
+        // typography_config changes what a translator effectively answers. On a
+        // shared environment the FIRST instance's TypographyExtension is the one
+        // that stays — hasExtension() skips the second — so a differing config
+        // would be silently ignored rather than applied.
+        $static = __DIR__ . '/../fixtures';
+        $base = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'twig' => new Environment(new ArrayLoader()),
+        ];
+
+        new Styleguide($base);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('translation configuration differs');
+        new Styleguide($base + ['typography_config' => __DIR__ . '/../fixtures/styleguide.yaml']);
+    }
+
+    #[Test]
+    public function the_adoption_fingerprint_cannot_be_confused_by_a_delimiter(): void
+    {
+        // A review found the first fingerprint joined its fields on `|`, which
+        // a path may legitimately contain — so two different configurations
+        // could produce one string and a mismatch would adopt anyway. These two
+        // collided under that scheme.
+        $static = __DIR__ . '/../fixtures';
+        $base = [
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => $static,
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'twig' => new Environment(new ArrayLoader()),
+        ];
+
+        new Styleguide($base + ['translations_path' => '/nope|en', 'default_locale' => 'de']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('translation configuration differs');
+        new Styleguide($base + ['translations_path' => '/nope', 'default_locale' => 'en|de']);
+    }
+
+    #[Test]
     public function a_second_styleguide_with_a_different_translations_path_is_refused(): void
     {
         $static = __DIR__ . '/../fixtures';
