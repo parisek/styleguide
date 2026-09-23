@@ -763,6 +763,33 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function repeated_construction_does_not_grow_the_function_set(): void
+    {
+        // A Codex review killed an earlier design that answered the same
+        // question by ADDING a randomly named probe function. On an open
+        // environment the probe succeeded and stayed, so every construction
+        // left another one behind — unbounded growth on a path the package
+        // calls supported. The check asks the environment a question now
+        // instead of leaving a mark, and this is what holds it to that.
+        $env = new Environment(new ArrayLoader());
+        $config = [
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ];
+
+        new Styleguide($config);
+        $afterFirst = array_keys($env->getFunctions());
+
+        for ($i = 0; $i < 5; $i++) {
+            new Styleguide($config);
+        }
+
+        self::assertSame($afterFirst, array_keys($env->getFunctions()));
+    }
+
+    #[Test]
     public function translations_path_wires_real_translators_reading_the_default_locale(): void
     {
         $sg = new Styleguide([

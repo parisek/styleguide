@@ -194,7 +194,7 @@ On a closed environment the registration cannot take effect, so **construction i
 
 Earlier versions did not refuse. They succeeded, dropped every helper, and left a line per loss in `error_log()` — a file nobody watches, written after the response had been served. `component_*`, `placeholder()`, `styleguide_data()` and `|cachebust` simply did not exist, and the first symptom was an opaque Twig error a long way from the cause.
 
-The refusal never reads Twig's wording to decide. Twig raises one exception class both for "this name is taken" and for "this environment is closed"; telling those apart by matching the message text would mean an upstream copy edit could start crashing consumers over an ordinary duplicate name. Instead the package notices that **nothing at all** was accepted, then confirms it with a probe under a name nothing can already hold. Constructing `Styleguide` twice against one environment also refuses every name — as duplicates — and is correctly left alone.
+The refusal never reads Twig's wording to decide. Twig raises one exception class both for "this name is taken" and for "this environment is closed"; telling those apart by matching the message text would mean an upstream copy edit could start crashing consumers over an ordinary duplicate name. Instead the package asks the environment for the result: a name refused as a duplicate is still there afterwards, because something else holds it, while a name refused by a closed environment is absent. Constructing `Styleguide` twice against one environment refuses every name too, as duplicates, and is correctly left alone.
 
 The remedy is to register the helpers yourself, before anything reads from the environment:
 

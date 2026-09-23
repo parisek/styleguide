@@ -1311,8 +1311,9 @@ final class Styleguide
      * would break it.
      *
      * {@see environmentRefusesEverything()} settles the remaining ambiguity
-     * with a probe under a name nothing can already hold, so the only reason
-     * it can fail is the lock. No wording is read at any point.
+     * by asking whether the refused names are present afterwards: a duplicate
+     * leaves the name there, a closed environment does not. No wording is read
+     * at any point.
      *
      * Throwing at all is a behaviour change, and a deliberate one: such a
      * consumer's styleguide was already broken, this only makes it say so. It
@@ -1355,34 +1356,44 @@ final class Styleguide
     }
 
     /**
-     * Is this environment closed to registration, as opposed to merely
-     * already holding every name we tried?
+     * Did this environment refuse everything, or does it simply already hold
+     * every name we tried?
      *
-     * Both look identical from {@see tryAddFunction()}: one `LogicException`
-     * class, and its message is the only thing separating them — which this
-     * package does not read, per commit 494cbc7.
+     * The two are identical from {@see tryAddFunction()}: one `LogicException`
+     * class, separated only by its message — which this package does not read,
+     * per commit 494cbc7.
      *
-     * A probe settles it without wording. The name is random, so nothing can
-     * already hold it, so a duplicate is impossible and the ONLY way the add
-     * can fail is the environment refusing outright.
+     * Ask the environment for the result instead of interrogating the failure.
+     * A name refused as a DUPLICATE is present afterwards, because something
+     * else holds it. A name refused by a closed environment is absent, because
+     * nothing ever registered it. So a single ABSENT name proves the refusal
+     * was not a collision.
      *
-     * The probe leaves a stray function behind when it succeeds. That is
-     * accepted, narrowly: this runs only when not one helper was accepted,
-     * which on a healthy first construction never happens. The environment it
-     * pollutes is one that already carries every helper we would have added.
+     * It has to be "any absent" rather than "all absent": some of our names
+     * are also provided by extensions the package itself registers — Twig's
+     * intl-extra owns a `format_date` filter too — so on a closed environment
+     * a few of the refused names are present anyway, from a different source.
+     *
+     * An earlier revision probed by adding a randomly named function, which
+     * a Codex review correctly rejected: on an open environment the probe
+     * succeeds and the function stays, so every repeated construction left
+     * another one behind, unbounded. This asks a question instead of leaving
+     * a mark.
+     *
+     * `getFunction()` initialises the extension set as a side effect. That is
+     * harmless here and only here — this runs after every registration
+     * attempt has already been made and failed, so there is nothing left to
+     * close the door on.
      */
     private function environmentRefusesEverything(Environment $twig): bool
     {
-        try {
-            $twig->addFunction(new TwigFunction(
-                '__styleguide_lock_probe_' . bin2hex(random_bytes(4)),
-                static fn(): string => '',
-            ));
-
-            return false;
-        } catch (\LogicException) {
-            return true;
+        foreach (array_keys($this->refusedRegistrations) as $name) {
+            if ($twig->getFunction($name) === null && $twig->getFilter($name) === null) {
+                return true;
+            }
         }
+
+        return false;
     }
 
     /**
