@@ -8,6 +8,39 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **The Symfony bundle now takes the asset base from the request.** `iframe.css`,
+  `iframe.js`, `iframe.fonts[]`, the favicon and the logo are rebased onto
+  `twig_context.templateUrl`, and the bundle had no way to supply it: that value
+  is run truth, so `fromYaml()` refuses it in the YAML, and the DI extension runs
+  when the container compiles, where there is no request to read it from. Every
+  bundle consumer therefore got an empty base — correct at the domain root,
+  silently wrong for a host serving a theme through a rewrite
+  (`/wp-content/themes/<theme>/static`) or installed in a subdirectory, with no
+  key to correct it.
+
+  The controller now builds the catalogue per request through the new
+  `Bridge\Symfony\StyleguideFactory`, passing `Request::getBasePath()` — the
+  framework's equivalent of the front controller's
+  `rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')`, equal across all four
+  deployment shapes. Not `getBaseUrl()`, which keeps the script filename and
+  would rebase onto `/index.php/dist/...`.
+
+  `getBasePath()` is also the better value where the two are not equal: behind a
+  trusted proxy sending `X-Forwarded-Prefix` it returns the prefix the browser
+  actually sees, which the `SCRIPT_NAME` formula cannot know.
+
+  Per-request construction costs about a millisecond against roughly seven for
+  the cheapest real request, and it removes shared mutable state from the bundle
+  entirely — each request gets its own instance, as the library front controller
+  always did. In a worker-mode runtime the instance is reclaimed by PHP's cycle
+  collector rather than immediately, because Twig's closures capture it; memory
+  is bounded, not leaked.
+
+  The container service is now `styleguide.factory` rather than
+  `styleguide.core`. Both were private, so nothing a consumer could reference.
+
 ## [1.18.0] - 2026-09-23
 
 ### Added

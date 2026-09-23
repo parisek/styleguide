@@ -287,6 +287,38 @@ access_control:
 
 Cover the whole prefix, not just the shell. `/styleguide/api/*`, `/styleguide/render/*` and `/styleguide/assets/*` are all under it, and the render endpoint is the one that exposes component markup.
 
+#### Asset paths come from the request
+
+Nothing to configure, but worth knowing where the value comes from.
+
+`iframe.css`, `iframe.js`, `iframe.fonts[]`, the favicon and the logo are all
+rebased onto `twig_context.templateUrl` (see § *iframe asset paths*). That
+value is run truth — correct for exactly one request — which is why
+`fromYaml()` refuses it in the YAML, and why the bundle builds the catalogue
+**per request** rather than once when the container compiles. A service built
+at compile time could only ever carry an empty base: right for a host at the
+domain root, silently wrong for one serving a theme through a rewrite or
+installed in a subdirectory.
+
+The controller passes Symfony's `Request::getBasePath()`, which is the
+framework's equivalent of the front controller's
+`rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')` — equal in all four deployment
+shapes, asserted in `BundleTest`. Note `getBasePath()`, not `getBaseUrl()`:
+the latter keeps the script filename, so `/index.php/styleguide/…` would
+rebase every stylesheet onto `/index.php/dist/…`.
+
+`getBasePath()` is also the better value where the two are not equal: behind a
+trusted proxy sending `X-Forwarded-Prefix`, it returns the prefix the browser
+actually sees, which the front controller's `SCRIPT_NAME` formula cannot know.
+It also URL-encodes a base directory containing a space, where the raw formula
+does not.
+
+Building per request costs one YAML parse and one Twig environment — about a
+millisecond, against roughly seven for the cheapest real request. In a
+worker-mode runtime (FrankenPHP, RoadRunner) the instance is reclaimed by PHP's
+cycle collector rather than immediately, because Twig's closures capture it;
+memory is bounded, not leaked.
+
 #### One difference from library mode
 
 Symfony normalises `Cache-Control` and adds `private`, so the `/api/*` endpoints send `no-cache, private` here where the library sends `no-cache`. Left alone: `private` only forbids shared-cache storage, which for a developer catalogue is stricter than what the package asked for and never looser.
