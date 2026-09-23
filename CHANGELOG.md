@@ -43,9 +43,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   class both for a duplicate name and for a closed environment, and matching
   the text would let an upstream copy edit start crashing consumers over an
   ordinary collision — the fragility commit 494cbc7 removed on purpose.
-  Instead the package asks the environment for the result: a name refused as a
-  duplicate is still there afterwards, a name refused by a closed environment
-  is not. A host's own `__()`
+  Instead the package remembers which environments it has already registered
+  on, in a weak map, so a second construction recognises its own footprint.
+  Nothing is added to the environment and nothing initialises it. A host's own `__()`
   still wins, and constructing twice against one environment still works.
 
 - **`Renderer` no longer registers `styleguide_data()` itself** when given a

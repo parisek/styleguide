@@ -85,6 +85,17 @@ final class Styleguide
     private int $acceptedRegistrations = 0;
 
     /**
+     * Environments this package has already registered its helpers on.
+     *
+     * Weak on purpose: an entry must never be the reason a consumer's
+     * `Environment` stays alive. See {@see environmentRefusesEverything()}
+     * for why remembering beats interrogating.
+     *
+     * @var \WeakMap<Environment, true>|null
+     */
+    private static ?\WeakMap $registeredEnvironments = null;
+
+    /**
      * Non-null only when `translations_path` was supplied — discovers and
      * parses `.mo` catalogues on demand. See {@see \Parisek\Styleguide\Translation\TranslationCatalog}.
      */
@@ -340,6 +351,10 @@ final class Styleguide
         );
         $this->registerBundledHelpers($this->twig, $this->observer);
         $this->refuseALockedEnvironment();
+        self::$registeredEnvironments ??= new \WeakMap();
+        if ($this->acceptedRegistrations > 0) {
+            self::$registeredEnvironments[$this->twig] = true;
+        }
 
         $this->parser = new ComponentParser($config['templates_path']);
         $this->renderer = new Renderer(
@@ -1310,10 +1325,10 @@ final class Styleguide
      * (`repeated_construction_does_not_duplicate_paths`). Counting alone
      * would break it.
      *
-     * {@see environmentRefusesEverything()} settles the remaining ambiguity
-     * by asking whether the refused names are present afterwards: a duplicate
-     * leaves the name there, a closed environment does not. No wording is read
-     * at any point.
+     * {@see environmentRefusesEverything()} settles the remaining ambiguity by
+     * remembering which environments this package has already registered on,
+     * so a second construction recognises its own footprint. No wording is
+     * read and the environment is neither modified nor initialised.
      *
      * Throwing at all is a behaviour change, and a deliberate one: such a
      * consumer's styleguide was already broken, this only makes it say so. It
@@ -1323,6 +1338,8 @@ final class Styleguide
      */
     private function refuseALockedEnvironment(): void
     {
+        self::$registeredEnvironments ??= new \WeakMap();
+
         if ($this->refusedRegistrations === [] || $this->acceptedRegistrations > 0) {
             return;
         }
@@ -1356,44 +1373,39 @@ final class Styleguide
     }
 
     /**
-     * Did this environment refuse everything, or does it simply already hold
-     * every name we tried?
+     * Did this environment refuse everything, or does it simply already carry
+     * our helpers from an earlier construction?
      *
-     * The two are identical from {@see tryAddFunction()}: one `LogicException`
-     * class, separated only by its message — which this package does not read,
-     * per commit 494cbc7.
+     * Both look identical from {@see tryAddFunction()}: nothing accepted, one
+     * `LogicException` class per name, separated only by a message this
+     * package does not read (commit 494cbc7).
      *
-     * Ask the environment for the result instead of interrogating the failure.
-     * A name refused as a DUPLICATE is present afterwards, because something
-     * else holds it. A name refused by a closed environment is absent, because
-     * nothing ever registered it. So a single ABSENT name proves the refusal
-     * was not a collision.
+     * Two earlier designs were rejected on review, and the reasons are worth
+     * keeping:
      *
-     * It has to be "any absent" rather than "all absent": some of our names
-     * are also provided by extensions the package itself registers — Twig's
-     * intl-extra owns a `format_date` filter too — so on a closed environment
-     * a few of the refused names are present anyway, from a different source.
+     * - Adding a randomly named probe function discriminated correctly but
+     *   SUCCEEDED on an open environment and left the function behind, so
+     *   every repeated construction grew the function set without bound.
+     * - Asking `getFunction()` whether a refused name is present mutated
+     *   nothing, but `getFunction()` initialises the extension set — so
+     *   constructing twice permanently closed a consumer-owned environment
+     *   and stopped them adding extensions afterwards.
      *
-     * An earlier revision probed by adding a randomly named function, which
-     * a Codex review correctly rejected: on an open environment the probe
-     * succeeds and the function stays, so every repeated construction left
-     * another one behind, unbounded. This asks a question instead of leaving
-     * a mark.
+     * Both were attempts to interrogate the environment. Remembering our own
+     * work is cheaper and touches nothing: an environment this package has
+     * already registered helpers on is recorded here, and a later
+     * construction that is refused everywhere recognises its own footprint.
+     * The map is weak, so it never keeps an environment alive.
      *
-     * `getFunction()` initialises the extension set as a side effect. That is
-     * harmless here and only here — this runs after every registration
-     * attempt has already been made and failed, so there is nothing left to
-     * close the door on.
+     * The remaining ambiguity is a consumer who pre-registered all of our
+     * names themselves on an open environment; they would be refused. That is
+     * a documented trade-off rather than an accident — someone holding every
+     * name the package provides has replaced its whole surface, and the
+     * refusal names each one, so the message is still true and actionable.
      */
     private function environmentRefusesEverything(Environment $twig): bool
     {
-        foreach (array_keys($this->refusedRegistrations) as $name) {
-            if ($twig->getFunction($name) === null && $twig->getFilter($name) === null) {
-                return true;
-            }
-        }
-
-        return false;
+        return !isset(self::$registeredEnvironments[$twig]);
     }
 
     /**

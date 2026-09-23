@@ -790,6 +790,34 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function repeated_construction_leaves_the_environment_open(): void
+    {
+        // The second design Codex rejected answered the duplicate-versus-closed
+        // question with getFunction(), which mutates nothing but INITIALISES
+        // the extension set. Constructing twice then permanently closed a
+        // consumer-owned environment, so they could never add an extension
+        // afterwards. The environment is theirs; the package must hand it back
+        // in the state it found it.
+        //
+        // Note this cannot use getFunctions() to check — that would close the
+        // environment itself and hide the very regression it is testing.
+        $env = new Environment(new ArrayLoader());
+        $config = [
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ];
+
+        new Styleguide($config);
+        new Styleguide($config);
+
+        $env->addExtension(new \Twig\Extension\DebugExtension());
+
+        self::assertTrue($env->hasExtension(\Twig\Extension\DebugExtension::class));
+    }
+
+    #[Test]
     public function translations_path_wires_real_translators_reading_the_default_locale(): void
     {
         $sg = new Styleguide([
