@@ -29,6 +29,24 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- **Breaking for a narrow case: constructing `Styleguide` against an
+  already-initialised Twig environment is now refused instead of succeeding
+  emptily.** Such a consumer previously got a `Styleguide` with none of its
+  helpers registered, plus a line per lost helper in `error_log()` — written
+  after the response had been served, into a file nobody watches. The first
+  symptom was an opaque Twig error far from the cause. The refusal lists what
+  was lost and points at the fix, which only exists as of this release (see
+  *Added*): register `StyleguideTwigExtension` before anything reads from the
+  environment.
+
+  The discrimination does not read Twig's message. Twig raises one exception
+  class both for a duplicate name and for a closed environment, and matching
+  the text would let an upstream copy edit start crashing consumers over an
+  ordinary collision — the fragility commit 494cbc7 removed on purpose.
+  Instead the package notices that nothing at all was accepted and confirms it
+  with a probe under a name nothing can already hold. A host's own `__()`
+  still wins, and constructing twice against one environment still works.
+
 - **`Renderer` no longer registers `styleguide_data()` itself** when given a
   `StyleguideRuntime`. The runtime owns the function and `Renderer` announces
   itself around each render, so it still resolves against whichever fixture is

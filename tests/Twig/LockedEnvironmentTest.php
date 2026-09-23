@@ -100,48 +100,51 @@ final class LockedEnvironmentTest extends TestCase
     }
 
     #[Test]
-    public function a_locked_environment_missing_an_extension_fails_at_construction(): void
+    public function a_locked_environment_missing_an_extension_explains_itself(): void
     {
-        // Loud, but blaming the wrong thing. `registerBundledExtensions()` uses
-        // a bare `addExtension()` with no tolerant wrapper, so construction
-        // dies on the first extension the consumer has not already registered
-        // — here TypographyExtension — and never reaches helper registration
-        // at all.
+        // `registerBundledExtensions()` uses a bare `addExtension()` with no
+        // tolerant wrapper, so construction dies on the first extension the
+        // consumer has not already registered — here TypographyExtension —
+        // before helper registration is reached at all.
         //
-        // The message names an extension, which sends whoever reads it looking
-        // for a missing dependency. The actual cause is that the environment
-        // was locked before it arrived.
+        // Twig's own message names that extension, which sends whoever reads
+        // it looking for a missing dependency that is in fact installed. The
+        // wrapper keeps Twig's wording as the evidence and puts the real
+        // cause in front of it.
         $twig = $this->twig();
         $twig->getFunction('range');
 
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('extensions have already been initialized');
-        $this->styleguide($twig);
+        try {
+            $this->styleguide($twig);
+            self::fail('construction should have been refused');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('extension set has been initialised', $e->getMessage());
+            self::assertStringContainsString('README', $e->getMessage());
+            // Twig's own wording survives as evidence inside the explanation.
+            self::assertStringContainsString('TypographyExtension', $e->getMessage());
+            // Twig's exception is kept, not discarded — it is still the
+            // evidence, it just should not be the headline.
+            self::assertInstanceOf(\LogicException::class, $e->getPrevious());
+        }
     }
 
     #[Test]
-    public function a_locked_environment_that_already_has_the_extensions_loses_its_helpers_silently(): void
+    public function a_locked_environment_that_already_has_the_extensions_is_refused(): void
     {
-        // The real-world Symfony shape, and the genuinely silent one. When the
-        // consumer already registered every extension the package would add,
-        // `hasExtension()` skips them all, construction succeeds — and THEN
-        // every helper is swallowed one by one by tryAddFunction().
+        // The real-world Symfony shape, and until now the genuinely silent
+        // one. The consumer has already registered every extension the package
+        // would add, so `hasExtension()` skips them all and construction gets
+        // past that phase — and then every helper is refused in turn.
         //
-        // Nothing throws. To be exact, it is not literally silent: running
-        // this test prints a `[parisek/styleguide] unexpected LogicException`
-        // line per lost helper, because `logUnexpectedRegistrationFailure()`
-        // reaches `error_log()` for messages that are not the ordinary
-        // duplicate-name case. That is the best the current design can do and
-        // it is still not enough — in a deployed WordPress or Drupal install
-        // `error_log()` lands in a file nobody is watching, after the response
-        // has already been served. The catalogue renders without
-        // `component_*`, and the first symptom a human sees is an opaque Twig
-        // error far from the cause.
+        // It used to succeed, handing back a Styleguide with no helpers on it
+        // and a line per loss in `error_log()`, which in a deployed install
+        // lands in a file nobody watches, after the response has been served.
+        // The first symptom a human saw was an opaque Twig error far from the
+        // cause.
         //
-        // Pinned rather than fixed. Making this throw would turn a limping
-        // install into a hard failure, and it should only do that once there
-        // is a documented remedy to point at — register the extension while
-        // the container compiles, as the two tests above do.
+        // It refuses now because there is finally somewhere to send them: the
+        // two tests above register the extension while the environment is
+        // still open, which is what the message points at.
         $twig = $this->twig();
         foreach ([
             \Parisek\Twig\TypographyExtension::class,
@@ -158,11 +161,23 @@ final class LockedEnvironmentTest extends TestCase
         }
 
         $twig->getFunction('range');
-        $this->styleguide($twig);
 
-        self::assertNull($twig->getFunction('component_*'), 'component_* silently missing');
-        self::assertNull($twig->getFunction('placeholder'), 'placeholder silently missing');
-        self::assertNull($twig->getFunction('styleguide_data'), 'styleguide_data silently missing');
-        self::assertNull($twig->getFilter('cachebust'), 'cachebust silently missing');
+        try {
+            $this->styleguide($twig);
+            self::fail('construction should have been refused');
+        } catch (\RuntimeException $e) {
+            // The message has to carry the helpers that were lost and the way
+            // out. A refusal that only says "no" moves the problem rather than
+            // solving it.
+            self::assertStringContainsString('accepted none of the package', $e->getMessage());
+            self::assertStringContainsString('component_*', $e->getMessage());
+            self::assertStringContainsString('StyleguideTwigExtension', $e->getMessage());
+            self::assertStringContainsString('addRuntimeLoader', $e->getMessage());
+        }
+
+        // And the helpers really were absent — the refusal is not describing
+        // something that did not happen.
+        self::assertNull($twig->getFunction('component_*'));
+        self::assertNull($twig->getFilter('cachebust'));
     }
 }

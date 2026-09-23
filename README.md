@@ -190,10 +190,11 @@ If your component templates are self-contained (no project-specific filters), om
 
 The package registers its helpers onto the environment you pass, at the moment you construct `Styleguide`. Twig only allows that while the environment's extension set is still open. **Reading a single function or filter closes it** — and a framework that builds Twig as a compiled, lazily-booted service (Symfony, notably) may well have read one before your code runs.
 
-On a closed environment the registration cannot take effect, and what you see depends on what is already registered:
+On a closed environment the registration cannot take effect, so **construction is refused** rather than handing back a `Styleguide` with no helpers on it. The message lists what was lost and repeats the fix below.
 
-- An extension the package wants is **missing** → construction throws `LogicException: … extensions have already been initialized`. The message names the extension, which misleads: the extension is not the problem, the closed environment is.
-- Every extension is **already present** → construction **succeeds** and the helpers are dropped one by one. `component_*`, `placeholder()`, `styleguide_data()` and `|cachebust` simply do not exist, a line per helper goes to `error_log()`, and the first symptom is an opaque Twig error far from the cause.
+Earlier versions did not refuse. They succeeded, dropped every helper, and left a line per loss in `error_log()` — a file nobody watches, written after the response had been served. `component_*`, `placeholder()`, `styleguide_data()` and `|cachebust` simply did not exist, and the first symptom was an opaque Twig error a long way from the cause.
+
+The refusal never reads Twig's wording to decide. Twig raises one exception class both for "this name is taken" and for "this environment is closed"; telling those apart by matching the message text would mean an upstream copy edit could start crashing consumers over an ordinary duplicate name. Instead the package notices that **nothing at all** was accepted, then confirms it with a probe under a name nothing can already hold. Constructing `Styleguide` twice against one environment also refuses every name — as duplicates — and is correctly left alone.
 
 The remedy is to register the helpers yourself, before anything reads from the environment:
 

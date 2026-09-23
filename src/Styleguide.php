@@ -73,6 +73,17 @@ final class Styleguide
      * installs closes over this property.
      */
     private StyleguideRuntime $twigRuntime;
+
+    /**
+     * Helpers the supplied environment refused, for any reason.
+     *
+     * @var array<string, string> helper name => Twig's own message
+     */
+    private array $refusedRegistrations = [];
+
+    /** How many helpers the environment accepted. */
+    private int $acceptedRegistrations = 0;
+
     /**
      * Non-null only when `translations_path` was supplied — discovers and
      * parses `.mo` catalogues on demand. See {@see \Parisek\Styleguide\Translation\TranslationCatalog}.
@@ -320,7 +331,7 @@ final class Styleguide
             ? $this->attachLoaders($this->config['twig'], $config['templates_path'])
             : $this->buildOwnTwig($config['templates_path']);
 
-        $this->registerBundledExtensions($this->twig);
+        $this->registerBundledExtensionsOrExplain($this->twig);
         $this->observer = new RenderObserver();
         $this->twigRuntime = new StyleguideRuntime(
             $this->observer,
@@ -328,6 +339,7 @@ final class Styleguide
             fn(): string => $this->requestLocale,
         );
         $this->registerBundledHelpers($this->twig, $this->observer);
+        $this->refuseALockedEnvironment();
 
         $this->parser = new ComponentParser($config['templates_path']);
         $this->renderer = new Renderer(
@@ -937,7 +949,7 @@ final class Styleguide
         ]));
 
         foreach ($extension->getFunctions() as $function) {
-            $added = self::tryAddFunction($twig, $function);
+            $added = $this->tryAddFunction($twig, $function);
 
             // ONLY these two may enter $unobservableFunctions. The array is
             // not a log of collisions: renderObserved() refuses outright
@@ -953,7 +965,7 @@ final class Styleguide
         }
 
         foreach ($extension->getFilters() as $filter) {
-            self::tryAddFilter($twig, $filter);
+            $this->tryAddFilter($twig, $filter);
         }
     }
 
@@ -1229,13 +1241,14 @@ final class Styleguide
      * method already makes for every other helper is itself sufficient
      * detection, because success/failure IS the fact renderObserved() needs.
      */
-    private static function tryAddFunction(Environment $twig, TwigFunction $function): bool
+    private function tryAddFunction(Environment $twig, TwigFunction $function): bool
     {
         try {
             $twig->addFunction($function);
+            $this->acceptedRegistrations++;
             return true;
         } catch (\LogicException $e) {
-            self::logUnexpectedRegistrationFailure($function->getName(), $e);
+            $this->recordRegistrationFailure($function->getName(), $e);
             return false;
         }
     }
@@ -1243,30 +1256,169 @@ final class Styleguide
     /**
      * Sibling of {@see tryAddFunction()} for filters.
      */
-    private static function tryAddFilter(Environment $twig, TwigFilter $filter): void
+    private function tryAddFilter(Environment $twig, TwigFilter $filter): void
     {
         try {
             $twig->addFilter($filter);
+            $this->acceptedRegistrations++;
         } catch (\LogicException $e) {
-            self::logUnexpectedRegistrationFailure($filter->getName(), $e);
+            $this->recordRegistrationFailure($filter->getName(), $e);
         }
     }
 
     /**
-     * Log a breadcrumb for `LogicException`s from `addFunction()`/
-     * `addFilter()` that don't look like the expected "already registered"
-     * collision (e.g. Twig's "extensions already initialized" case). Never
-     * rethrows — see {@see tryAddFunction()} for why matching on the message
-     * to decide whether to crash the consumer's boot isn't safe.
+     * Record a registration Twig refused, whatever it said about why.
+     *
+     * Deliberately does NOT inspect the message. Commit 494cbc7 removed a
+     * `str_contains($e->getMessage(), 'already registered')` test for a good
+     * reason — it is a version-fragile match against Twig's internal wording,
+     * and the failure mode is nasty: reword the string upstream and a
+     * legitimate duplicate-name collision starts being read as something else.
+     *
+     * {@see refuseALockedEnvironment()} discriminates by COUNT instead, which
+     * needs no wording at all.
      */
-    private static function logUnexpectedRegistrationFailure(string $name, \LogicException $e): void
+    private function recordRegistrationFailure(string $name, \LogicException $e): void
     {
-        if (!str_contains($e->getMessage(), 'already registered')) {
-            error_log(sprintf(
-                '[parisek/styleguide] unexpected LogicException registering "%s": %s',
-                $name,
-                $e->getMessage(),
+        $this->refusedRegistrations[$name] = $e->getMessage();
+    }
+
+    /**
+     * Refuse to hand back a `Styleguide` whose helpers never arrived.
+     *
+     * Until now this failed quietly. A consumer whose environment was already
+     * initialised got a working-looking object with `component_*`,
+     * `placeholder()`, `styleguide_data()` and `|cachebust` simply absent; the
+     * only trace was an `error_log()` line per helper, written after the
+     * response had been served, into a file nobody watches. The first symptom
+     * a human saw was an opaque Twig error in a template, a long way from the
+     * cause.
+     *
+     * **The test is the count, not the message.** Twig raises one exception
+     * class for both "this name is taken" and "this environment is closed",
+     * and commit 494cbc7 deliberately stopped telling them apart by matching
+     * `'already registered'` in the text — a version-fragile read of Twig's
+     * internal wording. Reintroducing that match would be worse than the bug
+     * it fixes: reword the string upstream and an ordinary duplicate-name
+     * collision starts being reported as a locked environment, crashing a
+     * WordPress consumer's boot over someone else's copy edit.
+     *
+     * Counting narrows it: a closed environment refuses EVERY registration.
+     * But "none accepted" is not the same as "closed" — constructing
+     * `Styleguide` twice against one environment refuses all of them too, as
+     * duplicates, and that is a supported pattern with a test of its own
+     * (`repeated_construction_does_not_duplicate_paths`). Counting alone
+     * would break it.
+     *
+     * {@see environmentRefusesEverything()} settles the remaining ambiguity
+     * with a probe under a name nothing can already hold, so the only reason
+     * it can fail is the lock. No wording is read at any point.
+     *
+     * Throwing at all is a behaviour change, and a deliberate one: such a
+     * consumer's styleguide was already broken, this only makes it say so. It
+     * is safe to be loud now because there is somewhere to send them, which
+     * {@see StyleguideTwigExtension} exists to provide. Shipping the refusal
+     * before that remedy existed would have been a crash with no fix.
+     */
+    private function refuseALockedEnvironment(): void
+    {
+        if ($this->refusedRegistrations === [] || $this->acceptedRegistrations > 0) {
+            return;
+        }
+
+        if (!$this->environmentRefusesEverything($this->twig)) {
+            return;
+        }
+
+        $names = array_keys($this->refusedRegistrations);
+        sort($names);
+
+        throw new \RuntimeException(sprintf(
+            "Styleguide: the Twig environment passed as `twig` accepted none of the package's "
+            . "%d helpers (%s).\n\n"
+            . "Twig refuses to register anything once an environment's extension set has been "
+            . 'initialised, and reading a single function or filter from it is enough to do that '
+            . '— which a framework that builds Twig as a compiled, lazily-booted service has '
+            . "usually done before your code runs.\n\n"
+            . "Register the helpers yourself, before anything reads from the environment:\n\n"
+            . "    \$twig->addExtension(new %s(\$config));\n"
+            . "    \$twig->addRuntimeLoader(new FactoryRuntimeLoader([\n"
+            . "        %s::class => fn () => \$runtime,\n"
+            . "    ]));\n\n"
+            . 'See README § "If your environment is already initialised". Twig said: %s',
+            count($names),
+            implode(', ', $names),
+            StyleguideTwigExtension::class,
+            StyleguideRuntime::class,
+            reset($this->refusedRegistrations),
+        ));
+    }
+
+    /**
+     * Is this environment closed to registration, as opposed to merely
+     * already holding every name we tried?
+     *
+     * Both look identical from {@see tryAddFunction()}: one `LogicException`
+     * class, and its message is the only thing separating them — which this
+     * package does not read, per commit 494cbc7.
+     *
+     * A probe settles it without wording. The name is random, so nothing can
+     * already hold it, so a duplicate is impossible and the ONLY way the add
+     * can fail is the environment refusing outright.
+     *
+     * The probe leaves a stray function behind when it succeeds. That is
+     * accepted, narrowly: this runs only when not one helper was accepted,
+     * which on a healthy first construction never happens. The environment it
+     * pollutes is one that already carries every helper we would have added.
+     */
+    private function environmentRefusesEverything(Environment $twig): bool
+    {
+        try {
+            $twig->addFunction(new TwigFunction(
+                '__styleguide_lock_probe_' . bin2hex(random_bytes(4)),
+                static fn(): string => '',
             ));
+
+            return false;
+        } catch (\LogicException) {
+            return true;
+        }
+    }
+
+    /**
+     * {@see registerBundledExtensions()}, with the diagnostic a closed
+     * environment deserves.
+     *
+     * That method adds extensions with a bare `addExtension()` and no tolerant
+     * wrapper, so on an initialised environment it throws on the first one the
+     * consumer has not already registered — and Twig's message names that
+     * extension. Which misleads: the extension is not missing, and whoever
+     * reads it goes looking for a dependency that is already installed. The
+     * real cause is the same lock {@see refuseALockedEnvironment()} reports,
+     * reached a few lines earlier because extensions register before helpers.
+     *
+     * The wrapper SUGGESTS the cause rather than asserting it, and keeps
+     * Twig's exception as `$previous`. Asserting would mean reading Twig's
+     * wording, which is exactly what commit 494cbc7 established this package
+     * does not do.
+     */
+    private function registerBundledExtensionsOrExplain(Environment $twig): void
+    {
+        try {
+            $this->registerBundledExtensions($twig);
+        } catch (\LogicException $e) {
+            throw new \RuntimeException(
+                'Styleguide: the Twig environment passed as `twig` would not accept the '
+                . "package's extensions.\n\n"
+                . 'The message below may name an extension. That is usually not the problem: an '
+                . 'environment refuses every registration once its extension set has been '
+                . 'initialised, and reading a single function or filter from it is enough to do '
+                . "that.\n\n"
+                . 'See README § "If your environment is already initialised" for how to register '
+                . "the package's helpers before that happens. Twig said: " . $e->getMessage(),
+                0,
+                $e,
+            );
         }
     }
 

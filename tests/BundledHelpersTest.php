@@ -685,25 +685,54 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
-    public function non_duplicate_logic_exception_from_twig_is_swallowed_not_thrown(): void
+    public function a_closed_environment_is_refused_without_reading_twigs_message(): void
     {
-        // Pre-register every extension the package would otherwise add itself
-        // (so registerBundledExtensions()'s addExtension() calls are skipped
-        // via its own hasExtension() guard — unrelated to what this test
-        // covers) and lock the environment via getFunctions(), which forces
-        // Twig's ExtensionSet::initExtensions(). Every subsequent
-        // addFunction()/addFilter() call inside registerBundledHelpers() then
-        // throws "Unable to register ... as extensions have already been
-        // initialized" — a LogicException with a message that does NOT
-        // contain "already registered", i.e. exactly the case the old
-        // str_contains() check used to rethrow.
+        // This test used to assert the opposite — that construction succeeds
+        // here. Commit 494cbc7 made every LogicException swallowed, because
+        // the alternative at the time was `str_contains($e->getMessage(),
+        // 'already registered')`: a version-fragile read of Twig's internal
+        // wording, where an upstream copy edit would start crashing consumers
+        // over an ordinary duplicate name.
+        //
+        // That reasoning still holds and this package still never reads the
+        // message. What changed is that succeeding was never a kindness: the
+        // consumer got a Styleguide with no helpers on it and found out from
+        // an opaque Twig error much later. Now that StyleguideTwigExtension
+        // gives them a way to register before the environment closes, there
+        // is somewhere to send them, so it says so instead.
+        //
+        // Pre-register every extension the package would otherwise add (so
+        // registerBundledExtensions()'s own hasExtension() guard skips them,
+        // which is not what this covers) and close the environment via
+        // getFunctions(), which forces Twig's ExtensionSet::initExtensions().
         $env = new Environment(new ArrayLoader());
         $env->addExtension(new \Parisek\Twig\TypographyExtension(''));
         $env->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(new \Symfony\Component\VarDumper\Cloner\VarCloner()));
         $env->addExtension(new \Twig\Extra\Intl\IntlExtension());
         $env->addExtension(new \Twig\Extra\String\StringExtension());
         $env->addExtension(new \Parisek\Twig\AttributeExtension());
-        $env->getFunctions(); // locks the extension set
+        $env->getFunctions(); // closes the extension set
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('accepted none of the package');
+
+        new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+    }
+
+    #[Test]
+    public function a_duplicate_name_is_still_not_a_refusal(): void
+    {
+        // The other side of the same coin, and the reason the discrimination
+        // cannot be a count. An OPEN environment that already holds one of our
+        // names refuses that one and accepts the rest — the documented
+        // host-wins contract — and must construct normally.
+        $env = new Environment(new ArrayLoader());
+        $env->addFunction(new TwigFunction('placeholder', static fn(array $o = []): array => []));
 
         $sg = new Styleguide([
             'templates_path' => __DIR__ . '/fixtures/templates',
@@ -713,6 +742,24 @@ final class BundledHelpersTest extends TestCase
         ]);
 
         self::assertInstanceOf(Styleguide::class, $sg);
+    }
+
+    #[Test]
+    public function constructing_twice_on_one_environment_is_not_mistaken_for_a_closed_one(): void
+    {
+        // Every name is a duplicate on the second pass, so nothing is
+        // accepted — the exact shape a closed environment produces. Only the
+        // probe tells them apart, and it must not report a refusal here.
+        $env = new Environment(new ArrayLoader());
+        $config = [
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ];
+
+        new Styleguide($config);
+        self::assertInstanceOf(Styleguide::class, new Styleguide($config));
     }
 
     #[Test]
