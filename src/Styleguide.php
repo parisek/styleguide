@@ -2760,11 +2760,17 @@ final class Styleguide
     {
         try {
             $result = $this->handle(Http\Request::fromGlobals());
-        } catch (\Throwable $e) {
-            // Front-controller behaviour, unchanged: a throw from dispatch
-            // reaches the consumer's error handler with the status already
-            // chosen, rather than whatever that handler would default to.
-            // It belongs here and not in handle(), which writes nothing.
+        } catch (CorruptBuildException $e) {
+            // Front-controller behaviour, unchanged: this one failure reaches
+            // the consumer's error handler with the status already chosen,
+            // rather than whatever that handler would default to. It belongs
+            // here and not in handle(), which writes nothing.
+            //
+            // ONLY this exception. A review caught an earlier `catch
+            // (\Throwable)` here: it reproduced the 500 for the corrupt build
+            // and invented one for every other throw — from asset serving,
+            // rendering, an API endpoint — erasing a status the consumer may
+            // have set deliberately. Those propagate untouched, as before.
             http_response_code(500);
 
             throw $e;
@@ -2957,7 +2963,7 @@ final class Styleguide
             // set here now lives in run(), because handle() promises to write
             // nothing and a framework caller must not have its response code
             // mutated by an exception it is going to catch.
-            throw new \RuntimeException(
+            throw new CorruptBuildException(
                 'dist/index.html is missing the #sg-config injection point — rebuild the frontend '
                 . '(cd frontend && npm run build) or check dist/ for corruption.',
             );

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Tests\Http;
 
+use Parisek\Styleguide\ComponentParser;
+use Parisek\Styleguide\CorruptBuildException;
 use Parisek\Styleguide\Http\Request;
 use Parisek\Styleguide\Router;
 use Parisek\Styleguide\Styleguide;
@@ -224,6 +226,66 @@ final class HandleTest extends TestCase
         }
 
         self::assertSame(200, http_response_code(), 'handle() set a response code');
+    }
+
+    #[Test]
+    public function run_only_sets_500_for_a_corrupt_build(): void
+    {
+        // The narrowing a review asked for. main set a 500 from ONE place; an
+        // earlier revision here caught \Throwable around the whole dispatch,
+        // which reproduced it for the corrupt build and INVENTED one for every
+        // other throw — erasing a status the consumer may have set on purpose.
+        //
+        // run() can be called in-process for this: the `exit` is only reached
+        // on success, so a throwing dispatch returns control to the test.
+        $sg = $this->styleguide();
+        $parser = (new \ReflectionClass($sg))->getProperty('parser');
+        $parser->setValue($sg, new class (__DIR__ . '/../fixtures/templates') extends ComponentParser {
+            public function parseAll(string $kind): array
+            {
+                throw new \DomainException('not a corrupt build');
+            }
+        });
+
+        $_SERVER['REQUEST_URI'] = '/styleguide/api/components';
+        http_response_code(418);
+
+        try {
+            $sg->run();
+            self::fail('the stubbed parser should have thrown');
+        } catch (\DomainException) {
+            self::assertSame(
+                418,
+                http_response_code(),
+                'run() set a status for an exception that is not a corrupt build',
+            );
+        } finally {
+            http_response_code(200);
+            unset($_SERVER['REQUEST_URI']);
+        }
+    }
+
+    #[Test]
+    public function a_corrupt_build_is_its_own_exception_type(): void
+    {
+        // The type is what lets run() catch exactly this and nothing else.
+        $sg = $this->styleguide();
+        $dist = (new \ReflectionClass($sg))->getProperty('distRoot');
+
+        $broken = sys_get_temp_dir() . '/sg-corrupt-type-' . bin2hex(random_bytes(4));
+        mkdir($broken);
+        file_put_contents($broken . '/index.html', '<html>no injection point</html>');
+        $dist->setValue($sg, $broken);
+
+        try {
+            $sg->handle(new Request('/styleguide/overview'));
+            self::fail('a corrupt build should throw');
+        } catch (CorruptBuildException) {
+            self::assertTrue(true);
+        } finally {
+            @unlink($broken . '/index.html');
+            @rmdir($broken);
+        }
     }
 
     #[Test]

@@ -45,6 +45,12 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   behaviour is unchanged and there is one implementation rather than two. See
   `docs/API.md` § PHP API for the controller shape.
 
+- **`Parisek\Styleguide\CorruptBuildException`.** Thrown when `dist/index.html`
+  is present but has lost its `#sg-config` injection point. A distinct type so
+  `run()` can set a `500` for exactly this failure and nothing else — every
+  other throw propagates with the response code untouched, as before. Extends
+  `RuntimeException`, so existing `catch (\RuntimeException)` keeps working.
+
 - **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
   The bundled Twig helpers are declared once, in an extension that holds no
   mutable state, with everything a request can move — the render observer, the
