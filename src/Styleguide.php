@@ -2758,25 +2758,54 @@ final class Styleguide
      */
     public function run(): void
     {
-        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-        $route = Router::parse($uri, $_COOKIE);
+        $result = $this->handle(Http\Request::fromGlobals());
+
+        if ($result === null) {
+            return;
+        }
+
+        $result->emit();
+
+        // After dispatching a styleguide route, halt the project's downstream router.
+        exit;
+    }
+
+    /**
+     * @api Handle a request and RETURN its response, writing nothing and
+     *      ending nothing.
+     *
+     * `null` means the URI does not belong to the styleguide, and the caller
+     * should carry on with its own routing — the same decision `run()` used to
+     * make by returning early.
+     *
+     * This is the seam the package was missing. `run()` reads superglobals,
+     * writes the response and calls `exit`, which is right for a front
+     * controller and unusable from a host application: a Symfony controller has
+     * to RETURN a response, and it cannot have the process ended underneath it.
+     * `run()` is now a thin adapter over this — build the request from globals,
+     * emit, exit — so its behaviour is unchanged and there is one implementation
+     * rather than two.
+     *
+     * It also ends the package's own workaround. `tests/SpaConfigTest` drives a
+     * real subprocess purely to survive that `exit`; it can call this instead.
+     */
+    public function handle(Http\Request $request): ?Http\Result
+    {
+        $route = Router::parse($request->uri, $request->cookies);
 
         if ($route === null) {
-            return;
+            return null;
         }
 
         // Iframe-embedded request → render endpoint (no SPA shell). See
         // {@see Router::synthesizeEmbeddedRoute()} for the rationale + decision
         // table. Centralising the swap there keeps the dispatch here simple
-        // and lets the synthesis logic be tested in isolation. $_COOKIE carries
+        // and lets the synthesis logic be tested in isolation. The cookies carry
         // the `sg-iframe-theme` fallback for in-iframe navigations that lost
         // the SPA's `?theme=` query param (the clicked link's href never had one).
-        $route = Router::synthesizeEmbeddedRoute($route, (string) ($_SERVER['HTTP_SEC_FETCH_DEST'] ?? ''), $_COOKIE);
+        $route = Router::synthesizeEmbeddedRoute($route, $request->secFetchDest, $request->cookies);
 
-        $this->dispatch($route);
-
-        // After dispatching a styleguide route, halt the project's downstream router.
-        exit;
+        return $this->dispatch($route, $request);
     }
 
     /**
@@ -2787,22 +2816,14 @@ final class Styleguide
      *
      * @param array<string, mixed> $route
      */
-    private function dispatch(array $route): void
+    private function dispatch(array $route, Http\Request $request): Http\Result
     {
         if (!$this->isAuthorized($route)) {
-            http_response_code(403);
-            header('Content-Type: text/plain; charset=utf-8');
-            echo '403 Forbidden';
-            return;
+            return Http\Result::text('403 Forbidden', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
 
-        match ($route['type']) {
-            // Emitted here on the leaf's behalf. The seam is being converted
-            // from the leaves inward, so each step keeps `run()`'s output
-            // identical while one more piece stops writing for itself.
-            'asset' => $this->assetServer
-                ->serve($route['path'] ?? '', (string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''))
-                ->emit(),
+        return match ($route['type']) {
+            'asset' => $this->assetServer->serve($route['path'] ?? '', $request->ifNoneMatch),
             'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
@@ -2849,13 +2870,16 @@ final class Styleguide
     /**
      * @param array<string, mixed> $route
      */
-    private function dispatchSpa(array $route): void
+    private function dispatchSpa(array $route): Http\Result
     {
         $indexPath = $this->distRoot . '/index.html';
         if (!is_file($indexPath)) {
-            http_response_code(500);
-            echo "Styleguide build missing — run 'npm run build' in vendor/parisek/styleguide/frontend/";
-            return;
+            // No Content-Type, as before. Adding one would change the response,
+            // and this seam is for moving the writing, not retouching it.
+            return Http\Result::text(
+                "Styleguide build missing — run 'npm run build' in vendor/parisek/styleguide/frontend/",
+                500,
+            );
         }
 
         $html = (string) file_get_contents($indexPath);
@@ -2918,6 +2942,11 @@ final class Styleguide
             $count,
         );
         if ($count !== 1) {
+            // Still set here, and still a throw. This path does not return a
+            // result — the exception propagates to the consumer's error
+            // handler, and the status is set so that handler's page is a 500
+            // rather than whatever it would default to. A Result cannot carry
+            // a throw, so this one stays where it is.
             http_response_code(500);
             throw new \RuntimeException(
                 'dist/index.html is missing the #sg-config injection point — rebuild the frontend '
@@ -2925,15 +2954,16 @@ final class Styleguide
             );
         }
 
-        header('Content-Type: text/html; charset=utf-8');
-        header('Cache-Control: no-cache, must-revalidate');
-        echo $html;
+        return Http\Result::text($html, 200, [
+            'Content-Type' => 'text/html; charset=utf-8',
+            'Cache-Control' => 'no-cache, must-revalidate',
+        ]);
     }
 
     /**
      * @param array<string, mixed> $route
      */
-    private function dispatchRender(array $route): void
+    private function dispatchRender(array $route): Http\Result
     {
         $config = [
             'project' => $this->yamlConfig['project'] ?? [],
@@ -2962,10 +2992,11 @@ final class Styleguide
                     // per the design doc. A render request is the one place this
                     // can surface to a human, since entries()/lookup() alone
                     // would otherwise swallow it into "no such catalogue".
-                    http_response_code(400);
-                    header('Content-Type: text/plain; charset=utf-8');
-                    echo $e->getMessage();
-                    return;
+                    return Http\Result::text(
+                        $e->getMessage(),
+                        400,
+                        ['Content-Type' => 'text/plain; charset=utf-8'],
+                    );
                 }
                 if ($resolved !== null) {
                     $this->requestLocale = $resolved;
@@ -3086,11 +3117,7 @@ final class Styleguide
             ]);
         }
 
-        // Emitted here on the Renderer's behalf, as with assets and the API.
-        // The Content-Type moves INTO the result — it was written here while the
-        // status that belongs with it was set deep inside Renderer, which is the
-        // split this seam exists to close.
-        $this->renderer->render(
+        return $this->renderer->render(
             kind: $route['kind'],
             slug: $route['slug'],
             config: $config,
@@ -3099,7 +3126,7 @@ final class Styleguide
             // `render`-type routes, but re-whitelist defensively — $route is a
             // loosely-typed array<string,mixed>, not a value object.
             theme: Router::whitelistTheme($route['theme'] ?? null),
-        )->emit();
+        );
     }
 
     /**
@@ -3165,7 +3192,7 @@ final class Styleguide
     /**
      * @param array<string, mixed> $route
      */
-    private function dispatchApi(array $route): void
+    private function dispatchApi(array $route): Http\Result
     {
         $endpoint = match ($route['endpoint']) {
             'components' => new Api\ComponentsEndpoint($this->parser),
@@ -3181,17 +3208,13 @@ final class Styleguide
             // Content-Type but NOT Cache-Control, where the five endpoints send
             // both. Result::json() would add the second header and change the
             // response, so this one is built by hand.
-            Http\Result::text(
+            return Http\Result::text(
                 (string) json_encode(['error' => 'Unknown API endpoint: ' . $route['endpoint']]),
                 404,
                 ['Content-Type' => 'application/json; charset=utf-8'],
-            )->emit();
-
-            return;
+            );
         }
 
-        // Emitted here on the endpoint's behalf, as with assets. D4 moves
-        // emitting up into run() and returns these results instead.
-        $endpoint->handle()->emit();
+        return $endpoint->handle();
     }
 }

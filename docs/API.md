@@ -28,6 +28,7 @@ The only class consumers instantiate directly.
 ```php
 new Styleguide(array $config): self
 $this->run(): void
+$this->handle(Http\Request $request): ?Http\Result
 ```
 
 #### `__construct(array $config)`
@@ -100,6 +101,37 @@ as flow control.
 Inspects `$_SERVER['REQUEST_URI']` via `Router::parse()`, dispatches to the right handler, and calls `exit` on routes the package handles. Returns silently for non-`/styleguide/*` URLs — the caller's own routing continues.
 
 Behaviour is **`@api`**. The internal dispatch table can change, but the outward effect (route detection + handler dispatch + exit semantics) is preserved.
+
+Since 1.18.0 this is a thin adapter over `handle()` — it builds the request from superglobals, emits the result and exits. There is one implementation, not two.
+
+#### `handle(Http\Request $request): ?Http\Result`
+
+Handles a request and **returns** its response, writing nothing and ending nothing. `null` means the URI does not belong to the styleguide, so the caller should carry on with its own routing — the same decision `run()` makes by returning early, except observable.
+
+Use this from a host application. `run()` reads superglobals, writes the response and calls `exit`, which a Symfony controller cannot use: it has to return a response, and it cannot have the process ended underneath it.
+
+```php
+$result = $styleguide->handle(new Http\Request(
+    uri: $request->getRequestUri(),
+    cookies: $request->cookies->all(),
+    secFetchDest: (string) $request->headers->get('Sec-Fetch-Dest', ''),
+    ifNoneMatch: (string) $request->headers->get('If-None-Match', ''),
+));
+
+if ($result === null) {
+    throw $this->createNotFoundException();
+}
+
+return $result->file !== null
+    ? new BinaryFileResponse($result->file, $result->status, $result->headers)
+    : new Response((string) $result->body, $result->status, $result->headers);
+```
+
+`Http\Request` carries four values rather than a path, and all four matter: cookies hold the `sg-iframe-theme` fallback for in-iframe navigations whose href never had a `?theme=`, `Sec-Fetch-Dest` turns an SPA-shell route into a render route, and `If-None-Match` decides an asset's `304`.
+
+`Http\Result` carries a status, headers, and a body that is **either** text (`->body`) **or** a file path (`->file`) — never both, and neither for a `304`. The path is not read into memory so a caller can stream it.
+
+Both are **`@api`** from 1.18.0.
 
 ### `Parisek\Styleguide\ComponentParser::RENDER_MODES` (`@api`)
 
