@@ -99,6 +99,56 @@ final class RuntimeRenderLifetimeTest extends TestCase
     }
 
     #[Test]
+    public function an_inner_render_returning_leaves_the_outer_fixture_resolvable(): void
+    {
+        // The case the ternary in Renderer's finally exists for, and the one
+        // the sequential test above cannot see. `renderObserved()` is
+        // re-entrant by design: an outer fixture may trigger another render,
+        // and when that inner render returns, the outer template keeps
+        // executing and may call `styleguide_data()` again.
+        //
+        // A flat `setRenderer(null)` in the finally would stand the runtime
+        // down when the INNER render finishes, while the outer one is still
+        // live — and the outer template's next call would refuse. Only
+        // `$previousKind === null ? null : $this` releases on the outermost
+        // return and holds otherwise.
+        //
+        // The fixture is `component/data-nested`, whose styleguide.twig reads
+        // its own sidecar, triggers an inner render, then reads its sidecar
+        // again. `nested_render()` has to come from a consumer-supplied
+        // environment, because the package's pristine one knows nothing about
+        // this test.
+        $holder = new \stdClass();
+        $holder->sg = null;
+
+        $twig = new \Twig\Environment(new \Twig\Loader\ArrayLoader([]));
+        $twig->addFunction(new \Twig\TwigFunction(
+            'nested_render',
+            static function () use ($holder): string {
+                return $holder->sg->renderObserved('component', 'data-demo')['html'];
+            },
+            ['is_safe' => ['html']],
+        ));
+
+        $holder->sg = new Styleguide([
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => __DIR__ . '/../fixtures',
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'twig' => $twig,
+        ]);
+
+        $html = $holder->sg->renderObserved('component', 'data-nested')['html'];
+
+        self::assertStringContainsString('before:Outer fixture', $html);
+        self::assertStringContainsString('Demo Title', $html, 'the inner render produced nothing');
+        self::assertStringContainsString(
+            'after:Outer fixture',
+            $html,
+            'the outer fixture became unresolvable once the inner render returned',
+        );
+    }
+
+    #[Test]
     public function two_renders_in_one_process_each_resolve_their_own_sidecar(): void
     {
         // The cross-request case, collapsed into one process: if the first
