@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Parisek\Styleguide\Http\Result;
+
 /**
  * @internal Implementation detail of `Styleguide::run()`. Signature can change
  *           in any minor release. The asset URL surface
@@ -15,6 +17,9 @@ namespace Parisek\Styleguide;
  * - Path-traversal guard via realpath() + {@see isContained()}
  * - Detects hashed filenames (styleguide.abc12345.js) and applies immutable cache
  * - ETag support for conditional requests
+ *
+ * {@see serve()} returns a {@see Result} rather than writing the response, so
+ * a host application can serve these from its own stack.
  */
 final class AssetServer
 {
@@ -29,29 +34,43 @@ final class AssetServer
         $this->distRoot = $resolved;
     }
 
-    public function serve(string $path): void
+    /**
+     * Describe the response for an asset request; do not write it.
+     *
+     * Returning rather than emitting is what lets a host application serve
+     * `/styleguide/assets/*` from its own stack — and lets this be tested
+     * without output buffering. `run()` emits the result and behaves exactly
+     * as before.
+     *
+     * `$ifNoneMatch` is a parameter rather than a read of
+     * `$_SERVER['HTTP_IF_NONE_MATCH']`: the conditional request is part of the
+     * contract, so it has to be something a caller can supply.
+     *
+     * The body stays a file path. This serves the SPA bundle, and a caller
+     * that wants to stream it cannot un-read a string.
+     */
+    public function serve(string $path, string $ifNoneMatch = ''): Result
     {
         $file = realpath($this->distRoot . '/' . ltrim($path, '/'));
 
         if ($file === false || !$this->isContained($file) || !is_file($file)) {
-            http_response_code(404);
-            return;
+            return Result::empty(404);
         }
 
         $etag = '"' . md5_file($file) . '"';
-        if (($_SERVER['HTTP_IF_NONE_MATCH'] ?? '') === $etag) {
-            http_response_code(304);
-            return;
+        if ($ifNoneMatch === $etag) {
+            return Result::empty(304);
         }
 
         $cacheControl = $this->isHashedFilename(basename($file))
             ? 'public, max-age=31536000, immutable'
             : 'public, max-age=3600';
 
-        header('Content-Type: ' . $this->mimeType($file));
-        header('ETag: ' . $etag);
-        header('Cache-Control: ' . $cacheControl);
-        readfile($file);
+        return Result::file($file, 200, [
+            'Content-Type' => $this->mimeType($file),
+            'ETag' => $etag,
+            'Cache-Control' => $cacheControl,
+        ]);
     }
 
     /**

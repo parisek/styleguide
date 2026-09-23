@@ -36,12 +36,7 @@ final class AssetServerTest extends TestCase
     #[Test]
     public function rejects_path_traversal(): void
     {
-        $server = new AssetServer($this->distRoot);
-        ob_start();
-        $server->serve('../composer.json');
-        ob_end_clean();
-        self::assertSame(404, http_response_code());
-        http_response_code(200);
+        self::assertSame(404, (new AssetServer($this->distRoot))->serve('../composer.json')->status);
     }
 
     #[Test]
@@ -52,24 +47,26 @@ final class AssetServerTest extends TestCase
         // with `…/fixtures/asset-server`. The traversal test above never
         // caught it, because `../composer.json` fails that prefix check
         // honestly — only a sibling whose NAME extends the root's slips past.
-        $server = new AssetServer($this->distRoot);
-        ob_start();
-        $server->serve('../asset-server-sibling/secret.txt');
-        $output = (string) ob_get_clean();
-        // Content first: this is the assertion that names the actual harm.
-        self::assertStringNotContainsString('leaked-sibling-content', $output);
-        self::assertSame(404, http_response_code());
-        http_response_code(200);
+        $result = (new AssetServer($this->distRoot))->serve('../asset-server-sibling/secret.txt');
+
+        // The file first: this is the assertion that names the actual harm.
+        // Returning a Result makes it cheaper to check than the old output
+        // buffer did — there is nothing to leak if nothing is handed back.
+        self::assertNull($result->file, 'the sibling file was handed back to be served');
+        self::assertSame(404, $result->status);
     }
 
     #[Test]
     public function serves_existing_file_with_etag(): void
     {
-        $server = new AssetServer($this->distRoot);
-        ob_start();
-        $server->serve('test-asset.css');
-        $output = ob_get_clean();
-        self::assertStringContainsString('test asset fixture', $output);
+        $result = (new AssetServer($this->distRoot))->serve('test-asset.css');
+
+        self::assertSame(200, $result->status);
+        self::assertNotNull($result->file);
+        self::assertStringContainsString('test asset fixture', (string) file_get_contents($result->file));
+        self::assertMatchesRegularExpression('/^"[0-9a-f]{32}"$/', $result->headers['ETag']);
+        self::assertSame('text/css; charset=utf-8', $result->headers['Content-Type']);
+        self::assertSame('public, max-age=3600', $result->headers['Cache-Control']);
     }
 
     #[Test]
@@ -92,12 +89,7 @@ final class AssetServerTest extends TestCase
     #[Test]
     public function returns_404_for_missing_file(): void
     {
-        $server = new AssetServer($this->distRoot);
-        ob_start();
-        $server->serve('does-not-exist.css');
-        ob_end_clean();
-        self::assertSame(404, http_response_code());
-        http_response_code(200);
+        self::assertSame(404, (new AssetServer($this->distRoot))->serve('does-not-exist.css')->status);
     }
 
     #[Test]

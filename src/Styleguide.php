@@ -2797,7 +2797,12 @@ final class Styleguide
         }
 
         match ($route['type']) {
-            'asset' => $this->assetServer->serve($route['path'] ?? ''),
+            // Emitted here on the leaf's behalf. The seam is being converted
+            // from the leaves inward, so each step keeps `run()`'s output
+            // identical while one more piece stops writing for itself.
+            'asset' => $this->assetServer
+                ->serve($route['path'] ?? '', (string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? ''))
+                ->emit(),
             'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),

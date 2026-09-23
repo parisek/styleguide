@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **`Parisek\Styleguide\Http\Request` and `Http\Result`.** The first leaf of a
+  request-in, result-out seam. `AssetServer::serve()` returns a `Result` — a
+  status, headers, and a body that is text or a file path — instead of calling
+  `http_response_code()`, `header()` and `readfile()` itself. `run()` emits it,
+  so its output is unchanged.
+
+  A file body stays a path rather than being read into memory, so a caller can
+  stream it. `If-None-Match` is a parameter now instead of a read of `$_SERVER`,
+  which makes the conditional request testable and lets a host application pass
+  its own header. `Request` carries four values, not a path: cookies hold the
+  iframe theme fallback, `Sec-Fetch-Dest` can turn an SPA route into a render
+  route, and `If-None-Match` decides a `304`.
+
 - **`Parisek\Styleguide\Twig\StyleguideTwigExtension` and `StyleguideRuntime`.**
   The bundled Twig helpers are declared once, in an extension that holds no
   mutable state, with everything a request can move — the render observer, the
