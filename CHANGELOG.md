@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.18.0] - 2026-09-23
+
 ### Added
 
 - **`vendor/bin/styleguide doctor`.** Reports what a project's
