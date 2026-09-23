@@ -426,9 +426,10 @@ final class BundleTest extends TestCase
         // The previous version of this test called fromYaml() directly, which
         // proves the LIBRARY rule and not the bundle wiring — a review pointed
         // that out. This goes through the kernel, which also documents WHEN the
-        // refusal fires: styleguide.core is private and lazily instantiated, so
-        // a project yaml carrying `auth` boots fine and fails on the first
-        // request rather than at cache:clear.
+        // refusal fires: the container holds only a factory carrying a path,
+        // and fromYaml() runs inside the controller, so a project yaml
+        // carrying `auth` boots fine and fails on the first request rather
+        // than at cache:clear.
         $kernel = $this->kernelWithConfig(__DIR__ . '/../../fixtures/bundle/styleguide-with-auth.yaml');
 
         $response = $kernel->handle(Request::create('/styleguide/api/components'));

@@ -27,10 +27,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   deployment shapes. Not `getBaseUrl()`, which keeps the script filename and
   would rebase onto `/index.php/dist/...`.
 
+  `getBasePath()` is also the better value where the two are not equal: behind a
+  trusted proxy sending `X-Forwarded-Prefix` it returns the prefix the browser
+  actually sees, which the `SCRIPT_NAME` formula cannot know.
+
   Per-request construction costs about a millisecond against roughly seven for
   the cheapest real request, and it removes shared mutable state from the bundle
   entirely — each request gets its own instance, as the library front controller
-  always did.
+  always did. In a worker-mode runtime the instance is reclaimed by PHP's cycle
+  collector rather than immediately, because Twig's closures capture it; memory
+  is bounded, not leaked.
 
   The container service is now `styleguide.factory` rather than
   `styleguide.core`. Both were private, so nothing a consumer could reference.
