@@ -134,6 +134,36 @@ final class ResultTest extends TestCase
     }
 
     #[Test]
+    public function emitting_a_200_does_not_overwrite_a_status_the_host_already_chose(): void
+    {
+        // Parity, and a review had to find it. Before the seam, a successful
+        // asset never touched the response code — only 304 and 404 did. An
+        // emitter that always calls http_response_code() would quietly reset a
+        // front controller's own choice to 200, which main did not do.
+        http_response_code(503);
+
+        ob_start();
+        Result::text('body')->emit();
+        ob_end_clean();
+
+        self::assertSame(503, http_response_code());
+        http_response_code(200);
+    }
+
+    #[Test]
+    public function emitting_a_non_200_does_set_the_status(): void
+    {
+        http_response_code(200);
+
+        ob_start();
+        Result::empty(404)->emit();
+        ob_end_clean();
+
+        self::assertSame(404, http_response_code());
+        http_response_code(200);
+    }
+
+    #[Test]
     public function the_request_reads_the_four_values_a_route_depends_on(): void
     {
         // Four, not one. The tracking issue proposed "a method that takes a

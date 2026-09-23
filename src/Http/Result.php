@@ -83,7 +83,18 @@ final class Result
      */
     public function emit(): void
     {
-        http_response_code($this->status);
+        // 200 is PHP's own default, and the pre-seam code never set it: a
+        // successful asset emitted headers and the file without touching the
+        // response code. Calling it unconditionally would therefore CHANGE
+        // behaviour for a front controller that had already chosen a status
+        // before dispatching — main left that alone, and so does this.
+        //
+        // Only the legacy emitter cares. A framework mapping reads `$status`
+        // directly, where 200 has to be explicit, which is why the value still
+        // carries it.
+        if ($this->status !== 200) {
+            http_response_code($this->status);
+        }
 
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value);
