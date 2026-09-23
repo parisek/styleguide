@@ -199,10 +199,7 @@ The refusal never reads Twig's wording to decide. Twig raises one exception clas
 The remedy is to register everything the package would have added yourself, before anything reads from the environment. **All of it** — the extensions as well as the helpers, since extensions are registered first and a closed environment refuses those too:
 
 ```php
-use Parisek\Styleguide\RenderObserver;
-use Parisek\Styleguide\Twig\StyleguideRuntime;
 use Parisek\Styleguide\Twig\StyleguideTwigExtension;
-use Twig\RuntimeLoader\FactoryRuntimeLoader;
 
 // The extensions the package registers for you when it can.
 $twig->addExtension(new \Parisek\Twig\TypographyExtension($typographyConfig ?? ''));
@@ -214,17 +211,16 @@ $twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
 ));
 
 // The helpers.
-$runtime = new StyleguideRuntime(new RenderObserver());
-
 $twig->addExtension(new StyleguideTwigExtension(['static_path' => $staticPath]));
-$twig->addRuntimeLoader(new FactoryRuntimeLoader([
-    StyleguideRuntime::class => static fn (): StyleguideRuntime => $runtime,
-]));
 ```
 
-`StyleguideTwigExtension` holds no mutable state, so it is safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, which Twig resolves lazily through the loader.
+That is all. **Do not register a `StyleguideRuntime` or a runtime loader yourself** — `Styleguide` installs its own, and it has to be its own.
 
-`Styleguide` recognises a pre-registered `StyleguideTwigExtension` and does not mistake the resulting duplicate names for a closed environment. Without that check it refused the very fix this section describes; a test now executes this sequence literally so it cannot regress.
+`StyleguideTwigExtension` holds no mutable state, which is what makes it safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, and only `Styleguide` knows those values. A runtime loader can be added to an already-initialised environment, unlike a function, filter or extension, so `Styleguide` can still wire its own after your framework has closed the environment.
+
+An earlier version of this section did tell you to register a runtime. Construction succeeded and rendering was broken in two silent ways: Twig resolves runtime loaders in registration order, so the helpers reached *your* runtime, whose `Renderer` nothing ever set — `styleguide_data()` threw "no active render context" — and every `component_*` call was recorded into an observer `renderObserved()` does not read. Tests now render through this whole sequence rather than only constructing, because construction succeeding proved nothing.
+
+`Styleguide` recognises a pre-registered `StyleguideTwigExtension` and does not mistake the resulting duplicate names for a closed environment, nor for a reason to refuse observation.
 
 ### Apache / Nginx rewrite
 

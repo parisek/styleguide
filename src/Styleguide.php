@@ -974,7 +974,20 @@ final class Styleguide
             // project whose wiring is perfectly fine. Only component_*/page_*
             // carry the observer, so only their loss makes a trace
             // untrustworthy.
-            if (!$added && in_array($function->getName(), ['component_*', 'page_*'], true)) {
+            //
+            // And not even then, if the version that won is OURS. A consumer
+            // following README § "If your environment is already initialised"
+            // pre-registers StyleguideTwigExtension, whose component_*/page_*
+            // resolve through StyleguideRuntime — and the runtime loader this
+            // method installs hands them THIS instance, with this observer. The
+            // trace is correct, so refusing to produce it would be a false
+            // alarm. Runtime loaders can be added to an initialised
+            // environment, which is what makes that work.
+            if (
+                !$added
+                && in_array($function->getName(), ['component_*', 'page_*'], true)
+                && !$twig->hasExtension(StyleguideTwigExtension::class)
+            ) {
                 $this->unobservableFunctions[] = $function->getName();
             }
         }
