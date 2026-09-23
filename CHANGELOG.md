@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.18.1] - 2026-09-23
+
 ### Fixed
 
 - **The Symfony bundle now takes the asset base from the request.** `iframe.css`,
