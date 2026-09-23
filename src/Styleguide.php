@@ -2758,7 +2758,17 @@ final class Styleguide
      */
     public function run(): void
     {
-        $result = $this->handle(Http\Request::fromGlobals());
+        try {
+            $result = $this->handle(Http\Request::fromGlobals());
+        } catch (\Throwable $e) {
+            // Front-controller behaviour, unchanged: a throw from dispatch
+            // reaches the consumer's error handler with the status already
+            // chosen, rather than whatever that handler would default to.
+            // It belongs here and not in handle(), which writes nothing.
+            http_response_code(500);
+
+            throw $e;
+        }
 
         if ($result === null) {
             return;
@@ -2942,12 +2952,11 @@ final class Styleguide
             $count,
         );
         if ($count !== 1) {
-            // Still set here, and still a throw. This path does not return a
-            // result — the exception propagates to the consumer's error
-            // handler, and the status is set so that handler's page is a 500
-            // rather than whatever it would default to. A Result cannot carry
-            // a throw, so this one stays where it is.
-            http_response_code(500);
+            // Throws rather than returning a result — a corrupt build is not a
+            // response, it is a broken installation. The 500 that used to be
+            // set here now lives in run(), because handle() promises to write
+            // nothing and a framework caller must not have its response code
+            // mutated by an exception it is going to catch.
             throw new \RuntimeException(
                 'dist/index.html is missing the #sg-config injection point — rebuild the frontend '
                 . '(cd frontend && npm run build) or check dist/ for corruption.',
@@ -2965,6 +2974,15 @@ final class Styleguide
      */
     private function dispatchRender(array $route): Http\Result
     {
+        // Every render starts from default_locale. `?locale=` narrows it below,
+        // for this render only — and before handle() existed, "for this render
+        // only" was enforced by run() ending the process. A reusable object has
+        // no such luck: without this line a request carrying ?locale=cs_CZ left
+        // the instance Czech, and the next render without a locale silently
+        // inherited it. Found by review, not by the tests, because every locale
+        // test builds a fresh Styleguide.
+        $this->requestLocale = (string) $this->config['default_locale'];
+
         $config = [
             'project' => $this->yamlConfig['project'] ?? [],
             'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),

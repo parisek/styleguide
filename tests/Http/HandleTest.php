@@ -152,6 +152,81 @@ final class HandleTest extends TestCase
     }
 
     #[Test]
+    public function one_instance_does_not_carry_a_locale_into_the_next_request(): void
+    {
+        // A bug this seam INTRODUCED, found by review rather than by the suite.
+        // `?locale=` narrows the locale for one render; before handle() existed
+        // that was enforced by run() ending the process. A reusable object has
+        // no such luck, and every locale test builds a fresh Styleguide, so
+        // nothing was watching the second request on the same instance.
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => __DIR__ . '/../fixtures',
+            'config_yaml' => __DIR__ . '/../fixtures/nonexistent.yaml',
+            'translations_path' => __DIR__ . '/../fixtures/translations',
+            'default_locale' => 'en',
+        ]);
+
+        $withLocale = $sg->handle(new Request('/styleguide/render/component/translated-sample?locale=cs_CZ'));
+        $after = $sg->handle(new Request('/styleguide/render/component/translated-sample'));
+        $fresh = $this->styleguideWithTranslations()->handle(
+            new Request('/styleguide/render/component/translated-sample'),
+        );
+
+        self::assertNotNull($withLocale);
+        self::assertNotNull($after);
+        self::assertNotNull($fresh);
+
+        // The second request must render exactly as a first request on a fresh
+        // instance would. Comparing against the fresh render rather than a
+        // hardcoded string keeps this about isolation, not about the fixture's
+        // wording.
+        self::assertSame($fresh->body, $after->body, 'the previous request left its locale behind');
+        self::assertNotSame($withLocale->body, $after->body);
+    }
+
+    private function styleguideWithTranslations(): Styleguide
+    {
+        return new Styleguide([
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => __DIR__ . '/../fixtures',
+            'config_yaml' => __DIR__ . '/../fixtures/nonexistent.yaml',
+            'translations_path' => __DIR__ . '/../fixtures/translations',
+            'default_locale' => 'en',
+        ]);
+    }
+
+    #[Test]
+    public function handle_writes_nothing_even_when_the_build_is_corrupt(): void
+    {
+        // handle() promises to write nothing, and the corrupt-build path used
+        // to break that promise: it set a 500 and then threw, so a framework
+        // caller catching the exception inherited a response code from a method
+        // that returned no result. That status lives in run() now.
+        $sg = $this->styleguide();
+        $dist = (new \ReflectionClass($sg))->getProperty('distRoot');
+
+        $broken = sys_get_temp_dir() . '/sg-corrupt-' . bin2hex(random_bytes(4));
+        mkdir($broken);
+        file_put_contents($broken . '/index.html', '<html>no injection point</html>');
+        $dist->setValue($sg, $broken);
+
+        http_response_code(200);
+
+        try {
+            $sg->handle(new Request('/styleguide/overview'));
+            self::fail('a corrupt build should throw');
+        } catch (\RuntimeException $e) {
+            self::assertStringContainsString('#sg-config', $e->getMessage());
+        } finally {
+            @unlink($broken . '/index.html');
+            @rmdir($broken);
+        }
+
+        self::assertSame(200, http_response_code(), 'handle() set a response code');
+    }
+
+    #[Test]
     public function the_theme_cookie_reaches_the_render(): void
     {
         // The other reason. An in-iframe navigation's href never carries
