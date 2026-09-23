@@ -10,6 +10,30 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **An optional Symfony bundle — `Bridge\Symfony\StyleguideBundle`.** The
+  catalogue can now be served by a host application's own stack: its routing, its
+  security, its access log, its error pages. Enable the bundle, point
+  `styleguide.config` at the project's `styleguide.yaml`, import the bundle's
+  routes. See README § *Symfony bundle*.
+
+  Nothing enters `require`. `symfony/framework-bundle` and `symfony/http-kernel`
+  are `require-dev` plus `suggest`, so a WordPress or Drupal consumer never pulls
+  them in.
+
+  The mount point is not configurable. A `prefix` key exists and accepts only
+  `/styleguide`; anything else is refused when the container builds. The prefix is
+  hardcoded through the PHP router, the Vue router's history base and the asset
+  URLs baked into the committed `dist/index.html`, so mounting elsewhere would
+  route correctly and then serve a shell that still requests `/styleguide/...`.
+
+  **Security is the host's.** The bundle adds no access control and cannot: `auth`
+  is a run-truth key, so `fromYaml()` refuses it and the bundle builds the service
+  through `fromYaml()`. Put the catalogue behind a firewall, covering the whole
+  prefix — `/api/*`, `/render/*` and `/assets/*` are all under it.
+
+  One difference from library mode: Symfony normalises `Cache-Control` and adds
+  `private`, so `/api/*` sends `no-cache, private` rather than `no-cache`.
+
 - **`Parisek\Styleguide\Http\Request` and `Http\Result`.** The first leaf of a
   request-in, result-out seam. `AssetServer::serve()` returns a `Result` — a
   status, headers, and a body that is text or a file path — instead of calling

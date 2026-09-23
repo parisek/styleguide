@@ -24,7 +24,13 @@
         "ergebnis/composer-normalize": "^2.0",
         "friendsofphp/php-cs-fixer": "^3.0",
         "phpstan/phpstan": "^2.0",
-        "phpunit/phpunit": "^11.0 || ^12.0"
+        "phpunit/phpunit": "^11.0 || ^12.0",
+        "symfony/framework-bundle": "^6.4 || ^7.0 || ^8.0",
+        "symfony/http-kernel": "^6.4 || ^7.0 || ^8.0"
+    },
+    "suggest": {
+        "symfony/framework-bundle": "To serve the catalogue from a Symfony application via Bridge\\Symfony\\StyleguideBundle (^6.4 || ^7.0 || ^8.0)",
+        "symfony/http-kernel": "Required alongside symfony/framework-bundle for the optional Symfony bundle (^6.4 || ^7.0 || ^8.0)"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

@@ -231,6 +231,61 @@ An earlier version of this section did tell you to register a runtime. Construct
 
 `Styleguide` recognises a pre-registered `StyleguideTwigExtension` and does not mistake the resulting duplicate names for a closed environment, nor for a reason to refuse observation.
 
+### Symfony bundle
+
+Optional. The core stays a framework-agnostic library, and nothing moves into `require` — `symfony/framework-bundle` and `symfony/http-kernel` are `require-dev` plus `suggest`, so a WordPress or Drupal consumer never pulls them in. A host application enabling the bundle already has both.
+
+It exists so the catalogue is served by the host's own stack: its routing, its security, its access log, its error pages. The library mode's `Styleguide::run()` cannot do that — it writes the response itself and calls `exit`.
+
+**`config/bundles.php`**
+
+```php
+Parisek\Styleguide\Bridge\Symfony\StyleguideBundle::class => ['all' => true],
+```
+
+**`config/packages/styleguide.yaml`**
+
+```yaml
+styleguide:
+    config: '%kernel.project_dir%/static/styleguide.yaml'
+```
+
+That is the whole configuration. The catalogue's own settings stay in the project's `styleguide.yaml`, which the bundle reads through `Styleguide::fromYaml()` — the bundle deliberately adds no second place to say the same things.
+
+**`config/routes.yaml`**
+
+```yaml
+styleguide:
+    resource: '@StyleguideBundle/Resources/config/routes.php'
+    type: php
+```
+
+Two routes: `/styleguide` and a catch-all `/styleguide/{path}`. Both are needed. The bare prefix is a real URL the catalogue answers, and the catch-all is what lets the SPA's history-API deep links survive a direct refresh — `/styleguide/component/card` pasted into a browser has to reach the controller and come back as the shell.
+
+#### The mount point is not configurable
+
+A `prefix` key exists and only accepts `/styleguide`; anything else is refused when the container builds, rather than half-honoured.
+
+`/styleguide` is hardcoded through the PHP router, the Vue router's history base, the SPA's API and locale fetches, the iframe URLs, the theme cookie path, and the asset URLs already baked into the committed `dist/index.html`. Mounting elsewhere would route the controller correctly and then serve a shell that still requests `/styleguide/...` — broken in a way that reads as a caching problem. Making it configurable is a frontend build change, tracked separately.
+
+#### Security is yours
+
+**Put the catalogue behind a firewall.** The bundle adds no access control of its own, and it cannot: `auth` is a run-truth key, so `fromYaml()` refuses it, and the bundle builds the service through `fromYaml()`.
+
+That is deliberate. Two gates that can disagree are worse than one — `auth: null` means "allow everything", so a host trusting the internal hook would have left the catalogue open, and an iframe request is rewritten from an SPA route to a render route before that hook would run.
+
+```yaml
+# config/packages/security.yaml
+access_control:
+    - { path: ^/styleguide, roles: ROLE_ADMIN }
+```
+
+Cover the whole prefix, not just the shell. `/styleguide/api/*`, `/styleguide/render/*` and `/styleguide/assets/*` are all under it, and the render endpoint is the one that exposes component markup.
+
+#### One difference from library mode
+
+Symfony normalises `Cache-Control` and adds `private`, so the `/api/*` endpoints send `no-cache, private` here where the library sends `no-cache`. Left alone: `private` only forbids shared-cache storage, which for a developer catalogue is stricter than what the package asked for and never looser.
+
 ### Apache / Nginx rewrite
 
 The package handles routing in PHP, but the entry script needs to receive `/styleguide/*` requests. Apache:
