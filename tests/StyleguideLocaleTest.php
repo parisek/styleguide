@@ -33,10 +33,18 @@ final class StyleguideLocaleTest extends TestCase
 
     private function renderRoute(Styleguide $sg, array $route): string
     {
+        return (string) $this->dispatchRoute($sg, $route)->body;
+    }
+
+    private function dispatchRoute(Styleguide $sg, array $route): \Parisek\Styleguide\Http\Result
+    {
+        // Still reflection: dispatch() takes a parsed route, which is the level
+        // these tests care about. What changed is that it RETURNS the response
+        // — no output buffer, and the status is readable rather than a process
+        // global these tests had to reset afterwards.
         $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
-        ob_start();
-        $dispatch->invoke($sg, $route);
-        return (string) ob_get_clean();
+
+        return $dispatch->invoke($sg, $route, new \Parisek\Styleguide\Http\Request('/styleguide'));
     }
 
     #[Test]
@@ -118,21 +126,16 @@ final class StyleguideLocaleTest extends TestCase
     #[Test]
     public function ambiguous_two_letter_locale_fails_loudly_with_400(): void
     {
-        $sg = $this->newStyleguide();
-        $dispatch = new \ReflectionMethod(Styleguide::class, 'dispatch');
-        ob_start();
-        $dispatch->invoke($sg, [
+        $result = $this->dispatchRoute($this->newStyleguide(), [
             'type' => 'render',
             'kind' => 'component',
             'slug' => 'translated-sample',
             'theme' => 'light',
             'locale' => 'pt', // matches both pt_BR and pt_PT in the fixture directory
         ]);
-        $output = ob_get_clean();
 
-        self::assertSame(400, http_response_code());
-        self::assertStringContainsString('ambiguous', $output);
-        http_response_code(200);
+        self::assertSame(400, $result->status);
+        self::assertStringContainsString('ambiguous', (string) $result->body);
     }
 
     #[Test]
