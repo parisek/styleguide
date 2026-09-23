@@ -350,6 +350,7 @@ final class Styleguide
             fn(): string => $this->requestLocale,
         );
         $this->registerBundledHelpers($this->twig, $this->observer);
+        $this->refuseAForeignRuntime();
         $this->refuseALockedEnvironment();
         self::$registeredEnvironments ??= new \WeakMap();
         if ($this->acceptedRegistrations > 0) {
@@ -975,19 +976,21 @@ final class Styleguide
             // carry the observer, so only their loss makes a trace
             // untrustworthy.
             //
-            // And not even then, if the version that won is OURS. A consumer
-            // following README § "If your environment is already initialised"
+            // Recorded here, judged later. A failure to register does NOT by
+            // itself mean the trace is untrustworthy: a consumer following
+            // README § "If your environment is already initialised"
             // pre-registers StyleguideTwigExtension, whose component_*/page_*
             // resolve through StyleguideRuntime — and the runtime loader this
-            // method installs hands them THIS instance, with this observer. The
-            // trace is correct, so refusing to produce it would be a false
-            // alarm. Runtime loaders can be added to an initialised
-            // environment, which is what makes that work.
-            if (
-                !$added
-                && in_array($function->getName(), ['component_*', 'page_*'], true)
-                && !$twig->hasExtension(StyleguideTwigExtension::class)
-            ) {
+            // method installs hands them THIS instance, with this observer.
+            //
+            // Whether that is what actually happened cannot be settled from
+            // here. Twig initialises registered extensions before its staging
+            // extension, so a consumer's own `component_*` function overrides
+            // the extension's, and `hasExtension()` cannot see that. Only the
+            // EFFECTIVE callable can, and reading it initialises the
+            // environment — so {@see renderObserved()} asks, at a point where
+            // initialising is free.
+            if (!$added && in_array($function->getName(), ['component_*', 'page_*'], true)) {
                 $this->unobservableFunctions[] = $function->getName();
             }
         }
@@ -1371,16 +1374,18 @@ final class Styleguide
             . 'initialised, and reading a single function or filter from it is enough to do that '
             . '— which a framework that builds Twig as a compiled, lazily-booted service has '
             . "usually done before your code runs.\n\n"
-            . "Register the helpers yourself, before anything reads from the environment:\n\n"
-            . "    \$twig->addExtension(new %s(\$config));\n"
-            . "    \$twig->addRuntimeLoader(new FactoryRuntimeLoader([\n"
-            . "        %s::class => fn () => \$runtime,\n"
-            . "    ]));\n\n"
+            . "Register them yourself, before anything reads from the environment:\n\n"
+            . "    \$twig->addExtension(new %s(\$config));\n\n"
+            . 'Plus the extensions the package would have added — TypographyExtension, '
+            . 'AttributeExtension, IntlExtension, StringExtension, DumpExtension — which are '
+            . "registered first and refused just as hard.\n\n"
+            . 'Do NOT register a StyleguideRuntime or a runtime loader: this package installs '
+            . 'its own, and a loader registered before it wins by registration order, leaving '
+            . "the helpers pointing at a runtime nothing configures.\n\n"
             . 'See README § "If your environment is already initialised". Twig said: %s',
             count($names),
             implode(', ', $names),
             StyleguideTwigExtension::class,
-            StyleguideRuntime::class,
             reset($this->refusedRegistrations),
         ));
     }
@@ -2024,6 +2029,112 @@ final class Styleguide
     }
 
     /**
+     * Are `component_*` and `page_*` actually backed by THIS `Styleguide`'s
+     * runtime, whatever the registration attempt reported?
+     *
+     * A failed registration is not by itself proof of an unobservable render.
+     * A consumer following README § "If your environment is already
+     * initialised" pre-registers {@see StyleguideTwigExtension}, so the package
+     * cannot add its own copies — and does not need to, because the
+     * extension's definitions resolve through {@see StyleguideRuntime} and the
+     * runtime loader installed during construction hands them this instance,
+     * with this observer.
+     *
+     * `hasExtension()` is NOT enough to decide that, which a review caught.
+     * Twig initialises registered extensions before its staging extension, so
+     * a consumer's own `component_*` function overrides the extension's while
+     * `hasExtension()` still reports true — the trace would then look complete
+     * while every call bypassed the observer. The effective callable is the
+     * only honest answer.
+     *
+     * Reading it initialises the extension set, which is why this is asked
+     * here and not during construction: by the time anyone calls
+     * `renderObserved()` the environment is about to render anyway, so there
+     * is nothing left to keep open.
+     *
+     * A consumer who registered their own `StyleguideRuntime` loader first
+     * wins by registration order and would defeat this, so construction
+     * refuses that outright — see {@see refuseAForeignRuntime()}.
+     */
+    private function observationIsWiredIn(): bool
+    {
+        foreach (['component_*' => 'renderComponent', 'page_*' => 'renderPage'] as $name => $method) {
+            $callable = $this->twig->getFunction($name)?->getCallable();
+
+            if (
+                !is_array($callable)
+                || ($callable[0] ?? null) !== StyleguideRuntime::class
+                || ($callable[1] ?? null) !== $method
+            ) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Refuse an environment whose `StyleguideRuntime` is somebody else's.
+     *
+     * Twig resolves runtime loaders in registration order and caches the first
+     * instance returned, so a loader registered before this package's wins.
+     * The helpers then reach a runtime nothing configures: `styleguide_data()`
+     * throws "no active render context" because its `Renderer` is never set,
+     * and every observation lands in an observer `renderObserved()` does not
+     * read.
+     *
+     * The README says not to register one. That is not a guard — a container
+     * can be configured that way by accident, and the failure it produces is
+     * silent and far from its cause, so it is checked rather than requested.
+     */
+    private function refuseAForeignRuntime(): void
+    {
+        self::$registeredEnvironments ??= new \WeakMap();
+
+        try {
+            $resolved = $this->twig->getRuntime(StyleguideRuntime::class);
+        } catch (\Twig\Error\RuntimeError) {
+            // No loader can resolve it. Nothing is wired to the wrong
+            // instance, and any real problem surfaces at render time with
+            // Twig's own message.
+            return;
+        }
+
+        if ($resolved === $this->twigRuntime) {
+            return;
+        }
+
+        // Not a foreign loader — our own, from an earlier construction on this
+        // same environment. Twig caches the first runtime a loader returns, so
+        // the first `Styleguide` keeps its instance and this one's is ignored.
+        //
+        // Tolerated, and a real limitation worth naming: on a shared
+        // environment the FIRST instance's observer and `Renderer` are the ones
+        // the helpers reach, so a second instance's `renderObserved()` reports
+        // the first's view. Refusing would break
+        // `repeated_construction_does_not_duplicate_paths`, a supported
+        // pattern, over a case nobody is known to hit — two live `Styleguide`
+        // objects sharing one environment. Making them genuinely independent is
+        // a separate piece of work, not a side effect of this refusal.
+        if (isset(self::$registeredEnvironments[$this->twig])) {
+            return;
+        }
+
+        throw new \RuntimeException(sprintf(
+            'Styleguide: the Twig environment resolves %s to an instance this Styleguide does '
+            . "not own.\n\n"
+            . 'Twig resolves runtime loaders in registration order, so a loader registered before '
+            . "this package's wins. The helpers then point at a runtime nothing configures: "
+            . 'styleguide_data() cannot see the active Renderer, and renderObserved() records into '
+            . "an observer it never reads.\n\n"
+            . 'Remove that runtime loader. Registering %s is enough — this package installs the '
+            . 'runtime itself, and can do so even on an already-initialised environment.',
+            StyleguideRuntime::class,
+            StyleguideTwigExtension::class,
+        ));
+    }
+
+    /**
      * @api Render observation. Renders ONE fixture (`kind`/`slug`[/`variant`])
      *      and returns both the resulting HTML and the trace of every
      *      `component_*`/`page_*` invocation the render produced —
@@ -2094,7 +2205,7 @@ final class Styleguide
      */
     public function renderObserved(string $kind, string $slug, ?string $variant = null): array
     {
-        if ($this->unobservableFunctions !== []) {
+        if ($this->unobservableFunctions !== [] && !$this->observationIsWiredIn()) {
             throw new \LogicException(sprintf(
                 'Styleguide::renderObserved(): cannot observe this render — %s could not be registered on the '
                 . 'supplied Twig environment, because a function of that name (or a locked extension set) was '

@@ -202,7 +202,16 @@ The remedy is to register everything the package would have added yourself, befo
 use Parisek\Styleguide\Twig\StyleguideTwigExtension;
 
 // The extensions the package registers for you when it can.
-$twig->addExtension(new \Parisek\Twig\TypographyExtension($typographyConfig ?? ''));
+//
+// Give TypographyExtension a locale resolver, as the package does. Without one
+// it falls back to the typography package's defaults, so `|typography` and the
+// `…t` translator aliases stop following the render's language — the same
+// caveat the `typography_config` row above describes for any hand-registered
+// instance.
+$twig->addExtension(new \Parisek\Twig\TypographyExtension(
+    $typographyConfig ?? '',
+    static fn (): string => $locale,
+));
 $twig->addExtension(new \Parisek\Twig\AttributeExtension());
 $twig->addExtension(new \Twig\Extra\Intl\IntlExtension());
 $twig->addExtension(new \Twig\Extra\String\StringExtension());

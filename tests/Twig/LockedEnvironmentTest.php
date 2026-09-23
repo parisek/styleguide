@@ -172,7 +172,12 @@ final class LockedEnvironmentTest extends TestCase
             self::assertStringContainsString('accepted none of the package', $e->getMessage());
             self::assertStringContainsString('component_*', $e->getMessage());
             self::assertStringContainsString('StyleguideTwigExtension', $e->getMessage());
-            self::assertStringContainsString('addRuntimeLoader', $e->getMessage());
+            // And it must NOT tell them to register a runtime loader. An
+            // earlier version did, which recreated the split-runtime failure
+            // the README now warns about — the message is executable advice,
+            // so it has to be advice that works.
+            self::assertStringNotContainsString('addRuntimeLoader', $e->getMessage());
+            self::assertStringContainsString('Do NOT register a StyleguideRuntime', $e->getMessage());
         }
 
         // And the helpers really were absent — the refusal is not describing
