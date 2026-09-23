@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Bridge\Symfony\DependencyInjection;
 
 use Parisek\Styleguide\Bridge\Symfony\Controller\StyleguideController;
-use Parisek\Styleguide\Styleguide;
+use Parisek\Styleguide\Bridge\Symfony\StyleguideFactory;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -69,14 +69,20 @@ final class StyleguideExtension extends Extension
             ));
         }
 
-        $styleguide = new Definition(Styleguide::class);
-        $styleguide->setFactory([Styleguide::class, 'fromYaml']);
-        $styleguide->setArguments([$config['config']]);
-        $styleguide->setPublic(false);
-        $container->setDefinition('styleguide.core', $styleguide);
+        // A factory, not a Styleguide. The catalogue needs this request's
+        // asset base (`twig_context.templateUrl`), which is run truth: it is
+        // correct for exactly one request, which is why fromYaml() refuses it
+        // in the YAML. A service built when the container compiles can only
+        // carry an empty base — right for a host at the domain root, silently
+        // wrong for one serving a theme through a rewrite or from a
+        // subdirectory, with no key to correct it. See StyleguideFactory.
+        $factory = new Definition(StyleguideFactory::class);
+        $factory->setArguments([$config['config']]);
+        $factory->setPublic(false);
+        $container->setDefinition('styleguide.factory', $factory);
 
         $controller = new Definition(StyleguideController::class);
-        $controller->setArguments([new Reference('styleguide.core')]);
+        $controller->setArguments([new Reference('styleguide.factory')]);
         // Tagged rather than merely public: the host's routing refers to this
         // service by id, and `controller.service_arguments` is what lets Symfony
         // inject the Request argument.

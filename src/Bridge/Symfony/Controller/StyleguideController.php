@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Bridge\Symfony\Controller;
 
+use Parisek\Styleguide\Bridge\Symfony\StyleguideFactory;
 use Parisek\Styleguide\Http\Request as StyleguideRequest;
 use Parisek\Styleguide\Styleguide;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -34,11 +35,19 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class StyleguideController
 {
-    public function __construct(private readonly Styleguide $styleguide) {}
+    public function __construct(private readonly StyleguideFactory $factory) {}
 
     public function __invoke(Request $request): Response
     {
-        $result = $this->styleguide->handle(new StyleguideRequest(
+        // getBasePath(), the base WITHOUT the script filename. Not
+        // getBaseUrl(), which keeps it: on `/index.php/styleguide/…` that
+        // would rebase every iframe stylesheet onto `/index.php/dist/…`.
+        // getBasePath() returns exactly what the library front controller
+        // computes as `rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')` — equal
+        // in all four deployment shapes, asserted in BundleTest.
+        $styleguide = $this->factory->forRequest($request->getBasePath());
+
+        $result = $styleguide->handle(new StyleguideRequest(
             // getPathInfo(), NOT getRequestUri(). The latter includes the base
             // URL, so on a deployment without rewrites — `/index.php/styleguide/…`
             // — or in a subdirectory, routing matches (it uses pathInfo) and then

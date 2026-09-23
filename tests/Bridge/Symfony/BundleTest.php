@@ -364,6 +364,63 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
+    public function the_asset_base_comes_from_the_request(): void
+    {
+        // The gap this factory closes. `templateUrl` is run truth — fromYaml()
+        // refuses it in the YAML because it is correct for exactly one request
+        // — so a service built when the container compiles can only ever carry
+        // an empty base. Right at the domain root, silently wrong for a host
+        // serving a theme through a rewrite or from a subdirectory, and the
+        // bundle exposes no key to correct it.
+        $render = $this->kernel()->handle(Request::create(
+            '/sub/index.php/styleguide/render/component/sample',
+            server: ['SCRIPT_NAME' => '/sub/index.php', 'SCRIPT_FILENAME' => '/sub/index.php'],
+        ));
+
+        self::assertSame(200, $render->getStatusCode());
+        self::assertStringContainsString('/sub/dist/css/style.css', (string) $render->getContent());
+    }
+
+    #[Test]
+    public function the_asset_base_is_empty_at_the_domain_root(): void
+    {
+        // The other half, and the one a regression would hide behind: a host
+        // at the domain root must keep passing paths through byte for byte.
+        // Rebasing onto a non-empty base here would prefix every stylesheet
+        // with a path that does not exist.
+        $render = $this->kernel()->handle(Request::create('/styleguide/render/component/sample'));
+
+        $html = (string) $render->getContent();
+        self::assertStringContainsString('"/dist/css/style.css"', $html);
+        self::assertStringNotContainsString('/index.php/dist/', $html);
+    }
+
+    #[Test]
+    public function the_asset_base_matches_what_the_library_front_controller_computes(): void
+    {
+        // getBasePath(), not getBaseUrl(): the latter keeps the script
+        // filename, so `/index.php/styleguide/…` would rebase every iframe
+        // stylesheet onto `/index.php/dist/…`. These are the four deployment
+        // shapes the library's `rtrim(dirname(SCRIPT_NAME), '/')` covers.
+        $shapes = [
+            ['/styleguide/', '/index.php', ''],
+            ['/index.php/styleguide/', '/index.php', ''],
+            ['/sub/index.php/styleguide/', '/sub/index.php', '/sub'],
+            ['/sub/styleguide/', '/sub/index.php', '/sub'],
+        ];
+
+        foreach ($shapes as [$uri, $scriptName, $expected]) {
+            $request = Request::create(
+                $uri,
+                server: ['SCRIPT_NAME' => $scriptName, 'SCRIPT_FILENAME' => $scriptName],
+            );
+
+            self::assertSame($expected, $request->getBasePath(), $uri);
+            self::assertSame(rtrim(dirname($scriptName), '/'), $request->getBasePath(), $uri);
+        }
+    }
+
+    #[Test]
     public function an_auth_key_in_the_projects_yaml_is_refused_through_the_kernel(): void
     {
         // The previous version of this test called fromYaml() directly, which

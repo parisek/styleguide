@@ -9,5 +9,9 @@ project:
   name: Bundle Fixture
   slug: bundle-fixture
 iframe:
-  css: ''
+  # A root-relative path, the shape README documents: it is rebased onto
+  # `twig_context.templateUrl` so one short value works in every layout. The
+  # bundle has to supply that base from the request, which is what
+  # `the_asset_base_comes_from_the_request` asserts.
+  css: /dist/css/style.css
   js: ''
