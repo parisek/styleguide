@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide;
 
+use Parisek\Styleguide\Http\Result;
 use Symfony\Component\Yaml\Yaml;
 use Twig\Environment;
 use Twig\TwigFunction;
@@ -596,10 +597,10 @@ final class Renderer
      *   raw (query-string-sourced) value through {@see Router::whitelistTheme()}
      *   first; this method re-coerces anyway as a defensive fallback.
      */
-    public function render(string $kind, string $slug, array $config, string $langcode = 'en', string $theme = 'light'): string
+    public function render(string $kind, string $slug, array $config, string $langcode = 'en', string $theme = 'light'): Result
     {
         if (!in_array($kind, ['component', 'page', 'doc', 'foundations', 'icons'], true)) {
-            return $this->render404($kind, $slug, $config);
+            return Result::html($this->render404($kind, $slug, $config), 404);
         }
 
         // Consumer asset base (`twig_context.templateUrl`) — '' standalone, the
@@ -625,10 +626,16 @@ final class Renderer
             $config['styleguide'] = self::rebaseAuditAssets($config['styleguide'], $assetBase);
         }
 
+        // 200 unless something below says otherwise. The status used to be a
+        // side effect — `http_response_code()` called from inside this method
+        // and from render404() — so a caller holding the returned HTML had no
+        // way to know which status went with it. Now it travels WITH the body.
+        $status = 200;
+
         try {
             $body = $this->renderBody($kind, $slug, $config);
             if ($body === null) {
-                return $this->render404($kind, $slug, $config);
+                return Result::html($this->render404($kind, $slug, $config), 404);
             }
         } catch (\Throwable $e) {
             // A component/page that throws during render used to return HTTP 200
@@ -637,7 +644,7 @@ final class Renderer
             // component. The error markup itself stays visible (still useful for
             // local dev — the whole point of NOT swallowing it into a generic
             // "something went wrong" page).
-            http_response_code(500);
+            $status = 500;
             $body = $this->errorMarkup($e);
         }
 
@@ -667,7 +674,7 @@ final class Renderer
             $iframe['js'] = self::resolveAssetUrl($iframe['js'], $assetBase);
         }
 
-        return $this->twig->render('render-cell.twig', [
+        return Result::html($this->twig->render('render-cell.twig', [
             'kind' => $kind,
             'slug' => $slug,
             'langcode' => $langcode,
@@ -692,7 +699,7 @@ final class Renderer
             'body' => $body,
             'foundations_css_url' => $config['foundations_css_url'] ?? null,
             'foundations_js_url' => $config['foundations_js_url'] ?? null,
-        ]);
+        ]), $status);
     }
 
     /**
@@ -923,11 +930,13 @@ final class Renderer
     }
 
     /**
+     * The 404 BODY. The status is the caller's to carry — it used to be set
+     * here as a side effect, which is exactly what made it invisible.
+     *
      * @param array<string, mixed> $config
      */
     private function render404(string $kind, string $slug, array $config): string
     {
-        http_response_code(404);
         return $this->twig->render('styleguide-404.twig', [
             'kind' => $kind,
             'slug' => $slug,

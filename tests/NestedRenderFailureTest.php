@@ -134,12 +134,13 @@ final class NestedRenderFailureTest extends TestCase
         $twig = self::twig();
         $renderer = new Renderer($twig, []);
 
-        $html = $renderer->render('component', 'host', [
+        $result = $renderer->render('component', 'host', [
             'project' => ['name' => 'Test'],
             'iframe' => [],
         ], 'en');
+        $html = (string) $result->body;
 
-        self::assertSame(500, http_response_code());
+        self::assertSame(500, $result->status);
         self::assertStringContainsString('Render error:', $html);
         // Not just "an error happened": the body must NAME the template that
         // failed and carry Twig's own parser text. A generic error page would
@@ -150,7 +151,6 @@ final class NestedRenderFailureTest extends TestCase
         // The real Twig message, not "not found" — the distinction this whole
         // change exists to restore.
         self::assertStringNotContainsString('not found', $html);
-        http_response_code(200);
     }
 
     #[Test]

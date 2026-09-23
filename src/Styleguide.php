@@ -2352,7 +2352,7 @@ final class Styleguide
 
         $this->observer->arm($fixture);
         try {
-            $html = $this->renderer->render($kind, $slug, $renderConfig, (string) $this->config['default_locale']);
+            $html = $this->renderer->render($kind, $slug, $renderConfig, (string) $this->config['default_locale'])->body ?? '';
         } finally {
             $calls = $this->observer->disarm();
         }
@@ -3086,8 +3086,11 @@ final class Styleguide
             ]);
         }
 
-        header('Content-Type: text/html; charset=utf-8');
-        echo $this->renderer->render(
+        // Emitted here on the Renderer's behalf, as with assets and the API.
+        // The Content-Type moves INTO the result — it was written here while the
+        // status that belongs with it was set deep inside Renderer, which is the
+        // split this seam exists to close.
+        $this->renderer->render(
             kind: $route['kind'],
             slug: $route['slug'],
             config: $config,
@@ -3096,7 +3099,7 @@ final class Styleguide
             // `render`-type routes, but re-whitelist defensively — $route is a
             // loosely-typed array<string,mixed>, not a value object.
             theme: Router::whitelistTheme($route['theme'] ?? null),
-        );
+        )->emit();
     }
 
     /**
