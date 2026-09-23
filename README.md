@@ -272,6 +272,8 @@ A `prefix` key exists and only accepts `/styleguide`; anything else is refused w
 
 **Put the catalogue behind a firewall.** The bundle adds no access control of its own, and it cannot: `auth` is a run-truth key, so `fromYaml()` refuses it, and the bundle builds the service through `fromYaml()`.
 
+The refusal fires on the **first request**, not at `cache:clear`: the service is private and lazily built, so a project `styleguide.yaml` carrying `bootstrap.auth` boots fine and then 500s. That is a misconfiguration you will hit immediately, not one that ships quietly.
+
 That is deliberate. Two gates that can disagree are worse than one — `auth: null` means "allow everything", so a host trusting the internal hook would have left the catalogue open, and an iframe request is rewritten from an SPA route to a render route before that hook would run.
 
 ```yaml
@@ -279,6 +281,8 @@ That is deliberate. Two gates that can disagree are worse than one — `auth: nu
 access_control:
     - { path: ^/styleguide, roles: ROLE_ADMIN }
 ```
+
+`access_control` only bites **inside a firewall that authenticates**. A pattern left on `security: false`, or a firewall with no authenticator, gets no gate from the rule above — check which firewall `^/styleguide` falls into before relying on it.
 
 Cover the whole prefix, not just the shell. `/styleguide/api/*`, `/styleguide/render/*` and `/styleguide/assets/*` are all under it, and the render endpoint is the one that exposes component markup.
 

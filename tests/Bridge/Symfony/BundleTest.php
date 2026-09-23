@@ -25,18 +25,69 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
  */
 final class BundleTest extends TestCase
 {
+    /** @var list<string> */
+    private array $projectDirs = [];
+
+    protected function tearDown(): void
+    {
+        // Each kernel compiles a container into the system temp directory.
+        // Leaving them behind is how a stale compiled container outlives the
+        // change that should have invalidated it.
+        foreach ($this->projectDirs as $dir) {
+            self::removeDirectory($dir);
+        }
+
+        $this->projectDirs = [];
+    }
+
+    private static function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+
+        foreach (scandir($dir) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $path = $dir . '/' . $entry;
+            is_dir($path) ? self::removeDirectory($path) : @unlink($path);
+        }
+
+        @rmdir($dir);
+    }
+
     private function kernel(string $prefix = '/styleguide'): Kernel
     {
+        return $this->build($prefix, __DIR__ . '/../../fixtures/bundle/styleguide.yaml');
+    }
+
+    /**
+     * A kernel pointed at a different project yaml, for the cases where the
+     * catalogue's own configuration is what is under test.
+     */
+    private function kernelWithConfig(string $config): Kernel
+    {
+        return $this->build('/styleguide', $config);
+    }
+
+    private function build(string $prefix, string $config): Kernel
+    {
+        $this->projectDirs[] = sys_get_temp_dir() . '/sg-bundle-' . md5($prefix . $config);
+
         // MicroKernelTrait is what supplies the `kernel::loadRoutes` loader the
         // routing needs; a bare Kernel has no such loader and every request
         // dies in DelegatingLoader. This is a TEST kernel, not the public
         // "micro-kernel mode" the design deliberately dropped — that would have
         // been a third documented consumer path with no consumer.
-        return new class ($prefix) extends Kernel {
+        return new class ($prefix, $config) extends Kernel {
             use MicroKernelTrait;
 
-            public function __construct(private readonly string $stylguidePrefix)
-            {
+            public function __construct(
+                private readonly string $styleguidePrefix,
+                private readonly string $styleguideConfig,
+            ) {
                 parent::__construct('test', true);
             }
 
@@ -54,8 +105,8 @@ final class BundleTest extends TestCase
                     'router' => ['utf8' => true],
                 ]);
                 $container->extension('styleguide', [
-                    'config' => __DIR__ . '/../../fixtures/bundle/styleguide.yaml',
-                    'prefix' => $this->stylguidePrefix,
+                    'config' => $this->styleguideConfig,
+                    'prefix' => $this->styleguidePrefix,
                 ]);
             }
 
@@ -71,7 +122,9 @@ final class BundleTest extends TestCase
 
             public function getProjectDir(): string
             {
-                return sys_get_temp_dir() . '/sg-bundle-' . md5($this->stylguidePrefix);
+                // Keyed on both, so two kernels with different configuration
+                // never share a compiled container.
+                return sys_get_temp_dir() . '/sg-bundle-' . md5($this->styleguidePrefix . $this->styleguideConfig);
             }
 
             public function getCacheDir(): string
@@ -214,12 +267,116 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
+    public function a_deployment_without_rewrites_still_routes(): void
+    {
+        // The bug a review found with a probe and the suite did not. The
+        // controller took getRequestUri(), which includes the base URL, so on
+        // `/index.php/styleguide/…` — any host without rewrites, or installed
+        // in a subdirectory — routing matched (it uses pathInfo) and then
+        // Router::parse() was handed `/index.php/styleguide/…`, did not
+        // recognise it, and every single request 404'd.
+        $response = $this->kernel()->handle(Request::create(
+            '/index.php/styleguide/api/components',
+            server: ['SCRIPT_NAME' => '/index.php', 'SCRIPT_FILENAME' => '/index.php'],
+        ));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('application/json; charset=utf-8', $response->headers->get('Content-Type'));
+    }
+
+    #[Test]
+    public function the_query_string_survives_the_path_info_rewrite(): void
+    {
+        // getPathInfo() drops the query string, and Router::parse() reads
+        // `?theme=`, `?variant=` and `?locale=` out of the URI itself — so the
+        // fix for the above has to re-attach it or it trades one silent
+        // breakage for another.
+        $light = $this->kernel()->handle(Request::create('/styleguide/render/component/sample?theme=light'));
+        $dark = $this->kernel()->handle(Request::create('/styleguide/render/component/sample?theme=dark'));
+
+        self::assertSame(200, $dark->getStatusCode());
+        self::assertNotSame(
+            $light->getContent(),
+            $dark->getContent(),
+            'the query string was lost on the way to Router::parse()',
+        );
+    }
+
+    #[Test]
+    public function an_iframe_request_renders_the_component_not_the_shell(): void
+    {
+        $shell = $this->kernel()->handle(Request::create('/styleguide/component/sample'));
+        $embedded = $this->kernel()->handle(Request::create(
+            '/styleguide/component/sample',
+            server: ['HTTP_SEC_FETCH_DEST' => 'iframe'],
+        ));
+
+        self::assertSame(200, $embedded->getStatusCode());
+        self::assertNotSame($shell->getContent(), $embedded->getContent());
+    }
+
+    #[Test]
+    public function a_head_request_sends_the_headers_and_no_body(): void
+    {
+        $response = $this->kernel()->handle(Request::create('/styleguide/api/components', 'HEAD'));
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('application/json; charset=utf-8', $response->headers->get('Content-Type'));
+    }
+
+    #[Test]
+    public function a_post_is_refused_by_the_router(): void
+    {
+        // The routes are GET|HEAD. A write method should never reach a
+        // read-only catalogue, and the router is the right place to say so.
+        $response = $this->kernel()->handle(Request::create('/styleguide/api/components', 'POST'));
+
+        self::assertSame(405, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function an_asset_cannot_escape_the_dist_directory(): void
+    {
+        // The containment check AssetServer grew in #139, reached through the
+        // host's stack this time. Serving via BinaryFileResponse must not
+        // bypass it — the path only ever comes from a Result built after
+        // realpath() and isContained().
+        $response = $this->kernel()->handle(
+            Request::create('/styleguide/assets/../../composer.json'),
+        );
+
+        self::assertSame(404, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function a_missing_asset_is_a_404(): void
+    {
+        self::assertSame(
+            404,
+            $this->kernel()->handle(Request::create('/styleguide/assets/nope.css'))->getStatusCode(),
+        );
+    }
+
+    #[Test]
+    public function an_auth_key_in_the_projects_yaml_is_refused_through_the_kernel(): void
+    {
+        // The previous version of this test called fromYaml() directly, which
+        // proves the LIBRARY rule and not the bundle wiring — a review pointed
+        // that out. This goes through the kernel, which also documents WHEN the
+        // refusal fires: styleguide.core is private and lazily instantiated, so
+        // a project yaml carrying `auth` boots fine and fails on the first
+        // request rather than at cache:clear.
+        $kernel = $this->kernelWithConfig(__DIR__ . '/../../fixtures/bundle/styleguide-with-auth.yaml');
+
+        $response = $kernel->handle(Request::create('/styleguide/api/components'));
+
+        self::assertSame(500, $response->getStatusCode());
+    }
+
+    #[Test]
     public function the_bundle_cannot_be_given_an_auth_callable(): void
     {
-        // Not a check this bundle adds — `auth` is in RUN_TRUTH_KEYS, so
-        // fromYaml() refuses it, and the DI extension builds the service through
-        // fromYaml(). Security is the host's firewall, with no second gate that
-        // could disagree with it.
+        // The library rule the above rests on, asserted directly.
         $this->expectException(\InvalidArgumentException::class);
 
         \Parisek\Styleguide\Styleguide::fromYaml(__DIR__ . '/../../fixtures/bundle/styleguide-with-auth.yaml');

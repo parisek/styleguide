@@ -39,7 +39,16 @@ final class StyleguideController
     public function __invoke(Request $request): Response
     {
         $result = $this->styleguide->handle(new StyleguideRequest(
-            uri: $request->getRequestUri(),
+            // getPathInfo(), NOT getRequestUri(). The latter includes the base
+            // URL, so on a deployment without rewrites — `/index.php/styleguide/…`
+            // — or in a subdirectory, routing matches (it uses pathInfo) and then
+            // Router::parse() is handed `/index.php/styleguide/…`, does not
+            // recognise it, and every request 404s. Found by review with a probe,
+            // not by the tests.
+            //
+            // The query string has to be re-attached: Router::parse() reads
+            // `?theme=`, `?variant=` and `?locale=` out of the URI itself.
+            uri: $this->uri($request),
             cookies: $request->cookies->all(),
             secFetchDest: (string) $request->headers->get('Sec-Fetch-Dest', ''),
             ifNoneMatch: (string) $request->headers->get('If-None-Match', ''),
@@ -47,12 +56,19 @@ final class StyleguideController
 
         if ($result === null) {
             // The route matched but the package does not recognise the path.
-            // Reachable because the route is a catch-all under the prefix —
-            // `/styleguide` itself and every `/styleguide/*` — while
-            // `Router::parse()` is stricter. A 404 from the host is the honest
-            // answer; returning an empty 200 would let a CI smoke test pass on
-            // a typo'd URL.
-            throw new NotFoundHttpException('Not a styleguide route: ' . $request->getRequestUri());
+            //
+            // Rarer than it looks, and the first version of this comment said
+            // otherwise. A typo under the prefix does NOT land here — Router
+            // answers an unknown path with the SPA landing, and an unknown
+            // `/api/*` endpoint comes back as a 404 result. What reaches this
+            // branch is a URI the router cannot parse at all, such as an
+            // encoded slash that decodes to the prefix only after matching.
+            //
+            // The URI is deliberately not in the message: Symfony's production
+            // error page never shows it, but the log line already carries the
+            // request, so repeating it buys nothing and puts caller-controlled
+            // text somewhere it does not need to be.
+            throw new NotFoundHttpException('Not a styleguide route.');
         }
 
         // A file body stays a file. BinaryFileResponse streams it and can use
@@ -63,5 +79,15 @@ final class StyleguideController
         }
 
         return new Response($result->body, $result->status, $result->headers);
+    }
+
+    /**
+     * The path the package routes on, with its query string.
+     */
+    private function uri(Request $request): string
+    {
+        $query = $request->getQueryString();
+
+        return $request->getPathInfo() . ($query === null ? '' : '?' . $query);
     }
 }
