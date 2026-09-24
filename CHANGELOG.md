@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.19.0] - 2026-09-24
+
 ### Added
 
 - **`og_image: false` opts a project out of the `#og-image` section.** Set it
