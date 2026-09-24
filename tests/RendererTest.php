@@ -947,11 +947,13 @@ final class RendererTest extends TestCase
     #[Test]
     public function og_image_section_renders_the_empty_state_when_unconfigured(): void
     {
-        // (#74) `og_image_audit` is always present (dispatchRender runs
-        // OgImageAudit::run() unconditionally), but when the consumer's
-        // yaml carries no `og_image:` key, `configured` is false — the
-        // section must render the dashed empty-state prompt (its default
-        // label text) instead of any of the three share-card mockups.
+        // (#74) `og_image_audit` is present whenever the consumer hasn't
+        // opted out with `og_image: false` (dispatchRender runs
+        // OgImageAudit::run() unconditionally in that case), but when the
+        // consumer's yaml carries no `og_image:` key, `configured` is false
+        // — the section must render the dashed empty-state prompt (its
+        // default label text) instead of any of the three share-card
+        // mockups.
         $html = $this->rendererWithBase('')->render('foundations', '', [
             'styleguide' => [
                 'og_image_audit' => [
@@ -979,6 +981,23 @@ final class RendererTest extends TestCase
         // No other section's config key is set, so an <img> anywhere in the
         // render can only have come from the (wrongly rendered) og mockup.
         self::assertStringNotContainsString('<img', $html);
+    }
+
+    #[Test]
+    public function og_image_section_does_not_render_when_the_audit_key_is_absent(): void
+    {
+        // Opt-out counterpart to the empty-state test above. `og_image: false`
+        // makes Styleguide::dispatchRender() skip OgImageAudit::run()
+        // entirely and leave `og_image_audit` unset (see
+        // OgImageOptOutTest for the end-to-end coverage of that wiring) —
+        // at the template level, that means `{% if styleguide.og_image_audit %}`
+        // must render nothing at all, not even the empty-state prompt.
+        $html = $this->rendererWithBase('')->render('foundations', '', [
+            'styleguide' => [],
+        ], 'cs')->body;
+
+        self::assertStringNotContainsString('og-image', $html);
+        self::assertStringNotContainsString('No og_image configured', $html);
     }
 
     #[Test]

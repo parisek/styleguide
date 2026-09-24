@@ -8,6 +8,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`og_image: false` opts a project out of the `#og-image` section.** Set it
+  explicitly to hide the section on Foundations entirely — the server-side
+  audit doesn't run, and no empty-state prompt shows either. A missing
+  `og_image:` key keeps the existing behaviour unchanged: the section still
+  renders with its empty-state prompt.
+
 ## [1.18.2] - 2026-09-23
 
 ### Fixed
