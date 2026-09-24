@@ -260,7 +260,11 @@
 	   on this page, this one is NOT gated on the yaml key being present:
 	   an OG image is expected on every project, so the section always
 	   renders — an empty-state prompt when `og_image_audit.configured`
-	   is false, three share-card mockups + an audit summary otherwise. #}
+	   is false, three share-card mockups + an audit summary otherwise.
+	   The one opt-out is an explicit `og_image: false`, which makes
+	   Styleguide.php skip the audit entirely and leave `og_image_audit`
+	   unset — the `{% if %}` below then hides the whole section, same
+	   as any other optional section a project doesn't use. #}
 	{% if styleguide.og_image_audit %}
 		{% set og_audit = styleguide.og_image_audit %}
 		{% set og_status_classes = {

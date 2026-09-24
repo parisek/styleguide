@@ -3174,7 +3174,7 @@ final class Styleguide
                 // browser fetches the manifest), so they carry this base and
                 // have to be stripped back before the filesystem sees them.
                 $assetBase = (string) (($this->config['twig_context']['templateUrl'] ?? '') ?: '');
-                $config['styleguide'] = array_merge($this->yamlConfig, [
+                $sections = [
                     'colors' => $normalizedColors,
                     'colors_contrast' => ColorPalettes::contrastMatrix($normalizedColors),
                     // Server-side favicon audit (#73) — existence, real pixel
@@ -3188,19 +3188,24 @@ final class Styleguide
                         (array) ($this->yamlConfig['favicon'] ?? []),
                         $assetBase,
                     ),
-                    // Server-side Open Graph image audit (#74) — existence,
-                    // real pixel dimensions, aspect ratio, file size. Unlike
-                    // favicon_audit, this one is *not* gated on the yaml key
-                    // being present — the template's `#og-image` section
-                    // always renders (empty-state prompt when unconfigured),
-                    // since an OG image is expected on every project and
-                    // must not silently vanish from the audit surface.
-                    'og_image_audit' => OgImageAudit::run(
+                ];
+                // Server-side Open Graph image audit (#74) — existence, real
+                // pixel dimensions, aspect ratio, file size. Not gated on the
+                // yaml key being present (empty-state prompt when unconfigured),
+                // since an OG image is expected on every project and must not
+                // silently vanish from the audit surface. The one opt-out is
+                // an explicit `og_image: false`: that consumer does not want
+                // the section at all, so the audit does not even run and
+                // `og_image_audit` stays unset, which the template treats
+                // exactly like every other absent optional section.
+                if (($this->yamlConfig['og_image'] ?? null) !== false) {
+                    $sections['og_image_audit'] = OgImageAudit::run(
                         (string) ($this->config['static_path'] ?? ''),
                         $this->yamlConfig['og_image'] ?? null,
                         $assetBase,
-                    ),
-                ]);
+                    );
+                }
+                $config['styleguide'] = array_merge($this->yamlConfig, $sections);
             } elseif ($route['kind'] === 'icons') {
                 // Standalone icon-catalog page (#87) — a first-level DOKUMENTACE
                 // entry, sibling of foundations. Shares the package-shipped

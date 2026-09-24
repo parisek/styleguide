@@ -392,7 +392,8 @@ favicon:
   theme_color: "#18181B"
 
 # Open Graph image (#74) — single optional string key. See "OG image audit"
-# below for what it drives.
+# below for what it drives. Set `og_image: false` to hide the section
+# entirely on projects that don't want it (the audit doesn't run either).
 og_image: "/images/og-image.png"
 
 colors:
@@ -429,7 +430,9 @@ followed by a compact server-side audit: existence, real pixel dimensions agains
 recommendation, aspect ratio vs. the 1.91:1 Open Graph convention, and file size against
 platform limits (warn > 1 MB, error > 8 MB — Facebook's hard cap). When `og_image:` is absent,
 the section shows an empty-state prompt instead of vanishing, since every project is expected to
-ship one. Checklist labels are overridable via optional `labels.og_*` keys, all with English
+ship one. Set `og_image: false` to opt a project out entirely — the audit does not run, and the
+`#og-image` section does not render at all, unlike the empty-state prompt a missing key gets.
+Checklist labels are overridable via optional `labels.og_*` keys, all with English
 defaults.
 
 ```yaml
