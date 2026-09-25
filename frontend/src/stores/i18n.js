@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { readStoredLocale, writeStoredLocale } from '../lib/contentLocale.js';
+import { assetUrl } from '../lib/runtimeConfig.js';
 
 // The CHROME's own closed set -- which locales `public/locales/*.json` ships
 // UI strings for. No longer the switcher's offered set (that's every
@@ -64,7 +65,7 @@ export const useI18nStore = defineStore('i18n', {
         async load(locale) {
             if (!locale) return;
             const chromeLocale = chromeStringsLocaleFor(locale);
-            const response = await fetch(`/styleguide/assets/locales/${chromeLocale}.json`, { cache: 'no-cache' });
+            const response = await fetch(assetUrl(`locales/${chromeLocale}.json`), { cache: 'no-cache' });
             if (!response.ok) {
                 console.error(`[styleguide] failed to load locale ${chromeLocale}`);
                 return;

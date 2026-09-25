@@ -61,6 +61,45 @@ final class MountPathThreadingTest extends TestCase
         self::assertStringNotContainsString('"/styleguide/assets/', (string) $result->body);
     }
 
+    #[Test]
+    public function the_served_shell_loads_its_assets_under_the_mount(): void
+    {
+        // dist/index.html is relative (./styleguide.<hash>.js). A relative URL
+        // in a shell served at /tools/ui (no trailing slash) would resolve
+        // against /, so the served shell carries absolute asset URLs.
+        foreach (['/tools/ui', '/tools/ui/'] as $uri) {
+            $body = (string) $this->styleguideAt('/tools/ui')->handle(new Request($uri))?->body;
+
+            self::assertMatchesRegularExpression('#<script type="module" crossorigin src="/tools/ui/assets/styleguide\.[^"]+\.js">#', $body, $uri);
+            self::assertMatchesRegularExpression('#<link rel="stylesheet" crossorigin href="/tools/ui/assets/styleguide\.[^"]+\.css">#', $body, $uri);
+            self::assertStringNotContainsString('"./', $body, $uri);
+        }
+    }
+
+    #[Test]
+    public function the_served_shell_at_the_default_mount_is_what_it_always_was(): void
+    {
+        $body = (string) $this->styleguideAt(null)->handle(new Request('/styleguide'))?->body;
+
+        self::assertMatchesRegularExpression('#src="/styleguide/assets/styleguide\.[^"]+\.js"#', $body);
+        self::assertMatchesRegularExpression('#href="/styleguide/assets/styleguide\.[^"]+\.css"#', $body);
+        // The favicon slot's empty href is not an asset.
+        self::assertStringContainsString('id="sg-favicon-tag" href=""', $body);
+    }
+
+    #[Test]
+    public function only_dot_slash_references_are_rewritten(): void
+    {
+        $html = '<script src="./a.js"></script><link href="./b.css"><img src="../c.png">'
+            . '<link href=".//d"><a href="/e">x</a><link href=""><script src="https://x/f.js"></script>';
+
+        self::assertSame(
+            '<script src="/m/assets/a.js"></script><link href="/m/assets/b.css"><img src="../c.png">'
+                . '<link href=".//d"><a href="/e">x</a><link href=""><script src="https://x/f.js"></script>',
+            Styleguide::absolutiseEntryAssets($html, '/m/assets/'),
+        );
+    }
+
     private function styleguideAt(?string $mount): Styleguide
     {
         $styleguide = new Styleguide([

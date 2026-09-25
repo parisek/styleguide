@@ -176,6 +176,20 @@ final class DoctorTest extends TestCase
     }
 
     #[Test]
+    public function a_relative_asset_the_build_no_longer_contains_is_reported(): void
+    {
+        // The relative build (Vite base './') references its entry assets as
+        // ./x. doctor has to read that form, or it stops auditing the build.
+        $messages = $this->distMessages(
+            '<html><head><script id="sg-config" type="application/json">{}</script>'
+            . '<script src="./gone.js"></script><link rel="stylesheet" href="./here.css"></head></html>',
+        );
+
+        self::assertCount(2, $messages);
+        self::assertStringContainsString('gone.js', $messages[0]);
+    }
+
+    #[Test]
     public function an_asset_the_build_does_contain_is_not_reported(): void
     {
         // The route segment is not a directory. `/styleguide/assets/x.js` is

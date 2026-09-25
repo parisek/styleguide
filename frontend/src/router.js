@@ -5,6 +5,7 @@ import PreviewView from './views/PreviewView.vue';
 import OverviewView from './views/OverviewView.vue';
 import FoundationsView from './views/FoundationsView.vue';
 import FieldsView from './views/FieldsView.vue';
+import { baseUrl } from './lib/runtimeConfig.js';
 
 // Route table mirrors frontend/router.js's regex exactly:
 //   ^/styleguide(?:\/(component|page|doc|overview|foundations|fields)(?:\/(.+?))?\/?$
@@ -44,7 +45,7 @@ const routes = [
 ];
 
 export const router = createRouter({
-    history: createWebHistory('/styleguide'),
+    history: createWebHistory(baseUrl()),
     routes,
 });
 

@@ -6,6 +6,7 @@ import {
     findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
 } from '../lib/viewportMath.js';
 import { flattenFieldsTree } from '../lib/fieldsTree.js';
+import { url } from '../lib/runtimeConfig.js';
 
 // Ported from frontend/components/preview.js. One instance is provided by
 // App.vue (Task 7 Step 9) and injected by ViewportToolbar.vue (this task)
@@ -173,11 +174,11 @@ export function useViewportPreset({
     function buildIframeSrc(variantIdOverride) {
         let src;
         if (type.value === 'foundations' || type.value === 'icons') {
-            src = `/styleguide/render/${type.value}/index`;
+            src = url(`render/${type.value}/index`);
         } else if (!slug.value || !['component', 'page', 'doc'].includes(type.value)) {
             return null;
         } else {
-            src = `/styleguide/render/${type.value}/${slug.value}`;
+            src = url(`render/${type.value}/${slug.value}`);
         }
         if (reloadNonce.value) src += (src.includes('?') ? '&' : '?') + `_r=${reloadNonce.value}`;
         // Iframe content theme — independent of the SPA chrome's own theme

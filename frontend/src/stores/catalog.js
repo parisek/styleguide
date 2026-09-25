@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { buildTree } from '../lib/prefixTree.js';
 import { externalLinksFor } from '../lib/externalLinks.js';
+import { url } from '../lib/runtimeConfig.js';
 
 // Ported from frontend/stores/components.js, renamed `catalog` per the
 // Phase 1 spec's target file layout. Adds reverseUsageFor/forwardUsageFor,
@@ -32,9 +33,9 @@ export const useCatalogStore = defineStore('catalog', {
         async init() {
             try {
                 const [componentsRes, pagesRes, docsRes] = await Promise.all([
-                    fetch('/styleguide/api/components'),
-                    fetch('/styleguide/api/pages'),
-                    fetch('/styleguide/api/docs'),
+                    fetch(url('api/components')),
+                    fetch(url('api/pages')),
+                    fetch(url('api/docs')),
                 ]);
                 this.items = await componentsRes.json();
                 this.pages = await pagesRes.json();
@@ -50,7 +51,7 @@ export const useCatalogStore = defineStore('catalog', {
             // build predating this endpoint) never blocks or fails loading of
             // the actual component/page/doc list above.
             try {
-                const healthRes = await fetch('/styleguide/api/health');
+                const healthRes = await fetch(url('api/health'));
                 const health = await healthRes.json();
                 this.warnings = health.warnings ?? [];
             } catch (err) {
