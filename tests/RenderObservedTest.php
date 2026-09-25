@@ -45,6 +45,21 @@ final class RenderObservedTest extends TestCase
             $trace['calls'][0]['fixture'],
         );
         self::assertSame([], $trace['unobservable']);
+        self::assertSame(200, $trace['status']);
+    }
+
+    #[Test]
+    public function a_failed_render_reports_its_500_status(): void
+    {
+        // parisek/definition-kit#89: before `status` existed on this return
+        // value, a caller had no way to distinguish this from a successful
+        // render — reading `http_response_code()` afterward observed
+        // whatever this process last set, which since parisek/styleguide#144
+        // is nothing at all for a render that goes through renderObserved().
+        $trace = $this->styleguide()->renderObserved('component', 'broken');
+
+        self::assertSame(500, $trace['status']);
+        self::assertStringContainsString('Render error:', $trace['html']);
     }
 
     #[Test]

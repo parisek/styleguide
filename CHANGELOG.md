@@ -8,6 +8,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`Styleguide::renderObserved()` returns a `status` key.** Since 1.18.0
+  (#144), `Renderer::render()` carries the HTTP status on its returned
+  `Result` instead of setting it via `http_response_code()` as a side
+  effect. `renderObserved()` took only `->body` from that `Result`, so a
+  caller had no way to tell a failed render (`{{ 1 / 0 }}`, a missing
+  fixture) from a successful one — `http_response_code()` observes nothing
+  `renderObserved()` itself sets any more. The returned array now carries
+  `status: int` alongside `html`/`calls`/`unobservable`; existing callers
+  destructuring only the old three keys are unaffected. Fixes
+  parisek/definition-kit#89.
+
 ## [1.19.0] - 2026-09-24
 
 ### Added

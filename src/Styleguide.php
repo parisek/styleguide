@@ -2302,9 +2302,24 @@ final class Styleguide
      * `{% include '@page/<x>/<x>.twig' … %}` shapes and adds one entry per
      * match to the returned `unobservable` list. See parisek/styleguide#119.
      *
+     * `status` (added in 1.20.0) is the HTTP status `Renderer::render()`
+     * itself would have emitted for this fixture: `200` for an ordinary
+     * render, `404`/`500` for a fixture that fails to render (see
+     * {@see \Parisek\Styleguide\Renderer::render()} and
+     * parisek/styleguide#144, which moved that status off the
+     * `http_response_code()` side effect and onto the returned `Result`).
+     * A caller that needs to tell a failed render apart from a successful
+     * one — `parisek/definition-kit`'s `FixtureAudit\Auditor` is the reason
+     * this key exists — reads `status`, not `http_response_code()`: nothing
+     * in `renderObserved()` calls that function any more, so reading it
+     * after this method returns observes stale or unrelated state, not this
+     * render's outcome. Adding the key is purely additive: existing callers
+     * destructuring only `html`/`calls`/`unobservable` are unaffected.
+     *
      * @param 'component'|'page'|'doc' $kind
      * @return array{
      *   html: string,
+     *   status: int,
      *   calls: list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>,
      *   unobservable: list<array{component: string|null, kind: 'component'|'page'|null, fixture: array{kind: string, slug: string, variant: string|null}, source: string, reason?: string}>,
      * }
@@ -2355,7 +2370,9 @@ final class Styleguide
 
         $this->observer->arm($fixture);
         try {
-            $html = $this->renderer->render($kind, $slug, $renderConfig, (string) $this->config['default_locale'])->body ?? '';
+            $result = $this->renderer->render($kind, $slug, $renderConfig, (string) $this->config['default_locale']);
+            $html = $result->body ?? '';
+            $status = $result->status;
         } finally {
             $calls = $this->observer->disarm();
         }
@@ -2376,7 +2393,7 @@ final class Styleguide
         // Keeping the assertion would mean inventory() enumerating a doc and
         // renderObserved() throwing on it — a LogicException on legitimate
         // input, not a caught wiring bug.
-        return ['html' => $html, 'calls' => $calls, 'unobservable' => $unobservable];
+        return ['html' => $html, 'status' => $status, 'calls' => $calls, 'unobservable' => $unobservable];
     }
 
     /**
