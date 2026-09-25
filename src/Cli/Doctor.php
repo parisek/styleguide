@@ -262,9 +262,7 @@ final class Doctor
                 LintSeverity::Error,
                 'dist',
                 sprintf(
-                    "dist/index.html references '%s/assets/%s', and the build does not contain '%s'.",
-                    MountPath::DEFAULT,
-                    $asset,
+                    "dist/index.html references '%s', and the build does not contain it.",
                     $asset,
                 ),
                 'The built shell and its assets are out of step. Rebuild the frontend and commit dist/ '
@@ -293,9 +291,9 @@ final class Doctor
      */
     private function referencedAssets(string $html): array
     {
-        // The build bakes the default mount into dist/index.html today; the
-        // relocatable build (#157) replaces this with relative references.
-        preg_match_all('~(?:src|href)="' . preg_quote(MountPath::DEFAULT, '~') . '/assets/([^"]+)"~', $html, $matches);
+        // `./x` is what the relative build emits; `<default mount>/assets/x`
+        // is what a build from before it baked in. Both name a file in dist/.
+        preg_match_all('~(?:src|href)="(?:\./|' . preg_quote(MountPath::DEFAULT, '~') . '/assets/)([^"]+)"~', $html, $matches);
 
         /** @var list<string> $assets */
         $assets = array_values(array_unique($matches[1]));

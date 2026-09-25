@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- **The SPA builds every URL from the mount it is served at.** Second step
+  of a configurable mount (#157). A new `frontend/src/lib/runtimeConfig.js`
+  reads `baseUrl` from `#sg-config` once; the router's history base, the
+  API and locale fetches, the iframe sources and the theme cookie path go
+  through it. The Vite build is relative (`base: './'`), so `dist/` carries
+  no mount path; `Styleguide::dispatchSpa()` makes the shell's two entry
+  asset URLs absolute under the mount when it serves it, because a relative
+  URL in a shell served at `/styleguide` (no trailing slash) would resolve
+  against `/`. At the default mount the served shell is what it was.
+  `doctor` reads both the relative and the old absolute asset references.
+
+### Changed
+
 - **Every catalogue URL reads one mount value.** First step of a
   configurable mount (#157). `Router::parse()` takes the mount, and the SPA
   config's `baseUrl`, the foundations asset URLs and the standalone

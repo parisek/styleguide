@@ -3,10 +3,15 @@ import tailwindcss from '@tailwindcss/vite';
 import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
-    // Asset URLs in dist/index.html become `/styleguide/assets/styleguide.[hash].(js|css)`,
-    // matching the AssetServer route `/styleguide/assets/*` so served files hit the
-    // hashed-filename branch (immutable cache) without a separate rewrite layer.
-    base: '/styleguide/assets/',
+    // Relative, so dist/ carries no mount path. dist/index.html references
+    // its entry assets as `./styleguide.[hash].(js|css)`; Styleguide::dispatchSpa()
+    // rewrites those to `<mount>/assets/…` when it serves the shell, because a
+    // relative URL in a document served at `/styleguide` (no trailing slash)
+    // would resolve against `/`. Chunks and CSS `url()`s resolve against the
+    // module or stylesheet that references them, which already sits under
+    // `<mount>/assets/`, so they need nothing. The served shell is the same
+    // bytes as with the old absolute base at the default mount.
+    base: './',
     plugins: [vue(), tailwindcss()],
     publicDir: 'public',
     build: {

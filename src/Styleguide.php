@@ -3069,6 +3069,12 @@ final class Styleguide
             );
         }
 
+        // The build is mount-agnostic: Vite emits the entry assets as
+        // `./styleguide.<hash>.js`. Resolved against the shell's own URL they
+        // break at `/styleguide` without a trailing slash, so the served shell
+        // gets them absolute, under this mount's asset route.
+        $html = self::absolutiseEntryAssets($html, $this->mountPath . '/assets/');
+
         return Http\Result::text($html, 200, [
             'Content-Type' => 'text/html; charset=utf-8',
             'Cache-Control' => 'no-cache, must-revalidate',
@@ -3300,6 +3306,20 @@ final class Styleguide
             ));
         }
         return $this->mountPath . '/assets/' . basename($matches[0]);
+    }
+
+    /**
+     * `src="./x"` and `href="./x"` in the built shell become `<assetsUrl>x`.
+     * Only the `./` form Vite emits for a relative base; an absolute URL, a
+     * protocol-relative one, `../` or an empty `href` (the favicon slot) is
+     * left alone. A build from before the relative base carries absolute
+     * `/styleguide/assets/` URLs and passes through unchanged.
+     *
+     * @internal public for tests
+     */
+    public static function absolutiseEntryAssets(string $html, string $assetsUrl): string
+    {
+        return (string) preg_replace('~(\s(?:src|href)=")\./(?!/)~', '$1' . $assetsUrl, $html);
     }
 
     /**
