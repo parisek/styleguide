@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Bridge\Symfony\EventListener;
 
-use Parisek\Styleguide\Bridge\Symfony\DependencyInjection\StyleguideExtension;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 
 /**
@@ -32,6 +31,17 @@ final class ToolbarOutOfPreviewsListener
 {
     public const PRIORITY = -110;
 
+    private readonly string $renderPrefix;
+
+    /**
+     * @param string $baseUrl the catalogue's mount path, from the
+     *                        `styleguide.base_url` container parameter
+     */
+    public function __construct(string $baseUrl)
+    {
+        $this->renderPrefix = rtrim($baseUrl, '/') . '/render/';
+    }
+
     public function __invoke(ResponseEvent $event): void
     {
         if (!$event->isMainRequest()) {
@@ -40,7 +50,7 @@ final class ToolbarOutOfPreviewsListener
 
         // The render route only. The SPA shell at /styleguide/ is a page on
         // which the toolbar is useful.
-        if (!str_starts_with($event->getRequest()->getPathInfo(), StyleguideExtension::SUPPORTED_PREFIX . '/render/')) {
+        if (!str_starts_with($event->getRequest()->getPathInfo(), $this->renderPrefix)) {
             return;
         }
 

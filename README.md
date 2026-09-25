@@ -334,30 +334,29 @@ composer require --dev symfony/web-profiler-bundle symfony/twig-bundle symfony/d
 
 The profiler packages are `require-dev` on purpose: the profiler stores every request it sees and serves them back from `/_profiler`. `symfony/stopwatch` makes its time panel show real render times instead of 0 ms.
 
-**`static/index.php`**
+**Write the front controller**
+
+```bash
+vendor/bin/styleguide front-controller:init
+```
+
+It writes `index.php` beside `styleguide.yaml` (found as `doctor` finds it, or pass `--dir=<static dir>`). It copies [`resources/front-controller.php`](resources/front-controller.php) verbatim and refuses to replace a different `index.php` without `--force`, because that file may be your own front controller or a subclassed kernel. Run it again after a package update: it reports when the file is already current.
+
+The file does only what a package cannot do for itself:
 
 ```php
-<?php
+// Walk up for the autoloader: vendor/ can sit beside this directory, inside
+// it, or at a CMS project root several levels up. (Missing → plain 500.)
+require $styleguideRoot . '/vendor/autoload.php';
 
-declare(strict_types=1);
-
-// The autoloader cannot be found by the package it loads. Walk up, because
-// vendor/ can sit beside static/, under it, or at a CMS project root.
-$dir = __DIR__;
-while (!is_file($dir . '/vendor/autoload.php') && $dir !== dirname($dir)) {
-    $dir = dirname($dir);
-}
-require $dir . '/vendor/autoload.php';
-
-use Parisek\Styleguide\Bridge\Symfony\FrontController;
-
-// PHP's built-in server: let it send dist assets, images and fonts itself.
-if (FrontController::isBuiltInServerFile(__DIR__)) {
-    return false;
+if (\Parisek\Styleguide\Bridge\Symfony\FrontController::isBuiltInServerFile(__DIR__)) {
+	return false; // PHP's built-in server sends assets itself
 }
 
-FrontController::run(__DIR__);
+\Parisek\Styleguide\Bridge\Symfony\FrontController::run(__DIR__);
 ```
+
+`isBuiltInServerFile()` answers true only under PHP's built-in server, only for an asset by extension (CSS, JS, images, fonts, media, JSON, HTML, text), and never for `styleguide.yaml`, PHP, dotfiles, `vendor/`, `node_modules/` or dependency manifests.
 
 `__DIR__` is the directory that holds `styleguide.yaml`. The catalogue reads everything else from that file, as in every other mode.
 
@@ -415,7 +414,24 @@ Nginx equivalent:
 location /styleguide { try_files $uri /index.php?$query_string; }
 ```
 
-For local development without a web server, see [`static/router.php`](https://github.com/portadesign/tailwind-base/blob/main/static/router.php) in the reference integration — `php -S 127.0.0.1:8000 -t public router.php`.
+**Keep configuration off the web.** `styleguide.yaml` sits in the web root beside `index.php`, and a rule that serves existing files serves it too. It holds no secrets (`auth` is refused in the YAML), but it names paths and settings a visitor has no use for. Deny it, with dotfiles and dependency manifests:
+
+```apache
+<FilesMatch "^(styleguide\.yaml|composer\.(json|lock)|package(-lock)?\.json)$|^\.">
+    Require all denied
+</FilesMatch>
+```
+
+```nginx
+location ~ (^|/)(styleguide\.yaml|composer\.(json|lock)|package(-lock)?\.json)$ { deny all; }
+location ~ /\. { deny all; }
+```
+
+For local development without a web server, PHP's built-in server takes the front controller as its router script. With the shipped front controller (§ *Front controller*), static files it may send are filtered by `FrontController::isBuiltInServerFile()`:
+
+```bash
+APP_ENV=dev php -S 127.0.0.1:8000 -t static static/index.php
+```
 
 ---
 
@@ -699,6 +715,7 @@ vendor/bin/styleguide show landing --type=page   # one page
 vendor/bin/styleguide show intro --type=doc      # one doc entry
 vendor/bin/styleguide lint                       # metadata quality report
 vendor/bin/styleguide doctor                     # is this project's config sound?
+vendor/bin/styleguide front-controller:init      # write the shipped front controller
 vendor/bin/styleguide maintenance:render         # render the outage screen
 vendor/bin/styleguide maintenance:render --check # is the rendered screen still current?
 ```

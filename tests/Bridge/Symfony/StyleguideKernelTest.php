@@ -168,6 +168,17 @@ final class StyleguideKernelTest extends TestCase
     }
 
     #[Test]
+    public function the_mount_path_is_a_container_parameter(): void
+    {
+        $kernel = $this->kernel('prod', false);
+        $kernel->boot();
+
+        // Everything in the bridge reads it from here, so a configurable
+        // mount later changes only where the parameter comes from.
+        self::assertSame('/styleguide', $kernel->getContainer()->getParameter('styleguide.base_url'));
+    }
+
+    #[Test]
     public function the_project_dir_is_the_parent_of_the_static_dir(): void
     {
         $kernel = $this->kernel('prod', false);

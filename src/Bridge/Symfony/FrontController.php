@@ -28,6 +28,15 @@ use Symfony\Component\HttpFoundation\Request;
 final class FrontController
 {
     /**
+     * The front controller the package ships, for projects to copy. Written by
+     * `vendor/bin/styleguide front-controller:init`.
+     */
+    public static function stubPath(): string
+    {
+        return \dirname(__DIR__, 3) . '/resources/front-controller.php';
+    }
+
+    /**
      * Handles the current request and sends the response.
      *
      * @param string                          $staticDir   the directory that holds `styleguide.yaml`
@@ -38,13 +47,26 @@ final class FrontController
         if (!class_exists(FrameworkBundle::class)) {
             // A clear answer instead of a class-not-found fatal. The library
             // path needs no Symfony, so the package cannot require it.
-            $message = 'FrontController::run() needs symfony/framework-bundle. Run '
+            self::fail('FrontController::run() needs symfony/framework-bundle. Run '
                 . '`composer require symfony/framework-bundle`, or serve the catalogue '
-                . 'with Styleguide::run(), which needs no Symfony.';
-            error_log('styleguide: ' . $message);
-            http_response_code(500);
-            header('Content-Type: text/plain; charset=utf-8');
-            echo $message;
+                . 'with Styleguide::run(), which needs no Symfony.');
+
+            return;
+        }
+
+        if (!is_file($staticDir . '/styleguide.yaml')) {
+            // Checked here, not left to the kernel: there it surfaces as a
+            // container or YAML exception, which production shows as a bare
+            // 500. The path goes to the log only, not to the visitor.
+            self::fail(
+                'The styleguide is misconfigured: no styleguide.yaml where the front controller expects it. '
+                    . 'The server log names the directory.',
+                sprintf(
+                    'FrontController::run(): no styleguide.yaml in %s. Pass the directory that holds it, '
+                        . 'usually the front controller\'s own __DIR__.',
+                    $staticDir,
+                ),
+            );
 
             return;
         }
@@ -143,6 +165,20 @@ final class FrontController
 
         return !\in_array($name, self::DENIED_FILES, true)
             && \in_array(pathinfo($name, \PATHINFO_EXTENSION), self::STATIC_EXTENSIONS, true);
+    }
+
+    /**
+     * A misconfiguration answered as plain text, and logged. Plain because
+     * nothing that could render an error page is available yet.
+     */
+    private static function fail(string $message, ?string $logMessage = null): void
+    {
+        error_log('styleguide: ' . ($logMessage ?? $message));
+        if (!headers_sent()) {
+            http_response_code(500);
+            header('Content-Type: text/plain; charset=utf-8');
+        }
+        echo $message;
     }
 
     /**

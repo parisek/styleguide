@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Bridge\Symfony;
 
 use Composer\Autoload\ClassLoader;
+use Parisek\Styleguide\Bridge\Symfony\DependencyInjection\StyleguideExtension;
 use Parisek\Styleguide\Bridge\Symfony\EventListener\ToolbarOutOfPreviewsListener;
 use Symfony\Bundle\DebugBundle\DebugBundle;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
@@ -198,6 +199,7 @@ class StyleguideKernel extends Kernel
             ]);
             $container->services()
                 ->set(ToolbarOutOfPreviewsListener::class)
+                ->args(['%' . StyleguideExtension::BASE_URL_PARAMETER . '%'])
                 ->tag('kernel.event_listener', [
                     'event' => 'kernel.response',
                     'priority' => ToolbarOutOfPreviewsListener::PRIORITY,

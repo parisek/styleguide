@@ -139,7 +139,7 @@ Serves the catalogue from a project's front controller through `StyleguideKernel
 
 #### `run(string $staticDir, string $kernelClass = StyleguideKernel::class): void`
 
-Resolves the environment, boots the kernel, handles the current request, sends the response and terminates the kernel. `$staticDir` holds `styleguide.yaml`; the project directory is its parent. `$kernelClass` must extend `StyleguideKernel`, else `InvalidArgumentException`. Without `symfony/framework-bundle` it answers a plain-text 500 naming the package, not a fatal.
+Resolves the environment, boots the kernel, handles the current request, sends the response and terminates the kernel. `$staticDir` holds `styleguide.yaml`; the project directory is its parent. `$kernelClass` must extend `StyleguideKernel`, else `InvalidArgumentException`. Without `symfony/framework-bundle`, or without `styleguide.yaml` in `$staticDir`, it answers a plain-text 500 that names the fix without disclosing server paths, and logs the details.
 
 Environment, read from `$_SERVER`, then `$_ENV`, then `getenv()`:
 
@@ -149,6 +149,10 @@ Environment, read from `$_SERVER`, then `$_ENV`, then `getenv()`:
 | `IS_DDEV_PROJECT=true` | `dev` | on |
 | `APP_ENV=<env>` (wins over DDEV) | `<env>` | on, except `prod` |
 | `APP_DEBUG=0` | unchanged | off |
+
+#### `stubPath(): string`
+
+Absolute path of `resources/front-controller.php`, the front controller the package ships. `front-controller:init` copies it.
 
 #### `isBuiltInServerFile(string $staticDir, ?string $requestUri = null, string $sapi = PHP_SAPI): bool`
 
@@ -166,7 +170,7 @@ True only under PHP's built-in server, for an existing file inside `$staticDir`.
 
 A fourth hook, `cacheVersion(): string` (default `''`), goes into the cache key. The key already follows the kernel's own file and Composer's `installed.php`; a hook that imports other project files returns a fingerprint of them, or production keeps the container compiled from their previous version.
 
-Overriding any other method works and is outside the contract. `getStaticDir()` and `getProjectDir()` (the parent of the static directory) are public. The cache directory is under `sys_get_temp_dir()`; its path is not part of the contract.
+Overriding any other method works and is outside the contract. The kernel reads the catalogue's mount path from the container parameter `styleguide.base_url` (set by the bundle's extension, `/styleguide` until the mount becomes configurable); the parameter name is internal. `getStaticDir()` and `getProjectDir()` (the parent of the static directory) are public. The cache directory is under `sys_get_temp_dir()`; its path is not part of the contract.
 
 ### `Parisek\Styleguide\ComponentParser::RENDER_MODES` (`@api`)
 
@@ -607,7 +611,8 @@ A stored locale whose catalogue is no longer offered (renamed/removed `.mo`, or 
 | `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
 | `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
 | `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions). See README § Command-line catalogue. |
-| `doctor [--config=<path>] [--format=text\|json] [--pretty]` | Report what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a `base_url` nothing implements, an empty catalogue, and the Twig helper names the package registers. Same exit-code contract as `lint`. See README § `doctor`. |
+| `doctor [--config=<path>] [--format=text\|json] [--pretty]` | Report what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a `base_url` nothing implements, an empty catalogue, an `index.php` beside `styleguide.yaml` whose code references `Bridge\Symfony\FrontController` without `symfony/framework-bundle` installed (check `front-controller`, since 1.21.0), and the Twig helper names the package registers. Same exit-code contract as `lint`. See README § `doctor`. |
+| `front-controller:init [--dir=<path>] [--config=<path>] [--force]` | Write `resources/front-controller.php` as `index.php` beside `styleguide.yaml`. Exit `0` written or already current, `1` a different `index.php` exists (kept; `--force` replaces it) or `index.php` is a symlink (never written through), `2` usage error (no `styleguide.yaml`, a missing `--config` file, a bare `--dir`, not a directory, not writable). An explicit `--dir` or `--config` never falls back to `./styleguide.yaml`. Added 1.21.0. |
 | `maintenance:render [--config=<path>] [--locale=<code>] [--css=<path>] [--out=<path>]` | Render the outage screen to one self-contained HTML file. See § Offline outage render below. |
 | `--help` / `-h` | Usage |
 

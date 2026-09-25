@@ -139,4 +139,26 @@ final class FrontControllerTest extends TestCase
         /** @phpstan-ignore argument.type (the refusal is what is under test) */
         FrontController::run(self::STATIC_DIR, \stdClass::class);
     }
+
+    #[Test]
+    public function a_directory_without_styleguide_yaml_gets_a_plain_answer(): void
+    {
+        $logFile = (string) tempnam(sys_get_temp_dir(), 'sg-log-');
+        $log = ini_set('error_log', $logFile);
+        ob_start();
+        try {
+            FrontController::run(sys_get_temp_dir());
+        } finally {
+            $body = (string) ob_get_clean();
+            ini_set('error_log', (string) $log);
+        }
+        $logged = (string) file_get_contents($logFile);
+        unlink($logFile);
+
+        // The visitor learns what is wrong, not where the site lives.
+        self::assertStringContainsString('no styleguide.yaml', $body);
+        self::assertStringNotContainsString(sys_get_temp_dir(), $body);
+        // The log carries the directory.
+        self::assertStringContainsString(sys_get_temp_dir(), $logged);
+    }
 }

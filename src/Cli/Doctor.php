@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Cli;
 
+use Parisek\Styleguide\Bridge\Symfony\FrontController;
 use Parisek\Styleguide\CorruptBuildException;
 use Parisek\Styleguide\Styleguide;
 use Twig\Error\LoaderError;
@@ -37,6 +38,11 @@ use Twig\Error\LoaderError;
  */
 final class Doctor
 {
+    /**
+     * @param bool|null $frameworkBundleAvailable null = detect; set by tests
+     */
+    public function __construct(private readonly ?bool $frameworkBundleAvailable = null) {}
+
     /**
      * @return list<DoctorFinding>
      */
@@ -86,9 +92,94 @@ final class Doctor
             ...$this->checkPaths($diagnostics['paths']),
             ...$this->checkDist($diagnostics['dist']),
             ...$this->checkBaseUrl($configPath),
+            ...$this->checkFrontController($configPath),
             ...$this->checkRender($styleguide),
             ...$this->reportHelpers($diagnostics['helpers']),
         ];
+    }
+
+    /**
+     * A front controller beside styleguide.yaml that serves the catalogue
+     * through Bridge\Symfony\FrontController needs symfony/framework-bundle,
+     * which the package only suggests. Without it every request answers a
+     * plain-text 500 — found here instead of on the first page load.
+     *
+     * @return list<DoctorFinding>
+     */
+    private function checkFrontController(string $configPath): array
+    {
+        $index = dirname($configPath) . '/index.php';
+        $source = is_file($index) ? (string) @file_get_contents($index) : '';
+
+        if (!self::referencesFrontController($source)) {
+            return [];
+        }
+
+        $available = $this->frameworkBundleAvailable
+            ?? class_exists(\Symfony\Bundle\FrameworkBundle\FrameworkBundle::class);
+
+        if ($available) {
+            return [];
+        }
+
+        return [new DoctorFinding(
+            LintSeverity::Error,
+            'front-controller',
+            sprintf('%s serves the catalogue through Bridge\\Symfony\\FrontController, and symfony/framework-bundle is not installed.', $index),
+            'Run `composer require symfony/framework-bundle`. The package only suggests it, because '
+                . 'Styleguide::run() needs no Symfony.',
+        )];
+    }
+
+    /**
+     * True when PHP code — not a comment or a string — names
+     * Bridge\Symfony\FrontController by its full name, as a `use` (aliased
+     * or not) or inline.
+     */
+    private static function referencesFrontController(string $source): bool
+    {
+        if ($source === '') {
+            return false;
+        }
+
+        $groupPrefix = null;
+        $lastName = null;
+
+        foreach (token_get_all($source) as $token) {
+            if (!\is_array($token)) {
+                // `use Prefix\{A, B\C}`: names inside the braces are relative
+                // to the name before them.
+                if ($token === '{' && $lastName !== null) {
+                    $groupPrefix = $lastName;
+                } elseif ($token === '}') {
+                    $groupPrefix = null;
+                }
+                $lastName = null;
+                continue;
+            }
+
+            if ($token[0] === \T_NS_SEPARATOR || $token[0] === \T_WHITESPACE) {
+                continue;
+            }
+
+            if (!\in_array($token[0], [\T_STRING, \T_NAME_QUALIFIED, \T_NAME_FULLY_QUALIFIED], true)) {
+                $lastName = null;
+                continue;
+            }
+
+            $name = ltrim($token[1], '\\');
+            $lastName = $name;
+
+            // The fully qualified name, in a `use` (aliased or not, grouped or
+            // not) or inline. An unrelated class that happens to be called
+            // FrontController is not the bridge.
+            if ($name === FrontController::class
+                || ($groupPrefix !== null && $groupPrefix . '\\' . $name === FrontController::class)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

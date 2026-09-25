@@ -68,6 +68,10 @@ jobs:
       # Browser-level SPA behaviour is covered by the e2e-playwright job below.
       - run: bash tests/e2e/run.sh
 
+      # The shipped front controller, written by `front-controller:init` into a
+      # CMS-style nested static directory and served by PHP's built-in server.
+      - run: bash tests/e2e/front-controller.sh
+
   e2e-playwright:
     runs-on: ubuntu-latest
     name: e2e (Playwright)

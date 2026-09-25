@@ -6,6 +6,7 @@ namespace Parisek\Styleguide\Tests\Cli;
 
 use Parisek\Styleguide\Cli\Command;
 use Parisek\Styleguide\Cli\Doctor;
+use Parisek\Styleguide\Cli\DoctorFinding;
 use Parisek\Styleguide\Cli\LintSeverity;
 use Parisek\Styleguide\Styleguide;
 use PHPUnit\Framework\Attributes\Test;
@@ -364,5 +365,120 @@ final class DoctorTest extends TestCase
         self::assertStringContainsString('The catalogue is empty', $stdout);
 
         rmdir($this->dir . '/empty-templates');
+    }
+
+    #[Test]
+    public function a_front_controller_without_framework_bundle_is_an_error(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\n\\Parisek\\Styleguide\\Bridge\\Symfony\\FrontController::run(__DIR__);\n");
+
+        $findings = array_values(array_filter(
+            (new Doctor(frameworkBundleAvailable: false))->run($config),
+            static fn(DoctorFinding $f): bool => $f->check === 'front-controller',
+        ));
+
+        self::assertCount(1, $findings);
+        self::assertSame(LintSeverity::Error, $findings[0]->severity);
+        self::assertStringContainsString('composer require symfony/framework-bundle', $findings[0]->remedy);
+    }
+
+    #[Test]
+    public function a_front_controller_with_framework_bundle_is_fine(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\n\\Parisek\\Styleguide\\Bridge\\Symfony\\FrontController::run(__DIR__);\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: true))->run($config));
+
+        self::assertNotContains('front-controller', $checks);
+    }
+
+    #[Test]
+    public function a_library_front_controller_needs_no_framework_bundle(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\n(new \\Parisek\\Styleguide\\Styleguide([]))->run();\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertNotContains('front-controller', $checks);
+    }
+
+    #[Test]
+    public function a_comment_naming_the_front_controller_is_not_a_call(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\n// see FrontController::run() in the docs\n\$x = 'FrontController::run(';\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertNotContains('front-controller', $checks);
+    }
+
+    #[Test]
+    public function an_aliased_front_controller_is_found(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\nuse Parisek\\Styleguide\\Bridge\\Symfony\\FrontController as FC;\nFC::run(__DIR__);\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertContains('front-controller', $checks);
+    }
+
+    #[Test]
+    public function an_unrelated_front_controller_class_is_not_the_bridge(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\nuse App\\FrontController;\nFrontController::run();\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertNotContains('front-controller', $checks);
+    }
+
+    #[Test]
+    public function the_shipped_front_controller_is_found(): void
+    {
+        $config = $this->config();
+        copy(\Parisek\Styleguide\Bridge\Symfony\FrontController::stubPath(), $this->dir . '/index.php');
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertContains('front-controller', $checks);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function groupedImports(): iterable
+    {
+        yield 'class in the group' => ['use Parisek\\Styleguide\\Bridge\\Symfony\\{FrontController};'];
+        yield 'namespace in the group' => ['use Parisek\\Styleguide\\{Bridge\\Symfony\\FrontController, Styleguide};'];
+        yield 'aliased in the group' => ['use Parisek\\Styleguide\\Bridge\\Symfony\\{StyleguideKernel, FrontController as FC};'];
+    }
+
+    #[Test]
+    #[\PHPUnit\Framework\Attributes\DataProvider('groupedImports')]
+    public function a_grouped_import_is_found(string $use): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\n" . $use . "\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertContains('front-controller', $checks);
+    }
+
+    #[Test]
+    public function an_unrelated_group_is_not_the_bridge(): void
+    {
+        $config = $this->config();
+        file_put_contents($this->dir . '/index.php', "<?php\nuse App\\{FrontController};\n");
+
+        $checks = array_map(static fn(DoctorFinding $f): string => $f->check, (new Doctor(frameworkBundleAvailable: false))->run($config));
+
+        self::assertNotContains('front-controller', $checks);
     }
 }

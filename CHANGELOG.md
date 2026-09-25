@@ -39,6 +39,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `cacheVersion()`, so a production container never outlives a deploy. Routes resolve through
   `@StyleguideBundle`, so the kernel works wherever `vendor/` is.
 
+  **`vendor/bin/styleguide front-controller:init`** writes the shipped
+  front controller (`resources/front-controller.php`) beside
+  `styleguide.yaml`, and keeps a different `index.php` unless `--force`.
+  **`doctor`** reports an `index.php` whose code uses `Bridge\Symfony\FrontController`
+  without `symfony/framework-bundle` installed.
+
+  The bridge now reads the mount path from the container parameter
+  `styleguide.base_url` instead of the `SUPPORTED_PREFIX` constant. It can
+  still only be `/styleguide`; this is the seam for a configurable mount
+  (#157).
+
   Additive: `Styleguide::run()` and the bundle do not change.
   `symfony/framework-bundle` stays a `suggest`.
 

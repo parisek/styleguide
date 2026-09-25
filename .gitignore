@@ -12,3 +12,6 @@
 
 # Local git worktrees (superpowers isolation)
 .worktrees/
+
+# tests/e2e/front-controller.sh work directory
+/.e2e-front-controller/
