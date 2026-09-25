@@ -498,13 +498,13 @@ final class LinterTest extends TestCase
     }
 
     #[Test]
-    public function kind_part_is_exempt_from_the_fixture_notice(): void
+    public function kind_part_rendered_by_a_parent_is_exempt_from_the_fixture_notice(): void
     {
         // A part renders inside its parent, which is where it is seen and
         // tested; the visual suite skips parts for the same reason.
         $root = sys_get_temp_dir() . '/sg-part-' . bin2hex(random_bytes(6));
         mkdir($root . '/component/fragment', 0777, true);
-        file_put_contents($root . '/component/fragment/fragment.yaml', "name: Fragment\nkind: part\ncategory: Basic\ndescription: inner piece\n");
+        file_put_contents($root . '/component/fragment/fragment.yaml', "name: Fragment\nkind: part\ncategory: Basic\ndescription: inner piece\nusage:\n  - fragment\n");
         file_put_contents($root . '/component/fragment/fragment.twig', "<div></div>\n");
 
         $findings = (new Linter($root))->run();
@@ -514,6 +514,28 @@ final class LinterTest extends TestCase
         unlink($root . '/component/fragment/fragment.yaml');
         unlink($root . '/component/fragment/fragment.twig');
         rmdir($root . '/component/fragment');
+        rmdir($root . '/component');
+        rmdir($root);
+    }
+
+
+    #[Test]
+    public function an_orphan_part_keeps_the_fixture_notice(): void
+    {
+        // A part with no usage has no parent that renders it, so nothing
+        // renders it at all. The exemption must not hide that.
+        $root = sys_get_temp_dir() . '/sg-orphan-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/orphan', 0777, true);
+        file_put_contents($root . '/component/orphan/orphan.yaml', "name: Orphan\nkind: part\ncategory: Basic\ndescription: nobody renders me\n");
+        file_put_contents($root . '/component/orphan/orphan.twig', "<div></div>\n");
+
+        $findings = (new Linter($root))->run();
+
+        self::assertCount(1, $this->findingsFor($findings, 'no-fixture'));
+
+        unlink($root . '/component/orphan/orphan.yaml');
+        unlink($root . '/component/orphan/orphan.twig');
+        rmdir($root . '/component/orphan');
         rmdir($root . '/component');
         rmdir($root);
     }

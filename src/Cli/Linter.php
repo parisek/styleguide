@@ -514,13 +514,16 @@ final class Linter
         // chosen to keep as catalogue entries are a judgement call, not a
         // defect. Failing a build over either would make the rule the first
         // thing a consumer ignores.
-        // `kind: part` is exempt too: a part is authored for one parent and
-        // renders inside it, so the parent's fixture is where it is seen and
-        // tested. The visual suite already skips parts and utilities for the
-        // same reason (a standalone part renders blank), and tailwind-base's
-        // own header parts ship no fixture by convention.
+        // `kind: part` is exempt too, but only while something renders it: a
+        // part is authored for one parent and is seen and tested inside that
+        // parent's fixture. The visual suite already skips parts for the same
+        // reason (a standalone part renders blank). A part whose `usage` is
+        // empty has no parent either, so it keeps the notice: without it an
+        // orphan part would ship with no signal at all.
         $kind = is_string($metadata['kind'] ?? null) ? $metadata['kind'] : '';
-        if (!in_array($kind, ['utility', 'part'], true) && !$this->hasFixture($relPath, $metadata)) {
+        $renderedByParent = $kind === 'part'
+            && ComponentParser::normaliseUsage($metadata['usage'] ?? null) !== [];
+        if ($kind !== 'utility' && !$renderedByParent && !$this->hasFixture($relPath, $metadata)) {
             $findings[] = new LintFinding(
                 LintSeverity::Notice,
                 $relPath,
