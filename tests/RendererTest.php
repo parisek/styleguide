@@ -243,6 +243,21 @@ final class RendererTest extends TestCase
     }
 
     #[Test]
+    public function the_standalone_back_link_follows_the_mount_path(): void
+    {
+        // Without a base_url the historical default holds.
+        $html = $this->rendererWithBase('')->render('component', 'sample', [], 'cs')->body;
+        self::assertStringContainsString('href="/styleguide/component/sample"', (string) $html);
+
+        $html = $this->rendererWithBase('')->render('component', 'sample', ['base_url' => '/tools/ui'], 'cs')->body;
+        self::assertStringContainsString('href="/tools/ui/component/sample"', (string) $html);
+        self::assertStringNotContainsString('href="/styleguide/', (string) $html);
+
+        $html = $this->rendererWithBase('')->render('foundations', '', ['base_url' => '/tools/ui', 'styleguide' => []], 'cs')->body;
+        self::assertStringContainsString('href="/tools/ui/foundations"', (string) $html);
+    }
+
+    #[Test]
     public function component_render_never_injects_the_foundations_js_module(): void
     {
         // dispatchRender() only ever sets `foundations_js_url` on the

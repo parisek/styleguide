@@ -685,6 +685,8 @@ final class Renderer
             'theme' => $theme === 'dark' ? 'dark' : 'light',
             'project' => $config['project'] ?? [],
             'iframe' => $iframe,
+            // The catalogue's mount path, for the standalone back-link.
+            'base_url' => \is_string($config['base_url'] ?? null) ? $config['base_url'] : MountPath::DEFAULT,
             'component' => [
                 'id' => $slug,
                 'name' => $config['component_name'] ?? $slug,

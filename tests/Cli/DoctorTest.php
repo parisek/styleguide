@@ -293,6 +293,26 @@ final class DoctorTest extends TestCase
     }
 
     #[Test]
+    public function the_default_base_url_is_not_reported(): void
+    {
+        // It says what already happens. Trailing slash normalises away.
+        foreach (['/styleguide', '/styleguide/'] as $value) {
+            [, $stdout] = $this->doctor($this->config(['base_url' => $value]));
+            self::assertStringNotContainsString('base_url', $stdout, $value);
+        }
+    }
+
+    #[Test]
+    public function an_invalid_base_url_says_why(): void
+    {
+        foreach (['/', 'kit', '/a//b', '/caf%C3%A9', '/a/../b', '/kit?x=1'] as $value) {
+            [$exit, $stdout] = $this->doctor($this->config(['base_url' => $value]));
+            self::assertSame(1, $exit, $value);
+            self::assertStringContainsString('not a valid mount path', $stdout, $value);
+        }
+    }
+
+    #[Test]
     public function a_config_the_library_refuses_is_one_finding_and_not_a_stack_trace(): void
     {
         $path = $this->dir . '/styleguide.yaml';

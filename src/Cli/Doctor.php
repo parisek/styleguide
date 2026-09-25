@@ -6,6 +6,7 @@ namespace Parisek\Styleguide\Cli;
 
 use Parisek\Styleguide\Bridge\Symfony\FrontController;
 use Parisek\Styleguide\CorruptBuildException;
+use Parisek\Styleguide\MountPath;
 use Parisek\Styleguide\Styleguide;
 use Twig\Error\LoaderError;
 
@@ -29,7 +30,8 @@ use Twig\Error\LoaderError;
  *   point throws `CorruptBuildException`, but only on a live request; an
  *   asset the shell references and the build no longer contains fails in the
  *   browser, where PHP never learns about it.
- * - `base_url`. `fromYaml()` accepts it and nothing implements it.
+ * - `base_url`. `fromYaml()` accepts it; the runtime serves at the default
+ *   mount until the mount is configurable. Validated with MountPath.
  * - The helper names the package puts on a Twig environment, which a consumer
  *   with its own `component_*` needs before Twig locks its extension set.
  *
@@ -260,7 +262,8 @@ final class Doctor
                 LintSeverity::Error,
                 'dist',
                 sprintf(
-                    "dist/index.html references '/styleguide/assets/%s', and the build does not contain '%s'.",
+                    "dist/index.html references '%s/assets/%s', and the build does not contain '%s'.",
+                    MountPath::DEFAULT,
                     $asset,
                     $asset,
                 ),
@@ -290,7 +293,9 @@ final class Doctor
      */
     private function referencedAssets(string $html): array
     {
-        preg_match_all('~(?:src|href)="/styleguide/assets/([^"]+)"~', $html, $matches);
+        // The build bakes the default mount into dist/index.html today; the
+        // relocatable build (#157) replaces this with relative references.
+        preg_match_all('~(?:src|href)="' . preg_quote(MountPath::DEFAULT, '~') . '/assets/([^"]+)"~', $html, $matches);
 
         /** @var list<string> $assets */
         $assets = array_values(array_unique($matches[1]));
@@ -311,17 +316,35 @@ final class Doctor
         }
 
         $bootstrap = is_array($data['bootstrap'] ?? null) ? $data['bootstrap'] : [];
-        if (!isset($bootstrap['base_url'])) {
+        if (!array_key_exists('base_url', $bootstrap)) {
+            return [];
+        }
+
+        // The same normaliser the runtime will use, so doctor never accepts a
+        // value the runtime would later refuse, or the reverse.
+        try {
+            $mount = MountPath::normalise($bootstrap['base_url']);
+        } catch (\InvalidArgumentException $e) {
+            return [new DoctorFinding(
+                LintSeverity::Warning,
+                'base_url',
+                sprintf('bootstrap.base_url is not a valid mount path. %s', $e->getMessage()),
+                'Fix the value, or remove the key: the catalogue is served at ' . MountPath::DEFAULT . ' either way '
+                    . 'for now, and an invalid value will be refused once the mount is configurable.',
+            )];
+        }
+
+        if ($mount === MountPath::DEFAULT) {
+            // Says what already happens. Nothing to report.
             return [];
         }
 
         return [new DoctorFinding(
             LintSeverity::Warning,
             'base_url',
-            sprintf("bootstrap.base_url is set to '%s' and nothing implements it.", (string) $bootstrap['base_url']),
-            'The mount point is /styleguide, hardcoded through the PHP router, the Vue history base '
-                . 'and the asset URLs in the built shell. Remove the key so it does not read as a '
-                . 'setting that took effect.',
+            sprintf("bootstrap.base_url is set to '%s' and nothing implements it yet.", $mount),
+            'The catalogue is served at ' . MountPath::DEFAULT . ' until the mount becomes configurable. '
+                . 'Remove the key, or keep it knowing it takes effect only then.',
         )];
     }
 

@@ -106,7 +106,8 @@
 	   revealed by the inline script when the document is the top-level window so
 	   "Open in new tab" lands on a usable page with a link back to the styleguide. #}
 	{# Foundations/icons are sectionless routes (`/styleguide/foundations`, `/styleguide/icons`); component/page carry a slug. #}
-	{% set sg_url = kind in ['foundations', 'icons'] ? '/styleguide/' ~ kind : '/styleguide/' ~ kind ~ '/' ~ slug %}
+	{% set sg_base = base_url|default('/styleguide') %}
+	{% set sg_url = kind in ['foundations', 'icons'] ? sg_base ~ '/' ~ kind : sg_base ~ '/' ~ kind ~ '/' ~ slug %}
 	{# Default to `display:none` (NOT the `hidden` HTML attribute) because the bar's
 	   own inline `display:flex` would otherwise win the CSS cascade over the user-
 	   agent `[hidden] { display: none }` rule (UA rules have lower specificity than

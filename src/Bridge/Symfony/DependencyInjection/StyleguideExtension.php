@@ -6,6 +6,7 @@ namespace Parisek\Styleguide\Bridge\Symfony\DependencyInjection;
 
 use Parisek\Styleguide\Bridge\Symfony\Controller\StyleguideController;
 use Parisek\Styleguide\Bridge\Symfony\StyleguideFactory;
+use Parisek\Styleguide\MountPath;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
@@ -27,7 +28,7 @@ final class StyleguideExtension extends Extension
      * The one prefix that works. Kept as a constant so the check below and the
      * bundle's routing file cannot drift apart.
      */
-    public const SUPPORTED_PREFIX = '/styleguide';
+    public const SUPPORTED_PREFIX = MountPath::DEFAULT;
 
     /**
      * Container parameter holding the mount path the catalogue is served at.

@@ -8,6 +8,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Every catalogue URL reads one mount value.** First step of a
+  configurable mount (#157). `Router::parse()` takes the mount, and the SPA
+  config's `baseUrl`, the foundations asset URLs and the standalone
+  back-link in `render-cell.twig` are built from it. The value is still
+  always `/styleguide`, so nothing a consumer sees changes.
+- **`doctor` validates `bootstrap.base_url`** with the same rules the
+  runtime will use: a leading `/`, not `/` itself, no empty or dot segments,
+  no percent-encoding, query or fragment. `/styleguide` and `/styleguide/`
+  are no longer reported, since they say what already happens. Any other
+  valid value is still a warning, because it is not honoured yet.
+- The README and `docs/API.md` described `base_url` as the prefix the router
+  matches. It never was; both now say so.
+
 ## [1.21.0] - 2026-09-25
 
 ### Added
