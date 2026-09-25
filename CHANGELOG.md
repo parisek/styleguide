@@ -8,6 +8,31 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`bootstrap.base_url` moves the catalogue** (library mode). Third step of
+  #157. `Styleguide::run()` and `handle()` serve at the configured mount,
+  for example `/tools/ui`: the SPA, the API, the assets, the renders, the
+  back-link and the theme cookie all follow it, and nothing answers at
+  `/styleguide` any more. It is the full public path, so a site under
+  `/subdir` sets `/subdir/catalogue`. The default stays `/styleguide`.
+  The Layer A HTTP smoke (125 checks) and a Playwright suite now also run
+  against the fixture at `/tools/ui`.
+
+### Changed
+
+- An invalid `base_url` throws when the `Styleguide` is constructed, from
+  YAML or from a PHP array: `/`, a relative path, an empty or dot segment,
+  percent-encoding, non-ASCII, a query or a fragment. It used to be
+  accepted and ignored; `doctor` has warned about it since the previous
+  release. **A project that set a valid `base_url` other than `/styleguide`
+  is now served there** — `doctor` said the key did nothing, and now it
+  does. `doctor` reports a moved catalogue as a notice.
+- The Symfony bundle and `FrontController` refuse, at container build, a
+  `styleguide.yaml` whose `base_url` is not `/styleguide`. Their routes do
+  not follow the mount yet, so the catalogue would answer a path no route
+  reaches.
+
 ### Changed
 
 - **The SPA builds every URL from the mount it is served at.** Second step

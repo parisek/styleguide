@@ -34,10 +34,13 @@ use Parisek\Styleguide\Styleguide;
     // discover — reuses tests/fixtures/translations/*.mo, the same
     // catalogues StyleguideLocaleTest and SpaConfigTest already read.
     'translations_path' => __DIR__ . '/translations',
+    // The e2e suites serve this fixture at a second mount too
+    // (SG_MOUNT=/tools/ui), to prove a configured base_url end to end.
+    'base_url'          => getenv('SG_MOUNT') ?: '/styleguide',
 ]))->run();
 
 // Styleguide::run() exits on /styleguide/* routes. Any other URL means the
 // request wasn't for the styleguide — redirect to the SPA landing (the package's
 // canonical root behavior; a WordPress consumer overrides this with its own /).
-header('Location: /styleguide/', true, 302);
+header('Location: ' . rtrim(getenv('SG_MOUNT') ?: '/styleguide', '/') . '/', true, 302);
 exit;

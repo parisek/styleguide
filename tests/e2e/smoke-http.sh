@@ -16,6 +16,8 @@
 set -euo pipefail
 
 BASE="${BASE:-http://127.0.0.1:8421}"
+# The catalogue's mount path. run.sh also serves the fixture at /tools/ui.
+MOUNT="${MOUNT:-/styleguide}"
 PASS=0
 FAIL=0
 
@@ -202,63 +204,63 @@ printf "${DIM}== Layer A — HTTP smoke (%s) ==${NC}\n" "$BASE"
 # a consuming app (e.g. WordPress) overrides / with its own homepage, which is why
 # this assertion lives here against the fixture, not in consumers.
 assert_status "/"                                       "302"  "root redirects to styleguide"
-assert_header "/"                                       "location" "/styleguide/" "root redirect target"
-assert_status "/styleguide"                             "200"  "/styleguide returns SPA shell"
-assert_status "/styleguide/"                            "200"  "/styleguide/ returns SPA shell"
-assert_header "/styleguide/"                            "content-type" "text/html" "/styleguide/ content-type"
-assert_status "/styleguide/component/sample"            "200"  "deep link to component returns SPA"
-assert_status "/styleguide/page/landing"                "200"  "deep link to page returns SPA"
-assert_status "/styleguide/overview"                    "200"  "overview returns SPA"
+assert_header "/"                                       "location" "$MOUNT/" "root redirect target"
+assert_status "$MOUNT"                             "200"  "$MOUNT returns SPA shell"
+assert_status "$MOUNT/"                            "200"  "$MOUNT/ returns SPA shell"
+assert_header "$MOUNT/"                            "content-type" "text/html" "$MOUNT/ content-type"
+assert_status "$MOUNT/component/sample"            "200"  "deep link to component returns SPA"
+assert_status "$MOUNT/page/landing"                "200"  "deep link to page returns SPA"
+assert_status "$MOUNT/overview"                    "200"  "overview returns SPA"
 
 # Render endpoint (iframe HTML). All body tokens are asserted against a SINGLE
 # fetch — the render document is the largest, slowest response, so it was the one
 # php -S kept truncating. One request + retry removes the flakiness.
-assert_status        "/styleguide/render/component/sample"  "200" "render component"
-assert_body_contains_all "/styleguide/render/component/sample" \
+assert_status        "$MOUNT/render/component/sample"  "200" "render component"
+assert_body_contains_all "$MOUNT/render/component/sample" \
     'class="sample"'      "render emits the component body" \
     "/dist/css/style.css" "render injects the project CSS path" \
     'type="module"'       "render loads JS as ES module" \
     "sg-standalone-bar"   "render emits standalone-mode bar" \
     "bg-consumer-global"  "render carries the consumer's global iframe.body_class"
 
-assert_status        "/styleguide/render/page/landing"     "200" "render page"
+assert_status        "$MOUNT/render/page/landing"     "200" "render page"
 
-assert_status        "/styleguide/render/component/does-not-exist" "404" "render unknown → 404"
-assert_status        "/styleguide/render/component/broken-sample" "500" "render error → 500"
+assert_status        "$MOUNT/render/component/does-not-exist" "404" "render unknown → 404"
+assert_status        "$MOUNT/render/component/broken-sample" "500" "render error → 500"
 
 # ?variant= resolution against the `multi` fixture (styleguide.secondary.twig
 # exists; styleguide.retired.twig does not — an unknown variant must fall back
 # to the default styleguide.twig, never 404, so a bookmarked deep link to a
 # since-deleted variant keeps working).
-assert_body_contains "/styleguide/render/component/multi"                   "multi--demo"      "no variant → default demo body"
-assert_body_contains "/styleguide/render/component/multi?variant=secondary" "multi--secondary" "?variant=secondary → named variant body"
-assert_body_contains "/styleguide/render/component/multi?variant=retired"   "multi--demo"       "unknown variant falls back to default demo body"
+assert_body_contains "$MOUNT/render/component/multi"                   "multi--demo"      "no variant → default demo body"
+assert_body_contains "$MOUNT/render/component/multi?variant=secondary" "multi--secondary" "?variant=secondary → named variant body"
+assert_body_contains "$MOUNT/render/component/multi?variant=retired"   "multi--demo"       "unknown variant falls back to default demo body"
 
 # API endpoints (fixture ships 2 components + 1 page + 1 doc)
-assert_header        "/styleguide/api/components"  "content-type" "application/json" "components api content-type"
-assert_json_array_min "/styleguide/api/components" 2 "components api count"
-assert_json_array_min "/styleguide/api/pages"      1 "pages api count"
-assert_json_array_min "/styleguide/api/docs"       1 "docs api count"
-assert_body_contains  "/styleguide/api/docs"       "sample-doc" "docs api lists sample-doc"
-assert_status        "/styleguide/api/fields"     "200" "fields api"
-assert_header        "/styleguide/api/health"    "content-type" "application/json" "health api content-type"
-assert_body_contains_all "/styleguide/api/health" \
+assert_header        "$MOUNT/api/components"  "content-type" "application/json" "components api content-type"
+assert_json_array_min "$MOUNT/api/components" 2 "components api count"
+assert_json_array_min "$MOUNT/api/pages"      1 "pages api count"
+assert_json_array_min "$MOUNT/api/docs"       1 "docs api count"
+assert_body_contains  "$MOUNT/api/docs"       "sample-doc" "docs api lists sample-doc"
+assert_status        "$MOUNT/api/fields"     "200" "fields api"
+assert_header        "$MOUNT/api/health"    "content-type" "application/json" "health api content-type"
+assert_body_contains_all "$MOUNT/api/health" \
     '"warnings"' "health api emits warnings key" \
     '"counts"'   "health api emits counts key" \
     '"checked"'  "health api declares its scope"
 
 # Doc render endpoint
-assert_status        "/styleguide/doc/sample-doc"  "200" "deep link to doc returns SPA"
-assert_status        "/styleguide/render/doc/sample-doc" "200" "render doc"
-assert_body_contains  "/styleguide/render/doc/sample-doc" "Fixture body." "render doc emits fixture body"
+assert_status        "$MOUNT/doc/sample-doc"  "200" "deep link to doc returns SPA"
+assert_status        "$MOUNT/render/doc/sample-doc" "200" "render doc"
+assert_body_contains  "$MOUNT/render/doc/sample-doc" "Fixture body." "render doc emits fixture body"
 # Rule: a doc's <body> never inherits the consumer's site-wide iframe.body_class
 # (bug fix — a dark iframe.body_class broke prose readability on a doc page).
 # Contrast with the component render assertion above, which DOES carry it.
-assert_body_not_contains "/styleguide/render/doc/sample-doc" "bg-consumer-global" "render doc skips the consumer's global body_class"
+assert_body_not_contains "$MOUNT/render/doc/sample-doc" "bg-consumer-global" "render doc skips the consumer's global body_class"
 
 # Flexible color model (#71) — legacy scale palette and flat named palette
 # both survive normalization and render on foundations.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     "primary-500"                "foundations colors: legacy shades palette renders css-variable label" \
     "#FE4942"                    "foundations colors: legacy palette hex reaches the markup" \
     "brand-red"                  "foundations colors: flat palette css_variable label renders" \
@@ -272,7 +274,7 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 
 # Contrast layer (#72) — swatch AA badges, tooltip ratios, expandable matrix.
 # Fixture oracle: #FE4942 (primary-500) → white text 3.36 (fail AA), black 6.25 (AA).
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     'data-contrast="W 3.36 B 6.25"'   "foundations contrast: primary-500 swatch carries both text ratios" \
     "contrast-matrix"                  "foundations contrast: matrix section renders" \
     'data-ratio="21"'                  "foundations contrast: white-on-black matrix cell grades 21" \
@@ -283,17 +285,17 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # raw markup must never appear unescaped (XSS via a consumer-controlled yaml
 # string rendered into a text node). Pre-existing rendering (regular swatch
 # names) must keep working alongside it.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     "&lt;b&gt;evil&quot;name&lt;/b&gt;" "foundations colors: hostile swatch name renders HTML-escaped in the matrix row header" \
     "brand-red"                        "foundations colors: pre-existing flat palette rendering still works"
-assert_body_not_contains "/styleguide/render/foundations/index" "<b>evil" "foundations colors: hostile swatch name never reaches the body unescaped"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<b>evil" "foundations colors: hostile swatch name never reaches the body unescaped"
 
 # Escaping sweep (#78) — the logo and typography sections of foundations.twig
 # still interpolated consumer yaml raw (same class of bug as the #72-review
 # finding above, just in a different section). Every hostile value below must
 # reach the body only in its escaped form; the raw HTML/JS-shaped payload
 # must never appear unescaped.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     "Logo&lt;script&gt;alert(1)&lt;/script&gt;"          "foundations logo: hostile label renders HTML-escaped" \
     "Typography&lt;script&gt;alert(6)&lt;/script&gt;"    "foundations typography: hostile section label (labels.* outside #colors) renders HTML-escaped" \
     "Evil&lt;img src=x onerror=alert(1)&gt;Font"          "foundations typography: hostile font name renders HTML-escaped" \
@@ -311,7 +313,7 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # fixture rather than guessed — html_attr encodes far more aggressively than a
 # hand-written entity guess would (e.g. spaces become `&#x20;`, `=` becomes
 # `&#x3D;`, parens become `&#x28;`/`&#x29;`).
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     "Styleguide Fixture&lt;img src=x onerror=alert(7)&gt;" "foundations header: hostile project.name renders HTML-escaped" \
     "Fixture project&lt;script&gt;alert(8)&lt;/script&gt;" "foundations header: hostile project.description renders HTML-escaped" \
     "&#x2F;images&#x2F;logo.svg&quot;&#x20;onerror&#x3D;&quot;alert&#x28;9&#x29;"   "foundations logo: hostile src is html_attr-escaped (no attribute breakout)" \
@@ -333,7 +335,7 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # <span class="numbers">…</span> (see that package's CHANGELOG — "Rendered
 # output changes" under 1.3.0) — confirmed by curling the fixture render
 # directly rather than guessed.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     'lazy dog. &lt;img src=x onerror=alert(2)&gt;End' "foundations typography: hostile body_sample renders HTML-escaped"
 # A fixed-string check here (e.g. `<img src=x onerror=alert(2)>` byte-for-byte)
 # only proves *that one* serialization didn't leak — it sails past different
@@ -348,33 +350,33 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # fallback <img>, so an unanchored version of this check would false-positive
 # on the page's own real markup — confirmed by running it against a live
 # fixture render before landing this pattern.
-assert_body_not_matches "/styleguide/render/foundations/index" '<[a-z][a-z0-9]*\b[^>]*\bon[a-z]+[[:space:]]*=[^>]*alert\(2\)' "foundations typography: hostile body_sample never reaches the body as a live event-handler attribute"
+assert_body_not_matches "$MOUNT/render/foundations/index" '<[a-z][a-z0-9]*\b[^>]*\bon[a-z]+[[:space:]]*=[^>]*alert\(2\)' "foundations typography: hostile body_sample never reaches the body as a live event-handler attribute"
 # Raw-payload checks target the exact hostile string per fixture entry (not a
 # bare `<script>` substring) — the page legitimately emits real `<script>`
 # tags (foundations.js module, standalone-bar reveal script), so a blanket
 # "body lacks <script>" assertion would false-positive against those.
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(1)</script>" "foundations logo: hostile label never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(6)</script>" "foundations typography: hostile section label never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(3)</script>" "foundations typography: hostile font usage tag never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(x)</script>" "foundations typography: hostile heading label never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(5)</script>" "foundations typography: hostile weight name never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<img src=x onerror=" "foundations typography: hostile font name never reaches the body unescaped"
-assert_body_not_contains "/styleguide/render/foundations/index" '"onmouseover=alert' "foundations typography: font url quote never breaks out of the href attribute"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(1)</script>" "foundations logo: hostile label never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(6)</script>" "foundations typography: hostile section label never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(3)</script>" "foundations typography: hostile font usage tag never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(x)</script>" "foundations typography: hostile heading label never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(5)</script>" "foundations typography: hostile weight name never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<img src=x onerror=" "foundations typography: hostile font name never reaches the body unescaped"
+assert_body_not_contains "$MOUNT/render/foundations/index" '"onmouseover=alert' "foundations typography: font url quote never breaks out of the href attribute"
 
 # Raw-payload checks for the extended sweep above (#78 review) — same
 # exact-string-per-fixture-entry discipline as the block above it.
-assert_body_not_contains "/styleguide/render/foundations/index" "<img src=x onerror=alert(7)>" "foundations header: hostile project.name never reaches the body unescaped"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(8)</script>"     "foundations header: hostile project.description never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(9)'              "foundations logo: hostile src never breaks out of the src attribute"
-assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(10)'             "foundations logo: hostile alt never breaks out of the alt attribute"
-assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(11)'             "foundations logo: hostile size never breaks out of the img class attribute"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(12)</script>"     "foundations typography: hostile font.type never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(13)</script>"     "foundations typography: hostile font.alphabet never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(14)</script>"     "foundations typography: hostile heading.tag never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(15)'             "foundations typography: hostile heading.size never breaks out of the label class attribute"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(16)</script>"     "foundations typography: hostile heading.desc never reaches the body as a live <script> tag"
-assert_body_not_contains "/styleguide/render/foundations/index" 'onerror="alert(17)'             "foundations typography: hostile weight.class never breaks out of the sample class attribute"
-assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(18)</script>"     "foundations typography: hostile weight.value never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<img src=x onerror=alert(7)>" "foundations header: hostile project.name never reaches the body unescaped"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(8)</script>"     "foundations header: hostile project.description never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" 'onerror="alert(9)'              "foundations logo: hostile src never breaks out of the src attribute"
+assert_body_not_contains "$MOUNT/render/foundations/index" 'onerror="alert(10)'             "foundations logo: hostile alt never breaks out of the alt attribute"
+assert_body_not_contains "$MOUNT/render/foundations/index" 'onerror="alert(11)'             "foundations logo: hostile size never breaks out of the img class attribute"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(12)</script>"     "foundations typography: hostile font.type never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(13)</script>"     "foundations typography: hostile font.alphabet never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(14)</script>"     "foundations typography: hostile heading.tag never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" 'onerror="alert(15)'             "foundations typography: hostile heading.size never breaks out of the label class attribute"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(16)</script>"     "foundations typography: hostile heading.desc never reaches the body as a live <script> tag"
+assert_body_not_contains "$MOUNT/render/foundations/index" 'onerror="alert(17)'             "foundations typography: hostile weight.class never breaks out of the sample class attribute"
+assert_body_not_contains "$MOUNT/render/foundations/index" "<script>alert(18)</script>"     "foundations typography: hostile weight.value never reaches the body as a live <script> tag"
 
 # Favicon audit section (#73, #73 follow-up owner feedback) — server-side
 # FaviconAudit::run() drives: compact browser-tab + iOS home-screen mockups
@@ -384,7 +386,7 @@ assert_body_not_contains "/styleguide/render/foundations/index" "<script>alert(1
 # sub-rows below). Needles were curled off a live `php -S` render of the
 # fixture (tests/fixtures/styleguide.yaml's `favicon:` block, which mirrors
 # FaviconAuditTest::happyPathConfig() 1:1) rather than guessed.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     'id="favicon"'                                          "foundations favicon: section renders" \
     'data-sg-toggle="favicon-audit-table"'                   "foundations favicon: audit checklist toggle button targets the table id" \
     'id="favicon-audit-table"'                               "foundations favicon: audit table container carries the toggle target id" \
@@ -402,16 +404,16 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # in frontend/foundations.js. Asserted as raw HTML around the id since
 # assert_body_contains_all only does substring matches, not attribute-order-
 # independent parsing.
-assert_body_contains "/styleguide/render/foundations/index" \
+assert_body_contains "$MOUNT/render/foundations/index" \
     'id="favicon-audit-table" class="overflow-hidden overflow-x-auto border border-zinc-200 rounded-xl shadow-lg shadow-zinc-200/50 bg-white" hidden' \
     "foundations favicon: audit table renders with the hidden attribute (collapsed by default)"
 
 # Android/PWA maskable mockup card was dropped from the standalone #favicon
 # section (#73 follow-up) — its default label text and the distinctive
 # circular-mask wrapper class must not linger in the rendered markup.
-assert_body_not_contains "/styleguide/render/foundations/index" \
+assert_body_not_contains "$MOUNT/render/foundations/index" \
     'Android / PWA (maskable)' "foundations favicon: dropped Android/PWA mockup card's default label never reaches the body"
-assert_body_not_contains "/styleguide/render/foundations/index" \
+assert_body_not_contains "$MOUNT/render/foundations/index" \
     'ring-1 ring-zinc-300' "foundations favicon: dropped Android/PWA mockup card's circular-mask wrapper class never reaches the body"
 
 # Open Graph image section (#74) — server-side OgImageAudit::run() drives
@@ -421,7 +423,7 @@ assert_body_not_contains "/styleguide/render/foundations/index" \
 # (tests/fixtures/styleguide.yaml's `og_image:` key, pointing at the real
 # 1200×630 tests/fixtures/images/og-image.png — mirrors OgImageAuditTest's
 # happy-path fixture 1:1) rather than guessed.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     'id="og-image" class="mb-12" data-og-status="ok"'        "foundations og-image: section renders and is gated on data-og-status, not a truthiness heuristic" \
     'data-og-card="facebook"'                                 "foundations og-image: Facebook/LinkedIn card renders" \
     'data-og-card="x"'                                        "foundations og-image: X/Twitter card renders" \
@@ -433,20 +435,20 @@ assert_body_contains_all "/styleguide/render/foundations/index" \
 # Hostile project.name (already covered generically above, pinned again
 # here since it lands in the FB-card title AND the Slack-card title — two
 # independent template call sites, both must stay escaped).
-assert_body_contains "/styleguide/render/foundations/index" \
+assert_body_contains "$MOUNT/render/foundations/index" \
     'Styleguide Fixture&lt;img src=x onerror=alert(7)&gt;'    "foundations og-image: hostile project.name reaches the FB/Slack card titles HTML-escaped"
 
 # Package-shipped vanilla foundations.js (#79) — injected alongside
 # foundations.css for the foundations render only; see render-cell.twig.
-assert_body_contains_all "/styleguide/render/foundations/index" \
+assert_body_contains_all "$MOUNT/render/foundations/index" \
     'type="module" src="'                     "foundations render injects the package foundations JS module" \
-    '/styleguide/assets/foundations.'         "foundations render js module url is hashed under the foundations. prefix" \
+    "$MOUNT/assets/foundations."         "foundations render js module url is hashed under the foundations. prefix" \
     '.js"></script>'                          "foundations render js module url ends in .js"
 
 # Hashed SPA assets — filename is content-hashed, so extract it from the shell
 # rather than hard-coding the hash (which changes on every frontend build).
-HASHED_JS=$(curl -sk "$BASE/styleguide/" | grep -oE '/styleguide/assets/styleguide\.[A-Za-z0-9_-]+\.js' | head -1 || true)
-HASHED_CSS=$(curl -sk "$BASE/styleguide/" | grep -oE '/styleguide/assets/styleguide\.[A-Za-z0-9_-]+\.css' | head -1 || true)
+HASHED_JS=$(curl -sk "$BASE$MOUNT/" | grep -oE "$MOUNT/assets/styleguide\\.[A-Za-z0-9_-]+\\.js" | head -1 || true)
+HASHED_CSS=$(curl -sk "$BASE$MOUNT/" | grep -oE "$MOUNT/assets/styleguide\\.[A-Za-z0-9_-]+\\.css" | head -1 || true)
 if [ -n "$HASHED_JS" ]; then
     assert_status "$HASHED_JS"                          "200" "hashed JS served"
     assert_header "$HASHED_JS"                          "cache-control" "immutable" "hashed JS cache: immutable"
@@ -461,12 +463,12 @@ else
 fi
 
 # Locale JSON (shipped in the package dist)
-assert_status "/styleguide/assets/locales/cs.json"  "200" "cs locale served"
-assert_body_contains "/styleguide/assets/locales/cs.json" "Přehled" "cs locale has nav.overview key"
-assert_status "/styleguide/assets/locales/en.json"  "200" "en locale served"
+assert_status "$MOUNT/assets/locales/cs.json"  "200" "cs locale served"
+assert_body_contains "$MOUNT/assets/locales/cs.json" "Přehled" "cs locale has nav.overview key"
+assert_status "$MOUNT/assets/locales/en.json"  "200" "en locale served"
 
 # Path-traversal guard — must not leak files outside the dist root
-TRAV_BODY=$(curl -sk "$BASE/styleguide/assets/%2e%2e/composer.json") || TRAV_BODY=""
+TRAV_BODY=$(curl -sk "$BASE$MOUNT/assets/%2e%2e/composer.json") || TRAV_BODY=""
 if printf '%s' "$TRAV_BODY" | grep -q '"name"'; then
     ko "path traversal LEAKED composer.json content"
 else

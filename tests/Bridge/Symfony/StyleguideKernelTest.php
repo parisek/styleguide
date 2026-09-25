@@ -179,6 +179,25 @@ final class StyleguideKernelTest extends TestCase
     }
 
     #[Test]
+    public function a_yaml_mount_the_bundle_does_not_serve_is_refused(): void
+    {
+        $static = sys_get_temp_dir() . '/sg-kernel-mount-' . bin2hex(random_bytes(4));
+        mkdir($static);
+        file_put_contents($static . '/styleguide.yaml', "bootstrap:\n  templates_path: " . realpath(__DIR__ . '/../../fixtures/templates') . "\n  static_path: .\n  base_url: /kit\n");
+
+        $kernel = new StyleguideKernel('prod', false, $static);
+        $this->cacheRoots[] = \dirname($kernel->getCacheDir());
+        try {
+            $this->expectException(\InvalidArgumentException::class);
+            $this->expectExceptionMessage("bootstrap.base_url to '/kit'");
+            $kernel->boot();
+        } finally {
+            unlink($static . '/styleguide.yaml');
+            rmdir($static);
+        }
+    }
+
+    #[Test]
     public function the_project_dir_is_the_parent_of_the_static_dir(): void
     {
         $kernel = $this->kernel('prod', false);

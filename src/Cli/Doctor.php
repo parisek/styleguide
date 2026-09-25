@@ -30,8 +30,8 @@ use Twig\Error\LoaderError;
  *   point throws `CorruptBuildException`, but only on a live request; an
  *   asset the shell references and the build no longer contains fails in the
  *   browser, where PHP never learns about it.
- * - `base_url`. `fromYaml()` accepts it; the runtime serves at the default
- *   mount until the mount is configurable. Validated with MountPath.
+ * - `base_url`. A mount other than the default, which the web server has to
+ *   route; an invalid one is already the `config` error.
  * - The helper names the package puts on a Twig environment, which a consumer
  *   with its own `component_*` needs before Twig locks its extension set.
  *
@@ -318,31 +318,28 @@ final class Doctor
             return [];
         }
 
-        // The same normaliser the runtime will use, so doctor never accepts a
-        // value the runtime would later refuse, or the reverse.
-        try {
-            $mount = MountPath::normalise($bootstrap['base_url']);
-        } catch (\InvalidArgumentException $e) {
-            return [new DoctorFinding(
-                LintSeverity::Warning,
-                'base_url',
-                sprintf('bootstrap.base_url is not a valid mount path. %s', $e->getMessage()),
-                'Fix the value, or remove the key: the catalogue is served at ' . MountPath::DEFAULT . ' either way '
-                    . 'for now, and an invalid value will be refused once the mount is configurable.',
-            )];
-        }
+        // An invalid value never reaches here: the constructor refuses it and
+        // run() reports that as the `config` error, in the runtime's words.
+        $mount = MountPath::normalise($bootstrap['base_url']);
 
         if ($mount === MountPath::DEFAULT) {
-            // Says what already happens. Nothing to report.
             return [];
         }
 
+        // Worth knowing, not wrong: the catalogue moves, and nothing inside
+        // PHP can check the web server sends that path to the front
+        // controller.
         return [new DoctorFinding(
-            LintSeverity::Warning,
+            LintSeverity::Notice,
             'base_url',
-            sprintf("bootstrap.base_url is set to '%s' and nothing implements it yet.", $mount),
-            'The catalogue is served at ' . MountPath::DEFAULT . ' until the mount becomes configurable. '
-                . 'Remove the key, or keep it knowing it takes effect only then.',
+            sprintf("The catalogue is served at '%s', not at %s.", $mount, MountPath::DEFAULT),
+            sprintf(
+                'The web server must send %s and everything under it to the front controller. The '
+                    . 'Symfony bundle and FrontController do not follow base_url yet; they refuse any '
+                    . 'value other than %s.',
+                $mount,
+                MountPath::DEFAULT,
+            ),
         )];
     }
 
