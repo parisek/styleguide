@@ -71,12 +71,11 @@ final class Styleguide
     private RenderObserver $observer;
 
     /**
-     * Where the catalogue is served. Always {@see MountPath::DEFAULT} for now:
-     * `bootstrap.base_url` is validated by `doctor` but not yet honoured,
-     * because the built SPA and the Symfony routes still assume the default.
-     * Every URL this class produces or recognises reads it from here.
+     * Where the catalogue is served: `base_url`, normalised by
+     * {@see MountPath::normalise()}, `/styleguide` by default. Every URL this
+     * class produces or recognises reads it from here.
      */
-    private string $mountPath = MountPath::DEFAULT;
+    private string $mountPath;
 
     /**
      * Everything the bundled helpers need that a request can move. Built
@@ -262,9 +261,19 @@ final class Styleguide
             );
         }
 
+        // The mount is validated here, not only in fromYaml(), so a
+        // programmatic config gets the same refusal. An invalid value is an
+        // error at boot: it decides which URLs this instance answers, and a
+        // guess would serve the catalogue somewhere nobody expects.
+        try {
+            $this->mountPath = MountPath::normalise($config['base_url'] ?? MountPath::DEFAULT);
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException("Styleguide: config key 'base_url': " . $e->getMessage(), 0, $e);
+        }
+
         $this->config = $config + [
             'default_locale' => 'en',
-            'base_url' => '/styleguide',
+            'base_url' => MountPath::DEFAULT,
             'twig_context' => [],
             'twig' => null,
             // Right-hand merged onto the package defaults inside

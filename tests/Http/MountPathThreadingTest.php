@@ -12,10 +12,9 @@ use PHPUnit\Framework\TestCase;
 /**
  * Every URL the catalogue recognises or produces reads one mount value.
  *
- * The mount cannot be configured yet, so the test sets the private property
- * directly. That is the point: it proves the value is threaded through
- * routing, the SPA config and the render output, so unlocking
- * `bootstrap.base_url` later only changes where the value comes from.
+ * Most tests set the private property directly, which isolates the
+ * threading from the configuration path; the `base_url` tests at the end go
+ * through the constructor.
  */
 final class MountPathThreadingTest extends TestCase
 {
@@ -98,6 +97,34 @@ final class MountPathThreadingTest extends TestCase
                 . '<link href=".//d"><a href="/e">x</a><link href=""><script src="https://x/f.js"></script>',
             Styleguide::absolutiseEntryAssets($html, '/m/assets/'),
         );
+    }
+
+    #[Test]
+    public function base_url_sets_the_mount(): void
+    {
+        $styleguide = new Styleguide([
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => __DIR__ . '/../fixtures',
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'base_url' => '/tools/ui/',
+        ]);
+
+        self::assertNull($styleguide->handle(new Request('/styleguide/')));
+        self::assertStringContainsString('"baseUrl":"/tools/ui"', (string) $styleguide->handle(new Request('/tools/ui'))?->body);
+    }
+
+    #[Test]
+    public function an_invalid_base_url_fails_at_construction(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("config key 'base_url'");
+
+        new Styleguide([
+            'templates_path' => __DIR__ . '/../fixtures/templates',
+            'static_path' => __DIR__ . '/../fixtures',
+            'config_yaml' => __DIR__ . '/../fixtures/styleguide.yaml',
+            'base_url' => '/',
+        ]);
     }
 
     private function styleguideAt(?string $mount): Styleguide

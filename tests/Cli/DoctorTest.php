@@ -294,16 +294,15 @@ final class DoctorTest extends TestCase
     }
 
     #[Test]
-    public function a_base_url_is_a_warning_because_nothing_implements_it(): void
+    public function a_base_url_other_than_the_default_is_a_notice(): void
     {
-        [$exit, $stdout] = $this->doctor($this->config(['base_url' => '/kit']));
+        [$exit, $stdout] = $this->doctor($this->config(['base_url' => '/kit/']));
 
-        // A warning, not a notice: it fails a build. A key that reads as a
-        // setting and does nothing is worth stopping for.
-        self::assertSame(1, $exit);
-        self::assertStringContainsString('WARNING', $stdout);
-        self::assertStringContainsString('base_url', $stdout);
-        self::assertStringContainsString('nothing implements it', $stdout);
+        // A notice: the catalogue moves, which is intended, and the web
+        // server has to follow. Not a build failure.
+        self::assertSame(0, $exit);
+        self::assertStringContainsString('NOTICE', $stdout);
+        self::assertStringContainsString("served at '/kit'", $stdout);
     }
 
     #[Test]
@@ -317,12 +316,12 @@ final class DoctorTest extends TestCase
     }
 
     #[Test]
-    public function an_invalid_base_url_says_why(): void
+    public function an_invalid_base_url_is_the_config_error(): void
     {
         foreach (['/', 'kit', '/a//b', '/caf%C3%A9', '/a/../b', '/kit?x=1'] as $value) {
             [$exit, $stdout] = $this->doctor($this->config(['base_url' => $value]));
             self::assertSame(1, $exit, $value);
-            self::assertStringContainsString('not a valid mount path', $stdout, $value);
+            self::assertStringContainsString("config key 'base_url'", $stdout, $value);
         }
     }
 
@@ -358,7 +357,7 @@ final class DoctorTest extends TestCase
     {
         [$exit, $stdout] = $this->doctor($this->config(['base_url' => '/kit']), '--format=json');
 
-        self::assertSame(1, $exit);
+        self::assertSame(0, $exit);
 
         /** @var list<array{severity: string, check: string, message: string, remedy: string}> $payload */
         $payload = json_decode($stdout, true, flags: JSON_THROW_ON_ERROR);

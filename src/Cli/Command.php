@@ -593,7 +593,7 @@ final class Command
                               to serve while the site is down.
           doctor              Report what this project's styleguide.yaml will do at
                               runtime: a configured path that does not exist, a stale
-                              or unbuilt dist/, an invalid or not-yet-honoured `base_url`, a
+                              or unbuilt dist/, a catalogue moved off /styleguide, a
                               catalogue that cannot render. Non-zero exit for CI.
           front-controller:init
                               Write the shipped front controller (index.php) beside

@@ -29,11 +29,23 @@ export default defineConfig({
     // Reuses the exact boot command tests/e2e/run.sh already uses for Layer A/B
     // (php -S 127.0.0.1:8421 -t tests/fixtures tests/fixtures/index.php) so
     // there is exactly one fixture-server invocation pattern in the repo.
-    webServer: {
-        command: 'php -S 127.0.0.1:8421 -t ../tests/fixtures ../tests/fixtures/index.php',
-        cwd: '.',
-        url: 'http://127.0.0.1:8421/styleguide/',
-        reuseExistingServer: !process.env.CI,
-        timeout: 10_000,
-    },
+    webServer: [
+        {
+            command: 'php -S 127.0.0.1:8421 -t ../tests/fixtures ../tests/fixtures/index.php',
+            cwd: '.',
+            url: 'http://127.0.0.1:8421/styleguide/',
+            reuseExistingServer: !process.env.CI,
+            timeout: 10_000,
+        },
+        // The same fixture at a configured mount (bootstrap.base_url), for
+        // mount.spec.js. SG_MOUNT is read by tests/fixtures/index.php.
+        {
+            command: 'php -S 127.0.0.1:8423 -t ../tests/fixtures ../tests/fixtures/index.php',
+            cwd: '.',
+            env: { SG_MOUNT: '/tools/ui' },
+            url: 'http://127.0.0.1:8423/tools/ui/',
+            reuseExistingServer: !process.env.CI,
+            timeout: 10_000,
+        },
+    ],
 });

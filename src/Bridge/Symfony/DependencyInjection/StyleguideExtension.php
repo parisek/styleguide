@@ -8,10 +8,12 @@ use Parisek\Styleguide\Bridge\Symfony\Controller\StyleguideController;
 use Parisek\Styleguide\Bridge\Symfony\StyleguideFactory;
 use Parisek\Styleguide\MountPath;
 use Symfony\Component\Config\Definition\ConfigurationInterface;
+use Symfony\Component\Config\Resource\FileResource;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Extension\Extension;
 use Symfony\Component\DependencyInjection\Reference;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Wires the catalogue into the host's container.
@@ -49,6 +51,25 @@ final class StyleguideExtension extends Extension
     }
 
     /**
+     * The normalised `bootstrap.base_url` of the catalogue's YAML, or null
+     * when it sets none. A file that does not load, or an invalid value, is
+     * left to the runtime, which reports it in its own words.
+     */
+    private static function yamlMount(string $path): ?string
+    {
+        try {
+            $data = Yaml::parseFile($path);
+            $value = \is_array($data) && \is_array($data['bootstrap'] ?? null)
+                ? ($data['bootstrap']['base_url'] ?? null)
+                : null;
+
+            return $value === null ? null : MountPath::normalise($value);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
      * @param array<array-key, mixed> $configs
      */
     public function load(array $configs, ContainerBuilder $container): void
@@ -73,6 +94,25 @@ final class StyleguideExtension extends Extension
                 $config['prefix'],
                 self::SUPPORTED_PREFIX,
             ));
+        }
+
+        // The library honours bootstrap.base_url; this bridge's routes do not
+        // yet. A YAML mount other than the prefix would make the catalogue
+        // answer a path no route reaches — refused here, at container build,
+        // not discovered as a 404.
+        $yamlMount = self::yamlMount($config['config']);
+        if ($yamlMount !== null && $yamlMount !== $config['prefix']) {
+            throw new \InvalidArgumentException(sprintf(
+                "%s sets bootstrap.base_url to '%s', and the Symfony bundle serves the catalogue at '%s' "
+                    . 'only. Remove base_url, or set it to %s, until the bundle follows it.',
+                $config['config'],
+                $yamlMount,
+                $config['prefix'],
+                $config['prefix'],
+            ));
+        }
+        if (is_file($config['config'])) {
+            $container->addResource(new FileResource($config['config']));
         }
 
         // A factory, not a Styleguide. The catalogue needs this request's

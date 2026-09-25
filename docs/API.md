@@ -46,7 +46,7 @@ Optional keys (with their defaults):
 | Key | Default | Description |
 |---|---|---|
 | `default_locale` | `'en'` | Two-letter locale code; drives `<html lang>`, the `langcode` value in every render's Twig context (`twig_context`; a project's own translator may key off it — the bundled `_x()` etc. are identity stubs and don't), and the bundled `TypographyExtension`'s per-language locale resolver (>= `parisek/twig-typography` 1.3) |
-| `base_url` | `'/styleguide'` | The mount path. Not honoured yet: the package serves at `/styleguide`. Configurable in phases (#157); `doctor` validates it now |
+| `base_url` | `'/styleguide'` | The mount path (since 1.22.0 honoured by `run()`/`handle()`). Normalised: leading `/`, no trailing `/`. `\InvalidArgumentException` at construction for `/`, a relative path, an empty or dot segment, percent-encoding, non-ASCII, query or fragment. The Symfony bridge refuses any other value than `/styleguide` at container build (#157) |
 | `twig_context` | `[]` | Map of variables added to every Twig render — typically `homeUrl`, `templateUrl`, `langcode` |
 | `twig` | `null` | Pre-built `Twig\Environment` to reuse. When null, the package builds a pristine env (autoescape: false, cache: false, debug: true) |
 | `twig_options` | `[]` | Map merged on top of pristine env defaults (ignored if `twig` is provided) |
@@ -557,6 +557,8 @@ failure, and the alert fallback). See README § *CI smoke test*.
 
 ## URL surface — `@api`
 
+Patterns below use the default mount, `/styleguide`. With `base_url` set, every one of them moves under that mount instead, cookie path included; nothing is served at `/styleguide` then.
+
 | Pattern | Purpose |
 |---|---|
 | `/styleguide/` | SPA landing (= Overview) |
@@ -611,7 +613,7 @@ A stored locale whose catalogue is no longer offered (renamed/removed `.mo`, or 
 | `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
 | `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
 | `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions). See README § Command-line catalogue. |
-| `doctor [--config=<path>] [--format=text\|json] [--pretty]` | Report what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a `base_url` that is invalid or not honoured yet, an empty catalogue, an `index.php` beside `styleguide.yaml` whose code references `Bridge\Symfony\FrontController` without `symfony/framework-bundle` installed (check `front-controller`, since 1.21.0), and the Twig helper names the package registers. Same exit-code contract as `lint`. See README § `doctor`. |
+| `doctor [--config=<path>] [--format=text\|json] [--pretty]` | Report what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a catalogue moved off `/styleguide` (notice), an empty catalogue, an `index.php` beside `styleguide.yaml` whose code references `Bridge\Symfony\FrontController` without `symfony/framework-bundle` installed (check `front-controller`, since 1.21.0), and the Twig helper names the package registers. Same exit-code contract as `lint`. See README § `doctor`. |
 | `front-controller:init [--dir=<path>] [--config=<path>] [--force]` | Write `resources/front-controller.php` as `index.php` beside `styleguide.yaml`. Exit `0` written or already current, `1` a different `index.php` exists (kept; `--force` replaces it) or `index.php` is a symlink (never written through), `2` usage error (no `styleguide.yaml`, a missing `--config` file, a bare `--dir`, not a directory, not writable). An explicit `--dir` or `--config` never falls back to `./styleguide.yaml`. Added 1.21.0. |
 | `maintenance:render [--config=<path>] [--locale=<code>] [--css=<path>] [--out=<path>]` | Render the outage screen to one self-contained HTML file. See § Offline outage render below. |
 | `--help` / `-h` | Usage |

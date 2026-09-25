@@ -73,4 +73,26 @@ rc=0
 printf '%b\n' "${BOLD}--- Layer A — HTTP smoke ---${NC}"
 bash "$ROOT/tests/e2e/smoke-http.sh" || rc=1
 
+# The same suite at a configured mount (bootstrap.base_url), served by a
+# second fixture server. Every URL in smoke-http.sh is built from $MOUNT, so a
+# path the package still hardcodes fails here and nowhere else.
+MOUNT_PORT=$((PORT + 1))
+MOUNT_PATH="/tools/ui"
+SG_MOUNT="$MOUNT_PATH" php -S "$HOST:$MOUNT_PORT" -t "$ROOT/tests/fixtures" "$ROOT/tests/fixtures/index.php" >/tmp/sg-e2e-server-mount.log 2>&1 &
+MOUNT_PID=$!
+trap 'kill "$SERVER_PID" "$MOUNT_PID" 2>/dev/null || true' EXIT
+mount_ready=0
+for _ in $(seq 1 25); do
+    if ! kill -0 "$MOUNT_PID" 2>/dev/null; then break; fi
+    if curl -sf -o /dev/null "http://$HOST:$MOUNT_PORT$MOUNT_PATH/"; then mount_ready=1; break; fi
+    sleep 0.2
+done
+if [ "$mount_ready" -ne 1 ]; then
+    echo "mount fixture server did not answer at http://$HOST:$MOUNT_PORT$MOUNT_PATH/ (log: /tmp/sg-e2e-server-mount.log)" >&2
+    exit 1
+fi
+
+printf '%b\n' "${BOLD}--- Layer A — HTTP smoke at $MOUNT_PATH ---${NC}"
+BASE="http://$HOST:$MOUNT_PORT" MOUNT="$MOUNT_PATH" bash "$ROOT/tests/e2e/smoke-http.sh" || rc=1
+
 exit $rc
