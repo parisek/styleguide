@@ -134,7 +134,7 @@ the YAML throws rather than being silently honoured. Full rules:
 | `static_path` | yes | — | Absolute path to the project's webroot (where `index.php` sits). Used to auto-register `@icons` (`/images/icons`) and `@images` (`/images`) if those directories exist. |
 | `config_yaml` | yes | — | Absolute path to `styleguide.yaml`. Missing file ≠ error — yaml just resolves to `[]` and the overview screen renders empty sections. |
 | `default_locale` | no | `'en'` | Two-letter code used by the SPA shell and forwarded to `Renderer` as `langcode`. Also drives the bundled `TypographyExtension`'s per-language typesetting (>= `parisek/twig-typography` 1.3) — passed as its locale resolver, so `|typography` applies the resolved language's quote/dash/spacing conventions without any extra config. |
-| `base_url` | no | `'/styleguide'` | The mount path: where the catalogue is served, e.g. `/catalogue` or `/tools/ui`. Honoured by `Styleguide::run()` / `handle()`. It is the full public path, so a site installed under `/subdir` sets `/subdir/catalogue`. Must start with `/`; not `/` itself; letters, digits, `-`, `_`, `~`, `.` per segment; no percent-encoding, query or fragment — anything else throws at boot. The web server must send the mount and everything under it to the front controller. The Symfony bundle and `FrontController` do not follow it yet and refuse any value other than `/styleguide` when the container builds ([#157](https://github.com/parisek/styleguide/issues/157)). |
+| `base_url` | no | `'/styleguide'` | The mount path: where the catalogue is served, e.g. `/catalogue` or `/tools/ui`. In library mode (`Styleguide::run()`) it is the full public path, so a site installed under `/subdir` sets `/subdir/catalogue`. In the Symfony bundle and `FrontController` it is the path inside the application, and Symfony adds its own base URL (§ *Symfony bundle*). Must start with `/`; not `/` itself; letters, digits, `-`, `_`, `~`, `.` per segment; no percent-encoding, query or fragment — anything else throws at boot. The web server must send the mount and everything under it to the front controller. |
 | `twig` | no | `null` | Pre-built `Twig\Environment`. Pass when component templates need project-specific extensions / filters / functions (`component_*`, `_x()`, `placeholder()`, `|resizer`, …). If omitted, the package builds a pristine environment with sensible defaults (`cache: false`, `debug: true`, `autoescape: false`). See *`twig` config — when to pass it* below. |
 | `twig_context` | no | `[]` | Globals merged into every `component_*()` / `page_*()` render. Typical keys: `homeUrl`, `templateUrl`, `langcode`. |
 | `twig_options` | no | `[]` | Options merged onto the package defaults when building the pristine env. Ignored when `twig` is provided (the package never mutates a consumer-owned env). |
@@ -263,11 +263,19 @@ styleguide:
 
 Two routes: `/styleguide` and a catch-all `/styleguide/{path}`. Both are needed. The bare prefix is a real URL the catalogue answers, and the catch-all is what lets the SPA's history-API deep links survive a direct refresh — `/styleguide/component/card` pasted into a browser has to reach the controller and come back as the shell.
 
-#### The mount point is not configurable
+#### The mount point comes from `styleguide.yaml`
 
-A `prefix` key exists and only accepts `/styleguide`; anything else is refused when the container builds, rather than half-honoured.
+`bootstrap.base_url` sets it, as in library mode; `/styleguide` by default. The bundle's routes read it through the `styleguide.base_url` container parameter, so the route import above stays the same whatever the mount is:
 
-`/styleguide` is hardcoded through the PHP router, the Vue router's history base, the SPA's API and locale fetches, the iframe URLs, the theme cookie path, and the asset URLs already baked into the committed `dist/index.html`. Mounting elsewhere would route the controller correctly and then serve a shell that still requests `/styleguide/...` — broken in a way that reads as a caching problem. Making it configurable is a frontend build change, tracked separately.
+```yaml
+# static/styleguide.yaml
+bootstrap:
+    base_url: /tools/ui
+```
+
+In a Symfony application the mount is the path **inside** the application. When the application itself is installed under `/subdir`, Symfony's base URL is prepended to every URL the catalogue produces — the shell's asset URLs, the SPA's history base, the API, the theme cookie — and the catalogue answers at `/subdir/tools/ui`. Do not repeat `/subdir` in `base_url`.
+
+The `prefix` option is deprecated since 1.22. When given, it must name the same mount as `base_url`, or the container refuses to build; it never overrides it.
 
 #### Security is yours
 
@@ -567,7 +575,7 @@ So: keep `iframe.css: /dist/css/style.css` in `styleguide.yaml`, pass the right 
 
 ## URL surface
 
-Every URL below sits under the catalogue's mount path: `/styleguide` by default, `bootstrap.base_url` when set (library mode, since 1.22.0; see § `base_url` below). The table uses the default.
+Every URL below sits under the catalogue's mount path: `/styleguide` by default, `bootstrap.base_url` when set (since 1.22.0; see § `base_url` below). The table uses the default.
 
 | URL | Served | Purpose |
 |---|---|---|

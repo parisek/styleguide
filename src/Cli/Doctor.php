@@ -333,13 +333,7 @@ final class Doctor
             LintSeverity::Notice,
             'base_url',
             sprintf("The catalogue is served at '%s', not at %s.", $mount, MountPath::DEFAULT),
-            sprintf(
-                'The web server must send %s and everything under it to the front controller. The '
-                    . 'Symfony bundle and FrontController do not follow base_url yet; they refuse any '
-                    . 'value other than %s.',
-                $mount,
-                MountPath::DEFAULT,
-            ),
+            sprintf('The web server must send %s and everything under it to the front controller.', $mount),
         )];
     }
 

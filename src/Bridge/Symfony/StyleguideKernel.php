@@ -105,7 +105,8 @@ class StyleguideKernel extends Kernel
      * directory already exists and is writable.
      *
      * The key covers the static directory, the kernel class, the contents of
-     * the kernel's own file and of Composer's installed.php. A production kernel never checks its container
+     * the kernel's own file, of styleguide.yaml (it decides the mount the
+     * routes are compiled for) and of Composer's installed.php. A production kernel never checks its container
      * for freshness, so a key without the last two would keep serving the
      * container compiled before a `composer update` or an edit to a subclass
      * in the front controller — until someone cleared the temp directory.
@@ -364,6 +365,11 @@ class StyleguideKernel extends Kernel
             // otherwise keep the container compiled from the previous hooks.
             $parts[] = (string) @hash_file('xxh128', $kernelFile);
         }
+
+        // styleguide.yaml decides the mount, which is compiled into the routes.
+        // A production container never checks it for freshness, so a changed
+        // base_url would leave the routes at the old mount.
+        $parts[] = (string) @hash_file('xxh128', $this->staticDir . '/styleguide.yaml');
 
         // installed.php records every package version and reference, so it
         // changes with every install and update that changes code.

@@ -179,17 +179,59 @@ final class StyleguideKernelTest extends TestCase
     }
 
     #[Test]
-    public function a_yaml_mount_the_bundle_does_not_serve_is_refused(): void
+    public function base_url_moves_the_catalogue_and_the_toolbar_rule(): void
     {
         $static = sys_get_temp_dir() . '/sg-kernel-mount-' . bin2hex(random_bytes(4));
         mkdir($static);
         file_put_contents($static . '/styleguide.yaml', "bootstrap:\n  templates_path: " . realpath(__DIR__ . '/../../fixtures/templates') . "\n  static_path: .\n  base_url: /kit\n");
 
+        try {
+            $kernel = new StyleguideKernel('dev', true, $static);
+            $this->cacheRoots[] = \dirname($kernel->getCacheDir());
+
+            self::assertSame(200, $kernel->handle(Request::create('/kit/'))->getStatusCode());
+            self::assertSame('/kit', $kernel->getContainer()->getParameter('styleguide.base_url'));
+            self::assertStringContainsString('sfToolbar', (string) $kernel->handle(Request::create('/kit/'))->getContent());
+            self::assertStringNotContainsString('sfToolbar', (string) $kernel->handle(Request::create('/kit/render/component/sample'))->getContent());
+            self::assertSame(404, $kernel->handle(Request::create('/styleguide/'))->getStatusCode());
+        } finally {
+            unlink($static . '/styleguide.yaml');
+            rmdir($static);
+        }
+    }
+
+    #[Test]
+    public function a_changed_styleguide_yaml_gets_a_new_container(): void
+    {
+        // Production never checks its container for freshness, and the
+        // mount from styleguide.yaml is compiled into the routes.
+        $static = sys_get_temp_dir() . '/sg-kernel-yaml-' . bin2hex(random_bytes(4));
+        mkdir($static);
+        try {
+            file_put_contents($static . '/styleguide.yaml', "bootstrap:\n  base_url: /one\n");
+            $before = (new StyleguideKernel('prod', false, $static))->getCacheDir();
+            file_put_contents($static . '/styleguide.yaml', "bootstrap:\n  base_url: /two\n");
+            $after = (new StyleguideKernel('prod', false, $static))->getCacheDir();
+
+            self::assertNotSame($before, $after);
+        } finally {
+            unlink($static . '/styleguide.yaml');
+            rmdir($static);
+        }
+    }
+
+    #[Test]
+    public function an_invalid_yaml_mount_fails_at_container_build(): void
+    {
+        $static = sys_get_temp_dir() . '/sg-kernel-mount-' . bin2hex(random_bytes(4));
+        mkdir($static);
+        file_put_contents($static . '/styleguide.yaml', "bootstrap:\n  templates_path: .\n  static_path: .\n  base_url: /\n");
+
         $kernel = new StyleguideKernel('prod', false, $static);
         $this->cacheRoots[] = \dirname($kernel->getCacheDir());
         try {
             $this->expectException(\InvalidArgumentException::class);
-            $this->expectExceptionMessage("bootstrap.base_url to '/kit'");
+            $this->expectExceptionMessage('bootstrap.base_url');
             $kernel->boot();
         } finally {
             unlink($static . '/styleguide.yaml');

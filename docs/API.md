@@ -46,7 +46,7 @@ Optional keys (with their defaults):
 | Key | Default | Description |
 |---|---|---|
 | `default_locale` | `'en'` | Two-letter locale code; drives `<html lang>`, the `langcode` value in every render's Twig context (`twig_context`; a project's own translator may key off it — the bundled `_x()` etc. are identity stubs and don't), and the bundled `TypographyExtension`'s per-language locale resolver (>= `parisek/twig-typography` 1.3) |
-| `base_url` | `'/styleguide'` | The mount path (since 1.22.0 honoured by `run()`/`handle()`). Normalised: leading `/`, no trailing `/`. `\InvalidArgumentException` at construction for `/`, a relative path, an empty or dot segment, percent-encoding, non-ASCII, query or fragment. The Symfony bridge refuses any other value than `/styleguide` at container build (#157) |
+| `base_url` | `'/styleguide'` | The mount path (since 1.22.0). Normalised: leading `/`, no trailing `/`. `\InvalidArgumentException` at construction for `/`, a relative path, an empty or dot segment, percent-encoding, non-ASCII, query or fragment. Library mode: the full public path. Symfony bridge: the path inside the application; `Http\Request::$basePath` (the controller passes `Request::getBaseUrl()`) is prepended to every produced URL |
 | `twig_context` | `[]` | Map of variables added to every Twig render — typically `homeUrl`, `templateUrl`, `langcode` |
 | `twig` | `null` | Pre-built `Twig\Environment` to reuse. When null, the package builds a pristine env (autoescape: false, cache: false, debug: true) |
 | `twig_options` | `[]` | Map merged on top of pristine env defaults (ignored if `twig` is provided) |
