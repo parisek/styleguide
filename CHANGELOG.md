@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-09-25
+
 ### Added
 
 - **`Bridge\Symfony\FrontController` and `Bridge\Symfony\StyleguideKernel`:
