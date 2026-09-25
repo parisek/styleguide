@@ -85,6 +85,7 @@ only `name:`, and `lint` reports that as the informational, non-blocking
 NOTICE  component/footer/footer.twig  No description set — sidebar tooltip and Overview card will be blank.
 ```
 
+Write `description: ""` where a blank is intended; that clears the notice.
 That's fine — notices don't fail CI (exit code stays `0` unless a
 `WARNING`/`ERROR` finding is present; `2` is reserved for a usage/internal
 error). Fix the warnings/errors first — invalid metadata YAML
@@ -238,7 +239,7 @@ lose by skipping the optional keys:
 | Key you skip | What you lose |
 |---|---|
 | `category` | Falls into the sidebar's default bucket instead of a named one. |
-| `description` | Sidebar tooltip + Overview card are blank. Flagged by `lint` as `empty-description` (notice, non-blocking). |
+| `description` | Sidebar tooltip + Overview card are blank. A missing key is flagged by `lint` as `empty-description` (notice, non-blocking); an explicit `description: ""` is a deliberate choice and is not flagged. |
 | `weight` | Sorts at the default `50` alongside every other unweighted entry (then falls back to alphabetical). |
 | `usage` | No cross-reference chips on that entry's preview. |
 | `render` | Defaults to `inset` (24px-padded wrapper) — wrong for a hero/slider/page-chrome component, fine for everything else. |

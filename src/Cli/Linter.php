@@ -514,8 +514,16 @@ final class Linter
         // chosen to keep as catalogue entries are a judgement call, not a
         // defect. Failing a build over either would make the rule the first
         // thing a consumer ignores.
+        // `kind: part` is exempt too, but only while something renders it: a
+        // part is authored for one parent and is seen and tested inside that
+        // parent's fixture. The visual suite already skips parts for the same
+        // reason (a standalone part renders blank). A part whose `usage` is
+        // empty has no parent either, so it keeps the notice: without it an
+        // orphan part would ship with no signal at all.
         $kind = is_string($metadata['kind'] ?? null) ? $metadata['kind'] : '';
-        if ($kind !== 'utility' && !$this->hasFixture($relPath, $metadata)) {
+        $renderedByParent = $kind === 'part'
+            && ComponentParser::normaliseUsage($metadata['usage'] ?? null) !== [];
+        if ($kind !== 'utility' && !$renderedByParent && !$this->hasFixture($relPath, $metadata)) {
             $findings[] = new LintFinding(
                 LintSeverity::Notice,
                 $relPath,
@@ -524,8 +532,12 @@ final class Linter
             );
         }
 
-        $description = $metadata['description'] ?? '';
-        if (!is_string($description) || trim($description) === '') {
+        // An explicit `description: ""` is a decision, not an omission: the
+        // author looked at the key and chose to leave it blank. Only a missing
+        // key (or a non-string value) is reported, so a project can clear this
+        // notice deliberately instead of writing filler text.
+        $description = $metadata['description'] ?? null;
+        if (!is_string($description) || (!array_key_exists('description', $metadata) && trim($description) === '')) {
             $findings[] = new LintFinding(
                 LintSeverity::Notice,
                 $relPath,

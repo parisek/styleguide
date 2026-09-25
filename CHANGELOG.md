@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **`lint` treats an explicit `description: ""` as a decision.** The
+  `empty-description` notice now fires only when the key is missing (or not a
+  string). A project that leaves a description blank on purpose writes
+  `description: ""` and the notice goes away, instead of filler text.
+- **`lint` exempts a rendered `kind: part` from the `no-fixture` notice**, as
+  it already exempted `kind: utility`. A part renders inside its parent, where
+  it is seen and tested; the visual suite skips parts for the same reason. A
+  part with an empty `usage` keeps the notice: nothing renders it.
+
 ## [1.22.0] - 2026-09-25
 
 ### Added
