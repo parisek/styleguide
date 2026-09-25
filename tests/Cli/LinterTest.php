@@ -473,4 +473,49 @@ final class LinterTest extends TestCase
 
         self::assertCount(1, $this->findingsFor($findings, 'metadata-yaml-invalid'));
     }
+
+    #[Test]
+    public function an_explicit_empty_description_is_a_decision_not_a_notice(): void
+    {
+        // `description: ""` means the author looked at the key and left it
+        // blank on purpose. Only a missing key is an omission worth a notice.
+        $root = sys_get_temp_dir() . '/sg-emptydesc-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/quiet', 0777, true);
+        file_put_contents($root . '/component/quiet/quiet.yaml', "name: Quiet\ncategory: Basic\ndescription: \"\"\n");
+        file_put_contents($root . '/component/quiet/quiet.twig', "<div></div>\n");
+        file_put_contents($root . '/component/quiet/styleguide.twig', "<div></div>\n");
+
+        $findings = (new Linter($root))->run();
+
+        self::assertSame([], $this->findingsFor($findings, 'empty-description'));
+
+        foreach (['quiet.yaml', 'quiet.twig', 'styleguide.twig'] as $file) {
+            unlink($root . '/component/quiet/' . $file);
+        }
+        rmdir($root . '/component/quiet');
+        rmdir($root . '/component');
+        rmdir($root);
+    }
+
+    #[Test]
+    public function kind_part_is_exempt_from_the_fixture_notice(): void
+    {
+        // A part renders inside its parent, which is where it is seen and
+        // tested; the visual suite skips parts for the same reason.
+        $root = sys_get_temp_dir() . '/sg-part-' . bin2hex(random_bytes(6));
+        mkdir($root . '/component/fragment', 0777, true);
+        file_put_contents($root . '/component/fragment/fragment.yaml', "name: Fragment\nkind: part\ncategory: Basic\ndescription: inner piece\n");
+        file_put_contents($root . '/component/fragment/fragment.twig', "<div></div>\n");
+
+        $findings = (new Linter($root))->run();
+
+        self::assertSame([], $this->findingsFor($findings, 'no-fixture'));
+
+        unlink($root . '/component/fragment/fragment.yaml');
+        unlink($root . '/component/fragment/fragment.twig');
+        rmdir($root . '/component/fragment');
+        rmdir($root . '/component');
+        rmdir($root);
+    }
+
 }

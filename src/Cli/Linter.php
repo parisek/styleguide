@@ -514,8 +514,13 @@ final class Linter
         // chosen to keep as catalogue entries are a judgement call, not a
         // defect. Failing a build over either would make the rule the first
         // thing a consumer ignores.
+        // `kind: part` is exempt too: a part is authored for one parent and
+        // renders inside it, so the parent's fixture is where it is seen and
+        // tested. The visual suite already skips parts and utilities for the
+        // same reason (a standalone part renders blank), and tailwind-base's
+        // own header parts ship no fixture by convention.
         $kind = is_string($metadata['kind'] ?? null) ? $metadata['kind'] : '';
-        if ($kind !== 'utility' && !$this->hasFixture($relPath, $metadata)) {
+        if (!in_array($kind, ['utility', 'part'], true) && !$this->hasFixture($relPath, $metadata)) {
             $findings[] = new LintFinding(
                 LintSeverity::Notice,
                 $relPath,
@@ -524,8 +529,12 @@ final class Linter
             );
         }
 
-        $description = $metadata['description'] ?? '';
-        if (!is_string($description) || trim($description) === '') {
+        // An explicit `description: ""` is a decision, not an omission: the
+        // author looked at the key and chose to leave it blank. Only a missing
+        // key (or a non-string value) is reported, so a project can clear this
+        // notice deliberately instead of writing filler text.
+        $description = $metadata['description'] ?? null;
+        if (!is_string($description) || (!array_key_exists('description', $metadata) && trim($description) === '')) {
             $findings[] = new LintFinding(
                 LintSeverity::Notice,
                 $relPath,
