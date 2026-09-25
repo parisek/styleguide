@@ -20,7 +20,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   part with an empty `usage` keeps the notice: nothing renders it.
 
 ## [1.22.0] - 2026-09-25
-||||||| parent of 3f7f2ff (fix(lint): explicit empty description and kind part clear their notices)
 
 ### Added
 
