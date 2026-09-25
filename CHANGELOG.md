@@ -10,6 +10,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **`bootstrap.base_url` moves the catalogue** (library mode). Third step of
+  #157. `Styleguide::run()` and `handle()` serve at the configured mount,
+  for example `/tools/ui`: the SPA, the API, the assets, the renders, the
+  back-link and the theme cookie all follow it, and nothing answers at
+  `/styleguide` any more. It is the full public path, so a site under
+  `/subdir` sets `/subdir/catalogue`. The default stays `/styleguide`.
+  The Layer A HTTP smoke (125 checks) and a Playwright suite now also run
+  against the fixture at `/tools/ui`.
 - **The Symfony bundle and `FrontController` follow `bootstrap.base_url`.**
   Fourth step of #157. The extension reads the mount from the catalogue's
   YAML and publishes it as `styleguide.base_url`; the bundle's routes use
@@ -22,36 +30,18 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `StyleguideKernel`'s cache key now includes `styleguide.yaml`, so a
   production container follows a changed mount.
 
-### Deprecated
-
-- The bundle's `styleguide.prefix` option. Set `bootstrap.base_url` in
-  `styleguide.yaml`. A given `prefix` must name the same mount, or the
-  container refuses to build; it never overrides the YAML.
-  `StyleguideExtension::SUPPORTED_PREFIX` is only the default now.
-
-### Added
-
-- **`bootstrap.base_url` moves the catalogue** (library mode). Third step of
-  #157. `Styleguide::run()` and `handle()` serve at the configured mount,
-  for example `/tools/ui`: the SPA, the API, the assets, the renders, the
-  back-link and the theme cookie all follow it, and nothing answers at
-  `/styleguide` any more. It is the full public path, so a site under
-  `/subdir` sets `/subdir/catalogue`. The default stays `/styleguide`.
-  The Layer A HTTP smoke (125 checks) and a Playwright suite now also run
-  against the fixture at `/tools/ui`.
-
 ### Changed
 
-- An invalid `base_url` throws when the `Styleguide` is constructed, from
-  YAML or from a PHP array: `/`, a relative path, an empty or dot segment,
-  percent-encoding, non-ASCII, a query or a fragment. It used to be
-  accepted and ignored; `doctor` has warned about it since the previous
-  release. **A project that set a valid `base_url` other than `/styleguide`
-  is now served there** — `doctor` said the key did nothing, and now it
-  does. `doctor` reports a moved catalogue as a notice.
-
-### Changed
-
+- **Every catalogue URL reads one mount value.** First step of a
+  configurable mount (#157). `Router::parse()` takes the mount, and the SPA
+  config's `baseUrl`, the foundations asset URLs and the standalone
+  back-link in `render-cell.twig` are built from it. The value is still
+  always `/styleguide`, so nothing a consumer sees changes.
+- **`doctor` reports a catalogue moved off `/styleguide`** as a notice: the
+  web server has to route the new mount. An invalid `base_url` is the
+  `config` error, in the constructor's words.
+- The README and `docs/API.md` described `base_url` as the prefix the router
+  matches. It never was; both now say so.
 - **The SPA builds every URL from the mount it is served at.** Second step
   of a configurable mount (#157). A new `frontend/src/lib/runtimeConfig.js`
   reads `baseUrl` from `#sg-config` once; the router's history base, the
@@ -62,21 +52,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   URL in a shell served at `/styleguide` (no trailing slash) would resolve
   against `/`. At the default mount the served shell is what it was.
   `doctor` reads both the relative and the old absolute asset references.
+- An invalid `base_url` throws when the `Styleguide` is constructed, from
+  YAML or from a PHP array: `/`, a relative path, an empty or dot segment,
+  percent-encoding, non-ASCII, a query or a fragment. It used to be
+  accepted and ignored. **A project that set a valid `base_url` other than
+  `/styleguide` is now served there** — 1.21's `doctor` said the key did
+  nothing, and now it does.
 
-### Changed
+### Deprecated
 
-- **Every catalogue URL reads one mount value.** First step of a
-  configurable mount (#157). `Router::parse()` takes the mount, and the SPA
-  config's `baseUrl`, the foundations asset URLs and the standalone
-  back-link in `render-cell.twig` are built from it. The value is still
-  always `/styleguide`, so nothing a consumer sees changes.
-- **`doctor` validates `bootstrap.base_url`** with the same rules the
-  runtime will use: a leading `/`, not `/` itself, no empty or dot segments,
-  no percent-encoding, query or fragment. `/styleguide` and `/styleguide/`
-  are no longer reported, since they say what already happens. Any other
-  valid value is still a warning, because it is not honoured yet.
-- The README and `docs/API.md` described `base_url` as the prefix the router
-  matches. It never was; both now say so.
+- The bundle's `styleguide.prefix` option. Set `bootstrap.base_url` in
+  `styleguide.yaml`. A given `prefix` must name the same mount, or the
+  container refuses to build; it never overrides the YAML.
+  `StyleguideExtension::SUPPORTED_PREFIX` is only the default now.
 
 ## [1.21.0] - 2026-09-25
 
