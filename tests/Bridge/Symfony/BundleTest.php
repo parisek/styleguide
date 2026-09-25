@@ -60,8 +60,8 @@ final class BundleTest extends TestCase
     }
 
     /**
-     * @param string|null $prefix the deprecated `styleguide.prefix` option;
-     *                            null leaves it out, which is the normal case
+     * @param string|null $prefix the removed `styleguide.prefix` option, only
+     *                            to prove it is refused; null leaves it out
      */
     private function kernel(?string $prefix = null): Kernel
     {
@@ -258,22 +258,14 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
-    public function a_prefix_that_disagrees_with_base_url_is_refused(): void
+    public function the_removed_prefix_option_is_refused_by_name(): void
     {
-        // Two sources for one mount is the drift this avoids: the prefix is
-        // accepted only when it names the YAML's mount, and never wins.
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("styleguide.prefix is '/kit'");
+        // Removed in 1.23. A host that still sets it gets Symfony's own
+        // "unrecognized option" error, which names the key to delete.
+        $this->expectException(\Symfony\Component\Config\Definition\Exception\InvalidConfigurationException::class);
+        $this->expectExceptionMessage('"prefix"');
 
-        $this->kernel('/kit')->boot();
-    }
-
-    #[Test]
-    public function an_agreeing_prefix_still_works(): void
-    {
-        $response = $this->kernel('/styleguide/')->handle(Request::create('/styleguide/api/components'));
-
-        self::assertSame(200, $response->getStatusCode());
+        $this->kernel('/styleguide')->boot();
     }
 
     #[Test]

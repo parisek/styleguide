@@ -8,6 +8,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Removed
+
+- **The Symfony bundle's `prefix` option and
+  `StyleguideExtension::SUPPORTED_PREFIX`** (#157). The mount comes from
+  `bootstrap.base_url` in `styleguide.yaml` since 1.22. In a minor, not a
+  major, on purpose: the option never moved the catalogue. Up to 1.21 it
+  accepted only `/styleguide`; in 1.22 it accepted only a value equal to
+  `bootstrap.base_url`, which already decided the mount. The one known
+  bundle host does not set it, and nothing calls the constant. A host that
+  still sets `prefix` gets Symfony's "Unrecognized option" error: delete the
+  line. Code that read the constant reads the `styleguide.base_url` container
+  parameter, or `MountPath::DEFAULT` for the default.
+
 ### Changed
 
 - **`lint` treats an explicit `description: ""` as a decision.** The

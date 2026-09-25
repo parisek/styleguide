@@ -27,13 +27,6 @@ use Symfony\Component\Yaml\Yaml;
 final class StyleguideExtension extends Extension
 {
     /**
-     * @deprecated since 1.22: the mount comes from bootstrap.base_url; read
-     *             the `styleguide.base_url` container parameter. This is only
-     *             the default.
-     */
-    public const SUPPORTED_PREFIX = MountPath::DEFAULT;
-
-    /**
      * Container parameter holding the mount path the catalogue is served at.
      */
     public const BASE_URL_PARAMETER = 'styleguide.base_url';
@@ -85,7 +78,7 @@ final class StyleguideExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        /** @var array{config: string, prefix: string|null} $config */
+        /** @var array{config: string} $config */
         $config = $this->processConfiguration(new Configuration(), $configs);
 
         // The catalogue's own YAML decides the mount, as it does in library
@@ -93,30 +86,6 @@ final class StyleguideExtension extends Extension
         // never disagree. It is the path inside the host application; the
         // host's base path (`/subdir`, `/index.php`) comes from the request.
         $mount = self::yamlMount($config['config']) ?? MountPath::DEFAULT;
-
-        if ($config['prefix'] !== null) {
-            try {
-                $prefix = MountPath::normalise($config['prefix']);
-            } catch (\InvalidArgumentException $e) {
-                throw new \InvalidArgumentException('styleguide.prefix: ' . $e->getMessage(), 0, $e);
-            }
-            // Transitional: accepted only when it agrees. Letting either one
-            // win would bring back the two-sources drift this avoids.
-            if ($prefix !== $mount) {
-                throw new \InvalidArgumentException(sprintf(
-                    "styleguide.prefix is '%s' and %s mounts the catalogue at '%s'. Remove styleguide.prefix "
-                        . 'and set bootstrap.base_url in styleguide.yaml.',
-                    $prefix,
-                    $config['config'],
-                    $mount,
-                ));
-            }
-            trigger_deprecation(
-                'parisek/styleguide',
-                '1.22',
-                'The "styleguide.prefix" option is deprecated; set bootstrap.base_url in styleguide.yaml instead.',
-            );
-        }
 
         if (is_file($config['config'])) {
             $container->addResource(new FileResource($config['config']));
