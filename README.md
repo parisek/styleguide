@@ -323,6 +323,77 @@ memory is bounded, not leaked.
 
 Symfony normalises `Cache-Control` and adds `private`, so the `/api/*` endpoints send `no-cache, private` here where the library sends `no-cache`. Left alone: `private` only forbids shared-cache storage, which for a developer catalogue is stricter than what the package asked for and never looser.
 
+### Front controller (micro-kernel)
+
+Optional, and a second path beside `Styleguide::run()`: the catalogue served by a small Symfony kernel, without a Symfony application. It brings Symfony's error page for failures outside a render, and, in debug, the profiler and debug toolbar.
+
+```bash
+composer require symfony/framework-bundle
+composer require --dev symfony/web-profiler-bundle symfony/twig-bundle symfony/debug-bundle symfony/stopwatch
+```
+
+The profiler packages are `require-dev` on purpose: the profiler stores every request it sees and serves them back from `/_profiler`. `symfony/stopwatch` makes its time panel show real render times instead of 0 ms.
+
+**Write the front controller**
+
+```bash
+vendor/bin/styleguide front-controller:init
+```
+
+It writes `index.php` beside `styleguide.yaml` (found as `doctor` finds it, or pass `--dir=<static dir>`). It copies [`resources/front-controller.php`](resources/front-controller.php) verbatim and refuses to replace a different `index.php` without `--force`, because that file may be your own front controller or a subclassed kernel. Run it again after a package update: it reports when the file is already current.
+
+The file does only what a package cannot do for itself:
+
+```php
+// Walk up for the autoloader: vendor/ can sit beside this directory, inside
+// it, or at a CMS project root several levels up. (Missing → plain 500.)
+require $styleguideRoot . '/vendor/autoload.php';
+
+if (\Parisek\Styleguide\Bridge\Symfony\FrontController::isBuiltInServerFile(__DIR__)) {
+	return false; // PHP's built-in server sends assets itself
+}
+
+\Parisek\Styleguide\Bridge\Symfony\FrontController::run(__DIR__);
+```
+
+`isBuiltInServerFile()` answers true only under PHP's built-in server, only for an asset by extension (CSS, JS, images, fonts, media, JSON, HTML, text), and never for `styleguide.yaml`, PHP, dotfiles, `vendor/`, `node_modules/` or dependency manifests.
+
+`__DIR__` is the directory that holds `styleguide.yaml`. The catalogue reads everything else from that file, as in every other mode.
+
+**Debug is off unless the environment asks for it.** The file ships inside the theme, so every deployed site serves it, and neither WordPress nor Drupal sets `APP_ENV`. DDEV counts as asking, through `IS_DDEV_PROJECT`. Elsewhere, set `APP_ENV=dev`:
+
+```bash
+APP_ENV=dev php -S 127.0.0.1:8000 -t static static/index.php
+```
+
+`APP_DEBUG=0` turns debug off in any environment. `prod` never has it.
+
+**More of Symfony.** Subclass the kernel in the same file and pass it to `run()`:
+
+```php
+final class ProjectKernel extends \Parisek\Styleguide\Bridge\Symfony\StyleguideKernel
+{
+    protected function projectBundles(): iterable
+    {
+        yield new SomeBundle();
+    }
+
+    protected function configureProject(ContainerConfigurator $container): void
+    {
+        // services, bundle configuration
+    }
+
+    protected function configureProjectRoutes(RoutingConfigurator $routes): void
+    {
+        // routes outside /styleguide
+    }
+}
+
+FrontController::run(__DIR__, ProjectKernel::class);
+```
+
+The cache lives in a directory private to the PHP user under the system temp directory, not in the project: the static directory is usually the document root. Nothing needs to be writable in the project. The cache key follows the front controller's contents and the Composer install, so a deploy of either rebuilds the container. A subclass that imports other files returns a fingerprint of them from `cacheVersion()`.
+
 ### Apache / Nginx rewrite
 
 The package handles routing in PHP, but the entry script needs to receive `/styleguide/*` requests. Apache:
@@ -343,7 +414,24 @@ Nginx equivalent:
 location /styleguide { try_files $uri /index.php?$query_string; }
 ```
 
-For local development without a web server, see [`static/router.php`](https://github.com/portadesign/tailwind-base/blob/main/static/router.php) in the reference integration — `php -S 127.0.0.1:8000 -t public router.php`.
+**Keep configuration off the web.** `styleguide.yaml` sits in the web root beside `index.php`, and a rule that serves existing files serves it too. It holds no secrets (`auth` is refused in the YAML), but it names paths and settings a visitor has no use for. Deny it, with dotfiles and dependency manifests:
+
+```apache
+<FilesMatch "^(styleguide\.yaml|composer\.(json|lock)|package(-lock)?\.json)$|^\.">
+    Require all denied
+</FilesMatch>
+```
+
+```nginx
+location ~ (^|/)(styleguide\.yaml|composer\.(json|lock)|package(-lock)?\.json)$ { deny all; }
+location ~ /\. { deny all; }
+```
+
+For local development without a web server, PHP's built-in server takes the front controller as its router script. With the shipped front controller (§ *Front controller*), static files it may send are filtered by `FrontController::isBuiltInServerFile()`:
+
+```bash
+APP_ENV=dev php -S 127.0.0.1:8000 -t static static/index.php
+```
 
 ---
 
@@ -627,6 +715,7 @@ vendor/bin/styleguide show landing --type=page   # one page
 vendor/bin/styleguide show intro --type=doc      # one doc entry
 vendor/bin/styleguide lint                       # metadata quality report
 vendor/bin/styleguide doctor                     # is this project's config sound?
+vendor/bin/styleguide front-controller:init      # write the shipped front controller
 vendor/bin/styleguide maintenance:render         # render the outage screen
 vendor/bin/styleguide maintenance:render --check # is the rendered screen still current?
 ```

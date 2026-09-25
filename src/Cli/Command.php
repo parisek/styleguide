@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Cli;
 
+use Parisek\Styleguide\Bridge\Symfony\FrontController;
 use Parisek\Styleguide\ComponentParser;
 use Parisek\Styleguide\MaintenanceRenderer;
 use Parisek\Styleguide\Renderer;
@@ -50,6 +51,10 @@ final class Command
 
         if ($command === 'doctor') {
             return $this->runDoctor($flags, $stdout, $stderr);
+        }
+
+        if ($command === 'front-controller:init') {
+            return $this->runFrontControllerInit($flags, $stdout, $stderr);
         }
 
         $rawType = $flags['type'] ?? 'component';
@@ -409,6 +414,114 @@ final class Command
         return 0;
     }
 
+    /**
+     * Writes the shipped front controller as `<dir>/index.php`.
+     *
+     * The directory defaults to the one holding the project's styleguide.yaml,
+     * found the same way doctor finds it. An existing index.php that differs is
+     * left alone without --force: it may be the project's own front
+     * controller, or a subclassed kernel.
+     *
+     * @param array<string,string|bool> $flags
+     * @param resource $stdout
+     * @param resource $stderr
+     */
+    private function runFrontControllerInit(array $flags, $stdout, $stderr): int
+    {
+        // Explicit flags are authoritative: a mistyped --config must not fall
+        // back to ./styleguide.yaml and write into a different directory.
+        if (array_key_exists('dir', $flags)) {
+            $dir = $flags['dir'];
+            if (!is_string($dir) || $dir === '') {
+                fwrite($stderr, "--dir needs a value: --dir=<static dir>.\n");
+                return 2;
+            }
+        } elseif (array_key_exists('config', $flags)) {
+            $config = $flags['config'];
+            if (!is_string($config) || !is_file($config)) {
+                fwrite($stderr, sprintf("--config: no such file: %s\n", is_string($config) ? $config : '(empty)'));
+                return 2;
+            }
+            $dir = dirname($config);
+        } else {
+            $configPath = $this->resolveConfigPath(null);
+            if ($configPath === null) {
+                fwrite($stderr, "styleguide.yaml not found. Use --dir=<static dir> or --config=<path>.\n");
+                return 2;
+            }
+            $dir = dirname($configPath);
+        }
+
+        // Joined without trimming the directory: rtrim() would turn `/` into
+        // an empty string and `C:\` into the drive-relative `C:`.
+        $join = static fn(string $name): string => $dir
+            . (str_ends_with($dir, '/') || str_ends_with($dir, '\\') ? '' : '/') . $name;
+
+        if (!is_dir($dir)) {
+            fwrite($stderr, sprintf("Not a directory: %s\n", $dir));
+            return 2;
+        }
+        if (!is_file($join('styleguide.yaml'))) {
+            fwrite($stderr, sprintf(
+                "No styleguide.yaml in %s. The front controller reads it from its own directory.\n",
+                $dir,
+            ));
+            return 2;
+        }
+
+        $stub = FrontController::stubPath();
+        $contents = @file_get_contents($stub);
+        if ($contents === false) {
+            fwrite($stderr, sprintf("Cannot read the shipped front controller at %s.\n", $stub));
+            return 2;
+        }
+
+        $target = $join('index.php');
+        if (is_link($target)) {
+            // Writing through a link would change its target, maybe outside
+            // this directory; a broken link is not even is_file().
+            fwrite($stderr, sprintf("%s is a symlink. Nothing written; replace it by hand.\n", $target));
+            return 1;
+        }
+        if (is_file($target)) {
+            if (file_get_contents($target) === $contents) {
+                fwrite($stdout, sprintf("%s is already the shipped front controller.\n", $target));
+                return 0;
+            }
+            if (!isset($flags['force'])) {
+                fwrite($stderr, sprintf(
+                    "%s exists and differs from the shipped front controller. Nothing written.\n"
+                    . "Compare it with %s, then rerun with --force to replace it.\n",
+                    $target,
+                    $stub,
+                ));
+                return 1;
+            }
+        }
+
+        // Written beside the target and renamed over it, so an interrupted or
+        // short write never leaves a truncated front controller behind.
+        $temporary = @tempnam($dir, '.index.php.');
+        if ($temporary === false
+            || @file_put_contents($temporary, $contents) !== \strlen($contents)
+            // tempnam() creates 0600; the web server usually runs as another user.
+            || !@chmod($temporary, is_file($target) ? (fileperms($target) & 0o777) : 0o644)
+            || !@rename($temporary, $target)) {
+            if (\is_string($temporary)) {
+                @unlink($temporary);
+            }
+            fwrite($stderr, sprintf("Cannot write %s.\n", $target));
+            return 2;
+        }
+
+        fwrite($stdout, sprintf("Wrote %s.\n", $target));
+        if (!class_exists(\Symfony\Bundle\FrameworkBundle\FrameworkBundle::class)) {
+            fwrite($stdout, "Next: composer require symfony/framework-bundle — the front controller needs it.\n");
+        }
+
+        return 0;
+    }
+
     private function resolveConfigPath(string|bool|null $override): ?string
     {
         $cwd = getcwd();
@@ -482,6 +595,11 @@ final class Command
                               runtime: a configured path that does not exist, a stale
                               or unbuilt dist/, a `base_url` nothing implements, a
                               catalogue that cannot render. Non-zero exit for CI.
+          front-controller:init
+                              Write the shipped front controller (index.php) beside
+                              styleguide.yaml. Serves the catalogue through
+                              Bridge\\Symfony\\FrontController. Refuses to replace a
+                              different index.php without --force.
           lint                Report metadata quality issues: unindexed templates, dead
                               `styleguide:` content, broken `usage:` refs, unknown `render:`
                               values, empty descriptions. Non-zero exit for CI.
@@ -495,7 +613,10 @@ final class Command
           --ignore=<path>        lint only — ignore file. Default:
                                  <templates>/.styleguide-lintignore.yaml when present.
           --pretty               Indent JSON output (use for terminals).
-          --config=<path>        maintenance:render and doctor only — styleguide.yaml
+          --dir=<path>           front-controller:init only — where to write index.php
+                                 (default: the directory of styleguide.yaml).
+          --force                front-controller:init only — replace a different index.php.
+          --config=<path>        maintenance:render, doctor and front-controller:init — styleguide.yaml
                                  location.
                                  Default: ./styleguide.yaml, then ./static/styleguide.yaml.
           --locale=<code>        maintenance:render only — catalogue to render
@@ -518,6 +639,7 @@ final class Command
           vendor/bin/styleguide doctor
           vendor/bin/styleguide doctor --format=json --pretty
           vendor/bin/styleguide maintenance:render
+          vendor/bin/styleguide front-controller:init
           vendor/bin/styleguide maintenance:render --locale=en_US --css=/dist/css/style.min.css
 
         TXT;

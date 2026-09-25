@@ -29,6 +29,11 @@ final class StyleguideExtension extends Extension
      */
     public const SUPPORTED_PREFIX = '/styleguide';
 
+    /**
+     * Container parameter holding the mount path the catalogue is served at.
+     */
+    public const BASE_URL_PARAMETER = 'styleguide.base_url';
+
     public function getAlias(): string
     {
         return 'styleguide';
@@ -80,6 +85,12 @@ final class StyleguideExtension extends Extension
         $factory->setArguments([$config['config']]);
         $factory->setPublic(false);
         $container->setDefinition('styleguide.factory', $factory);
+
+        // The mount path as a parameter, so everything else in the bridge
+        // reads it from the container rather than from SUPPORTED_PREFIX. Today
+        // it can only be that constant; when the mount becomes configurable,
+        // only this line's source changes.
+        $container->setParameter(self::BASE_URL_PARAMETER, $config['prefix']);
 
         $controller = new Definition(StyleguideController::class);
         $controller->setArguments([new Reference('styleguide.factory')]);
