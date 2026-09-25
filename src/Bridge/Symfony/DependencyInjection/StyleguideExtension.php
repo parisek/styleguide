@@ -18,7 +18,7 @@ use Symfony\Component\Yaml\Yaml;
 /**
  * Wires the catalogue into the host's container.
  *
- * Two services and one refusal.
+ * Two services, one parameter, and the refusals that keep one mount.
  *
  * The `Styleguide` service is built through `fromYaml()`, so the project's
  * `styleguide.yaml` stays the single source of catalogue configuration — the
@@ -27,8 +27,9 @@ use Symfony\Component\Yaml\Yaml;
 final class StyleguideExtension extends Extension
 {
     /**
-     * The one prefix that works. Kept as a constant so the check below and the
-     * bundle's routing file cannot drift apart.
+     * @deprecated since 1.22: the mount comes from bootstrap.base_url; read
+     *             the `styleguide.base_url` container parameter. This is only
+     *             the default.
      */
     public const SUPPORTED_PREFIX = MountPath::DEFAULT;
 
@@ -52,20 +53,30 @@ final class StyleguideExtension extends Extension
 
     /**
      * The normalised `bootstrap.base_url` of the catalogue's YAML, or null
-     * when it sets none. A file that does not load, or an invalid value, is
-     * left to the runtime, which reports it in its own words.
+     * when it sets none. A file that does not load is left to the runtime,
+     * which reports it in its own words; an invalid mount is refused here,
+     * because it decides the routes.
      */
     private static function yamlMount(string $path): ?string
     {
         try {
             $data = Yaml::parseFile($path);
-            $value = \is_array($data) && \is_array($data['bootstrap'] ?? null)
-                ? ($data['bootstrap']['base_url'] ?? null)
-                : null;
-
-            return $value === null ? null : MountPath::normalise($value);
         } catch (\Throwable) {
             return null;
+        }
+
+        $value = \is_array($data) && \is_array($data['bootstrap'] ?? null)
+            ? ($data['bootstrap']['base_url'] ?? null)
+            : null;
+
+        if ($value === null) {
+            return null;
+        }
+
+        try {
+            return MountPath::normalise($value);
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException(sprintf('%s: bootstrap.base_url: %s', $path, $e->getMessage()), 0, $e);
         }
     }
 
@@ -74,43 +85,39 @@ final class StyleguideExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        /** @var array{config: string, prefix: string} $config */
+        /** @var array{config: string, prefix: string|null} $config */
         $config = $this->processConfiguration(new Configuration(), $configs);
 
-        if ($config['prefix'] !== self::SUPPORTED_PREFIX) {
-            // Refused rather than half-honoured. `/styleguide` is hardcoded from
-            // Router::parse() through the Vue router's history base, the SPA's
-            // API and locale fetches, the iframe URLs, the theme cookie path and
-            // the asset URLs already baked into the committed dist/index.html.
-            // Accepting another value would route the controller correctly and
-            // then serve a shell that asks for /styleguide/... anyway — broken
-            // in a way that looks like a caching problem.
-            throw new \InvalidArgumentException(sprintf(
-                'styleguide.prefix: only "%s" is supported, got "%s". The prefix is hardcoded '
-                . 'through the PHP router, the built SPA bundle and its asset URLs; making it '
-                . 'configurable is a frontend build change, tracked separately. Mounting the '
-                . 'catalogue elsewhere would serve a shell that still requests "%s/...".',
-                self::SUPPORTED_PREFIX,
-                $config['prefix'],
-                self::SUPPORTED_PREFIX,
-            ));
+        // The catalogue's own YAML decides the mount, as it does in library
+        // mode: one source, so the router, the Symfony routes and the browser
+        // never disagree. It is the path inside the host application; the
+        // host's base path (`/subdir`, `/index.php`) comes from the request.
+        $mount = self::yamlMount($config['config']) ?? MountPath::DEFAULT;
+
+        if ($config['prefix'] !== null) {
+            try {
+                $prefix = MountPath::normalise($config['prefix']);
+            } catch (\InvalidArgumentException $e) {
+                throw new \InvalidArgumentException('styleguide.prefix: ' . $e->getMessage(), 0, $e);
+            }
+            // Transitional: accepted only when it agrees. Letting either one
+            // win would bring back the two-sources drift this avoids.
+            if ($prefix !== $mount) {
+                throw new \InvalidArgumentException(sprintf(
+                    "styleguide.prefix is '%s' and %s mounts the catalogue at '%s'. Remove styleguide.prefix "
+                        . 'and set bootstrap.base_url in styleguide.yaml.',
+                    $prefix,
+                    $config['config'],
+                    $mount,
+                ));
+            }
+            trigger_deprecation(
+                'parisek/styleguide',
+                '1.22',
+                'The "styleguide.prefix" option is deprecated; set bootstrap.base_url in styleguide.yaml instead.',
+            );
         }
 
-        // The library honours bootstrap.base_url; this bridge's routes do not
-        // yet. A YAML mount other than the prefix would make the catalogue
-        // answer a path no route reaches — refused here, at container build,
-        // not discovered as a 404.
-        $yamlMount = self::yamlMount($config['config']);
-        if ($yamlMount !== null && $yamlMount !== $config['prefix']) {
-            throw new \InvalidArgumentException(sprintf(
-                "%s sets bootstrap.base_url to '%s', and the Symfony bundle serves the catalogue at '%s' "
-                    . 'only. Remove base_url, or set it to %s, until the bundle follows it.',
-                $config['config'],
-                $yamlMount,
-                $config['prefix'],
-                $config['prefix'],
-            ));
-        }
         if (is_file($config['config'])) {
             $container->addResource(new FileResource($config['config']));
         }
@@ -127,11 +134,9 @@ final class StyleguideExtension extends Extension
         $factory->setPublic(false);
         $container->setDefinition('styleguide.factory', $factory);
 
-        // The mount path as a parameter, so everything else in the bridge
-        // reads it from the container rather than from SUPPORTED_PREFIX. Today
-        // it can only be that constant; when the mount becomes configurable,
-        // only this line's source changes.
-        $container->setParameter(self::BASE_URL_PARAMETER, $config['prefix']);
+        // The mount as a parameter: the routes (`%styleguide.base_url%` in
+        // their paths) and the toolbar listener read it from here.
+        $container->setParameter(self::BASE_URL_PARAMETER, $mount);
 
         $controller = new Definition(StyleguideController::class);
         $controller->setArguments([new Reference('styleguide.factory')]);

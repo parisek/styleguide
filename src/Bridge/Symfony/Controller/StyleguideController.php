@@ -69,6 +69,11 @@ final class StyleguideController
             cookies: $request->cookies->all(),
             secFetchDest: (string) $request->headers->get('Sec-Fetch-Dest', ''),
             ifNoneMatch: (string) $request->headers->get('If-None-Match', ''),
+            // Routing matched the path info, relative to the application. The
+            // URLs the catalogue produces need the application's own base:
+            // getBaseUrl(), not getBasePath(), because they are routes and a
+            // front controller in the URL (`/index.php/…`) is part of them.
+            basePath: $request->getBaseUrl(),
         ));
 
         if ($result === null) {

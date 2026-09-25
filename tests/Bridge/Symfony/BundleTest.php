@@ -59,7 +59,11 @@ final class BundleTest extends TestCase
         @rmdir($dir);
     }
 
-    private function kernel(string $prefix = '/styleguide'): Kernel
+    /**
+     * @param string|null $prefix the deprecated `styleguide.prefix` option;
+     *                            null leaves it out, which is the normal case
+     */
+    private function kernel(?string $prefix = null): Kernel
     {
         return $this->build($prefix, __DIR__ . '/../../fixtures/bundle/styleguide.yaml');
     }
@@ -70,12 +74,12 @@ final class BundleTest extends TestCase
      */
     private function kernelWithConfig(string $config): Kernel
     {
-        return $this->build('/styleguide', $config);
+        return $this->build(null, $config);
     }
 
-    private function build(string $prefix, string $config): Kernel
+    private function build(?string $prefix, string $config): Kernel
     {
-        $this->projectDirs[] = sys_get_temp_dir() . '/sg-bundle-' . md5($prefix . $config);
+        $this->projectDirs[] = sys_get_temp_dir() . '/sg-bundle-' . md5(($prefix ?? '') . $config);
 
         // MicroKernelTrait is what supplies the `kernel::loadRoutes` loader the
         // routing needs; a bare Kernel has no such loader and every request
@@ -85,7 +89,7 @@ final class BundleTest extends TestCase
             use MicroKernelTrait;
 
             public function __construct(
-                private readonly string $styleguidePrefix,
+                private readonly ?string $styleguidePrefix,
                 private readonly string $styleguideConfig,
             ) {
                 parent::__construct('test', true);
@@ -104,10 +108,10 @@ final class BundleTest extends TestCase
                     'http_method_override' => false,
                     'router' => ['utf8' => true],
                 ]);
-                $container->extension('styleguide', [
+                $container->extension('styleguide', array_filter([
                     'config' => $this->styleguideConfig,
                     'prefix' => $this->styleguidePrefix,
-                ]);
+                ], static fn(?string $value): bool => $value !== null));
             }
 
             protected function configureRoutes(RoutingConfigurator $routes): void
@@ -124,7 +128,7 @@ final class BundleTest extends TestCase
             {
                 // Keyed on both, so two kernels with different configuration
                 // never share a compiled container.
-                return sys_get_temp_dir() . '/sg-bundle-' . md5($this->styleguidePrefix . $this->styleguideConfig);
+                return sys_get_temp_dir() . '/sg-bundle-' . md5(($this->styleguidePrefix ?? '') . $this->styleguideConfig);
             }
 
             public function getCacheDir(): string
@@ -254,16 +258,75 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
-    public function a_prefix_other_than_styleguide_is_refused_at_container_build(): void
+    public function a_prefix_that_disagrees_with_base_url_is_refused(): void
     {
-        // Refused rather than half-honoured. `/styleguide` is hardcoded from the
-        // PHP router through the Vue history base and the asset URLs baked into
-        // the committed dist/index.html, so mounting elsewhere would route
-        // correctly and then serve a shell that still asks for /styleguide/...
+        // Two sources for one mount is the drift this avoids: the prefix is
+        // accepted only when it names the YAML's mount, and never wins.
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('only "/styleguide" is supported');
+        $this->expectExceptionMessage("styleguide.prefix is '/kit'");
 
         $this->kernel('/kit')->boot();
+    }
+
+    #[Test]
+    public function an_agreeing_prefix_still_works(): void
+    {
+        $response = $this->kernel('/styleguide/')->handle(Request::create('/styleguide/api/components'));
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    #[Test]
+    public function base_url_moves_the_routes(): void
+    {
+        $kernel = $this->kernelWithConfig($this->yamlWithMount('/tools/ui'));
+
+        self::assertSame(200, $kernel->handle(Request::create('/tools/ui'))->getStatusCode());
+        self::assertSame(200, $kernel->handle(Request::create('/tools/ui/'))->getStatusCode());
+        self::assertSame(200, $kernel->handle(Request::create('/tools/ui/api/components'))->getStatusCode());
+        self::assertSame(200, $kernel->handle(Request::create('/tools/ui/render/component/sample'))->getStatusCode());
+        self::assertStringContainsString('"baseUrl":"/tools/ui"', (string) $kernel->handle(Request::create('/tools/ui/'))->getContent());
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\NotFoundHttpException::class);
+        $kernel->handle(Request::create('/styleguide/'), HttpKernelInterface::MAIN_REQUEST, false);
+    }
+
+    #[Test]
+    public function a_host_base_path_prefixes_every_url_the_catalogue_produces(): void
+    {
+        // Symfony installed under /subdir, the catalogue mounted at /kit
+        // inside it. Routing matches the path info; the shell must ask for
+        // /subdir/kit/…, or the browser loads nothing.
+        $kernel = $this->kernelWithConfig($this->yamlWithMount('/kit'));
+        $server = ['SCRIPT_NAME' => '/subdir/index.php', 'SCRIPT_FILENAME' => '/var/www/subdir/index.php'];
+
+        $shell = (string) $kernel->handle(Request::create('/subdir/kit/', server: $server))->getContent();
+
+        self::assertStringContainsString('"baseUrl":"/subdir/kit"', $shell);
+        self::assertMatchesRegularExpression('#src="/subdir/kit/assets/styleguide\.[^"]+\.js"#', $shell);
+
+        $render = (string) $kernel->handle(Request::create('/subdir/kit/render/component/sample', server: $server))->getContent();
+        self::assertStringContainsString('href="/subdir/kit/component/sample"', $render);
+    }
+
+    private function yamlWithMount(string $mount): string
+    {
+        $source = (string) file_get_contents(__DIR__ . '/../../fixtures/bundle/styleguide.yaml');
+        $dir = sys_get_temp_dir() . '/sg-bundle-yaml-' . md5($mount);
+        @mkdir($dir);
+        // Same relative paths as the fixture, resolved from the fixture's
+        // directory, so only the mount differs.
+        $fixtureDir = realpath(__DIR__ . '/../../fixtures/bundle');
+        $yaml = str_replace(
+            ['templates_path: ../templates', 'static_path: ..'],
+            ['templates_path: ' . $fixtureDir . '/../templates', 'static_path: ' . $fixtureDir . '/..'],
+            $source,
+        );
+        $yaml = str_replace("bootstrap:\n", "bootstrap:\n  base_url: " . $mount . "\n", $yaml);
+        file_put_contents($dir . '/styleguide.yaml', $yaml);
+        $this->projectDirs[] = $dir;
+
+        return $dir . '/styleguide.yaml';
     }
 
     #[Test]
@@ -276,10 +339,8 @@ final class BundleTest extends TestCase
         // Router::parse() was handed `/index.php/styleguide/…`, did not
         // recognise it, and every single request 404'd.
         //
-        // What this asserts is routing, not a usable catalogue under a
-        // subdirectory: the built shell still requests /styleguide/assets/…
-        // at the domain root. The endpoints answer; the shell needs the
-        // prefix where it was built for.
+        // This asserts routing. That the shell then asks for its assets under
+        // the base URL is a_host_base_path_prefixes_every_url_the_catalogue_produces.
         $response = $this->kernel()->handle(Request::create(
             '/index.php/styleguide/api/components',
             server: ['SCRIPT_NAME' => '/index.php', 'SCRIPT_FILENAME' => '/index.php'],

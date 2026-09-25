@@ -49,10 +49,15 @@ fail=0
 
 serve() { # <port> [VAR=value ...]
     local port=$1; shift
+    serve_at "$port" /styleguide "$@"
+}
+
+serve_at() { # <port> <mount> [VAR=value ...]
+    local port=$1 mount=$2; shift 2
     (cd "$STATIC" && exec env "$@" php -S "$HOST:$port" index.php >"$WORK/php-$port.log" 2>&1) &
     PIDS+=($!)
     for _ in $(seq 1 25); do
-        curl -sf -o /dev/null "http://$HOST:$port/styleguide/api/health" && return 0
+        curl -sf -o /dev/null "http://$HOST:$port$mount/api/health" && return 0
         sleep 0.2
     done
     echo "::error::front controller on port $port never answered" >&2
@@ -73,8 +78,9 @@ check() { # <port> <path> <expected code>
 }
 
 toolbar() { # <port> <yes|no> <path>
-    local has=no
-    curl -s "http://$HOST:$1$3" | grep -q sfToolbar && has=yes
+    local has=no body
+    body=$(curl -s "http://$HOST:$1$3")
+    printf '%s' "$body" | grep -q sfToolbar && has=yes
     if [ "$has" = "$2" ]; then
         echo "  ✓ [$1] $3 toolbar=$2"
     else
@@ -105,5 +111,33 @@ if serve "$D" APP_ENV=dev; then
     toolbar "$D" yes /styleguide/
     toolbar "$D" no /styleguide/render/component/sample
 fi
+
+echo "--- bootstrap.base_url: /tools/ui ---"
+MOUNTED="$WORK/web/themes/custom/mounted/static"
+mkdir -p "$MOUNTED/dist/css"
+cp "$STATIC/dist/css/style.css" "$MOUNTED/dist/css/style.css"
+sed 's#^bootstrap:#bootstrap:\
+  base_url: /tools/ui#' "$STATIC/styleguide.yaml" > "$MOUNTED/styleguide.yaml"
+php "$ROOT/bin/styleguide" front-controller:init --dir="$MOUNTED" >/dev/null || exit 1
+M=$((PORT + 2))
+STATIC_SAVED="$STATIC"; STATIC="$MOUNTED"
+if serve_at "$M" /tools/ui APP_ENV=dev; then
+    check "$M" /tools/ui 200
+    check "$M" /tools/ui/ 200
+    check "$M" /tools/ui/component/sample 200
+    check "$M" /tools/ui/render/component/sample 200
+    check "$M" /tools/ui/api/components 200
+    check "$M" /styleguide/ 404
+    toolbar "$M" yes /tools/ui/
+    toolbar "$M" no /tools/ui/render/component/sample
+    # Captured first: with pipefail, grep -q closing the pipe early fails curl.
+    shell=$(curl -s "http://$HOST:$M/tools/ui/")
+    if printf '%s' "$shell" | grep -q '"baseUrl":"/tools/ui"'; then
+        echo "  ✓ [$M] shell carries baseUrl /tools/ui"
+    else
+        echo "::error::[$M] shell does not carry baseUrl /tools/ui" >&2; fail=1
+    fi
+fi
+STATIC="$STATIC_SAVED"
 
 exit $fail

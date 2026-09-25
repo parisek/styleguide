@@ -78,6 +78,13 @@ final class Styleguide
     private string $mountPath;
 
     /**
+     * Where this request's catalogue URLs start: the host's base path plus
+     * the mount. Null outside a request. Saved and restored around
+     * handle(), which a consumer's Twig callback may re-enter.
+     */
+    private ?string $publicBase = null;
+
+    /**
      * Everything the bundled helpers need that a request can move. Built
      * before {@see registerBundledHelpers()} because the runtime loader it
      * installs closes over this property.
@@ -2379,7 +2386,7 @@ final class Styleguide
         $renderConfig = [
             'project' => $this->yamlConfig['project'] ?? [],
             'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
-            'base_url' => $this->mountPath,
+            'base_url' => $this->publicBase(),
             'styleguide' => $this->yamlConfig,
         ];
         if ($variant !== null) {
@@ -2922,6 +2929,20 @@ final class Styleguide
             return null;
         }
 
+        $previousBase = $this->publicBase;
+        $this->publicBase = rtrim($request->basePath, '/') . $this->mountPath;
+        try {
+            return $this->handleRoute($route, $request);
+        } finally {
+            $this->publicBase = $previousBase;
+        }
+    }
+
+    /**
+     * @param array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string,locale?:string} $route
+     */
+    private function handleRoute(array $route, Http\Request $request): Http\Result
+    {
         // Iframe-embedded request → render endpoint (no SPA shell). See
         // {@see Router::synthesizeEmbeddedRoute()} for the rationale + decision
         // table. Centralising the swap there keeps the dispatch here simple
@@ -3027,7 +3048,7 @@ final class Styleguide
             'projectName' => $projectName,
             'favicon' => $favicon,
             'title' => sprintf('Styleguide — %s', $projectName),
-            'baseUrl' => $this->mountPath,
+            'baseUrl' => $this->publicBase(),
             // Gates the sidebar "Icons" entry (#87) — a yaml-shape check
             // only (not IconsCatalog::build(), which reads every icon file
             // from disk; too heavy for every SPA shell load).
@@ -3082,7 +3103,7 @@ final class Styleguide
         // `./styleguide.<hash>.js`. Resolved against the shell's own URL they
         // break at `/styleguide` without a trailing slash, so the served shell
         // gets them absolute, under this mount's asset route.
-        $html = self::absolutiseEntryAssets($html, $this->mountPath . '/assets/');
+        $html = self::absolutiseEntryAssets($html, $this->publicBase() . '/assets/');
 
         return Http\Result::text($html, 200, [
             'Content-Type' => 'text/html; charset=utf-8',
@@ -3117,7 +3138,7 @@ final class Styleguide
             $config = [
                 'project' => $this->yamlConfig['project'] ?? [],
                 'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
-                'base_url' => $this->mountPath,
+                'base_url' => $this->publicBase(),
                 // The foundations body reads from `styleguide.colors`, `styleguide.logo`,
                 // `styleguide.typography`, `styleguide.labels` — surface the whole yaml
                 // map so component/page templates that look up styleguide.* also work.
@@ -3314,7 +3335,16 @@ final class Styleguide
                 basename($matches[0]),
             ));
         }
-        return $this->mountPath . '/assets/' . basename($matches[0]);
+        return $this->publicBase() . '/assets/' . basename($matches[0]);
+    }
+
+    /**
+     * The start of every catalogue URL this instance produces: the host's
+     * base path plus the mount during a request, the mount alone outside one.
+     */
+    private function publicBase(): string
+    {
+        return $this->publicBase ?? $this->mountPath;
     }
 
     /**
@@ -3358,7 +3388,7 @@ final class Styleguide
                 basename($matches[0]),
             ));
         }
-        return $this->mountPath . '/assets/' . basename($matches[0]);
+        return $this->publicBase() . '/assets/' . basename($matches[0]);
     }
 
     /**

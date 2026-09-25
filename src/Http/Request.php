@@ -19,6 +19,11 @@ namespace Parisek\Styleguide\Http;
  * - **secFetchDest** turns an SPA-shell route into a render route when the
  *   request came from inside the preview iframe.
  * - **ifNoneMatch** decides an asset's `304`.
+ * - **basePath** is where the host application itself is served, e.g.
+ *   `/subdir` or `/index.php`. `uri` is relative to it and routing ignores
+ *   it; every URL the catalogue produces starts with it. Empty for a front
+ *   controller at the domain root, and in library mode, where `base_url`
+ *   is already the full public path.
  *
  * `fromGlobals()` is the only place the package reads superglobals for a
  * request. Everything downstream takes this object, which is what lets a
@@ -35,6 +40,7 @@ final class Request
         public readonly array $cookies = [],
         public readonly string $secFetchDest = '',
         public readonly string $ifNoneMatch = '',
+        public readonly string $basePath = '',
     ) {}
 
     public static function fromGlobals(): self

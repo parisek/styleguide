@@ -31,12 +31,11 @@ final class Configuration implements ConfigurationInterface
                     ->info('Absolute path to the project styleguide.yaml, the same file Styleguide::fromYaml() reads.')
                 ->end()
                 ->scalarNode('prefix')
-                    ->defaultValue('/styleguide')
+                    ->defaultNull()
                     ->info(
-                        'Where the catalogue is mounted. Only /styleguide works today: the path is '
-                        . 'hardcoded through the PHP router, the built SPA bundle and its asset URLs. '
-                        . 'The key exists so the routing file has one place to read it from when real '
-                        . 'prefix support lands; any other value is refused rather than half-honoured.',
+                        'Deprecated since 1.22: set bootstrap.base_url in styleguide.yaml instead. '
+                        . 'When given, it must name the same mount as bootstrap.base_url '
+                        . '(default /styleguide); it never overrides it.',
                     )
                 ->end()
             ->end();

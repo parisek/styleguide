@@ -10,6 +10,27 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **The Symfony bundle and `FrontController` follow `bootstrap.base_url`.**
+  Fourth step of #157. The extension reads the mount from the catalogue's
+  YAML and publishes it as `styleguide.base_url`; the bundle's routes use
+  `%styleguide.base_url%` in their paths, so a host's route import does
+  not change. The mount is the path inside the application: Symfony's base
+  URL (`/subdir`, `/index.php`) is prepended to every URL the catalogue
+  produces, through a new optional `Http\Request::$basePath`. That also
+  fixes a catalogue in a Symfony application under a subdirectory, whose
+  shell used to request its assets at the domain root.
+  `StyleguideKernel`'s cache key now includes `styleguide.yaml`, so a
+  production container follows a changed mount.
+
+### Deprecated
+
+- The bundle's `styleguide.prefix` option. Set `bootstrap.base_url` in
+  `styleguide.yaml`. A given `prefix` must name the same mount, or the
+  container refuses to build; it never overrides the YAML.
+  `StyleguideExtension::SUPPORTED_PREFIX` is only the default now.
+
+### Added
+
 - **`bootstrap.base_url` moves the catalogue** (library mode). Third step of
   #157. `Styleguide::run()` and `handle()` serve at the configured mount,
   for example `/tools/ui`: the SPA, the API, the assets, the renders, the
@@ -28,10 +49,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   release. **A project that set a valid `base_url` other than `/styleguide`
   is now served there** — `doctor` said the key did nothing, and now it
   does. `doctor` reports a moved catalogue as a notice.
-- The Symfony bundle and `FrontController` refuse, at container build, a
-  `styleguide.yaml` whose `base_url` is not `/styleguide`. Their routes do
-  not follow the mount yet, so the catalogue would answer a path no route
-  reaches.
 
 ### Changed
 

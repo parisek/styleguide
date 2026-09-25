@@ -38,11 +38,15 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
  * the response header naming
  * `FrameworkBundle\Controller\RedirectController` did.
  *
- * The prefix is read from the extension's constant rather than written here, so
- * the two cannot drift.
+ * The mount is the `styleguide.base_url` container parameter, which the
+ * extension sets from styleguide.yaml's `bootstrap.base_url` (default
+ * `/styleguide`). Symfony's router resolves `%parameter%` in route paths, so
+ * the host's import stays the same whatever the mount is.
  */
 return static function (RoutingConfigurator $routes): void {
-    $prefix = StyleguideExtension::SUPPORTED_PREFIX;
+    // The mount, resolved by the router from the container parameter the
+    // extension sets from styleguide.yaml's bootstrap.base_url.
+    $prefix = '%' . StyleguideExtension::BASE_URL_PARAMETER . '%';
 
     // One route for `/styleguide` AND `/styleguide/`, not two.
     //
