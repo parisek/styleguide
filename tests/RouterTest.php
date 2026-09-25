@@ -498,4 +498,32 @@ final class RouterTest extends TestCase
             Router::parse('/styleguide/render/component/multi?theme=dark&variant=secondary&locale=sk_SK'),
         );
     }
+
+    #[Test]
+    public function the_default_mount_does_not_match_a_longer_prefix(): void
+    {
+        self::assertNull(Router::parse('/styleguides'));
+        self::assertNull(Router::parse('/styleguide-old/component/card'));
+        self::assertNull(Router::parse('/styleguide%2Fcomponent/card'));
+    }
+
+    #[Test]
+    public function a_given_mount_routes_like_the_default(): void
+    {
+        $mount = '/tools/ui';
+
+        self::assertSame(['type' => 'landing'], Router::parse('/tools/ui', [], $mount));
+        self::assertSame(['type' => 'landing'], Router::parse('/tools/ui/', [], $mount));
+        self::assertSame(['type' => 'asset', 'path' => 'styleguide.abc.js'], Router::parse('/tools/ui/assets/styleguide.abc.js', [], $mount));
+        self::assertSame(['type' => 'api', 'endpoint' => 'components'], Router::parse('/tools/ui/api/components', [], $mount));
+        self::assertSame(['type' => 'component', 'slug' => 'card'], Router::parse('/tools/ui/component/card', [], $mount));
+        self::assertSame(
+            ['type' => 'render', 'kind' => 'component', 'slug' => 'card', 'theme' => 'dark', 'variant' => 'secondary'],
+            Router::parse('/tools/ui/render/component/card?theme=dark&variant=secondary', [], $mount),
+        );
+
+        // The default mount is not the configured one.
+        self::assertNull(Router::parse('/styleguide/component/card', [], $mount));
+        self::assertNull(Router::parse('/tools/uix', [], $mount));
+    }
 }

@@ -71,6 +71,14 @@ final class Styleguide
     private RenderObserver $observer;
 
     /**
+     * Where the catalogue is served. Always {@see MountPath::DEFAULT} for now:
+     * `bootstrap.base_url` is validated by `doctor` but not yet honoured,
+     * because the built SPA and the Symfony routes still assume the default.
+     * Every URL this class produces or recognises reads it from here.
+     */
+    private string $mountPath = MountPath::DEFAULT;
+
+    /**
      * Everything the bundled helpers need that a request can move. Built
      * before {@see registerBundledHelpers()} because the runtime loader it
      * installs closes over this property.
@@ -2362,6 +2370,7 @@ final class Styleguide
         $renderConfig = [
             'project' => $this->yamlConfig['project'] ?? [],
             'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
+            'base_url' => $this->mountPath,
             'styleguide' => $this->yamlConfig,
         ];
         if ($variant !== null) {
@@ -2898,7 +2907,7 @@ final class Styleguide
      */
     public function handle(Http\Request $request): ?Http\Result
     {
-        $route = Router::parse($request->uri, $request->cookies);
+        $route = Router::parse($request->uri, $request->cookies, $this->mountPath);
 
         if ($route === null) {
             return null;
@@ -3009,7 +3018,7 @@ final class Styleguide
             'projectName' => $projectName,
             'favicon' => $favicon,
             'title' => sprintf('Styleguide — %s', $projectName),
-            'baseUrl' => '/styleguide',
+            'baseUrl' => $this->mountPath,
             // Gates the sidebar "Icons" entry (#87) — a yaml-shape check
             // only (not IconsCatalog::build(), which reads every icon file
             // from disk; too heavy for every SPA shell load).
@@ -3093,6 +3102,7 @@ final class Styleguide
             $config = [
                 'project' => $this->yamlConfig['project'] ?? [],
                 'iframe' => $this->resolveIframeEntry($this->yamlConfig['iframe'] ?? []),
+                'base_url' => $this->mountPath,
                 // The foundations body reads from `styleguide.colors`, `styleguide.logo`,
                 // `styleguide.typography`, `styleguide.labels` — surface the whole yaml
                 // map so component/page templates that look up styleguide.* also work.
@@ -3289,7 +3299,7 @@ final class Styleguide
                 basename($matches[0]),
             ));
         }
-        return '/styleguide/assets/' . basename($matches[0]);
+        return $this->mountPath . '/assets/' . basename($matches[0]);
     }
 
     /**
@@ -3319,7 +3329,7 @@ final class Styleguide
                 basename($matches[0]),
             ));
         }
-        return '/styleguide/assets/' . basename($matches[0]);
+        return $this->mountPath . '/assets/' . basename($matches[0]);
     }
 
     /**

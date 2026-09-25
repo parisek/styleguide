@@ -26,7 +26,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 | **REST endpoints** | `/styleguide/api/components`, `/api/pages`, `/api/docs`, `/api/fields` return JSON for consumers (the SPA itself, plus any external tooling). |
 | **Open in new tab** | Each render can be opened standalone — the iframe template auto-reveals a "← back to styleguide" navbar only when it detects it's NOT inside an iframe. |
 | **Outage screen** | `maintenance:render` renders the project's maintenance page to one self-contained HTML file for a CMS drop-in to serve while the CMS itself is down — a deploy, a core update, an unreachable database. Nothing renders at that moment, so the screen has to exist beforehand. See *Outage screen* below. |
-| **Configuration check** | `doctor` reports what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a `base_url` nothing implements, an empty catalogue. It answers the questions a developer would otherwise answer by deploying. See *Checking a configuration* below. |
+| **Configuration check** | `doctor` reports what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a `base_url` that is invalid or not honoured yet, an empty catalogue. It answers the questions a developer would otherwise answer by deploying. See *Checking a configuration* below. |
 | **Asset serving** | `AssetServer` serves the bundled SPA + locale files from `vendor/parisek/styleguide/dist/` with path-traversal guard, ETag, and immutable cache headers for hashed filenames. |
 
 The whole package is ~8 PHP classes plus prebuilt JS/CSS — no Node.js required in production.
@@ -134,7 +134,7 @@ the YAML throws rather than being silently honoured. Full rules:
 | `static_path` | yes | — | Absolute path to the project's webroot (where `index.php` sits). Used to auto-register `@icons` (`/images/icons`) and `@images` (`/images`) if those directories exist. |
 | `config_yaml` | yes | — | Absolute path to `styleguide.yaml`. Missing file ≠ error — yaml just resolves to `[]` and the overview screen renders empty sections. |
 | `default_locale` | no | `'en'` | Two-letter code used by the SPA shell and forwarded to `Renderer` as `langcode`. Also drives the bundled `TypographyExtension`'s per-language typesetting (>= `parisek/twig-typography` 1.3) — passed as its locale resolver, so `|typography` applies the resolved language's quote/dash/spacing conventions without any extra config. |
-| `base_url` | no | `'/styleguide'` | Prefix the router matches against. Change only if you mount the styleguide under a non-default path. |
+| `base_url` | no | `'/styleguide'` | The mount path. **Not honoured yet:** the catalogue is served at `/styleguide` whatever this says, and `doctor` warns about any other value. It becomes configurable in phases; see [#157](https://github.com/parisek/styleguide/issues/157). |
 | `twig` | no | `null` | Pre-built `Twig\Environment`. Pass when component templates need project-specific extensions / filters / functions (`component_*`, `_x()`, `placeholder()`, `|resizer`, …). If omitted, the package builds a pristine environment with sensible defaults (`cache: false`, `debug: true`, `autoescape: false`). See *`twig` config — when to pass it* below. |
 | `twig_context` | no | `[]` | Globals merged into every `component_*()` / `page_*()` render. Typical keys: `homeUrl`, `templateUrl`, `langcode`. |
 | `twig_options` | no | `[]` | Options merged onto the package defaults when building the pristine env. Ignored when `twig` is provided (the package never mutates a consumer-owned env). |
@@ -845,7 +845,7 @@ only what would otherwise be found by deploying:
 | `config` | The YAML does not load. Reported as one finding with the library's own message, not as a stack trace — and nothing else is checked, because every other check needs the configuration this one could not produce. |
 | `paths` | A configured directory or file that does not exist. `static_path`, `translations_path`, `typography_config` and every `namespaces.*` entry. A namespace whose directory is absent is **skipped silently**, so a typo there never errors — the template using it just stops resolving. |
 | `dist` | The built SPA has lost its `#sg-config` injection point, or references an asset the build no longer contains. The first is a `500` on a live request; the second PHP never learns about at all, because the browser asks for the asset and the page goes blank. |
-| `base_url` | The key is set and nothing implements it. The mount point is `/styleguide`. |
+| `base_url` | The key is set to something other than `/styleguide` (not honoured yet), or it is not a valid mount path: not starting with `/`, `/` itself, an empty or dot segment, percent-encoding, a query or a fragment. `/styleguide` and `/styleguide/` are not reported. |
 | `render` | The catalogue is empty — `templates_path` holds no fixture. |
 | `twig` | A notice listing every helper on the environment bar Twig's own language — the styleguide's `component_*()` and `__()`, and the bundled extras (`create_attribute()`, `\|typography`, `dump()`, Intl, String) that are registered when their packages are installed. A consumer writing a helper of the same name needs them before Twig locks its extension set. |
 

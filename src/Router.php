@@ -42,9 +42,11 @@ final class Router
      *        `theme` key when the query string itself asked for one — see
      *        {@see self::resolveTheme()} for why cookie fallback lives in
      *        `synthesizeEmbeddedRoute()` instead.
+     * @param string $mount The catalogue's mount path, already normalised by
+     *        {@see MountPath::normalise()}.
      * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string,locale?:string}|null
      */
-    public static function parse(string $uri, array $cookies = []): ?array
+    public static function parse(string $uri, array $cookies = [], string $mount = MountPath::DEFAULT): ?array
     {
         // Captured before strtok() below discards it — only the `render`
         // and SPA-shell (component/page/doc) branches consume it (theme for
@@ -56,15 +58,16 @@ final class Router
         $uri = (string) strtok($uri, '?');
         $uri = rtrim($uri, '/');
 
-        if ($uri === '/styleguide') {
-            return ['type' => 'landing'];
-        }
+        $path = MountPath::relative($uri, $mount);
 
-        if (!str_starts_with($uri, '/styleguide/')) {
+        if ($path === null) {
             return null;
         }
 
-        $path = substr($uri, strlen('/styleguide/'));
+        if ($path === '') {
+            return ['type' => 'landing'];
+        }
+
         $parts = explode('/', $path);
 
         // /styleguide/assets/<path...>
