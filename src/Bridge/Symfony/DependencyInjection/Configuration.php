@@ -14,8 +14,8 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
  * `styleguide.yaml`, which `Styleguide::fromYaml()` already reads — duplicating
  * it here would create a second place to change the same thing.
  *
- * What belongs here is only what the HOST owns: where that file is, and where
- * the catalogue is mounted.
+ * What belongs here is only what the HOST owns: where that file is. The mount
+ * is catalogue configuration, `bootstrap.base_url` in the file itself.
  */
 final class Configuration implements ConfigurationInterface
 {
@@ -29,14 +29,6 @@ final class Configuration implements ConfigurationInterface
                     ->isRequired()
                     ->cannotBeEmpty()
                     ->info('Absolute path to the project styleguide.yaml, the same file Styleguide::fromYaml() reads.')
-                ->end()
-                ->scalarNode('prefix')
-                    ->defaultNull()
-                    ->info(
-                        'Deprecated since 1.22: set bootstrap.base_url in styleguide.yaml instead. '
-                        . 'When given, it must name the same mount as bootstrap.base_url '
-                        . '(default /styleguide); it never overrides it.',
-                    )
                 ->end()
             ->end();
 

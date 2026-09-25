@@ -275,7 +275,7 @@ bootstrap:
 
 In a Symfony application the mount is the path **inside** the application. When the application itself is installed under `/subdir`, Symfony's base URL is prepended to every URL the catalogue produces — the shell's asset URLs, the SPA's history base, the API, the theme cookie — and the catalogue answers at `/subdir/tools/ui`. Do not repeat `/subdir` in `base_url`.
 
-The `prefix` option is deprecated since 1.22. When given, it must name the same mount as `base_url`, or the container refuses to build; it never overrides it.
+There is no bundle option for the mount. The `prefix` option of 1.18–1.22 never moved the catalogue (it accepted only `/styleguide`, then only a copy of `base_url`) and was removed in 1.23; delete it from `config/packages/styleguide.yaml` if it is still there.
 
 #### Security is yours
 

@@ -55,13 +55,9 @@ final class StyleguideController
             // recognise it, and every request 404s. Found by review with a probe,
             // not by the tests.
             //
-            // This makes routing correct on those deployments, not the whole
-            // catalogue usable on them: the committed dist/index.html asks for
-            // `/styleguide/assets/…` at the domain root, so the SPA shell still
-            // needs the prefix there. `/api/*`, `/render/*` and `/assets/*`
-            // answer correctly when addressed directly. A subdirectory is
-            // effectively another mount point — see README § *Symfony bundle*
-            // on why the prefix is not configurable.
+            // The URLs the catalogue produces carry the base separately
+            // (`basePath` below), so a subdirectory or a visible front
+            // controller works end to end.
             //
             // The query string has to be re-attached: Router::parse() reads
             // `?theme=`, `?variant=` and `?locale=` out of the URI itself.

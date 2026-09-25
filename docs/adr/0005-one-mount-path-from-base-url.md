@@ -62,6 +62,10 @@ programmatic consumer.
 - **`styleguide.prefix` is transitional.** Default `null`; a given value must
   normalise to the YAML's mount or the container refuses to build, and it never
   overrides the YAML. It goes in the next major, with `SUPPORTED_PREFIX`.
+  *Amended in 1.23.0:* both went in a minor instead. The option never moved
+  the catalogue (only `/styleguide` up to 1.21, only a copy of `base_url` in
+  1.22), the one known bundle host did not set it, and nothing called the
+  constant; the owner accepted the SemVer exception (#157).
 
 ## Consequences
 
@@ -77,8 +81,8 @@ programmatic consumer.
   is compiled into the routes and a production container never checks freshness.
 - Guards: `MountPathTest` (the normaliser's contract), `MountPathThreadingTest`
   (routing, SPA config, shell assets, back-link and foundations assets follow
-  one value), `BundleTest` (a moved mount, a `/subdir` host base, disagreeing
-  and agreeing `prefix`), `tests/e2e/run.sh` (all Layer A checks at
+  one value), `BundleTest` (a moved mount, a `/subdir` host base, and since
+  1.23 the removed `prefix` refused by name), `tests/e2e/run.sh` (all Layer A checks at
   `/styleguide` and at `/tools/ui`), `tests/e2e/playwright/mount.spec.js` (the
   SPA in a browser at `/tools/ui`, including the cookie path), and
   `tests/e2e/front-controller.sh` (the shipped front controller at both).
