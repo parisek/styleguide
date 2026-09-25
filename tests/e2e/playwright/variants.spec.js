@@ -383,7 +383,7 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await page.getByTestId('variant-columns-trigger').click();
         await page.getByTestId('variant-columns-4').click();
 
-        const measurements = await tiles.evaluateAll((els) => els.map((tile) => {
+        const measure = () => tiles.evaluateAll((els) => els.map((tile) => {
             const cell = tile.children[1]; // content-area wrapper (registerCell's ref target)
             const scaledWrapper = cell.querySelector(':scope > div'); // the width/height-styled scaling box
             const iframe = scaledWrapper.querySelector('iframe');
@@ -399,6 +399,18 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
                 iframeOverflowRight: iframeRect.right - wrapperRect.right,
             };
         }));
+
+        // Polled, not read once. The column switch re-renders the grid, and
+        // for a few milliseconds the wrapper already has its scaled width
+        // while the iframe still paints unscaled (measured: overflow 986 =
+        // 1280 - 294 on the first read, 0 on the next). The steady state is
+        // what this test guards; a persistent mis-measure (the padding bug:
+        // ~24px of overflow that never goes away) still times the poll out.
+        await expect.poll(
+            async () => Math.max(...(await measure()).map((m) => m.iframeOverflowRight)),
+            { message: 'a tile iframe still overflows its scaled wrapper', timeout: 5000 },
+        ).toBeLessThanOrEqual(0.5);
+        const measurements = await measure();
 
         for (const { leftGap, rightGap, iframeOverflowRight } of measurements) {
             // 4px tolerance, not 2: the regression this guards (a whole
