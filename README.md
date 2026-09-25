@@ -323,6 +323,78 @@ memory is bounded, not leaked.
 
 Symfony normalises `Cache-Control` and adds `private`, so the `/api/*` endpoints send `no-cache, private` here where the library sends `no-cache`. Left alone: `private` only forbids shared-cache storage, which for a developer catalogue is stricter than what the package asked for and never looser.
 
+### Front controller (micro-kernel)
+
+Optional, and a second path beside `Styleguide::run()`: the catalogue served by a small Symfony kernel, without a Symfony application. It brings Symfony's error page for failures outside a render, and, in debug, the profiler and debug toolbar.
+
+```bash
+composer require symfony/framework-bundle
+composer require --dev symfony/web-profiler-bundle symfony/twig-bundle symfony/debug-bundle symfony/stopwatch
+```
+
+The profiler packages are `require-dev` on purpose: the profiler stores every request it sees and serves them back from `/_profiler`. `symfony/stopwatch` makes its time panel show real render times instead of 0 ms.
+
+**`static/index.php`**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+// The autoloader cannot be found by the package it loads. Walk up, because
+// vendor/ can sit beside static/, under it, or at a CMS project root.
+$dir = __DIR__;
+while (!is_file($dir . '/vendor/autoload.php') && $dir !== dirname($dir)) {
+    $dir = dirname($dir);
+}
+require $dir . '/vendor/autoload.php';
+
+use Parisek\Styleguide\Bridge\Symfony\FrontController;
+
+// PHP's built-in server: let it send dist assets, images and fonts itself.
+if (FrontController::isBuiltInServerFile(__DIR__)) {
+    return false;
+}
+
+FrontController::run(__DIR__);
+```
+
+`__DIR__` is the directory that holds `styleguide.yaml`. The catalogue reads everything else from that file, as in every other mode.
+
+**Debug is off unless the environment asks for it.** The file ships inside the theme, so every deployed site serves it, and neither WordPress nor Drupal sets `APP_ENV`. DDEV counts as asking, through `IS_DDEV_PROJECT`. Elsewhere, set `APP_ENV=dev`:
+
+```bash
+APP_ENV=dev php -S 127.0.0.1:8000 -t static static/index.php
+```
+
+`APP_DEBUG=0` turns debug off in any environment. `prod` never has it.
+
+**More of Symfony.** Subclass the kernel in the same file and pass it to `run()`:
+
+```php
+final class ProjectKernel extends \Parisek\Styleguide\Bridge\Symfony\StyleguideKernel
+{
+    protected function projectBundles(): iterable
+    {
+        yield new SomeBundle();
+    }
+
+    protected function configureProject(ContainerConfigurator $container): void
+    {
+        // services, bundle configuration
+    }
+
+    protected function configureProjectRoutes(RoutingConfigurator $routes): void
+    {
+        // routes outside /styleguide
+    }
+}
+
+FrontController::run(__DIR__, ProjectKernel::class);
+```
+
+The cache lives in a directory private to the PHP user under the system temp directory, not in the project: the static directory is usually the document root. Nothing needs to be writable in the project. The cache key follows the front controller's contents and the Composer install, so a deploy of either rebuilds the container. A subclass that imports other files returns a fingerprint of them from `cacheVersion()`.
+
 ### Apache / Nginx rewrite
 
 The package handles routing in PHP, but the entry script needs to receive `/styleguide/*` requests. Apache:

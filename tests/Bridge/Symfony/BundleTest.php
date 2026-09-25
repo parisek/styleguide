@@ -79,9 +79,8 @@ final class BundleTest extends TestCase
 
         // MicroKernelTrait is what supplies the `kernel::loadRoutes` loader the
         // routing needs; a bare Kernel has no such loader and every request
-        // dies in DelegatingLoader. This is a TEST kernel, not the public
-        // "micro-kernel mode" the design deliberately dropped — that would have
-        // been a third documented consumer path with no consumer.
+        // dies in DelegatingLoader. This is a bare TEST kernel that isolates
+        // the bundle; StyleguideKernelTest covers the public StyleguideKernel.
         return new class ($prefix, $config) extends Kernel {
             use MicroKernelTrait;
 

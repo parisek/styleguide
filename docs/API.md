@@ -133,6 +133,41 @@ return $result->file !== null
 
 Both are **`@api`** from 1.18.0.
 
+### `Parisek\Styleguide\Bridge\Symfony\FrontController` (`@api`, added 1.21.0)
+
+Serves the catalogue from a project's front controller through `StyleguideKernel`. Needs `symfony/framework-bundle`, which stays a `suggest`.
+
+#### `run(string $staticDir, string $kernelClass = StyleguideKernel::class): void`
+
+Resolves the environment, boots the kernel, handles the current request, sends the response and terminates the kernel. `$staticDir` holds `styleguide.yaml`; the project directory is its parent. `$kernelClass` must extend `StyleguideKernel`, else `InvalidArgumentException`. Without `symfony/framework-bundle` it answers a plain-text 500 naming the package, not a fatal.
+
+Environment, read from `$_SERVER`, then `$_ENV`, then `getenv()`:
+
+| Input | Environment | Debug |
+|---|---|---|
+| nothing set | `prod` | off |
+| `IS_DDEV_PROJECT=true` | `dev` | on |
+| `APP_ENV=<env>` (wins over DDEV) | `<env>` | on, except `prod` |
+| `APP_DEBUG=0` | unchanged | off |
+
+#### `isBuiltInServerFile(string $staticDir, ?string $requestUri = null, string $sapi = PHP_SAPI): bool`
+
+True only under PHP's built-in server, for an existing file inside `$staticDir`. The front controller then returns `false` so the server sends the file itself.
+
+### `Parisek\Styleguide\Bridge\Symfony\StyleguideKernel` (`@api`, added 1.21.0)
+
+`new StyleguideKernel(string $environment, bool $debug, string $staticDir)`. Not `final`. The supported extension surface is three protected hooks, each a no-op by default:
+
+| Hook | Runs | Use |
+|---|---|---|
+| `projectBundles(): iterable<BundleInterface>` | after the kernel's bundles | register more bundles |
+| `configureProject(ContainerConfigurator $container): void` | after the kernel's configuration | services, bundle configuration, overrides |
+| `configureProjectRoutes(RoutingConfigurator $routes): void` | after the catalogue and profiler routes | more routes |
+
+A fourth hook, `cacheVersion(): string` (default `''`), goes into the cache key. The key already follows the kernel's own file and Composer's `installed.php`; a hook that imports other project files returns a fingerprint of them, or production keeps the container compiled from their previous version.
+
+Overriding any other method works and is outside the contract. `getStaticDir()` and `getProjectDir()` (the parent of the static directory) are public. The cache directory is under `sys_get_temp_dir()`; its path is not part of the contract.
+
 ### `Parisek\Styleguide\ComponentParser::RENDER_MODES` (`@api`)
 
 ```php

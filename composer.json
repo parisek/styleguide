@@ -25,12 +25,16 @@
         "friendsofphp/php-cs-fixer": "^3.0",
         "phpstan/phpstan": "^2.0",
         "phpunit/phpunit": "^11.0 || ^12.0",
+        "symfony/debug-bundle": "^6.4 || ^7.0 || ^8.0",
         "symfony/framework-bundle": "^6.4 || ^7.0 || ^8.0",
-        "symfony/http-kernel": "^6.4 || ^7.0 || ^8.0"
+        "symfony/http-kernel": "^6.4 || ^7.0 || ^8.0",
+        "symfony/twig-bundle": "^6.4 || ^7.0 || ^8.0",
+        "symfony/web-profiler-bundle": "^6.4 || ^7.0 || ^8.0"
     },
     "suggest": {
-        "symfony/framework-bundle": "To serve the catalogue from a Symfony application via Bridge\\Symfony\\StyleguideBundle (^6.4 || ^7.0 || ^8.0)",
-        "symfony/http-kernel": "Required alongside symfony/framework-bundle for the optional Symfony bundle (^6.4 || ^7.0 || ^8.0)"
+        "symfony/framework-bundle": "To serve the catalogue through Bridge\\Symfony\\StyleguideBundle in a Symfony application, or through Bridge\\Symfony\\FrontController from a front controller (^6.4 || ^7.0 || ^8.0)",
+        "symfony/http-kernel": "Required alongside symfony/framework-bundle for the optional Symfony bundle (^6.4 || ^7.0 || ^8.0)",
+        "symfony/web-profiler-bundle": "Profiler and debug toolbar for Bridge\\Symfony\\FrontController in debug; install as require-dev (^6.4 || ^7.0 || ^8.0)"
     },
     "minimum-stability": "stable",
     "prefer-stable": true,

@@ -8,6 +8,40 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`Bridge\Symfony\FrontController` and `Bridge\Symfony\StyleguideKernel`:
+  a front controller becomes a call.** A third way to serve the catalogue,
+  beside `Styleguide::run()` and the bundle in a full Symfony application.
+  `FrontController::run(__DIR__)` boots a micro-kernel with the bundle, and
+  the profiler and debug toolbar when debug is on and they are installed.
+  `FrontController::isBuiltInServerFile(__DIR__)` hands an asset back to
+  PHP's built-in server; `styleguide.yaml`, PHP, dotfiles, `vendor/`,
+  `node_modules/` and dependency manifests go to the kernel instead. What stays in the front controller is the
+  autoloader search and the `return false` for static files: about 15 lines,
+  instead of a kernel copied into every project.
+
+  Debug is off unless the environment asks for it: `APP_ENV`, else `dev` when
+  DDEV sets `IS_DDEV_PROJECT=true`, else `prod`. `APP_DEBUG=0` turns it off;
+  `prod` never has it. A front controller ships inside a theme, so every
+  deployed site serves it, and neither WordPress nor Drupal sets `APP_ENV`.
+
+  The kernel is not `final`. A project that needs more of Symfony subclasses
+  it in the front controller and fills `projectBundles()`,
+  `configureProject()` and `configureProjectRoutes()`, then passes the class
+  to `run()`.
+
+  The kernel keeps the toolbar out of `/styleguide/render/` and keeps the
+  profile. Its cache is in a directory private to the PHP user (mode 0700,
+  owner checked) under the system temp directory, with debug and non-debug
+  apart. The key follows the static directory, the kernel class, the contents
+  of the kernel's file and of Composer's `installed.php`, and an optional
+  `cacheVersion()`, so a production container never outlives a deploy. Routes resolve through
+  `@StyleguideBundle`, so the kernel works wherever `vendor/` is.
+
+  Additive: `Styleguide::run()` and the bundle do not change.
+  `symfony/framework-bundle` stays a `suggest`.
+
 ## [1.20.0] - 2026-09-25
 
 ### Added
