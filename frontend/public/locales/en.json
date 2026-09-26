@@ -22,6 +22,7 @@
         "orientation_portrait": "Portrait",
         "orientation_landscape": "Landscape",
         "reload": "Reload",
+        "compare": "Show these widths side by side",
         "more_actions": "More actions",
         "iframe_theme": "Toggle iframe dark mode",
         "variant_label": "Variant",

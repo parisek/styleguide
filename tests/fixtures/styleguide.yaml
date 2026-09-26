@@ -2,6 +2,10 @@
 # this out: without an `auth` callable the source is off by default.
 show_source: true
 
+# The e2e suite exercises compare mode (the "1440 · 768 · 320" button).
+viewports:
+  compare: [1440, 768, 320]
+
 project:
   # Hostile suffix (#78) — project.name/description reach foundations.twig's
   # header (`{{ styleguide.project.name|e }}` / `…description|e`) unescaped

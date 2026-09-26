@@ -63,6 +63,8 @@ final class Styleguide
     private array $config;
     /** @var array<string, mixed> */
     private array $yamlConfig;
+    /** @var list<int>|null `viewports.compare`, validated; null when absent */
+    private ?array $compareWidths;
     private Environment $twig;
     private ComponentParser $parser;
     private Renderer $renderer;
@@ -323,6 +325,7 @@ final class Styleguide
         $this->yamlConfig = is_file($config['config_yaml'])
             ? (array) Yaml::parseFile($config['config_yaml'])
             : [];
+        $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
         // throwaway temp dir so writing a synthetic index.html fixture doesn't
@@ -3069,6 +3072,11 @@ final class Styleguide
         if ($this->showSource()) {
             $config['showSource'] = true;
         }
+        // Same rule: only when configured. The SPA shows the compare button
+        // from this list and builds its label from it.
+        if ($this->compareWidths !== null) {
+            $config['compareWidths'] = $this->compareWidths;
+        }
         $configJson = json_encode(
             $config,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
@@ -3398,6 +3406,60 @@ final class Styleguide
     }
 
     /**
+     * The smallest and largest width the SPA's Custom width accepts
+     * (`CUSTOM_WIDTH_MIN`/`MAX` in frontend/src/lib/viewportMath.js). A
+     * compare width is held to the same range: a width the Custom input
+     * refuses is not one a preview can be rendered at either.
+     */
+    private const COMPARE_WIDTH_MIN = 100;
+    private const COMPARE_WIDTH_MAX = 4000;
+
+    /**
+     * `viewports.compare` in styleguide.yaml: 2–4 integer widths, shown side
+     * by side by the SPA's compare mode, in the order written. `null` when
+     * absent, which leaves the SPA exactly as before.
+     *
+     * A malformed `compare` throws at construction, like a malformed
+     * `bootstrap` key: dropping it quietly would leave the author looking for
+     * a button that never appears. A `viewports` that is not a map is left
+     * alone instead: top-level keys the package does not own pass through to
+     * the templates, so a project may already use the name for itself.
+     *
+     * @return list<int>|null
+     */
+    private static function compareWidths(mixed $viewports): ?array
+    {
+        if (!is_array($viewports) || array_is_list($viewports)) {
+            return null;
+        }
+        $compare = $viewports['compare'] ?? null;
+        if ($compare === null) {
+            return null;
+        }
+
+        $valid = is_array($compare)
+            && array_is_list($compare)
+            && count($compare) >= 2
+            && count($compare) <= 4;
+        foreach ($valid ? $compare : [] as $width) {
+            if (!is_int($width) || $width < self::COMPARE_WIDTH_MIN || $width > self::COMPARE_WIDTH_MAX) {
+                $valid = false;
+            }
+        }
+        if (!$valid) {
+            throw new \InvalidArgumentException(sprintf(
+                'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 integer widths between %d and %d, '
+                    . 'e.g. [1440, 768, 320]',
+                self::COMPARE_WIDTH_MIN,
+                self::COMPARE_WIDTH_MAX,
+            ));
+        }
+
+        /** @var list<int> $compare */
+        return $compare;
+    }
+
+    /**
      * Whether the catalogue shows the fixture source of a variant tile.
      *
      * `show_source:` in styleguide.yaml decides when it is a boolean. When
@@ -3444,7 +3506,7 @@ final class Styleguide
 
         if ($endpoint === null) {
             // Note the asymmetry, carried over deliberately: the 404 sends
-            // Content-Type but NOT Cache-Control, where the five endpoints send
+            // Content-Type but NOT Cache-Control, where the catalogue endpoints send
             // both. Result::json() would add the second header and change the
             // response, so this one is built by hand.
             return Http\Result::text(

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource } from './runtimeConfig.js';
+import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, compareWidths } from './runtimeConfig.js';
 
 function inject(payload) {
     const el = document.createElement('script');
@@ -49,6 +49,21 @@ describe('runtimeConfig', () => {
         inject({ baseUrl: '/two' });
         expect(baseUrl()).toBe('/one');
     });
+});
+
+describe('compareWidths', () => {
+    it('returns the configured widths in order', () => {
+        inject({ compareWidths: [1440, 768, 320] });
+        expect(compareWidths()).toEqual([1440, 768, 320]);
+    });
+
+    it.each([[undefined], [[1440]], [[1, 2, 3, 4, 5]], [[1440, '768']], [[1440, 0]], ['1440,768']])(
+        'is null for %j',
+        (value) => {
+            inject({ compareWidths: value });
+            expect(compareWidths()).toBeNull();
+        },
+    );
 });
 
 describe('showSource', () => {

@@ -5,6 +5,7 @@ import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import VariantGrid from './VariantGrid.vue';
+import CompareStrip from './CompareStrip.vue';
 
 const ui = useUiStore();
 const i18n = useI18nStore();
@@ -55,6 +56,10 @@ watch(() => viewport.iframeSrc.value, () => {
 });
 
 const isLoading = computed(() => ui.isPreviewLoading);
+
+// Compare mode on a single preview: the strip replaces the device chassis.
+// The grid handles compare mode inside each tile itself.
+const singleCompare = computed(() => viewport.compareActive.value && !viewport.gridActive.value);
 
 // Same-origin iframes let the parent read contentDocument directly. Measure
 // scrollHeight (accounts for everything below the fold) and keep an
@@ -140,7 +145,7 @@ const iframeStyle = computed(() => {
          fit-to-bounds zoom. -->
     <div ref="paneRef"
          class="flex-1 overflow-auto"
-         :class="viewport.gridActive.value ? 'bg-zinc-100 dark:bg-zinc-950' : (viewport.isFullPreset.value ? 'flex justify-center p-0 bg-white dark:bg-zinc-900 items-stretch' : 'flex justify-center p-6 bg-zinc-100 dark:bg-zinc-950 items-center')">
+         :class="viewport.gridActive.value || singleCompare ? 'bg-zinc-100 dark:bg-zinc-950' : (viewport.isFullPreset.value ? 'flex justify-center p-0 bg-white dark:bg-zinc-900 items-stretch' : 'flex justify-center p-6 bg-zinc-100 dark:bg-zinc-950 items-center')">
         <!-- Variant GRID -- every discovered variant (default fixture first)
              as its own independent preview screen, tiled to fit the canvas
              width. Takes over the whole preview area instead of the
@@ -149,7 +154,13 @@ const iframeStyle = computed(() => {
              specific `?variant=` still falls through to the classic single
              preview beneath). -->
         <VariantGrid v-if="viewport.gridActive.value" />
-        <template v-if="!viewport.gridActive.value && viewport.iframeSrc.value">
+        <div v-if="singleCompare && viewport.iframeSrc.value" class="w-full p-6">
+            <CompareStrip :src="viewport.iframeSrc.value"
+                          :widths="viewport.compareWidths"
+                          :scrolls="entryScrolls(viewport.currentItem.value)"
+                          @load="ui.isPreviewLoading = false" />
+        </div>
+        <template v-if="!viewport.gridActive.value && !singleCompare && viewport.iframeSrc.value">
             <!-- Outer positioning ancestor -- sized to the inner wrapper via
                  inline-block, so it inherits the scaled device dimensions.
                  Hosts the chassis decorations (speaker slot, home indicator)

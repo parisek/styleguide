@@ -6,7 +6,7 @@ import {
     findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
 } from '../lib/viewportMath.js';
 import { flattenFieldsTree } from '../lib/fieldsTree.js';
-import { url } from '../lib/runtimeConfig.js';
+import { url, compareWidths as configuredCompareWidths } from '../lib/runtimeConfig.js';
 
 // Ported from frontend/components/preview.js. One instance is provided by
 // App.vue (Task 7 Step 9) and injected by ViewportToolbar.vue (this task)
@@ -24,9 +24,12 @@ import { url } from '../lib/runtimeConfig.js';
 // URL > localStorage > YAML default) follows the identical rule for the
 // identical reason; default to a ref of `''` (never equals a real
 // default_locale, so buildIframeSrc()'s `?locale=` append never fires) so a
-// router-free construction renders exactly like today.
+// router-free construction renders exactly like today. `compareWidths` is
+// the `viewports.compare` list from #sg-config (or null); a parameter only so
+// specs can set it without a payload.
 export function useViewportPreset({
     type, slug, variant = ref(null), setVariant = () => {}, contentLocale = ref(''),
+    compareWidths = configuredCompareWidths(),
 }) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
@@ -271,6 +274,14 @@ export function useViewportPreset({
     // exception has one place to land.
     const toolbarVisible = computed(() => previewActionsVisible.value);
 
+    // Compare mode: the current entry at every `viewports.compare` width
+    // side by side (CompareStrip.vue), in the single preview and in every
+    // grid tile alike. Needs configured widths, and the same routes the
+    // width presets apply to -- a responsive:false entry has one width only.
+    const compareActive = computed(() => !!compareWidths
+        && ui.compareActive
+        && previewActionsVisible.value);
+
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
         if (type.value === 'page') return 'pages';
@@ -377,6 +388,7 @@ export function useViewportPreset({
         gridZoom, setGridZoom, effectiveZoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
         reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, secondaryActionsVisible, gridActive, currentSectionKey, currentItemName,
+        compareWidths, compareActive,
         currentItemDescription, currentVariantLabel, currentVariantDescription, descriptionBarText, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

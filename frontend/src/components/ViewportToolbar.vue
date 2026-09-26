@@ -193,7 +193,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      columnsRef mirror dropdownOpen/dropdownRef exactly) --
                      the two now read as one family of controls instead of
                      two different widget styles bolted together. -->
-                <template v-if="viewport.gridActive.value">
+                <template v-if="viewport.gridActive.value && !viewport.compareActive.value">
                     <div class="relative" ref="columnsRef" @keydown.escape="columnsOpen = false">
                         <button type="button"
                                 data-testid="variant-columns-trigger"
@@ -252,11 +252,22 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      and only on the foundations route / responsive:false
                      entries does this whole block still disappear. -->
                 <template v-if="viewport.toolbarVisible.value">
+                <!-- Compare mode (`viewports.compare` in styleguide.yaml):
+                     every configured width side by side. Labelled with the
+                     widths themselves, so the button says what it shows. -->
+                <button v-if="viewport.compareWidths" type="button"
+                        data-testid="compare-toggle"
+                        @click="ui.toggleCompare()"
+                        :aria-pressed="viewport.compareActive.value ? 'true' : 'false'"
+                        :title="i18n.t('toolbar.compare')"
+                        class="flex items-center h-9 px-3 rounded-full border text-xs font-semibold tabular-nums transition-colors"
+                        :class="viewport.compareActive.value ? 'bg-red-600/10 border-red-600/20 text-red-700 dark:bg-red-400/15 dark:border-red-400/30 dark:text-red-400' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700'">{{ viewport.compareWidths.join(' · ') }}</button>
                 <!-- Unified viewport switcher — one labelled dropdown at every width
                      (replaces the old xl segmented bar + separate mobile menu). The
                      trigger always shows the device word + dimensions, so the control
-                     reads identically on desktop and mobile. -->
-                <div class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen = false">
+                     reads identically on desktop and mobile. Hidden while
+                     comparing: the compared widths are fixed. -->
+                <div v-if="!viewport.compareActive.value" class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen = false">
                     <button type="button"
                             data-testid="viewport-trigger"
                             @click="dropdownOpen = !dropdownOpen"

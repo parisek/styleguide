@@ -18,7 +18,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), an opt-in compare mode that shows several widths side by side (*Compare widths*), an opt-in per-tile "Code" toggle (*Showing the fixture source*), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -489,6 +489,13 @@ favicon:
   manifest: "/images/touch/site.webmanifest"
   theme_color: "#18181B"
 
+# Compare mode — optional. 2–4 widths; the toolbar gains a "1440 · 768 · 320"
+# button that shows the current entry at every width side by side (each
+# variant tile gets its own strip). Absent: no button. See "Compare widths"
+# below.
+viewports:
+  compare: [1440, 768, 320]
+
 # Fixture source ("Code" toggle on each variant tile). Absent: on only when
 # the `auth` constructor callable is set. A catalogue guarded some other way
 # (the Symfony bundle, HTTP Basic Auth, a VPN) writes `true`. See
@@ -559,6 +566,14 @@ labels:                                    # i18n labels shown on overview cards
   click_to_copy: "Click to copy"
   copied: "Copied!"
 ```
+
+### Compare widths
+
+`viewports.compare` lists 2–4 widths, each 100–4000 px. The toolbar then gets one button, labelled with the widths (`1440 · 768 · 320`). It shows the current entry at every width side by side: each iframe renders at its real width and scales down into its column. The columns are sized in proportion to their widths, so every width shows at the same zoom, and each caption says the width and the zoom.
+
+In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The width preset and the tile density hide while comparing, because the widths are fixed. The mode lasts for the browser session.
+
+A malformed list (one width, five widths, a string, a width out of range) throws at construction, so the missing button never needs explaining.
 
 ### iframe asset paths — resolved against `templateUrl`
 

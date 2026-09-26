@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **Compare mode: several widths side by side.** A new optional key in
+  `styleguide.yaml`, `viewports: { compare: [1440, 768, 320] }` (2–4 widths,
+  each 100–4000), adds a toolbar button labelled with the widths. It shows
+  the current entry at every width at once: each iframe renders at its real
+  width, scaled into a column sized in proportion to it, so all widths share
+  one zoom, and each caption names the width and the zoom. **It composes
+  with the variant grid** rather than isolating one tile: every tile shows
+  its own strip, one tile per row. We chose that because the use case is
+  scanning many layouts at every width; the cost is bounded by
+  `loading="lazy"` on every compare iframe, so only the tiles on screen
+  load. The width preset and the tile density hide while comparing. A
+  malformed list throws at construction. Without the key nothing changes.
+
 - **Search aliases.** A new metadata key `aliases:` (twig front comment or
   `<id>.yaml`) lists other names an entry is found by. A string opens the
   entry; a map `{ name: "Layout 238", variant: grid }` opens that variant

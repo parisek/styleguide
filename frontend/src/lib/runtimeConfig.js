@@ -37,9 +37,23 @@ function config() {
             // source may be shown (Styleguide::showSource()). Anything else
             // hides the "Code" toggle; the API refuses on its own anyway.
             showSource: raw.showSource === true,
+            compareWidths: normaliseCompareWidths(raw.compareWidths),
         };
     }
     return cached;
+}
+
+// The server validates `viewports.compare` at boot; this only guards the
+// shape, so a hand-edited or older payload can never produce a broken
+// compare mode. Anything off -> null (no compare button).
+function normaliseCompareWidths(value) {
+    if (!Array.isArray(value) || value.length < 2 || value.length > 4) return null;
+    return value.every((w) => Number.isInteger(w) && w > 0) ? [...value] : null;
+}
+
+// `viewports.compare` from styleguide.yaml, e.g. [1440, 768, 320], or null.
+export function compareWidths() {
+    return config().compareWidths;
 }
 
 export function baseUrl() {

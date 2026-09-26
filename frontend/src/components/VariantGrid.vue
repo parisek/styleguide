@@ -28,6 +28,7 @@ import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js
 import { entryScrolls } from '../lib/previewHeight.js';
 import { showSource } from '../lib/runtimeConfig.js';
 import SourcePanel from './SourcePanel.vue';
+import CompareStrip from './CompareStrip.vue';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
@@ -213,7 +214,14 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
 // presets settle on a different per-row tile count on the same canvas
 // instead of always packing to one fixed basis. An exact 1-4 sets the
 // column count directly, ignoring the preset entirely.
+// Compare mode composes with the grid: every tile shows its own strip of
+// widths (CompareStrip.vue, lazy iframes). A strip needs the full canvas
+// width, so the grid drops to one tile per row and the density control
+// stands aside.
+const compare = computed(() => viewport.compareActive.value);
+
 const gridTemplateColumns = computed(() => {
+    if (compare.value) return 'minmax(0, 1fr)';
     const columns = ui.variantColumns;
     if (columns === 'auto') {
         const basis = autoGridColumnBasis(viewport.effective.value.width);
@@ -236,7 +244,9 @@ function isolateTile(tile) {
 // single preview's own dimensionsLabel already uses. `immediate: true` so
 // the toolbar has a value from this component's very first render, not
 // just after the first reactive change.
-watch(() => renderTiles.value[0]?.geometry.zoom ?? null, (zoom) => {
+// In compare mode each strip column has its own zoom (shown in its caption),
+// so there is no one grid zoom to report.
+watch(() => (compare.value ? null : renderTiles.value[0]?.geometry.zoom ?? null), (zoom) => {
     viewport.setGridZoom(zoom);
 }, { immediate: true });
 
@@ -363,10 +373,14 @@ onBeforeUnmount(() => {
                      the preview itself is short. -->
                 <div :ref="(el) => registerCell(tile.key, el)"
                      class="relative bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
-                     :class="[tile.geometry.fluid ? '' : 'flex justify-center p-3', openSources[tile.key] ? 'min-h-64' : '']">
+                     :class="[compare ? 'p-3' : (tile.geometry.fluid ? '' : 'flex justify-center p-3'), openSources[tile.key] ? 'min-h-64' : '']">
                     <SourcePanel v-if="openSources[tile.key]"
                                  class="absolute inset-0 z-10"
                                  :type="viewport.type.value" :slug="viewport.slug.value" :variant="tile.id" />
+                    <CompareStrip v-if="compare"
+                                  :src="tile.src"
+                                  :widths="viewport.compareWidths"
+                                  :scrolls="entryScrolls(viewport.currentItem.value)" />
                     <!-- Full preset: fluid tile, no scaling -- iframe width
                          tracks the cell via `w-full`, height is content-fit.
                          `:key="tile.src"` remounts the iframe whenever the
@@ -375,7 +389,7 @@ onBeforeUnmount(() => {
                          flash-free-navigation fix as PreviewPane.vue's
                          single iframe; a patched src keeps painting the OLD
                          document until the new one loads. -->
-                    <iframe v-if="tile.geometry.fluid"
+                    <iframe v-else-if="tile.geometry.fluid"
                             :key="tile.src"
                             :src="tile.src"
                             class="w-full border-0 block bg-white"

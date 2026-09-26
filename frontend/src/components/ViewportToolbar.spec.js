@@ -8,7 +8,7 @@ import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
 
-function mountWithViewport(type = 'component', slug = 'hero', { items, variant, setVariant, onViewport } = {}) {
+function mountWithViewport(type = 'component', slug = 'hero', { items, variant, setVariant, onViewport, compareWidths = null } = {}) {
     setActivePinia(createPinia());
     useI18nStore().strings = {
         toolbar: {
@@ -29,7 +29,7 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
         setup() {
             const typeRef = ref(type);
             const slugRef = ref(slug);
-            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, setVariant });
+            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, setVariant, compareWidths });
             // Hands the composable instance back to the caller — optional,
             // so every pre-existing call site above is unaffected.
             onViewport?.(viewport);
@@ -39,6 +39,47 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
     });
     return mount(Host);
 }
+
+describe('ViewportToolbar — compare button', () => {
+    it('is absent without configured widths', () => {
+        const wrapper = mountWithViewport();
+        expect(wrapper.find('[data-testid="compare-toggle"]').exists()).toBe(false);
+    });
+
+    it('is labelled with the configured widths and toggles compare mode', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { compareWidths: [1440, 768, 320] });
+        const button = wrapper.get('[data-testid="compare-toggle"]');
+        expect(button.text()).toBe('1440 · 768 · 320');
+        expect(button.attributes('aria-pressed')).toBe('false');
+
+        await button.trigger('click');
+        expect(useUiStore().compareActive).toBe(true);
+        expect(button.attributes('aria-pressed')).toBe('true');
+    });
+
+    it('hides the width preset and the tile density while comparing: the widths are fixed', async () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', title: 'Secondary' }] }],
+            compareWidths: [1440, 320],
+        });
+        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(true);
+        expect(wrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(true);
+
+        await wrapper.get('[data-testid="compare-toggle"]').trigger('click');
+        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(false);
+        // The rest of the toolbar stays.
+        expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
+    });
+
+    it('is absent for a responsive:false entry', () => {
+        const wrapper = mountWithViewport('component', 'hero', {
+            items: [{ id: 'hero', name: 'Hero', category: 'Block', responsive: false }],
+            compareWidths: [1440, 320],
+        });
+        expect(wrapper.find('[data-testid="compare-toggle"]').exists()).toBe(false);
+    });
+});
 
 describe('ViewportToolbar', () => {
     it('renders the active preset word label ("Full" by default)', () => {
