@@ -58,6 +58,23 @@ describe('useVariant', () => {
         expect(variant.value).toBeNull();
     });
 
+    it('isolating a tile adds a history entry, so back returns to the grid and forward re-isolates', async () => {
+        const entry = ref({ id: 'multi', variants: [{ id: 'secondary', label: 'Secondary style' }] });
+        const { variant, setVariant, router } = await mountVariant(entry);
+        await setVariant('secondary');
+        expect(variant.value).toBe('secondary');
+
+        const back = new Promise((resolve) => { const stop = router.afterEach(() => { stop(); resolve(); }); });
+        router.back();
+        await back;
+        expect(variant.value).toBeNull();
+
+        const forward = new Promise((resolve) => { const stop = router.afterEach(() => { stop(); resolve(); }); });
+        router.forward();
+        await forward;
+        expect(variant.value).toBe('secondary');
+    });
+
     it('a ?variant= id absent from the entry\'s discovered variants resolves to null (unknown/removed variant)', async () => {
         const entry = ref({ id: 'multi', variants: [{ id: 'secondary', label: 'Secondary style' }] });
         const { variant } = await mountVariant(entry, '/component/multi?variant=retired');

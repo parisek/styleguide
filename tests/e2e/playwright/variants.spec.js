@@ -103,6 +103,32 @@ test.describe('file-convention variants', () => {
         await expect(page.locator('iframe').first()).toHaveAttribute('src', '/styleguide/render/component/multi');
     });
 
+    // Uncaught exceptions only: the fixture's iframe points at a
+    // /dist/js/script.js that does not exist, so console errors are noise.
+    test('an unknown variant id throws no page error', async ({ page }) => {
+        const errors = [];
+        page.on('pageerror', (err) => errors.push(err.message));
+        await page.goto('/styleguide/component/multi?variant=retired');
+        await expect(page.getByTestId('variant-tile')).toHaveCount(3);
+        expect(errors).toEqual([]);
+    });
+
+    test('isolating a tile is a history entry: back returns to the grid, forward re-isolates', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        await page.getByTestId('variant-tile').nth(2).getByTestId('variant-tile-header').click();
+        await expect(page).toHaveURL(/variant=secondary/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+
+        await page.goBack();
+        await expect(page).not.toHaveURL(/variant=/);
+        await expect(page.getByTestId('variant-grid')).toBeVisible();
+
+        await page.goForward();
+        await expect(page).toHaveURL(/variant=secondary/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+        await expect(page.frameLocator('iframe').locator('.multi')).toContainText('Multi demo (secondary variant)');
+    });
+
     test('router-push navigation to a different entry resets the variant and swaps grid for single preview appropriately', async ({ page }) => {
         await page.goto('/styleguide/component/multi?variant=secondary');
         await expect(page.getByTestId('variant-grid')).toHaveCount(0);

@@ -1133,7 +1133,11 @@ variants:
 
 (`label:` is also accepted in the map as a legacy alias for `title:` — `title:` wins when both are present.) A sibling's own annotation always wins over its map entry when both exist; an id with no annotation falls back to the map, then to the id itself.
 
-An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
+An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`.
+
+**Deep link to one tile.** `/styleguide/component/<slug>?variant=<id>` opens that tile isolated. Clicking a tile header writes the same URL and adds a browser history entry, so Back returns to the grid and Forward isolates the tile again. An unknown id opens the full grid, without an error. The default tile has no id, so it has no deep link of its own.
+
+The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
 
 **All named, no bare default.** `styleguide.twig` itself is optional — a component can ship *only* named variant siblings, with every variant a first-class entry and no implicit "Default":
 

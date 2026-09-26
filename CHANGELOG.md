@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Isolating a variant tile adds a browser history entry.** A click on a
+  tile header, or on the breadcrumb back to the grid, now pushes the new
+  `?variant=` URL instead of replacing the current one. Back returns to the
+  grid and Forward isolates the tile again. The deep link itself is
+  unchanged: `?variant=<id>` opens that tile, and an unknown id opens the
+  full grid.
+
 ## [1.23.0] - 2026-09-25
 
 ### Removed
