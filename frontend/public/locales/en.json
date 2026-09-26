@@ -59,6 +59,7 @@
         "styleguide": "Styleguide",
         "docs": "Documentation",
         "overview": "Overview",
+        "grid": "Previews",
         "foundations": "Foundations",
         "icons": "Icons",
         "fields": "Fields",
@@ -71,6 +72,15 @@
         "pages": "Pages",
         "components": "Components",
         "used_in": "Used in"
+    },
+    "grid": {
+        "title": "All previews",
+        "subtitle": "A live preview of every component and page. Click one to open it.",
+        "filter_all": "All",
+        "filter_placeholder": "Filter…",
+        "filter_label": "Filter previews",
+        "variants": "Variants",
+        "empty": "Nothing matches the filter."
     },
     "empty_state": "Select a component in the sidebar",
     "loading": "Loading…",

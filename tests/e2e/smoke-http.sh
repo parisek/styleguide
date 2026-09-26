@@ -211,6 +211,7 @@ assert_header "$MOUNT/"                            "content-type" "text/html" "$
 assert_status "$MOUNT/component/sample"            "200"  "deep link to component returns SPA"
 assert_status "$MOUNT/page/landing"                "200"  "deep link to page returns SPA"
 assert_status "$MOUNT/overview"                    "200"  "overview returns SPA"
+assert_status "$MOUNT/grid"                        "200"  "overview grid returns SPA"
 
 # Render endpoint (iframe HTML). All body tokens are asserted against a SINGLE
 # fetch — the render document is the largest, slowest response, so it was the one

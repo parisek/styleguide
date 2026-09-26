@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **Overview grid of live previews.** A new SPA route, `/styleguide/grid`,
+  shows every component and page as a tile: a scaled live preview, the name,
+  and a badge with the number of variant tiles. A filter bar narrows it by
+  sidebar section and by text (name, id, aliases); a tile opens the entry.
+  The sidebar links to it next to Overview. Previews load only near the
+  visible area, at most 6 at a time: against 300 synthetic entries the first
+  screen settles with 12 loaded, never more than 6 in flight. The router
+  serves the new path like every other SPA route.
+- **`overview.default: grid` in `styleguide.yaml`** makes the bare mount
+  land on the overview grid, with the address bar left at the mount.
+  Without the key (or with `foundations`) the landing stays Foundations. Any
+  other value throws at construction.
+
 - **Pages grouped by category (opt-in).** `pages: { group_by: category }`
   in `styleguide.yaml` groups the sidebar's page entries by their `category`
   metadata: one collapsible group per category, ordered by the lowest

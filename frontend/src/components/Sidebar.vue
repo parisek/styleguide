@@ -261,6 +261,13 @@ function categoryGroupKey(group) {
                             <span>{{ i18n.t('nav.overview') }}</span>
                         </a>
                     </li>
+                    <!-- The overview grid (1.24.0): every entry as a live
+                         preview tile, next to the Overview index. -->
+                    <li>
+                        <a href="#" data-testid="sidebar-grid-link" @click.prevent="select('grid', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('grid', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                            <span>{{ i18n.t('nav.grid') }}</span>
+                        </a>
+                    </li>
                     <li v-for="item in docItems" :key="item.id">
                         <a href="#" @click.prevent="select('doc', item.id, searchAlias(item)?.variant)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('doc', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ item.name }}</span>

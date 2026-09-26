@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 
 // The fixture with the opt-in presentation keys switched on, served by the
 // third webServer in frontend/playwright.config.js (SG_PRESENTATION=1, read
-// by tests/fixtures/index.php): `pages.group_by: category`.
+// by tests/fixtures/index.php): `pages.group_by: category` and
+// `overview.default: grid`.
 const ORIGIN = 'http://127.0.0.1:8424';
 
 test.describe('pages grouped by category', () => {
@@ -16,6 +17,7 @@ test.describe('pages grouped by category', () => {
         await expect(groups.nth(0).getByRole('button')).toContainText('Marketing');
         await expect(groups.nth(1).getByRole('button')).toContainText(/Ostatní|Other/);
 
+        await page.screenshot({ path: 'test-results/pages-grouped.png' });
         await groups.nth(1).getByRole('link', { name: 'Contact' }).click();
         await expect(page).toHaveURL(`${ORIGIN}/styleguide/page/contact`);
 

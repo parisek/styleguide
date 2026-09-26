@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, compareWidths } from './runtimeConfig.js';
+import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, compareWidths, landing } from './runtimeConfig.js';
 
 function inject(payload) {
     const el = document.createElement('script');
@@ -79,5 +79,21 @@ describe('showSource', () => {
 
     it('is false without a payload', () => {
         expect(showSource()).toBe(false);
+    });
+});
+
+describe('landing', () => {
+    it('is "grid" when the payload says so', () => {
+        inject({ landing: 'grid' });
+        expect(landing()).toBe('grid');
+    });
+
+    it.each([[undefined], ['overview'], ['foundations'], [true]])('is "foundations" for %s', (value) => {
+        inject({ landing: value });
+        expect(landing()).toBe('foundations');
+    });
+
+    it('is "foundations" without a payload', () => {
+        expect(landing()).toBe('foundations');
     });
 });

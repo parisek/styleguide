@@ -16,6 +16,7 @@ function makeRouter() {
             { path: '/component/:slug', name: 'component', component: { template: '<div/>' } },
             { path: '/page/:slug', name: 'page', component: { template: '<div/>' } },
             { path: '/overview', name: 'overview', component: { template: '<div/>' } },
+            { path: '/grid', name: 'grid', component: { template: '<div/>' } },
             { path: '/foundations', name: 'foundations', component: { template: '<div/>' } },
             { path: '/icons', name: 'icons', component: { template: '<div/>' } },
             { path: '/fields', name: 'fields', component: { template: '<div/>' } },
@@ -52,7 +53,7 @@ async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
     catalog.pages = [{ id: 'homepage', name: 'Homepage', has_styleguide: true }];
     catalog.docs = [];
     catalog.loading = false;
-    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', grid: 'Previews', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
     const router = makeRouter();
     await router.push(initialPath);
@@ -211,6 +212,17 @@ describe('Sidebar', () => {
         expect(favicon.attributes('src')).toBe(GENERIC_FAVICON);
     });
 
+    it('links to the overview grid next to Overview and marks it active on /grid', async () => {
+        const { wrapper, router } = await mountSidebar('/grid');
+        const link = wrapper.find('[data-testid="sidebar-grid-link"]');
+        expect(link.classes()).toContain('bg-red-600/10');
+        await router.push('/foundations');
+        await wrapper.vm.$nextTick();
+        const pushSpy = vi.spyOn(router, 'push');
+        await link.trigger('click');
+        expect(pushSpy).toHaveBeenCalledWith('/grid');
+    });
+
     it('marks the Overview nav item active when on /overview', async () => {
         const { wrapper } = await mountSidebar('/overview');
         const overviewLink = wrapper.findAll('a').find((a) => a.text() === 'Overview');
@@ -286,7 +298,7 @@ describe('Sidebar', () => {
         catalog.pages = [];
         catalog.docs = [];
         catalog.loading = true;
-        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', grid: 'Previews', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
         const router = makeRouter();
         await router.push('/foundations');

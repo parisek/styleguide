@@ -367,3 +367,15 @@ describe('ViewportToolbar — breadcrumb variant segment', () => {
     });
 });
 
+describe('ViewportToolbar — overview grid', () => {
+    it('titles the grid route and shows no "select a component" prompt or preview actions', () => {
+        const wrapper = mountWithViewport('grid', null);
+        useI18nStore().strings.nav = { grid: 'Previews' };
+        useI18nStore().strings.toolbar.select_prompt = 'Select something';
+        return wrapper.vm.$nextTick().then(() => {
+            expect(wrapper.text()).toContain('Previews');
+            expect(wrapper.text()).not.toContain('Select something');
+            expect(wrapper.find('[title="Reload"]').exists()).toBe(false);
+        });
+    });
+});

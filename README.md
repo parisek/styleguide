@@ -496,6 +496,12 @@ favicon:
 viewports:
   compare: [1440, 768, 320]
 
+# Overview grid as the landing — optional. `grid` makes /styleguide/ show
+# every component and page as a live preview tile. Absent: Foundations. See
+# "Overview grid" below.
+overview:
+  default: grid
+
 # Pages grouped by category — optional. The sidebar lists one collapsible
 # group per page `category` (lowest weight first, uncategorised last).
 # Absent: a flat list. See "Pages grouped by category" below.
@@ -581,6 +587,16 @@ In the variant grid, every tile gets its own strip and the grid shows one tile p
 
 A malformed list (one width, five widths, a string, a width out of range) throws at construction, so the missing button never needs explaining.
 
+### Overview grid
+
+`/styleguide/grid` shows every component and page as a tile: a live preview of its fixture, scaled down to the tile, with its name. The sidebar links to it as "Náhledy" / "Previews", next to Overview. A filter bar narrows the tiles by sidebar section (Basic, Blocks, Gutenberg, Pages) and by text; the text filter matches name, id and `aliases`, like the sidebar filter. A tile opens the entry. An entry with variants shows its default tile (or its first variant when it has no `styleguide.twig`) and a badge with the number of variant tiles.
+
+Blocks and pages render at 1280 × 800 before scaling, basic elements at 480 × 300, so a button is still visible in its tile. The previews honour the iframe theme and the content locale.
+
+**Loading.** Every preview is a full render, and a catalogue can hold hundreds. A tile loads its iframe only when it comes within 400 px of the visible area, and at most 6 previews load at once. A tile that scrolls away before its turn drops out of the queue; a loaded tile keeps its preview. Against a synthetic catalogue of 300 entries, the first screen settles with 12 previews loaded, and no more than 6 renders are ever in flight (the Playwright suite measures this).
+
+`overview.default: grid` in `styleguide.yaml` makes the grid the landing: `/styleguide/` shows it, with the address bar left at the mount. Without the key the landing stays Foundations. Any other value than `grid` or `foundations` throws at construction.
+
 ### Pages grouped by category
 
 `pages.group_by: category` groups the sidebar's page entries by their `category` metadata, the way the component sections group theirs. Each category is one collapsible group with a count. The groups are ordered by the lowest `weight` among their pages, then by name, and the pages keep their order inside a group. Categories match without regard to case. Pages without a category share one default group ("Ostatní" / "Other"), always last. While the sidebar filter has a query, the pages show as a flat list, as before.
@@ -614,11 +630,12 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 
 | URL | Served | Purpose |
 |---|---|---|
-| `/styleguide/` | SPA HTML | Landing (auto-routes to overview) |
+| `/styleguide/` | SPA HTML | Landing: Foundations, or the overview grid with `overview.default: grid` (see *Overview grid*). The URL stays at the mount |
 | `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view. Also accepts `?variant=<id>`* |
 | `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide. Also accepts `?variant=<id>`* |
 | `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group). Also accepts `?variant=<id>`* |
 | `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
+| `/styleguide/grid` | SPA HTML | Overview grid: every component and page as a live preview tile, with a section and text filter — see *Overview grid* |
 | `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
 | `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
 | `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted, invalid/missing → `light`) to stamp `class="dark"` and a matching `color-scheme` on the iframe `<html>` for consumers that opt into Tailwind dark mode; inert for projects with no dark-mode CSS. When `?theme=` is absent — e.g. a native link click inside the rendered content navigating to another SPA-shell URL — the SPA's own `sg-iframe-theme` cookie (path = the mount) is consulted as a fallback so the visitor's toggle choice survives in-iframe navigation; an explicit `?theme=` always wins over the cookie. Also accepts `?variant=<id>` (`<id>` matching `[a-z0-9-]+`) to render `styleguide.<id>.twig` instead of the default `styleguide.twig`, for `component`/`page`/`doc` kinds — see `docs/API.md` § Component Twig file conventions. Query-only, no cookie fallback: an absent, invalid, or unknown (deleted/renamed) variant silently falls back to the default `styleguide.twig` → `<slug>.twig` chain rather than 404ing, so a bookmarked deep link to a removed variant keeps working. Composes independently with `?theme=`. |

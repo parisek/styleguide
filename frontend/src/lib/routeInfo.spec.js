@@ -1,5 +1,21 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { routeInfo } from './routeInfo.js';
+import { resetRuntimeConfig } from './runtimeConfig.js';
+
+function injectConfig(payload) {
+    document.getElementById('sg-config')?.remove();
+    const el = document.createElement('script');
+    el.id = 'sg-config';
+    el.type = 'application/json';
+    el.textContent = JSON.stringify(payload);
+    document.body.appendChild(el);
+    resetRuntimeConfig();
+}
+
+afterEach(() => {
+    document.getElementById('sg-config')?.remove();
+    resetRuntimeConfig();
+});
 
 describe('routeInfo', () => {
     it('maps component/page/doc routes with their slug param', () => {
@@ -28,5 +44,16 @@ describe('routeInfo', () => {
 
     it('falls back to foundations for an unrecognised route name', () => {
         expect(routeInfo({ name: undefined, params: {} })).toEqual({ type: 'foundations', slug: null });
+    });
+
+    it('maps the overview grid with no slug', () => {
+        expect(routeInfo({ name: 'grid', params: {} })).toEqual({ type: 'grid', slug: null });
+    });
+
+    it('maps the landing to the grid when `overview.default: grid` is configured', () => {
+        injectConfig({ landing: 'grid' });
+        expect(routeInfo({ name: 'landing', params: {} })).toEqual({ type: 'grid', slug: null });
+        // The not-found fallback keeps rendering Foundations either way.
+        expect(routeInfo({ name: 'not-found-fallback', params: {} })).toEqual({ type: 'foundations', slug: null });
     });
 });

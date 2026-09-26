@@ -491,5 +491,6 @@ test.describe('default tile title and variants_order', () => {
         await page.goto('/styleguide/component/ordered');
         await expect(page.getByTestId('variant-tile-label')).toHaveText(['Layout 238', 'zeta', 'alpha', 'mid']);
         await expect(page.getByTestId('variant-tile').nth(1).frameLocator('iframe').locator('.ordered')).toContainText('Ordered zeta');
+        await page.screenshot({ path: 'test-results/variants-ordered.png' });
     });
 });

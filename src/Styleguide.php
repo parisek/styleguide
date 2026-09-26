@@ -68,6 +68,9 @@ final class Styleguide
 
     /** `pages.group_by`, validated; null when absent */
     private ?string $pagesGroupBy;
+
+    /** `overview.default`, validated; 'foundations' when absent */
+    private string $landing;
     private Environment $twig;
     private ComponentParser $parser;
     private Renderer $renderer;
@@ -330,6 +333,7 @@ final class Styleguide
             : [];
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
+        $this->landing = self::landing($this->yamlConfig['overview'] ?? null);
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
         // throwaway temp dir so writing a synthetic index.html fixture doesn't
@@ -3086,6 +3090,11 @@ final class Styleguide
         if ($this->pagesGroupBy !== null) {
             $config['pagesGroupBy'] = $this->pagesGroupBy;
         }
+        // Only for the grid: a catalogue that lands on Foundations (the
+        // default, or written out) sends the same payload as before.
+        if ($this->landing === 'grid') {
+            $config['landing'] = 'grid';
+        }
         $configJson = json_encode(
             $config,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
@@ -3490,6 +3499,31 @@ final class Styleguide
         }
 
         return $groupBy;
+    }
+
+    /**
+     * `overview.default` in styleguide.yaml: what the bare mount
+     * (`/styleguide/`) shows. `grid` lands on the overview grid of live
+     * previews; `foundations` (or absent) keeps Foundations. Same rules as
+     * `pages.group_by`: an unknown value throws at construction, an
+     * `overview` that is not a map is left to the project.
+     */
+    private static function landing(mixed $overview): string
+    {
+        if (!is_array($overview) || array_is_list($overview)) {
+            return 'foundations';
+        }
+        $default = $overview['default'] ?? null;
+        if ($default === null) {
+            return 'foundations';
+        }
+        if ($default !== 'grid' && $default !== 'foundations') {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `overview.default` accepts "grid" or "foundations" (or leave it out for Foundations)',
+            );
+        }
+
+        return $default;
     }
 
     /**

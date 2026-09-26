@@ -59,6 +59,7 @@
         "styleguide": "Styleguide",
         "docs": "Dokumentace",
         "overview": "Přehled",
+        "grid": "Náhledy",
         "foundations": "Základy",
         "icons": "Ikony",
         "fields": "Pole",
@@ -71,6 +72,15 @@
         "pages": "Stránky",
         "components": "Komponenty",
         "used_in": "Použito v"
+    },
+    "grid": {
+        "title": "Všechny náhledy",
+        "subtitle": "Živý náhled každé komponenty a stránky. Kliknutím otevřete detail.",
+        "filter_all": "Vše",
+        "filter_placeholder": "Filtrovat…",
+        "filter_label": "Filtr náhledů",
+        "variants": "Varianty",
+        "empty": "Filtru nic neodpovídá."
     },
     "empty_state": "Vyberte komponentu v postranním panelu",
     "loading": "Načítám…",

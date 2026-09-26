@@ -38,6 +38,9 @@ function config() {
             // hides the "Code" toggle; the API refuses on its own anyway.
             showSource: raw.showSource === true,
             compareWidths: normaliseCompareWidths(raw.compareWidths),
+            // `overview.default: grid` in styleguide.yaml: the bare mount
+            // lands on the overview grid. Anything else keeps Foundations.
+            landing: raw.landing === 'grid' ? 'grid' : 'foundations',
         };
     }
     return cached;
@@ -54,6 +57,11 @@ function normaliseCompareWidths(value) {
 // `viewports.compare` from styleguide.yaml, e.g. [1440, 768, 320], or null.
 export function compareWidths() {
     return config().compareWidths;
+}
+
+// What the bare mount (`/styleguide/`) shows: 'grid' or 'foundations'.
+export function landing() {
+    return config().landing;
 }
 
 export function baseUrl() {

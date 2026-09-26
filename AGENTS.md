@@ -129,15 +129,15 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   │   ├── main.js            # entrypoint — boots Pinia + vue-router + mounts App.vue
 │   │   ├── App.vue            # shell: sidebar, mobile backdrop, shared toolbar/description/usage/link/fields chrome
 │   │   ├── router.js          # vue-router instance + route table
-│   │   ├── views/             # OverviewView, FoundationsView, FieldsView, PreviewView (renders PreviewPane)
+│   │   ├── views/             # OverviewView, GridView, LandingView, FoundationsView, FieldsView, PreviewView (renders PreviewPane)
 │   │   ├── components/        # Sidebar, SearchPalette, ViewportToolbar, PreviewPane, VariantGrid,
 │   │   │                      #   FieldsDrawer, FieldsTable, UsagePanel, LinkBar, HealthWarningBadge,
-│   │   │                      #   CompareStrip, SourcePanel, SourceDrawer
+│   │   │                      #   CompareStrip, SourcePanel, SourceDrawer, GridTile
 │   │   ├── composables/       # useViewportPreset, useVariant
 │   │   ├── stores/            # Pinia: catalog, ui, i18n, theme
 │   │   └── lib/               # framework-free: searchMatch, prefixTree, viewportMath, fieldsTree,
 │   │                          #   externalLinks, persistedRef, routeInfo, documentChrome, tileGeometry, pageGroups,
-│   │                          #   cookie, config
+│   │                          #   catalogGrid, loadQueue, renderSrc, cookie, config
 │   └── public/locales/        # cs.json, en.json
 ├── dist/                      # built SPA bundle (committed — consumers ship without npm)
 ├── tests/                     # phpunit

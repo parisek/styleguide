@@ -120,6 +120,9 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
             <template v-if="viewport.type.value === 'overview'">
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ i18n.t('nav.overview') }}</span>
             </template>
+            <template v-if="viewport.type.value === 'grid'">
+                <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ i18n.t('nav.grid') }}</span>
+            </template>
             <template v-if="viewport.type.value === 'foundations'">
                 <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ i18n.t('nav.foundations') }}</span>
             </template>
@@ -159,7 +162,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                     </nav>
                 </div>
             </template>
-            <template v-if="!viewport.slug.value && viewport.type.value !== 'foundations' && viewport.type.value !== 'overview'">
+            <template v-if="!viewport.slug.value && !['foundations', 'overview', 'grid'].includes(viewport.type.value)">
                 <span class="text-zinc-500 text-sm">{{ i18n.t('toolbar.select_prompt') }}</span>
             </template>
         </div>
