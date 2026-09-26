@@ -23,11 +23,24 @@ if (php_sapi_name() === 'cli-server') {
 require __DIR__ . '/../../vendor/autoload.php';
 
 use Parisek\Styleguide\Styleguide;
+use Symfony\Component\Yaml\Yaml;
+
+// SG_PRESENTATION=1 serves the same fixture with the opt-in presentation
+// keys switched on (presentation.spec.js, the third Playwright webServer).
+// The keys are merged into a copy of styleguide.yaml, so the shared file
+// and every other suite keep today's defaults.
+$configYaml = __DIR__ . '/styleguide.yaml';
+if (getenv('SG_PRESENTATION')) {
+    $presentation = Yaml::parseFile($configYaml);
+    $presentation['pages'] = ['group_by' => 'category'];
+    $configYaml = sys_get_temp_dir() . '/sg-fixture-presentation.yaml';
+    file_put_contents($configYaml, Yaml::dump($presentation, 8));
+}
 
 (new Styleguide([
     'templates_path'     => __DIR__ . '/templates',
     'static_path'        => __DIR__,
-    'config_yaml'        => __DIR__ . '/styleguide.yaml',
+    'config_yaml'        => $configYaml,
     'default_locale'     => 'cs',
     // Wired so the e2e suite exercises the real switcher shape (every
     // discovered `.mo` catalogue) instead of a fixture with nothing to

@@ -3,7 +3,8 @@
         "basic": "Basic elements",
         "blocks": "Blocks",
         "gutenberg": "Gutenberg",
-        "pages": "Pages"
+        "pages": "Pages",
+        "pages_other": "Other"
     },
     "toolbar": {
         "type_component": "Component",

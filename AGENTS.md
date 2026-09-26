@@ -136,7 +136,7 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   │   ├── composables/       # useViewportPreset, useVariant
 │   │   ├── stores/            # Pinia: catalog, ui, i18n, theme
 │   │   └── lib/               # framework-free: searchMatch, prefixTree, viewportMath, fieldsTree,
-│   │                          #   externalLinks, persistedRef, routeInfo, documentChrome, tileGeometry,
+│   │                          #   externalLinks, persistedRef, routeInfo, documentChrome, tileGeometry, pageGroups,
 │   │                          #   cookie, config
 │   └── public/locales/        # cs.json, en.json
 ├── dist/                      # built SPA bundle (committed — consumers ship without npm)

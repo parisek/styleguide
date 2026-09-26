@@ -8,6 +8,7 @@ import { useThemeStore } from '../stores/theme.js';
 import { filterItems, matchedAlias } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
+import { groupPagesByCategory } from '../lib/pageGroups.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
 // Read directly rather than `import { config } from '../main.js'`: main.js
 // -> App.vue -> Sidebar.vue is already an import chain, so pulling `config`
@@ -111,6 +112,20 @@ function searchAlias(item) {
 
 const docItems = computed(() => filterItems(catalog.docEntries, ui.searchQuery));
 const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_styleguide !== false), ui.searchQuery));
+
+// `pages.group_by: category` in styleguide.yaml (#sg-config `pagesGroupBy`):
+// the Pages section lists one collapsible group per category instead of the
+// prefix tree. Read from the payload like `hasIcons`, so an older server (no
+// key) keeps today's list.
+const groupPagesBy = config.pagesGroupBy === 'category' ? 'category' : null;
+const pageGroups = computed(() => (groupPagesBy === 'category'
+    ? groupPagesByCategory(catalog.pages.filter((p) => p.has_styleguide !== false), i18n.t('sections.pages_other'))
+    : []));
+// Namespaced so a category can never share its open state with a prefix-tree
+// group of the same label (both live under the `pages` section).
+function categoryGroupKey(group) {
+    return `category:${group.key}`;
+}
 
 </script>
 
@@ -367,8 +382,30 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                             <span v-if="searchAlias(page)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(page).name }}</span>
                         </a>
                     </li>
+                    <!-- `pages.group_by: category`: one collapsible group per
+                         category, lowest weight first, uncategorised last. -->
+                    <li v-for="group in (ui.searchQuery ? [] : pageGroups)" :key="'c:' + group.key" data-testid="sidebar-page-group">
+                        <button @click="toggleGroup('pages', categoryGroupKey(group))" :aria-expanded="isGroupOpen('pages', categoryGroupKey(group), group.items) ? 'true' : 'false'" class="w-full flex items-center px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
+                            <span class="font-medium">{{ group.label }}</span>
+                            <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold">{{ group.items.length }}</span>
+                        </button>
+                        <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: isGroupOpen('pages', categoryGroupKey(group), group.items) ? '1fr' : '0fr' }" :inert="!isGroupOpen('pages', categoryGroupKey(group), group.items)">
+                        <ul class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 overflow-hidden">
+                            <li v-for="page in group.items" :key="page.id">
+                                <a
+                                    href="#"
+                                    @click.prevent="select('page', page.id)"
+                                    class="block px-3 py-1.5 text-[13px] rounded-lg transition-colors"
+                                    :class="isActive('page', page.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
+                                >
+                                    <span>{{ page.name ?? page.id }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                        </div>
+                    </li>
                     <!-- Otherwise: prefix tree (groups >= 3 by name, suffix-only children) — same as component sections. -->
-                    <li v-for="node in (ui.searchQuery ? [] : catalog.pagesTree)" :key="node.type === 'group' ? 'g:' + node.label : 'i:' + node.item.id">
+                    <li v-for="node in (ui.searchQuery || groupPagesBy ? [] : catalog.pagesTree)" :key="node.type === 'group' ? 'g:' + node.label : 'i:' + node.item.id">
                         <a
                             v-if="node.type === 'item'"
                             href="#"

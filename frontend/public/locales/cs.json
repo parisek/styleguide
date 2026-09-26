@@ -3,7 +3,8 @@
         "basic": "Základní prvky",
         "blocks": "Bloky",
         "gutenberg": "Gutenberg",
-        "pages": "Stránky"
+        "pages": "Stránky",
+        "pages_other": "Ostatní"
     },
     "toolbar": {
         "type_component": "Komponenta",

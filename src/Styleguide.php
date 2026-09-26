@@ -65,6 +65,9 @@ final class Styleguide
     private array $yamlConfig;
     /** @var list<int>|null `viewports.compare`, validated; null when absent */
     private ?array $compareWidths;
+
+    /** `pages.group_by`, validated; null when absent */
+    private ?string $pagesGroupBy;
     private Environment $twig;
     private ComponentParser $parser;
     private Renderer $renderer;
@@ -326,6 +329,7 @@ final class Styleguide
             ? (array) Yaml::parseFile($config['config_yaml'])
             : [];
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
+        $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
         // throwaway temp dir so writing a synthetic index.html fixture doesn't
@@ -3077,6 +3081,11 @@ final class Styleguide
         if ($this->compareWidths !== null) {
             $config['compareWidths'] = $this->compareWidths;
         }
+        // Same rule again: the sidebar groups pages by category only when
+        // asked.
+        if ($this->pagesGroupBy !== null) {
+            $config['pagesGroupBy'] = $this->pagesGroupBy;
+        }
         $configJson = json_encode(
             $config,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
@@ -3457,6 +3466,30 @@ final class Styleguide
 
         /** @var list<int> $compare */
         return $compare;
+    }
+
+    /**
+     * `pages.group_by` in styleguide.yaml: how the sidebar groups the page
+     * entries. `category` is the one value today; `null` (absent) keeps the
+     * flat list. Same rules as `viewports.compare`: an unknown value throws
+     * at construction, a `pages` that is not a map is left to the project.
+     */
+    private static function pagesGroupBy(mixed $pages): ?string
+    {
+        if (!is_array($pages) || array_is_list($pages)) {
+            return null;
+        }
+        $groupBy = $pages['group_by'] ?? null;
+        if ($groupBy === null) {
+            return null;
+        }
+        if ($groupBy !== 'category') {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `pages.group_by` accepts only "category" (or leave it out for a flat list)',
+            );
+        }
+
+        return $groupBy;
     }
 
     /**

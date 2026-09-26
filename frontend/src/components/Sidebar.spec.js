@@ -14,6 +14,7 @@ function makeRouter() {
         routes: [
             { path: '/', name: 'landing', component: { template: '<div/>' } },
             { path: '/component/:slug', name: 'component', component: { template: '<div/>' } },
+            { path: '/page/:slug', name: 'page', component: { template: '<div/>' } },
             { path: '/overview', name: 'overview', component: { template: '<div/>' } },
             { path: '/foundations', name: 'foundations', component: { template: '<div/>' } },
             { path: '/icons', name: 'icons', component: { template: '<div/>' } },
@@ -312,6 +313,65 @@ describe('Sidebar', () => {
         const basicSectionAfter = basicButton.element.closest('div');
         expect(basicSectionAfter.style.display).not.toBe('none');
         expect(wrapper.text()).toContain('Gizmo');
+    });
+});
+
+describe('Sidebar — pages grouped by category', () => {
+    const groupedPages = [
+        { id: 'home', name: 'Home', category: 'Marketing', weight: 10, has_styleguide: true },
+        { id: 'boat', name: 'Boat detail', category: 'Catalogue', weight: 20, has_styleguide: true },
+        { id: 'about', name: 'About', category: 'Marketing', weight: 30, has_styleguide: true },
+        { id: 'legal', name: 'Legal', category: '', weight: 5, has_styleguide: true },
+    ];
+
+    async function mountWithPages(configOverrides) {
+        stubSgConfig(configOverrides);
+        const result = await mountSidebar('/foundations');
+        const catalog = useCatalogStore();
+        catalog.pages = groupedPages;
+        useI18nStore().strings.sections.pages_other = 'Other';
+        // Open the Pages section (collapsed by default).
+        await result.wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Pages').trigger('click');
+        await result.wrapper.vm.$nextTick();
+        return result;
+    }
+
+    function groupLabels(wrapper) {
+        return wrapper.findAll('[data-testid="sidebar-page-group"]').map((g) => g.find('button span').text());
+    }
+
+    it('keeps the flat page list without pagesGroupBy', async () => {
+        const { wrapper } = await mountWithPages({});
+        expect(wrapper.findAll('[data-testid="sidebar-page-group"]')).toHaveLength(0);
+        expect(wrapper.text()).toContain('Boat detail');
+    });
+
+    it('groups pages by category: lowest weight first, the default group last', async () => {
+        const { wrapper } = await mountWithPages({ pagesGroupBy: 'category' });
+        expect(groupLabels(wrapper)).toEqual(['Marketing', 'Catalogue', 'Other']);
+        const marketing = wrapper.findAll('[data-testid="sidebar-page-group"]')[0];
+        expect(marketing.findAll('li a').map((a) => a.text())).toEqual(['Home', 'About']);
+        expect(marketing.find('button').text()).toContain('2');
+    });
+
+    it('collapses a group on click and opens the page on a link click', async () => {
+        const { wrapper, router } = await mountWithPages({ pagesGroupBy: 'category' });
+        const toggle = wrapper.findAll('[data-testid="sidebar-page-group"]')[1].find('button');
+        expect(toggle.attributes('aria-expanded')).toBe('true');
+        await toggle.trigger('click');
+        expect(toggle.attributes('aria-expanded')).toBe('false');
+
+        const pushSpy = vi.spyOn(router, 'push');
+        await wrapper.findAll('[data-testid="sidebar-page-group"]')[0].find('li a').trigger('click');
+        expect(pushSpy).toHaveBeenCalledWith('/page/home');
+    });
+
+    it('shows flat full-name results while a search is active', async () => {
+        const { wrapper } = await mountWithPages({ pagesGroupBy: 'category' });
+        useUiStore().searchQuery = 'bo';
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('[data-testid="sidebar-page-group"]')).toHaveLength(0);
+        expect(wrapper.text()).toContain('Boat detail');
     });
 });
 

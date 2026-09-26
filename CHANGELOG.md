@@ -10,6 +10,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **Pages grouped by category (opt-in).** `pages: { group_by: category }`
+  in `styleguide.yaml` groups the sidebar's page entries by their `category`
+  metadata: one collapsible group per category, ordered by the lowest
+  `weight` in the group, then by name. Pages without a category share one
+  default group ("Ostatní" / "Other"), placed last so its position does not
+  depend on the translated label. The sidebar filter still shows a flat
+  list. Any other value throws at construction. Without the key the list
+  stays flat.
+
 - **The default variant tile takes its title from `styleguide.twig`.** A
   `title:` in the fixture's own front comment (the annotation a
   `styleguide.<variant>.twig` sibling already carries) now labels the default

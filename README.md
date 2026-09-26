@@ -496,6 +496,12 @@ favicon:
 viewports:
   compare: [1440, 768, 320]
 
+# Pages grouped by category — optional. The sidebar lists one collapsible
+# group per page `category` (lowest weight first, uncategorised last).
+# Absent: a flat list. See "Pages grouped by category" below.
+pages:
+  group_by: category
+
 # Fixture source ("Code" toggle on each variant tile). Absent: on only when
 # the `auth` constructor callable is set. A catalogue guarded some other way
 # (the Symfony bundle, HTTP Basic Auth, a VPN) writes `true`. See
@@ -574,6 +580,12 @@ labels:                                    # i18n labels shown on overview cards
 In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The width preset and the tile density hide while comparing, because the widths are fixed. The mode lasts for the browser session.
 
 A malformed list (one width, five widths, a string, a width out of range) throws at construction, so the missing button never needs explaining.
+
+### Pages grouped by category
+
+`pages.group_by: category` groups the sidebar's page entries by their `category` metadata, the way the component sections group theirs. Each category is one collapsible group with a count. The groups are ordered by the lowest `weight` among their pages, then by name, and the pages keep their order inside a group. Categories match without regard to case. Pages without a category share one default group ("Ostatní" / "Other"), always last. While the sidebar filter has a query, the pages show as a flat list, as before.
+
+Without the key the Pages section stays a flat list. Any other value throws at construction.
 
 ### iframe asset paths — resolved against `templateUrl`
 
