@@ -18,7 +18,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), an opt-in compare mode that shows several widths side by side (*Compare widths*), an opt-in per-tile "Code" toggle (*Showing the fixture source*), an overview grid of live previews with a section and text filter, optionally the landing (*Overview grid*), sidebar pages grouped by category (opt-in), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -293,6 +293,8 @@ access_control:
 
 `access_control` only bites **inside a firewall that authenticates**. A pattern left on `security: false`, or a firewall with no authenticator, gets no gate from the rule above — check which firewall `^/styleguide` falls into before relying on it.
 
+Because the bundle has no `auth`, the tile "Code" toggle is off by default here. Once the firewall guards the catalogue, turn it on with a top-level `show_source: true` in `styleguide.yaml` (see *Showing the fixture source*).
+
 Cover the whole prefix, not just the shell. `/styleguide/api/*`, `/styleguide/render/*` and `/styleguide/assets/*` are all under it, and the render endpoint is the one that exposes component markup.
 
 #### Asset paths come from the request
@@ -487,6 +489,31 @@ favicon:
   manifest: "/images/touch/site.webmanifest"
   theme_color: "#18181B"
 
+# Compare mode — optional. 2–4 widths; the toolbar gains a "1440 · 768 · 320"
+# button that shows the current entry at every width side by side (each
+# variant tile gets its own strip). Absent: no button. See "Compare widths"
+# below.
+viewports:
+  compare: [1440, 768, 320]
+
+# Overview grid as the landing — optional. `grid` makes /styleguide/ show
+# every component and page as a live preview tile. Absent: Foundations. See
+# "Overview grid" below.
+overview:
+  default: grid
+
+# Pages grouped by category — optional. The sidebar lists one collapsible
+# group per page `category` (lowest weight first, uncategorised last).
+# Absent: a flat list. See "Pages grouped by category" below.
+pages:
+  group_by: category
+
+# Fixture source ("Code" toggle on each variant tile). Absent: on only when
+# the `auth` constructor callable is set. A catalogue guarded some other way
+# (the Symfony bundle, HTTP Basic Auth, a VPN) writes `true`. See
+# "Showing the fixture source" below.
+show_source: true
+
 # Open Graph image (#74) — single optional string key. See "OG image audit"
 # below for what it drives. Set `og_image: false` to hide the section
 # entirely on projects that don't want it (the audit doesn't run either).
@@ -552,6 +579,30 @@ labels:                                    # i18n labels shown on overview cards
   copied: "Copied!"
 ```
 
+### Compare widths
+
+`viewports.compare` lists 2–4 widths, each 100–4000 px. The toolbar then gets one button, labelled with the widths (`1440 · 768 · 320`). It shows the current entry at every width side by side: each iframe renders at its real width and scales down into its column. The columns are sized in proportion to their widths, so every width shows at the same zoom, and each caption says the width and the zoom.
+
+In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The width preset and the tile density hide while comparing, because the widths are fixed. The mode lasts for the browser session.
+
+A malformed list (one width, five widths, a string, a width out of range) throws at construction, so the missing button never needs explaining.
+
+### Overview grid
+
+`/styleguide/grid` shows every component and page as a tile: a live preview of its fixture, scaled down to the tile, with its name. The sidebar links to it as "Náhledy" / "Previews", next to Overview. A filter bar narrows the tiles by sidebar section (Basic, Blocks, Gutenberg, Pages) and by text; the text filter matches name, id and `aliases`, like the sidebar filter. A tile opens the entry. An entry with variants shows its default tile (or its first variant when it has no `styleguide.twig`) and a badge with the number of variant tiles.
+
+Blocks and pages render at 1280 × 800 before scaling, basic elements at 480 × 300, so a button is still visible in its tile. The previews honour the iframe theme and the content locale.
+
+**Loading.** Every preview is a full render, and a catalogue can hold hundreds. A tile loads its iframe only when it comes within 400 px of the visible area, and at most 6 previews load at once. A tile that scrolls away before its turn drops out of the queue; a loaded tile keeps its preview. Against a synthetic catalogue of 300 entries, the first screen settles with 12 previews loaded, and no more than 6 renders are ever in flight (the Playwright suite measures this).
+
+`overview.default: grid` in `styleguide.yaml` makes the grid the landing: `/styleguide/` shows it, with the address bar left at the mount. Without the key the landing stays Foundations. Any other value than `grid` or `foundations` throws at construction.
+
+### Pages grouped by category
+
+`pages.group_by: category` groups the sidebar's page entries by their `category` metadata, the way the component sections group theirs. Each category is one collapsible group with a count. The groups are ordered by the lowest `weight` among their pages, then by name, and the pages keep their order inside a group. Categories match without regard to case. Pages without a category share one default group ("Ostatní" / "Other"), always last. While the sidebar filter has a query, the pages show as a flat list, as before.
+
+Without the key the Pages section stays a flat list. Any other value throws at construction.
+
 ### iframe asset paths — resolved against `templateUrl`
 
 `iframe.css`, `iframe.js`, and `iframe.fonts[]` are resolved **relative to the `twig_context.templateUrl`** you pass to the bootstrap — the same base your component templates already use for images (`{{ templateUrl }}/images/...`). One short, docroot-agnostic value then works across layouts:
@@ -579,11 +630,12 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 
 | URL | Served | Purpose |
 |---|---|---|
-| `/styleguide/` | SPA HTML | Landing (auto-routes to overview) |
+| `/styleguide/` | SPA HTML | Landing: Foundations, or the overview grid with `overview.default: grid` (see *Overview grid*). The URL stays at the mount |
 | `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view. Also accepts `?variant=<id>`* |
 | `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide. Also accepts `?variant=<id>`* |
 | `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group). Also accepts `?variant=<id>`* |
 | `/styleguide/overview` | SPA HTML | Components & pages master index (grouped by section, optional usage chips) |
+| `/styleguide/grid` | SPA HTML | Overview grid: every component and page as a live preview tile, with a section and text filter — see *Overview grid* |
 | `/styleguide/foundations` | SPA HTML | Colors / typography / fonts / logo preview built from `styleguide.yaml` |
 | `/styleguide/fields` | SPA HTML | Field inspector — flattened view of every component's `fields:` metadata |
 | `/styleguide/render/<kind>/<slug>` | iframe HTML | Bare render — `<kind>` ∈ `component` \| `page` \| `doc` \| `foundations`. Used as iframe `src`, also browsable directly. Accepts `?theme=light\|dark` (whitelisted, invalid/missing → `light`) to stamp `class="dark"` and a matching `color-scheme` on the iframe `<html>` for consumers that opt into Tailwind dark mode; inert for projects with no dark-mode CSS. When `?theme=` is absent — e.g. a native link click inside the rendered content navigating to another SPA-shell URL — the SPA's own `sg-iframe-theme` cookie (path = the mount) is consulted as a fallback so the visitor's toggle choice survives in-iframe navigation; an explicit `?theme=` always wins over the cookie. Also accepts `?variant=<id>` (`<id>` matching `[a-z0-9-]+`) to render `styleguide.<id>.twig` instead of the default `styleguide.twig`, for `component`/`page`/`doc` kinds — see `docs/API.md` § Component Twig file conventions. Query-only, no cookie fallback: an absent, invalid, or unknown (deleted/renamed) variant silently falls back to the default `styleguide.twig` → `<slug>.twig` chain rather than 404ing, so a bookmarked deep link to a removed variant keeps working. Composes independently with `?theme=`. |
@@ -592,6 +644,7 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 | `/styleguide/api/docs` | JSON | List of doc entries — same shape as pages; `[]` when `templates/doc/` is absent |
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
 | `/styleguide/api/health` | JSON | Parse-resilience diagnostics — see [API](#api) below |
+| `/styleguide/api/source/<kind>/<slug>` | JSON | Fixture source of one preview (`?variant=<id>` for a variant tile). Answers only while `show_source` is on — see *Showing the fixture source* |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
 
 \* Same whitelist/fallback rules as the render-endpoint row above (`^[a-z0-9-]+$`, unknown/removed values fall back to the default rather than 404ing); `Router::synthesizeEmbeddedRoute()` forwards the SPA-shell's `?variant=` across the iframe-embed swap so the preview and the deep link agree.
@@ -602,7 +655,7 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 
 ## API
 
-Five read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
+Five read-only catalogue endpoints under `/styleguide/api/*`, plus the opt-in `/api/source` below. The five return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
 
 The SPA consumes all five (`frontend/src/stores/catalog.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
 
@@ -693,6 +746,26 @@ Unlike the four endpoints above, the response is an **object**, not a bare array
 }
 ```
 
+### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]`
+
+The fixture file behind one preview — `styleguide.<id>.twig`, or `styleguide.twig` without a variant — without its leading `{# … #}` annotation. Response: `{ kind, slug, variant, file, source }`. `404` when the entry or variant has no fixture file. Off by default on a public catalogue; see *Showing the fixture source* below. Full contract: `docs/API.md` § JSON API endpoints.
+
+### Showing the fixture source
+
+Each variant tile gets a **Kód / Code** toggle that shows the fixture file which rendered it, with a copy button; an isolated tile shows the same in a drawer under the toolbar. The source is what a developer copies: the component call with its sample data.
+
+`show_source` in `styleguide.yaml` decides whether the catalogue shows it:
+
+| `show_source` | Result |
+|---|---|
+| absent | on when the `auth` constructor callable is set, off otherwise |
+| `true` | on |
+| `false`, or any value that is not a boolean | off |
+
+The default treats a catalogue without an `auth` callable as public. A public catalogue does not publish its templates unless it says so. **The Symfony bundle cannot set `auth`** (the host's firewall guards the catalogue, see *Symfony bundle*), so a bundle host that wants the toggle writes `show_source: true`. So does a library-mode catalogue behind HTTP Basic Auth or a VPN.
+
+Off, the toggle is not rendered and `/api/source` answers `404` like an unknown endpoint: the source never reaches the browser.
+
 ### Caching
 
 Every endpoint sets `Cache-Control: no-cache`. Responses are recomputed per request because the underlying source (YAML in `.twig` files) changes during dev and there's no invalidation signal. The work is a filesystem walk + one YAML parse per file — acceptable even for large component libraries.
@@ -774,7 +847,7 @@ vendor/bin/styleguide lint --type=component       # scan just one type
 vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
 ```
 
-Reports ten issue types: templates with no parseable `name:` (dropped from
+Reports eleven issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
 the renderer never reads (`dead-styleguide-content` — see *Fixtures &
 sample data* below), `usage:` references to ids that don't exist
@@ -789,7 +862,9 @@ it changes nothing; tailwind-base ADR-0007), and catalogue entries that nothing 
 (`no-fixture`, informational only — no `styleguide.twig`, no variant sibling
 and no `styleguide:` key, so the entry shows an empty frame and no visual or
 behavioural test can reach it; `kind: utility` is exempt, since a utility has
-no stable appearance to pin), and ignore-list entries that no longer match
+no stable appearance to pin), `variants_order:` ids with no
+`styleguide.<id>.twig` next to them, or a value that is not a list
+(`unknown-variants-order` — the runtime skips them silently), and ignore-list entries that no longer match
 anything (`stale-ignore`, informational only — see *Ignoring expected
 findings* below).
 
@@ -1029,6 +1104,7 @@ fields:
 | `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/src/stores/catalog.js`. Unknown labels never get dropped, they fall into a default bucket. |
 | `weight` | sort order within a bucket (lower = earlier; default `50`) |
 | `usage` | authored as comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view); normalized to an array by the parser — drives the cross-reference chip panel |
+| `aliases` | other names the ⌘K palette and the sidebar filter find the entry by — see *Search aliases* below |
 | `description` | sidebar tooltip + overview cards |
 | `fields` | `/api/fields` endpoint + the Fields inspector view |
 | `asana` | external link chip — Asana task URL |
@@ -1039,7 +1115,18 @@ fields:
 | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for fixed-layout demos where resizing has no meaning. **Ignored for `doc` templates** — a doc page is prose, not a widget, so `responsive` is always forced to `false` there regardless of this key |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below. For `doc` templates the global `iframe.body_class` is skipped entirely, so this per-entry key is the only body class that ever applies |
+| `variants_order` | order of the variant tiles: the listed ids first, the rest by file name — see *File-convention variants* below |
 | `variants` | **legacy fallback** map of display titles (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files, keyed by id — prefer a `title:`/`description:` annotation in the sibling file itself; see *File-convention variants* below |
+
+**Search aliases.** `aliases:` lists other names an entry is found by — the source catalogue's layout numbers, an old name, a client's word for it. A plain string opens the entry. A map with `variant` opens that variant tile:
+
+```yaml
+aliases:
+  - "Hero banner"
+  - { name: "Layout 238", variant: image-side }
+```
+
+The ⌘K palette shows each matching alias as a second line under the entry name, and gives every variant alias its own row. The sidebar filter shows the first matching alias the same way. A `variant` that names no `styleguide.<id>.twig` sibling opens the entry instead. The `<id>.yaml` sidecar takes the same key. `lint` does not flag it, and versions before it ignore it.
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 
@@ -1118,6 +1205,24 @@ title: "Secondary style"
 
 Metadata lives next to the markup it describes instead of a centralised map you'd otherwise have to keep in sync by id as variants are added, renamed, or removed.
 
+**The default tile's title.** `styleguide.twig` takes the same annotation. Its `title:` labels the default tile (since 1.24.0); without one the tile reads "Default" / "Výchozí":
+
+```twig
+{# styleguide.twig #}
+{#
+title: "Layout 238"
+#}
+<div class="hero">…</div>
+```
+
+**Tile order — `variants_order:`.** The tiles follow the file names. To put some first, list their ids in the component's own metadata (front comment or `<id>.yaml`, since 1.24.0):
+
+```yaml
+variants_order: [image-side, image-top]
+```
+
+The listed ids come first, in that order; the rest follow by file name. The default tile stays first. An id with no `styleguide.<id>.twig` is skipped at runtime, and `lint` reports it as `unknown-variants-order`.
+
 **Legacy fallback — the `variants:` map.** Templates written before per-sibling annotations existed (or not yet migrated) can still supply titles/descriptions from the component's own front comment, keyed by variant id — either a plain string, or a map with an optional `description` too:
 
 ```twig
@@ -1133,7 +1238,11 @@ variants:
 
 (`label:` is also accepted in the map as a legacy alias for `title:` — `title:` wins when both are present.) A sibling's own annotation always wins over its map entry when both exist; an id with no annotation falls back to the map, then to the id itself.
 
-An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`. The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
+An entry with no matching file is ignored — the filesystem is always the source of truth for which variants exist. `<variant>` must match `[a-z0-9-]+`.
+
+**Deep link to one tile.** `/styleguide/component/<slug>?variant=<id>` opens that tile isolated. Clicking a tile header writes the same URL and adds a browser history entry, so Back returns to the grid and Forward isolates the tile again. An unknown id opens the full grid, without an error. The default tile has no id, so it has no deep link of its own.
+
+The render endpoint itself (`/styleguide/render/component/<slug>`) is unaffected by any of this SPA chrome: with no `?variant=` it renders the single default `styleguide.twig` body, exactly as it always has; `?variant=<id>` isolates that one block; an unknown or since-deleted variant silently falls back to the default body instead of 404ing.
 
 **All named, no bare default.** `styleguide.twig` itself is optional — a component can ship *only* named variant siblings, with every variant a first-class entry and no implicit "Default":
 

@@ -5,9 +5,10 @@ import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useThemeStore } from '../stores/theme.js';
-import { filterItems } from '../lib/searchMatch.js';
+import { filterItems, matchedAlias } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
+import { groupPagesByCategory } from '../lib/pageGroups.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
 // Read directly rather than `import { config } from '../main.js'`: main.js
 // -> App.vue -> Sidebar.vue is already an import chain, so pulling `config`
@@ -85,10 +86,12 @@ function isActive(type, slug) {
     return info.type === type && info.slug === slug;
 }
 
-function select(type, slug) {
+// `variant` comes from a search hit on an alias that names a variant tile
+// (see searchAlias() below); every other caller leaves it out.
+function select(type, slug, variant = null) {
     // Sectionless URLs (`/overview`, `/foundations`) don't carry a slug.
     const path = slug ? `/${type}/${slug}` : `/${type}`;
-    router.push(path);
+    router.push(variant ? { path, query: { variant } } : path);
     // On small screens the sidebar is a slide-over overlay covering the
     // preview — close it after a pick so the chosen item is visible.
     // No-op on desktop where the sidebar is a persistent column.
@@ -101,8 +104,28 @@ function items(section) {
     return filterItems(catalog.bySection(section), ui.searchQuery);
 }
 
+// The alias that made a search hit, shown under the name: a hit by name
+// needs no second line, a hit by "Layout 238" does.
+function searchAlias(item) {
+    return matchedAlias(item, ui.searchQuery);
+}
+
 const docItems = computed(() => filterItems(catalog.docEntries, ui.searchQuery));
 const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_styleguide !== false), ui.searchQuery));
+
+// `pages.group_by: category` in styleguide.yaml (#sg-config `pagesGroupBy`):
+// the Pages section lists one collapsible group per category instead of the
+// prefix tree. Read from the payload like `hasIcons`, so an older server (no
+// key) keeps today's list.
+const groupPagesBy = config.pagesGroupBy === 'category' ? 'category' : null;
+const pageGroups = computed(() => (groupPagesBy === 'category'
+    ? groupPagesByCategory(catalog.pages.filter((p) => p.has_styleguide !== false), i18n.t('sections.pages_other'))
+    : []));
+// Namespaced so a category can never share its open state with a prefix-tree
+// group of the same label (both live under the `pages` section).
+function categoryGroupKey(group) {
+    return `category:${group.key}`;
+}
 
 </script>
 
@@ -238,9 +261,17 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                             <span>{{ i18n.t('nav.overview') }}</span>
                         </a>
                     </li>
+                    <!-- The overview grid (1.24.0): every entry as a live
+                         preview tile, next to the Overview index. -->
+                    <li>
+                        <a href="#" data-testid="sidebar-grid-link" @click.prevent="select('grid', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('grid', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                            <span>{{ i18n.t('nav.grid') }}</span>
+                        </a>
+                    </li>
                     <li v-for="item in docItems" :key="item.id">
-                        <a href="#" @click.prevent="select('doc', item.id)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('doc', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                        <a href="#" @click.prevent="select('doc', item.id, searchAlias(item)?.variant)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('doc', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ item.name }}</span>
+                            <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
                         </a>
                     </li>
                 </ul>
@@ -283,11 +314,12 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                     <li v-for="item in (ui.searchQuery ? items(section) : [])" :key="'s:' + item.id">
                         <a
                             href="#"
-                            @click.prevent="select('component', item.id)"
+                            @click.prevent="select('component', item.id, searchAlias(item)?.variant)"
                             class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('component', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
                             <span>{{ item.name ?? item.id }}</span>
+                            <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
                         </a>
                     </li>
                     <!-- Otherwise: prefix tree (groups >= 3, suffix-only children). -->
@@ -349,15 +381,38 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                     <li v-for="page in (ui.searchQuery ? pageItems : [])" :key="'s:' + page.id">
                         <a
                             href="#"
-                            @click.prevent="select('page', page.id)"
+                            @click.prevent="select('page', page.id, searchAlias(page)?.variant)"
                             class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('page', page.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
                             <span>{{ page.name ?? page.id }}</span>
+                            <span v-if="searchAlias(page)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(page).name }}</span>
                         </a>
                     </li>
+                    <!-- `pages.group_by: category`: one collapsible group per
+                         category, lowest weight first, uncategorised last. -->
+                    <li v-for="group in (ui.searchQuery ? [] : pageGroups)" :key="'c:' + group.key" data-testid="sidebar-page-group">
+                        <button @click="toggleGroup('pages', categoryGroupKey(group))" :aria-expanded="isGroupOpen('pages', categoryGroupKey(group), group.items) ? 'true' : 'false'" class="w-full flex items-center px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
+                            <span class="font-medium">{{ group.label }}</span>
+                            <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold">{{ group.items.length }}</span>
+                        </button>
+                        <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: isGroupOpen('pages', categoryGroupKey(group), group.items) ? '1fr' : '0fr' }" :inert="!isGroupOpen('pages', categoryGroupKey(group), group.items)">
+                        <ul class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 overflow-hidden">
+                            <li v-for="page in group.items" :key="page.id">
+                                <a
+                                    href="#"
+                                    @click.prevent="select('page', page.id)"
+                                    class="block px-3 py-1.5 text-[13px] rounded-lg transition-colors"
+                                    :class="isActive('page', page.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
+                                >
+                                    <span>{{ page.name ?? page.id }}</span>
+                                </a>
+                            </li>
+                        </ul>
+                        </div>
+                    </li>
                     <!-- Otherwise: prefix tree (groups >= 3 by name, suffix-only children) — same as component sections. -->
-                    <li v-for="node in (ui.searchQuery ? [] : catalog.pagesTree)" :key="node.type === 'group' ? 'g:' + node.label : 'i:' + node.item.id">
+                    <li v-for="node in (ui.searchQuery || groupPagesBy ? [] : catalog.pagesTree)" :key="node.type === 'group' ? 'g:' + node.label : 'i:' + node.item.id">
                         <a
                             v-if="node.type === 'item'"
                             href="#"

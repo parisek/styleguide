@@ -14,7 +14,9 @@ function makeRouter() {
         routes: [
             { path: '/', name: 'landing', component: { template: '<div/>' } },
             { path: '/component/:slug', name: 'component', component: { template: '<div/>' } },
+            { path: '/page/:slug', name: 'page', component: { template: '<div/>' } },
             { path: '/overview', name: 'overview', component: { template: '<div/>' } },
+            { path: '/grid', name: 'grid', component: { template: '<div/>' } },
             { path: '/foundations', name: 'foundations', component: { template: '<div/>' } },
             { path: '/icons', name: 'icons', component: { template: '<div/>' } },
             { path: '/fields', name: 'fields', component: { template: '<div/>' } },
@@ -51,7 +53,7 @@ async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
     catalog.pages = [{ id: 'homepage', name: 'Homepage', has_styleguide: true }];
     catalog.docs = [];
     catalog.loading = false;
-    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+    useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', grid: 'Previews', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
     const router = makeRouter();
     await router.push(initialPath);
@@ -113,6 +115,31 @@ describe('Sidebar', () => {
         await flushPromises();
         expect(router.currentRoute.value.fullPath).toBe('/component/gizmo');
         expect(ui.sidebarOpen).toBe(false);
+    });
+
+    it('finds a component by an alias, shows the alias under its name and opens the aliased tile', async () => {
+        const { wrapper, router } = await mountSidebar();
+        useCatalogStore().items[3].aliases = [{ name: 'Layout 238', variant: 'secondary' }];
+        const ui = useUiStore();
+        ui.searchQuery = 'layout 238';
+        await wrapper.vm.$nextTick();
+
+        const alias = wrapper.find('[data-testid="sidebar-search-alias"]');
+        expect(alias.text()).toBe('Layout 238');
+        const link = alias.element.closest('a');
+        expect(link.textContent).toContain('Gizmo');
+        link.click();
+        await flushPromises();
+        expect(router.currentRoute.value.path).toBe('/component/gizmo');
+        expect(router.currentRoute.value.query.variant).toBe('secondary');
+    });
+
+    it('shows no alias line for a hit by name', async () => {
+        const { wrapper } = await mountSidebar();
+        useCatalogStore().items[3].aliases = [{ name: 'Gizmo classic', variant: null }];
+        useUiStore().searchQuery = 'gizmo';
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="sidebar-search-alias"]').exists()).toBe(false);
     });
 
     it('flattens the Widget group to full names while a search query is active', async () => {
@@ -183,6 +210,17 @@ describe('Sidebar', () => {
         const favicon = wrapper.find('#sg-favicon');
         await favicon.trigger('error');
         expect(favicon.attributes('src')).toBe(GENERIC_FAVICON);
+    });
+
+    it('links to the overview grid next to Overview and marks it active on /grid', async () => {
+        const { wrapper, router } = await mountSidebar('/grid');
+        const link = wrapper.find('[data-testid="sidebar-grid-link"]');
+        expect(link.classes()).toContain('bg-red-600/10');
+        await router.push('/foundations');
+        await wrapper.vm.$nextTick();
+        const pushSpy = vi.spyOn(router, 'push');
+        await link.trigger('click');
+        expect(pushSpy).toHaveBeenCalledWith('/grid');
     });
 
     it('marks the Overview nav item active when on /overview', async () => {
@@ -260,7 +298,7 @@ describe('Sidebar', () => {
         catalog.pages = [];
         catalog.docs = [];
         catalog.loading = true;
-        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
+        useI18nStore().strings = { nav: { docs: 'Docs', overview: 'Overview', grid: 'Previews', foundations: 'Foundations', icons: 'Icons', fields: 'Fields', styleguide: 'Styleguide' }, sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' }, search: { label: 'Search', placeholder: 'Search...' } };
 
         const router = makeRouter();
         await router.push('/foundations');
@@ -287,6 +325,65 @@ describe('Sidebar', () => {
         const basicSectionAfter = basicButton.element.closest('div');
         expect(basicSectionAfter.style.display).not.toBe('none');
         expect(wrapper.text()).toContain('Gizmo');
+    });
+});
+
+describe('Sidebar — pages grouped by category', () => {
+    const groupedPages = [
+        { id: 'home', name: 'Home', category: 'Marketing', weight: 10, has_styleguide: true },
+        { id: 'boat', name: 'Boat detail', category: 'Catalogue', weight: 20, has_styleguide: true },
+        { id: 'about', name: 'About', category: 'Marketing', weight: 30, has_styleguide: true },
+        { id: 'legal', name: 'Legal', category: '', weight: 5, has_styleguide: true },
+    ];
+
+    async function mountWithPages(configOverrides) {
+        stubSgConfig(configOverrides);
+        const result = await mountSidebar('/foundations');
+        const catalog = useCatalogStore();
+        catalog.pages = groupedPages;
+        useI18nStore().strings.sections.pages_other = 'Other';
+        // Open the Pages section (collapsed by default).
+        await result.wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Pages').trigger('click');
+        await result.wrapper.vm.$nextTick();
+        return result;
+    }
+
+    function groupLabels(wrapper) {
+        return wrapper.findAll('[data-testid="sidebar-page-group"]').map((g) => g.find('button span').text());
+    }
+
+    it('keeps the flat page list without pagesGroupBy', async () => {
+        const { wrapper } = await mountWithPages({});
+        expect(wrapper.findAll('[data-testid="sidebar-page-group"]')).toHaveLength(0);
+        expect(wrapper.text()).toContain('Boat detail');
+    });
+
+    it('groups pages by category: lowest weight first, the default group last', async () => {
+        const { wrapper } = await mountWithPages({ pagesGroupBy: 'category' });
+        expect(groupLabels(wrapper)).toEqual(['Marketing', 'Catalogue', 'Other']);
+        const marketing = wrapper.findAll('[data-testid="sidebar-page-group"]')[0];
+        expect(marketing.findAll('li a').map((a) => a.text())).toEqual(['Home', 'About']);
+        expect(marketing.find('button').text()).toContain('2');
+    });
+
+    it('collapses a group on click and opens the page on a link click', async () => {
+        const { wrapper, router } = await mountWithPages({ pagesGroupBy: 'category' });
+        const toggle = wrapper.findAll('[data-testid="sidebar-page-group"]')[1].find('button');
+        expect(toggle.attributes('aria-expanded')).toBe('true');
+        await toggle.trigger('click');
+        expect(toggle.attributes('aria-expanded')).toBe('false');
+
+        const pushSpy = vi.spyOn(router, 'push');
+        await wrapper.findAll('[data-testid="sidebar-page-group"]')[0].find('li a').trigger('click');
+        expect(pushSpy).toHaveBeenCalledWith('/page/home');
+    });
+
+    it('shows flat full-name results while a search is active', async () => {
+        const { wrapper } = await mountWithPages({ pagesGroupBy: 'category' });
+        useUiStore().searchQuery = 'bo';
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('[data-testid="sidebar-page-group"]')).toHaveLength(0);
+        expect(wrapper.text()).toContain('Boat detail');
     });
 });
 

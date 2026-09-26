@@ -5,6 +5,8 @@ import PreviewView from './views/PreviewView.vue';
 import OverviewView from './views/OverviewView.vue';
 import FoundationsView from './views/FoundationsView.vue';
 import FieldsView from './views/FieldsView.vue';
+import GridView from './views/GridView.vue';
+import LandingView from './views/LandingView.vue';
 import { baseUrl } from './lib/runtimeConfig.js';
 
 // Route table mirrors frontend/router.js's regex exactly:
@@ -23,11 +25,15 @@ import { baseUrl } from './lib/runtimeConfig.js';
 // nested inside it. PreviewView only ever renders <PreviewPane/>, which
 // independently injects the same 'viewport' instance.
 const routes = [
-    { path: '/', name: 'landing', component: FoundationsView },
+    // LandingView renders Foundations, or the overview grid when
+    // styleguide.yaml sets `overview.default: grid` (#sg-config `landing`).
+    { path: '/', name: 'landing', component: LandingView },
     { path: '/component/:slug', name: 'component', component: PreviewView },
     { path: '/page/:slug', name: 'page', component: PreviewView },
     { path: '/doc/:slug', name: 'doc', component: PreviewView },
     { path: '/overview', name: 'overview', component: OverviewView },
+    // Every component and page as a live preview tile (1.24.0).
+    { path: '/grid', name: 'grid', component: GridView },
     { path: '/foundations', name: 'foundations', component: FoundationsView },
     // Standalone icon catalog (#87) — same full-bleed iframe view as
     // foundations; the iframe src derives from the route type in

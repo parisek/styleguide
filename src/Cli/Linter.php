@@ -546,6 +546,12 @@ final class Linter
             );
         }
 
+        if (array_key_exists('variants_order', $metadata)) {
+            foreach ($this->variantsOrderFindings($relPath, $twigPath, $metadata['variants_order']) as $finding) {
+                $findings[] = $finding;
+            }
+        }
+
         if (isset($metadata['usage'])) {
             foreach (ComponentParser::normaliseUsage($metadata['usage']) as $id) {
                 if (!isset($knownIds[$id])) {
@@ -556,6 +562,55 @@ final class Linter
                         sprintf('usage: references unknown id "%s".', $id),
                     );
                 }
+            }
+        }
+
+        return $findings;
+    }
+
+    /**
+     * `variants_order:` names variant ids. The runtime skips an id with no
+     * `styleguide.<id>.twig` sibling (ComponentParser::orderVariants()), so a
+     * renamed or deleted fixture leaves a stale id that nothing else reports.
+     * Resolved against the directory of the twig file walked, not of the
+     * metadata document, which may be the `<id>.yaml` next to it (same
+     * directory either way, but the twig path is the one the walk owns).
+     *
+     * @return list<LintFinding>
+     */
+    private function variantsOrderFindings(string $relPath, string $twigPath, mixed $order): array
+    {
+        if (is_string($order)) {
+            $order = [$order];
+        }
+        if (!is_array($order) || !array_is_list($order)) {
+            return [new LintFinding(
+                LintSeverity::Warning,
+                $relPath,
+                'unknown-variants-order',
+                '`variants_order:` must be a list of variant ids — the value is ignored and the tiles keep their file-name order.',
+            )];
+        }
+
+        $dir = \dirname($this->templatesPath . '/' . $twigPath);
+        $findings = [];
+        foreach ($order as $id) {
+            if (!is_string($id) || preg_match(ComponentParser::VARIANT_FILE_PATTERN, 'styleguide.' . $id . '.twig') !== 1) {
+                $findings[] = new LintFinding(
+                    LintSeverity::Warning,
+                    $relPath,
+                    'unknown-variants-order',
+                    sprintf('variants_order: "%s" is not a variant id — skipped.', is_scalar($id) ? (string) $id : gettype($id)),
+                );
+                continue;
+            }
+            if (!is_file($dir . '/styleguide.' . $id . '.twig')) {
+                $findings[] = new LintFinding(
+                    LintSeverity::Warning,
+                    $relPath,
+                    'unknown-variants-order',
+                    sprintf('variants_order: "%s" has no styleguide.%s.twig next to it — skipped.', $id, $id),
+                );
             }
         }
 

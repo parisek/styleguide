@@ -3,7 +3,8 @@
         "basic": "Základní prvky",
         "blocks": "Bloky",
         "gutenberg": "Gutenberg",
-        "pages": "Stránky"
+        "pages": "Stránky",
+        "pages_other": "Ostatní"
     },
     "toolbar": {
         "type_component": "Komponenta",
@@ -22,6 +23,7 @@
         "orientation_portrait": "Na výšku",
         "orientation_landscape": "Na šířku",
         "reload": "Znovu načíst",
+        "compare": "Zobrazit tyto šířky vedle sebe",
         "more_actions": "Další akce",
         "iframe_theme": "Přepnout tmavý režim v iframu",
         "variant_label": "Varianta",
@@ -57,6 +59,7 @@
         "styleguide": "Styleguide",
         "docs": "Dokumentace",
         "overview": "Přehled",
+        "grid": "Náhledy",
         "foundations": "Základy",
         "icons": "Ikony",
         "fields": "Pole",
@@ -69,6 +72,15 @@
         "pages": "Stránky",
         "components": "Komponenty",
         "used_in": "Použito v"
+    },
+    "grid": {
+        "title": "Všechny náhledy",
+        "subtitle": "Živý náhled každé komponenty a stránky. Kliknutím otevřete detail.",
+        "filter_all": "Vše",
+        "filter_placeholder": "Filtrovat…",
+        "filter_label": "Filtr náhledů",
+        "variants": "Varianty",
+        "empty": "Filtru nic neodpovídá."
     },
     "empty_state": "Vyberte komponentu v postranním panelu",
     "loading": "Načítám…",
@@ -97,5 +109,12 @@
     },
     "locale": {
         "switch": "Změnit jazyk"
+    },
+    "source": {
+        "toggle": "Kód",
+        "copy": "Kopírovat",
+        "copied": "Zkopírováno",
+        "loading": "Načítám…",
+        "unavailable": "K tomuto náhledu není zdrojový kód."
     }
 }

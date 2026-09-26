@@ -47,5 +47,17 @@ export default defineConfig({
             reuseExistingServer: !process.env.CI,
             timeout: 10_000,
         },
+        // The same fixture with the opt-in presentation keys on
+        // (`pages.group_by`, `overview.default`), for presentation.spec.js and
+        // grid.spec.js.
+        // SG_PRESENTATION is read by tests/fixtures/index.php.
+        {
+            command: 'php -S 127.0.0.1:8424 -t ../tests/fixtures ../tests/fixtures/index.php',
+            cwd: '.',
+            env: { SG_PRESENTATION: '1' },
+            url: 'http://127.0.0.1:8424/styleguide/',
+            reuseExistingServer: !process.env.CI,
+            timeout: 10_000,
+        },
     ],
 });

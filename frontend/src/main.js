@@ -13,6 +13,7 @@ import { useI18nStore } from './stores/i18n.js';
 import { useUiStore } from './stores/ui.js';
 import { useThemeStore } from './stores/theme.js';
 import { useCatalogStore } from './stores/catalog.js';
+import { routeInfo } from './lib/routeInfo.js';
 
 const config = readSpaConfig();
 // Every document-level consumer of the payload (favicon <link>, default
@@ -44,6 +45,9 @@ function syncTitle() {
     let label;
     if (route.name === 'overview') {
         label = i18n.t('nav.overview');
+    } else if (routeInfo(route).type === 'grid') {
+        // /grid, or the landing with `overview.default: grid`.
+        label = i18n.t('nav.grid');
     } else if (route.name === 'foundations' || route.name === 'landing') {
         label = i18n.t('nav.foundations');
     } else if (route.name === 'fields') {

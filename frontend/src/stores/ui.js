@@ -63,6 +63,10 @@ export const useUiStore = defineStore('ui', {
             // rows/grid toggle -- see migrateVariantColumnsKey() above for the
             // one-shot upgrade of a visitor's existing preference.
             variantColumns: usePersistedRef('sg-variant-columns', 'auto'),
+            // Compare mode: every `viewports.compare` width side by side.
+            // Session-only on purpose -- a persisted flag would switch the
+            // mode on for a catalogue whose next deploy dropped the widths.
+            compareActive: false,
         };
     },
     getters: {
@@ -146,6 +150,9 @@ export const useUiStore = defineStore('ui', {
         // numeric strings -- ViewportToolbar.vue's segmented buttons pass 1-4
         // as actual numbers, matching the type usePersistedRef round-trips
         // through JSON (JSON.parse('1') is the number 1, not "1").
+        toggleCompare() {
+            this.compareActive = !this.compareActive;
+        },
         setVariantColumns(value) {
             this.variantColumns = ['auto', 1, 2, 3, 4].includes(value) ? value : 'auto';
         },

@@ -47,6 +47,9 @@ final class RouterTest extends TestCase
         // /icons renders the standalone icon catalog in the iframe (#87).
         self::assertSame(['type' => 'icons'], Router::parse('/styleguide/icons'));
         self::assertSame(['type' => 'fields'], Router::parse('/styleguide/fields'));
+        // /grid: every entry as a live preview tile (1.24.0), SPA-only.
+        self::assertSame(['type' => 'grid'], Router::parse('/styleguide/grid'));
+        self::assertSame(['type' => 'grid', 'theme' => 'dark'], Router::parse('/styleguide/grid?theme=dark'));
     }
 
     #[Test]
@@ -112,6 +115,25 @@ final class RouterTest extends TestCase
         self::assertSame(['type' => 'api', 'endpoint' => 'fields'], Router::parse('/styleguide/api/fields'));
         self::assertSame(['type' => 'api', 'endpoint' => 'docs'], Router::parse('/styleguide/api/docs'));
         self::assertSame(['type' => 'api', 'endpoint' => 'health'], Router::parse('/styleguide/api/health'));
+    }
+
+    #[Test]
+    public function parses_the_source_endpoint_with_kind_slug_and_a_whitelisted_variant(): void
+    {
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'source', 'kind' => 'component', 'slug' => 'multi'],
+            Router::parse('/styleguide/api/source/component/multi'),
+        );
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'source', 'kind' => 'page', 'slug' => 'landing', 'variant' => 'dark-bg'],
+            Router::parse('/styleguide/api/source/page/landing?variant=dark-bg'),
+        );
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'source', 'kind' => 'component', 'slug' => 'multi'],
+            Router::parse('/styleguide/api/source/component/multi?variant=Bad_Id'),
+        );
+        // Other endpoints keep their shape: trailing segments and a query are ignored.
+        self::assertSame(['type' => 'api', 'endpoint' => 'components'], Router::parse('/styleguide/api/components/x/y?variant=a'));
     }
 
     #[Test]
@@ -300,6 +322,7 @@ final class RouterTest extends TestCase
                 ['type' => 'api', 'endpoint' => 'components'],
                 ['type' => 'overview'],
                 ['type' => 'fields'],
+                ['type' => 'grid'],
                 ['type' => 'landing'],
             ] as $route
         ) {

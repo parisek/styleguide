@@ -63,6 +63,14 @@ final class Styleguide
     private array $config;
     /** @var array<string, mixed> */
     private array $yamlConfig;
+    /** @var list<int>|null `viewports.compare`, validated; null when absent */
+    private ?array $compareWidths;
+
+    /** `pages.group_by`, validated; null when absent */
+    private ?string $pagesGroupBy;
+
+    /** `overview.default`, validated; 'foundations' when absent */
+    private string $landing;
     private Environment $twig;
     private ComponentParser $parser;
     private Renderer $renderer;
@@ -323,6 +331,9 @@ final class Styleguide
         $this->yamlConfig = is_file($config['config_yaml'])
             ? (array) Yaml::parseFile($config['config_yaml'])
             : [];
+        $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
+        $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
+        $this->landing = self::landing($this->yamlConfig['overview'] ?? null);
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
         // throwaway temp dir so writing a synthetic index.html fixture doesn't
@@ -3063,6 +3074,27 @@ final class Styleguide
             // source locale (`source_locale`) is included without a file.
             'locales' => $this->translationCatalog?->availableLocales() ?? [],
         ];
+        // Only when on, so the payload of a catalogue that never enables it
+        // is the same as before the key existed. The SPA shows the "Code"
+        // toggle from this flag; the API enforces it on its own.
+        if ($this->showSource()) {
+            $config['showSource'] = true;
+        }
+        // Same rule: only when configured. The SPA shows the compare button
+        // from this list and builds its label from it.
+        if ($this->compareWidths !== null) {
+            $config['compareWidths'] = $this->compareWidths;
+        }
+        // Same rule again: the sidebar groups pages by category only when
+        // asked.
+        if ($this->pagesGroupBy !== null) {
+            $config['pagesGroupBy'] = $this->pagesGroupBy;
+        }
+        // Only for the grid: a catalogue that lands on Foundations (the
+        // default, or written out) sends the same payload as before.
+        if ($this->landing === 'grid') {
+            $config['landing'] = 'grid';
+        }
         $configJson = json_encode(
             $config,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
@@ -3392,10 +3424,144 @@ final class Styleguide
     }
 
     /**
+     * The smallest and largest width the SPA's Custom width accepts
+     * (`CUSTOM_WIDTH_MIN`/`MAX` in frontend/src/lib/viewportMath.js). A
+     * compare width is held to the same range: a width the Custom input
+     * refuses is not one a preview can be rendered at either.
+     */
+    private const COMPARE_WIDTH_MIN = 100;
+    private const COMPARE_WIDTH_MAX = 4000;
+
+    /**
+     * `viewports.compare` in styleguide.yaml: 2–4 integer widths, shown side
+     * by side by the SPA's compare mode, in the order written. `null` when
+     * absent, which leaves the SPA exactly as before.
+     *
+     * A malformed `compare` throws at construction, like a malformed
+     * `bootstrap` key: dropping it quietly would leave the author looking for
+     * a button that never appears. A `viewports` that is not a map is left
+     * alone instead: top-level keys the package does not own pass through to
+     * the templates, so a project may already use the name for itself.
+     *
+     * @return list<int>|null
+     */
+    private static function compareWidths(mixed $viewports): ?array
+    {
+        if (!is_array($viewports) || array_is_list($viewports)) {
+            return null;
+        }
+        $compare = $viewports['compare'] ?? null;
+        if ($compare === null) {
+            return null;
+        }
+
+        $valid = is_array($compare)
+            && array_is_list($compare)
+            && count($compare) >= 2
+            && count($compare) <= 4;
+        foreach ($valid ? $compare : [] as $width) {
+            if (!is_int($width) || $width < self::COMPARE_WIDTH_MIN || $width > self::COMPARE_WIDTH_MAX) {
+                $valid = false;
+            }
+        }
+        if (!$valid) {
+            throw new \InvalidArgumentException(sprintf(
+                'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 integer widths between %d and %d, '
+                    . 'e.g. [1440, 768, 320]',
+                self::COMPARE_WIDTH_MIN,
+                self::COMPARE_WIDTH_MAX,
+            ));
+        }
+
+        /** @var list<int> $compare */
+        return $compare;
+    }
+
+    /**
+     * `pages.group_by` in styleguide.yaml: how the sidebar groups the page
+     * entries. `category` is the one value today; `null` (absent) keeps the
+     * flat list. Same rules as `viewports.compare`: an unknown value throws
+     * at construction, a `pages` that is not a map is left to the project.
+     */
+    private static function pagesGroupBy(mixed $pages): ?string
+    {
+        if (!is_array($pages) || array_is_list($pages)) {
+            return null;
+        }
+        $groupBy = $pages['group_by'] ?? null;
+        if ($groupBy === null) {
+            return null;
+        }
+        if ($groupBy !== 'category') {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `pages.group_by` accepts only "category" (or leave it out for a flat list)',
+            );
+        }
+
+        return $groupBy;
+    }
+
+    /**
+     * `overview.default` in styleguide.yaml: what the bare mount
+     * (`/styleguide/`) shows. `grid` lands on the overview grid of live
+     * previews; `foundations` (or absent) keeps Foundations. Same rules as
+     * `pages.group_by`: an unknown value throws at construction, an
+     * `overview` that is not a map is left to the project.
+     */
+    private static function landing(mixed $overview): string
+    {
+        if (!is_array($overview) || array_is_list($overview)) {
+            return 'foundations';
+        }
+        $default = $overview['default'] ?? null;
+        if ($default === null) {
+            return 'foundations';
+        }
+        if ($default !== 'grid' && $default !== 'foundations') {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `overview.default` accepts "grid" or "foundations" (or leave it out for Foundations)',
+            );
+        }
+
+        return $default;
+    }
+
+    /**
+     * Whether the catalogue shows the fixture source of a variant tile.
+     *
+     * `show_source:` in styleguide.yaml decides when it is a boolean. When
+     * the key is absent, the source is shown only behind the `auth`
+     * callable: a catalogue with no gate of its own is assumed public, and a
+     * public catalogue must not publish its templates by default. Any other
+     * value (a string, a number) turns it off — a typo fails closed.
+     *
+     * A host that guards the catalogue itself (the Symfony bundle, where
+     * `auth` cannot be set, or a web-server login) writes `show_source: true`.
+     */
+    private function showSource(): bool
+    {
+        if (!array_key_exists('show_source', $this->yamlConfig) || $this->yamlConfig['show_source'] === null) {
+            return is_callable($this->config['auth'] ?? null);
+        }
+
+        return $this->yamlConfig['show_source'] === true;
+    }
+
+    /**
      * @param array<string, mixed> $route
      */
     private function dispatchApi(array $route): Http\Result
     {
+        // With `show_source` off the route does not exist: no source reaches
+        // the browser, and the answer does not say that it could.
+        if ($route['endpoint'] === 'source' && $this->showSource()) {
+            return (new Api\SourceEndpoint($this->twig->getLoader()))->handle(
+                (string) ($route['kind'] ?? ''),
+                (string) ($route['slug'] ?? ''),
+                isset($route['variant']) ? (string) $route['variant'] : null,
+            );
+        }
+
         $endpoint = match ($route['endpoint']) {
             'components' => new Api\ComponentsEndpoint($this->parser),
             'docs' => new Api\DocsEndpoint($this->parser),
@@ -3407,7 +3573,7 @@ final class Styleguide
 
         if ($endpoint === null) {
             // Note the asymmetry, carried over deliberately: the 404 sends
-            // Content-Type but NOT Cache-Control, where the five endpoints send
+            // Content-Type but NOT Cache-Control, where the catalogue endpoints send
             // both. Result::json() would add the second header and change the
             // response, so this one is built by hand.
             return Http\Result::text(

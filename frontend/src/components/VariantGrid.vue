@@ -26,10 +26,22 @@ import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
 import { entryScrolls } from '../lib/previewHeight.js';
+import { showSource } from '../lib/runtimeConfig.js';
+import SourcePanel from './SourcePanel.vue';
+import CompareStrip from './CompareStrip.vue';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
 const viewport = inject('viewport');
+
+// Per-tile "Code" toggle: shown only when the server allows the source
+// (`showSource` in #sg-config). Open state is keyed like the tile itself,
+// so it does not carry over to a same-named tile of another entry.
+const sourceEnabled = showSource();
+const openSources = reactive({});
+function toggleSource(tile) {
+    openSources[tile.key] = !openSources[tile.key];
+}
 
 // Tile list: the implicit default fixture first (no `?variant=` in its
 // render URL), then every discovered variant record in the same
@@ -51,7 +63,10 @@ const tiles = computed(() => {
     if (!item) return [];
     const variants = item.variants ?? [];
     const defaultTile = item.has_default_variant !== false
-        ? [{ id: null, label: i18n.t('toolbar.variant_default'), description: '' }]
+        // `default_variant_title` (1.24.0): the `title:` of styleguide.twig's
+        // own front comment; '' (or an older server without the field)
+        // keeps the fixed label.
+        ? [{ id: null, label: item.default_variant_title || i18n.t('toolbar.variant_default'), description: '' }]
         : [];
     return [
         ...defaultTile,
@@ -202,7 +217,14 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
 // presets settle on a different per-row tile count on the same canvas
 // instead of always packing to one fixed basis. An exact 1-4 sets the
 // column count directly, ignoring the preset entirely.
+// Compare mode composes with the grid: every tile shows its own strip of
+// widths (CompareStrip.vue, lazy iframes). A strip needs the full canvas
+// width, so the grid drops to one tile per row and the density control
+// stands aside.
+const compare = computed(() => viewport.compareActive.value);
+
 const gridTemplateColumns = computed(() => {
+    if (compare.value) return 'minmax(0, 1fr)';
     const columns = ui.variantColumns;
     if (columns === 'auto') {
         const basis = autoGridColumnBasis(viewport.effective.value.width);
@@ -225,7 +247,9 @@ function isolateTile(tile) {
 // single preview's own dimensionsLabel already uses. `immediate: true` so
 // the toolbar has a value from this component's very first render, not
 // just after the first reactive change.
-watch(() => renderTiles.value[0]?.geometry.zoom ?? null, (zoom) => {
+// In compare mode each strip column has its own zoom (shown in its caption),
+// so there is no one grid zoom to report.
+watch(() => (compare.value ? null : renderTiles.value[0]?.geometry.zoom ?? null), (zoom) => {
     viewport.setGridZoom(zoom);
 }, { immediate: true });
 
@@ -300,8 +324,12 @@ onBeforeUnmount(() => {
                      project's own .twig front-comment, never visitor input).
                      Clickable (mouse + keyboard) for every tile EXCEPT the
                      Default one -- see `clickable`'s comment above. -->
+                <!-- Header row: the clickable label area, plus the optional
+                     "Code" toggle as its sibling -- a button nested inside
+                     the role=button header would be two controls in one. -->
+                <div class="flex items-start border-b border-zinc-200 dark:border-zinc-800 shrink-0 min-w-0">
                 <div data-testid="variant-tile-header"
-                     class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 shrink-0 flex items-start gap-2"
+                     class="px-3 py-2 flex-1 min-w-0 flex items-start gap-2"
                      :class="tile.clickable ? 'cursor-pointer group' : ''"
                      :role="tile.clickable ? 'button' : undefined"
                      :tabindex="tile.clickable ? 0 : undefined"
@@ -331,13 +359,31 @@ onBeforeUnmount(() => {
                         <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
                     </svg>
                 </div>
+                <button v-if="sourceEnabled" type="button"
+                        data-testid="variant-tile-code-toggle"
+                        @click="toggleSource(tile)"
+                        :aria-pressed="openSources[tile.key] ? 'true' : 'false'"
+                        :aria-label="`${i18n.t('source.toggle')}: ${tile.label}`"
+                        class="shrink-0 m-1.5 px-2 h-6 rounded text-[11px] font-semibold uppercase tracking-wide transition-colors"
+                        :class="openSources[tile.key] ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800'">{{ i18n.t('source.toggle') }}</button>
+                </div>
                 <!-- Content-area wrapper: stable across a fluid<->scaled swap
                      (only its CHILDREN toggle via v-if below) so the
                      ResizeObserver registered on it keeps reporting this
-                     tile's cell width regardless of which mode is active. -->
+                     tile's cell width regardless of which mode is active.
+                     `relative` anchors the source overlay; while it is open
+                     the cell keeps room for a few lines of code even when
+                     the preview itself is short. -->
                 <div :ref="(el) => registerCell(tile.key, el)"
-                     class="bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
-                     :class="tile.geometry.fluid ? '' : 'flex justify-center p-3'">
+                     class="relative bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
+                     :class="[compare ? 'p-3' : (tile.geometry.fluid ? '' : 'flex justify-center p-3'), openSources[tile.key] ? 'min-h-64' : '']">
+                    <SourcePanel v-if="openSources[tile.key]"
+                                 class="absolute inset-0 z-10"
+                                 :type="viewport.type.value" :slug="viewport.slug.value" :variant="tile.id" />
+                    <CompareStrip v-if="compare"
+                                  :src="tile.src"
+                                  :widths="viewport.compareWidths"
+                                  :scrolls="entryScrolls(viewport.currentItem.value)" />
                     <!-- Full preset: fluid tile, no scaling -- iframe width
                          tracks the cell via `w-full`, height is content-fit.
                          `:key="tile.src"` remounts the iframe whenever the
@@ -346,7 +392,7 @@ onBeforeUnmount(() => {
                          flash-free-navigation fix as PreviewPane.vue's
                          single iframe; a patched src keeps painting the OLD
                          document until the new one loads. -->
-                    <iframe v-if="tile.geometry.fluid"
+                    <iframe v-else-if="tile.geometry.fluid"
                             :key="tile.src"
                             :src="tile.src"
                             class="w-full border-0 block bg-white"

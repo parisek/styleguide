@@ -8,6 +8,23 @@ beforeEach(() => {
     setActivePinia(createPinia());
 });
 
+describe('compare mode', () => {
+    it('starts off and toggles', () => {
+        const ui = useUiStore();
+        expect(ui.compareActive).toBe(false);
+        ui.toggleCompare();
+        expect(ui.compareActive).toBe(true);
+        ui.toggleCompare();
+        expect(ui.compareActive).toBe(false);
+    });
+
+    it('is not persisted: a reload starts without it', () => {
+        useUiStore().toggleCompare();
+        setActivePinia(createPinia());
+        expect(useUiStore().compareActive).toBe(false);
+    });
+});
+
 describe('useUiStore', () => {
     it('defaults previewWidth to 100% (Full)', () => {
         expect(useUiStore().previewWidth).toBe('100%');

@@ -228,4 +228,59 @@ describe('SearchPalette', () => {
         expect(matched.exists()).toBe(true);
         expect(matched.text().toLowerCase()).toBe('gizmo');
     });
+
+    describe('aliases', () => {
+        async function openWithAliases() {
+            const result = await mountPalette();
+            useCatalogStore().items[0].aliases = [
+                { name: 'Víceúčelový blok', variant: null },
+                { name: 'Layout 238', variant: 'secondary' },
+            ];
+            pressKey('k', { metaKey: true });
+            await flushPromises();
+            return result;
+        }
+
+        it('shows the alias as a secondary line under the entry name', async () => {
+            ({ wrapper } = await openWithAliases());
+            await wrapper.find('input').setValue('layout 238');
+            await flushPromises();
+
+            const rows = wrapper.findAll('[role="option"]');
+            expect(rows).toHaveLength(1);
+            expect(rows[0].find('[data-testid="search-row-name"]').text()).toBe('Multi');
+            expect(rows[0].find('[data-testid="search-row-alias"]').text()).toBe('Layout 238');
+        });
+
+        it('a variant alias opens that tile', async () => {
+            let router;
+            ({ wrapper, router } = await openWithAliases());
+            await wrapper.find('input').setValue('layout');
+            await flushPromises();
+            pressKey('Enter');
+            await flushPromises();
+            expect(router.currentRoute.value.path).toBe('/component/multi');
+            expect(router.currentRoute.value.query.variant).toBe('secondary');
+        });
+
+        it('a plain alias opens the entry without a variant', async () => {
+            let router;
+            ({ wrapper, router } = await openWithAliases());
+            await wrapper.find('input').setValue('viceucelovy');
+            await flushPromises();
+            expect(wrapper.find('[data-testid="search-row-alias"]').text()).toBe('Víceúčelový blok');
+            pressKey('Enter');
+            await flushPromises();
+            expect(router.currentRoute.value.path).toBe('/component/multi');
+            expect(router.currentRoute.value.query.variant).toBeUndefined();
+        });
+
+        it('a hit by name has no alias line', async () => {
+            ({ wrapper } = await openWithAliases());
+            await wrapper.find('input').setValue('multi');
+            await flushPromises();
+            expect(wrapper.findAll('[role="option"]')).toHaveLength(1);
+            expect(wrapper.find('[data-testid="search-row-alias"]').exists()).toBe(false);
+        });
+    });
 });

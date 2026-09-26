@@ -3,7 +3,8 @@
         "basic": "Basic elements",
         "blocks": "Blocks",
         "gutenberg": "Gutenberg",
-        "pages": "Pages"
+        "pages": "Pages",
+        "pages_other": "Other"
     },
     "toolbar": {
         "type_component": "Component",
@@ -22,6 +23,7 @@
         "orientation_portrait": "Portrait",
         "orientation_landscape": "Landscape",
         "reload": "Reload",
+        "compare": "Show these widths side by side",
         "more_actions": "More actions",
         "iframe_theme": "Toggle iframe dark mode",
         "variant_label": "Variant",
@@ -57,6 +59,7 @@
         "styleguide": "Styleguide",
         "docs": "Documentation",
         "overview": "Overview",
+        "grid": "Previews",
         "foundations": "Foundations",
         "icons": "Icons",
         "fields": "Fields",
@@ -69,6 +72,15 @@
         "pages": "Pages",
         "components": "Components",
         "used_in": "Used in"
+    },
+    "grid": {
+        "title": "All previews",
+        "subtitle": "A live preview of every component and page. Click one to open it.",
+        "filter_all": "All",
+        "filter_placeholder": "Filter…",
+        "filter_label": "Filter previews",
+        "variants": "Variants",
+        "empty": "Nothing matches the filter."
     },
     "empty_state": "Select a component in the sidebar",
     "loading": "Loading…",
@@ -97,5 +109,12 @@
     },
     "locale": {
         "switch": "Change language"
+    },
+    "source": {
+        "toggle": "Code",
+        "copy": "Copy",
+        "copied": "Copied",
+        "loading": "Loading…",
+        "unavailable": "No source for this preview."
     }
 }

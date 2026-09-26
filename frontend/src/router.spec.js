@@ -14,6 +14,7 @@ describe('router deep links', () => {
         ['/page/homepage', 'page'],
         ['/doc/sample-doc', 'doc'],
         ['/overview', 'overview'],
+        ['/grid', 'grid'],
         ['/foundations', 'foundations'],
         ['/icons', 'icons'],
         ['/fields', 'fields'],
