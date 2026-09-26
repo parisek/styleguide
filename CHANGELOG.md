@@ -82,7 +82,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   like an unknown one, so no source reaches the browser. **Symfony bundle
   hosts** cannot set `auth` and write `show_source: true` once their firewall
   guards the catalogue. Nothing changes for an existing catalogue that sets
-  neither key.
+  neither key. The rule and the alternatives weighed are in
+  [ADR-0006](docs/adr/0006-show-source-off-unless-gated.md).
 
 ### Changed
 
