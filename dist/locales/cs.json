@@ -97,5 +97,12 @@
     },
     "locale": {
         "switch": "Změnit jazyk"
+    },
+    "source": {
+        "toggle": "Kód",
+        "copy": "Kopírovat",
+        "copied": "Zkopírováno",
+        "loading": "Načítám…",
+        "unavailable": "K tomuto náhledu není zdrojový kód."
     }
 }

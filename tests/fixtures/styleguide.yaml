@@ -1,3 +1,7 @@
+# The e2e suite exercises the "Code" toggle. A real public catalogue leaves
+# this out: without an `auth` callable the source is off by default.
+show_source: true
+
 project:
   # Hostile suffix (#78) — project.name/description reach foundations.twig's
   # header (`{{ styleguide.project.name|e }}` / `…description|e`) unescaped

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL } from './runtimeConfig.js';
+import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource } from './runtimeConfig.js';
 
 function inject(payload) {
     const el = document.createElement('script');
@@ -48,5 +48,21 @@ describe('runtimeConfig', () => {
         document.body.innerHTML = '';
         inject({ baseUrl: '/two' });
         expect(baseUrl()).toBe('/one');
+    });
+});
+
+describe('showSource', () => {
+    it('is true only for a literal true in the payload', () => {
+        inject({ showSource: true });
+        expect(showSource()).toBe(true);
+    });
+
+    it.each([[undefined], [false], ['true'], [1]])('is false for %s', (value) => {
+        inject({ showSource: value });
+        expect(showSource()).toBe(false);
+    });
+
+    it('is false without a payload', () => {
+        expect(showSource()).toBe(false);
     });
 });

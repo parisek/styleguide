@@ -26,10 +26,21 @@ import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
 import { entryScrolls } from '../lib/previewHeight.js';
+import { showSource } from '../lib/runtimeConfig.js';
+import SourcePanel from './SourcePanel.vue';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
 const viewport = inject('viewport');
+
+// Per-tile "Code" toggle: shown only when the server allows the source
+// (`showSource` in #sg-config). Open state is keyed like the tile itself,
+// so it does not carry over to a same-named tile of another entry.
+const sourceEnabled = showSource();
+const openSources = reactive({});
+function toggleSource(tile) {
+    openSources[tile.key] = !openSources[tile.key];
+}
 
 // Tile list: the implicit default fixture first (no `?variant=` in its
 // render URL), then every discovered variant record in the same
@@ -300,8 +311,12 @@ onBeforeUnmount(() => {
                      project's own .twig front-comment, never visitor input).
                      Clickable (mouse + keyboard) for every tile EXCEPT the
                      Default one -- see `clickable`'s comment above. -->
+                <!-- Header row: the clickable label area, plus the optional
+                     "Code" toggle as its sibling -- a button nested inside
+                     the role=button header would be two controls in one. -->
+                <div class="flex items-start border-b border-zinc-200 dark:border-zinc-800 shrink-0 min-w-0">
                 <div data-testid="variant-tile-header"
-                     class="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 shrink-0 flex items-start gap-2"
+                     class="px-3 py-2 flex-1 min-w-0 flex items-start gap-2"
                      :class="tile.clickable ? 'cursor-pointer group' : ''"
                      :role="tile.clickable ? 'button' : undefined"
                      :tabindex="tile.clickable ? 0 : undefined"
@@ -331,13 +346,27 @@ onBeforeUnmount(() => {
                         <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
                     </svg>
                 </div>
+                <button v-if="sourceEnabled" type="button"
+                        data-testid="variant-tile-code-toggle"
+                        @click="toggleSource(tile)"
+                        :aria-pressed="openSources[tile.key] ? 'true' : 'false'"
+                        :aria-label="`${i18n.t('source.toggle')}: ${tile.label}`"
+                        class="shrink-0 m-1.5 px-2 h-6 rounded text-[11px] font-semibold uppercase tracking-wide transition-colors"
+                        :class="openSources[tile.key] ? 'bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-800'">{{ i18n.t('source.toggle') }}</button>
+                </div>
                 <!-- Content-area wrapper: stable across a fluid<->scaled swap
                      (only its CHILDREN toggle via v-if below) so the
                      ResizeObserver registered on it keeps reporting this
-                     tile's cell width regardless of which mode is active. -->
+                     tile's cell width regardless of which mode is active.
+                     `relative` anchors the source overlay; while it is open
+                     the cell keeps room for a few lines of code even when
+                     the preview itself is short. -->
                 <div :ref="(el) => registerCell(tile.key, el)"
-                     class="bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
-                     :class="tile.geometry.fluid ? '' : 'flex justify-center p-3'">
+                     class="relative bg-zinc-50 dark:bg-zinc-950/40 min-w-0"
+                     :class="[tile.geometry.fluid ? '' : 'flex justify-center p-3', openSources[tile.key] ? 'min-h-64' : '']">
+                    <SourcePanel v-if="openSources[tile.key]"
+                                 class="absolute inset-0 z-10"
+                                 :type="viewport.type.value" :slug="viewport.slug.value" :variant="tile.id" />
                     <!-- Full preset: fluid tile, no scaling -- iframe width
                          tracks the cell via `w-full`, height is content-fit.
                          `:key="tile.src"` remounts the iframe whenever the

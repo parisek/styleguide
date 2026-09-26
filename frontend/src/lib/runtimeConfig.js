@@ -22,17 +22,32 @@ function normalise(value) {
     return trimmed === '' ? DEFAULT_BASE_URL : trimmed;
 }
 
-export function baseUrl() {
+// The payload, read once and reduced to the values this module serves.
+function config() {
     if (cached === null) {
-        let config = {};
+        let raw = {};
         try {
-            config = readSpaConfig();
+            raw = readSpaConfig();
         } catch {
             // See the header: only reachable outside the served shell.
         }
-        cached = normalise(config.baseUrl);
+        cached = {
+            baseUrl: normalise(raw.baseUrl),
+            // The server sends `showSource: true` only when the fixture
+            // source may be shown (Styleguide::showSource()). Anything else
+            // hides the "Code" toggle; the API refuses on its own anyway.
+            showSource: raw.showSource === true,
+        };
     }
     return cached;
+}
+
+export function baseUrl() {
+    return config().baseUrl;
+}
+
+export function showSource() {
+    return config().showSource;
 }
 
 // `path` is relative to the mount: 'api/components', 'render/component/card'.

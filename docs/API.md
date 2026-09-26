@@ -249,6 +249,7 @@ The project-level config consumed by `Styleguide::__construct(['config_yaml' => 
 | `typography` | optional | `{ fonts: [{ name, type, stylesheet, url, usage, alphabet }], headings, weights, body_sample }` | Foundations view |
 | `labels` | optional | `{ logo, colors, typography, headings, font_weights, body_text, font_family, click_to_copy, copied, click_swatch }` | i18n strings for foundations view |
 | `colors` | optional | `{ <name>: { name, css_variable, default, shades: { <shade>: { hex, oklch } } } }` | Foundations colour palette |
+| `show_source` | optional | `bool` | Whether the SPA offers the "Code" toggle and `/api/source` answers (added in [Unreleased]). `true` turns it on, `false` off. **Absent (or `null`): on only when the `auth` constructor callable is set** — a catalogue with no gate of its own is treated as public, and a public catalogue does not publish its fixture sources by default. Any other value (a string, a number) turns it off. A host that guards the catalogue itself — the Symfony bundle (where `auth` cannot be set), HTTP Basic Auth, a VPN — writes `show_source: true`. When on, `#sg-config` carries `showSource: true`; when off, the key is absent and `/api/source` answers as an unknown endpoint |
 | `bootstrap` | optional (required for `Styleguide::fromYaml()`) | `{ templates_path, static_path, default_locale?, base_url?, typography_config?, translations_path?, source_locale?, namespaces?, twig_context? }` | Project-truth bootstrap config consumed **only** by `Styleguide::fromYaml()` (§ PHP API above) — never read by `Styleguide::__construct()`/`run()` directly. See § `bootstrap:` below. |
 
 Adding new optional top-level keys or new optional sub-keys is **non-breaking**. Renaming or removing existing keys is **breaking**.
@@ -557,6 +558,38 @@ For that, sweep the render endpoint: since 1.8.0 a broken template returns
 stronger than a compile check (it also catches a missing partial, a runtime
 failure, and the alert fallback). See README § *CI smoke test*.
 
+### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]` (added in [Unreleased])
+
+The source of the fixture file behind one preview: `styleguide.<id>.twig`
+with `?variant=<id>`, `styleguide.twig` without. The SPA's "Code" toggle
+reads it. The endpoint exists only while `show_source` is on (§ YAML
+schemas → `styleguide.yaml`); off, it answers `404` exactly like an unknown
+endpoint (`{"error": "Unknown API endpoint: source"}`). The `auth` callable
+gates it like every other route.
+
+**Response shape (200):**
+
+```ts
+{
+  kind: 'component' | 'page' | 'doc';
+  slug: string;
+  variant: string | null;  // null = the default fixture, styleguide.twig
+  file: string;            // relative to templates_path, e.g. "component/card/styleguide.dark.twig"
+  source: string;          // the file, without its leading {# … #} block and the blank lines after it
+}
+```
+
+Only a comment that opens the file is removed: that block is the metadata
+annotation (`title:`, `description:`). A comment further down is part of the
+example and stays.
+
+**404** (JSON `{"error": "No fixture source for this entry"}`) for a `kind`
+outside `component | page | doc`, a slug outside `[A-Za-z0-9_-]+`, an entry
+or variant without its fixture file, and an entry that renders its own
+`<slug>.twig` (no fixture). The file is looked up through the same `@project`
+Twig namespace the render endpoint renders from, so it is the file that
+rendered the tile.
+
 ## URL surface — `@api`
 
 Patterns below use the default mount, `/styleguide`. With `base_url` set, every one of them moves under that mount instead, cookie path included; nothing is served at `/styleguide` then.
@@ -573,6 +606,7 @@ Patterns below use the default mount, `/styleguide`. With `base_url` set, every 
 | `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations`. Accepts an additive `?theme=light\|dark` query param (whitelisted server-side, default `light`) — stamps `class="dark"` + `color-scheme: dark` on the rendered `<html>`. Also accepts an additive `?variant=<id>` query param (whitelisted server-side against `^[a-z0-9-]+$`) for `component \| page \| doc` kinds — resolves `styleguide.<id>.twig` in place of the default `styleguide.twig` when that file exists; absent, invalid, or unknown-but-well-formed values silently fall back to the default `styleguide.twig` → `<slug>.twig` chain (never a 404), so a bookmarked deep link survives a deleted/renamed variant. Query-only — no cookie fallback, unlike `theme`. Composes independently with `?theme=`. This endpoint always renders exactly ONE block regardless of how many variants an entry has — no `?variant=` means the default fixture, a resolvable `?variant=<id>` means that one variant, full stop; there is no server-side "show every variant" response. The SPA is what assembles multiple isolated renders (one iframe per tile, each hitting this same endpoint with its own `?variant=`) into the variant grid described in *Component Twig file conventions* above. Also accepts an additive, **presence-based** `?canvas` query param — any presence of the key (`?canvas`, `?canvas=1`, `?canvas=`, …; the value is never inspected) suppresses the standalone back-bar the render endpoint otherwise shows when its document is the top-level window, so the SPA's own "Canvas" toolbar action can render a truly clean, full-viewport document. Absent → bar shows (top-level) or stays hidden (embedded in an iframe, unaffected either way). Composes independently with `?theme=`/`?variant=`. Also accepts an additive `?locale=<code>` query param (added 1.13.0, whitelisted server-side against `^[A-Za-z0-9_-]{2,35}$`) — see § Locale switching below. |
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
 | `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts + `checked` scope) |
+| `/styleguide/api/source/<kind>/<slug>` | JSON — fixture source of one preview, `?variant=<id>` for a variant; only while `show_source` is on (added in [Unreleased]) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |
 

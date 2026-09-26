@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
+import { resetRuntimeConfig } from '../lib/runtimeConfig.js';
 import { setActivePinia, createPinia } from 'pinia';
 import { ref, provide, defineComponent, h, nextTick } from 'vue';
 import { CHROME_VIEWPORT_HEIGHT_PX } from '../lib/previewHeight.js';
@@ -300,6 +301,58 @@ describe('VariantGrid — click-to-isolate', () => {
         expect(header.attributes('tabindex')).toBe('0');
         await header.trigger('click');
         expect(capturedId).toBe('dark-bg');
+    });
+
+    describe('code toggle', () => {
+        function withSourceEnabled(enabled) {
+            resetRuntimeConfig();
+            document.getElementById('sg-config')?.remove();
+            const el = document.createElement('script');
+            el.id = 'sg-config';
+            el.type = 'application/json';
+            el.textContent = JSON.stringify({ baseUrl: '/styleguide', ...(enabled ? { showSource: true } : {}) });
+            document.body.appendChild(el);
+        }
+
+        afterEach(() => {
+            document.getElementById('sg-config')?.remove();
+            resetRuntimeConfig();
+            vi.unstubAllGlobals();
+        });
+
+        it('is absent when the server does not allow the source', () => {
+            withSourceEnabled(false);
+            const wrapper = mountGrid();
+            expect(wrapper.find('[data-testid="variant-tile-code-toggle"]').exists()).toBe(false);
+            wrapper.unmount();
+        });
+
+        it('opens the source of that one tile without isolating it', async () => {
+            withSourceEnabled(true);
+            const fetchMock = vi.fn(() => Promise.resolve({
+                ok: true, status: 200, json: () => Promise.resolve({ file: 'x', source: '<b>dark</b>' }),
+            }));
+            vi.stubGlobal('fetch', fetchMock);
+            let capturedId = 'not-called';
+            const wrapper = mountGrid('component', 'multi', { setVariant: (id) => { capturedId = id; } });
+            const tiles = wrapper.findAll('[data-testid="variant-tile"]');
+            expect(tiles.map((t) => t.find('[data-testid="variant-tile-code-toggle"]').exists())).toEqual([true, true, true]);
+
+            const toggle = tiles[1].get('[data-testid="variant-tile-code-toggle"]');
+            expect(toggle.attributes('aria-pressed')).toBe('false');
+            await toggle.trigger('click');
+            await flushPromises();
+
+            expect(capturedId).toBe('not-called');
+            expect(toggle.attributes('aria-pressed')).toBe('true');
+            expect(tiles[1].find('[data-testid="source-panel"]').exists()).toBe(true);
+            expect(tiles[0].find('[data-testid="source-panel"]').exists()).toBe(false);
+            expect(fetchMock).toHaveBeenCalledWith('/styleguide/api/source/component/multi?variant=dark-bg');
+
+            await toggle.trigger('click');
+            expect(tiles[1].find('[data-testid="source-panel"]').exists()).toBe(false);
+            wrapper.unmount();
+        });
     });
 
     it('isolates a variant tile header via the Enter key', async () => {

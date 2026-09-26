@@ -21,6 +21,20 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   `"<text> → <variant>"` string: a name may contain an arrow, and a map
   needs no parsing. Older versions drop the key, and `lint` does not flag
   it.
+- **"Kód / Code" toggle on each variant tile.** It shows the fixture file
+  that rendered the tile (`styleguide.<variant>.twig`, or `styleguide.twig`)
+  without its leading `{# … #}` annotation, with a copy button. An isolated
+  tile shows the same in a drawer under the toolbar. The source comes from a
+  new endpoint, `GET /api/source/<kind>/<slug>[?variant=<id>]`.
+- **`show_source` in `styleguide.yaml`** decides whether the toggle and the
+  endpoint exist. Absent, it is on only when the `auth` constructor callable
+  is set: a catalogue without its own gate counts as public, and a public
+  catalogue does not publish its templates by default. `true` turns it on,
+  `false` or any non-boolean turns it off. Off, the endpoint answers `404`
+  like an unknown one, so no source reaches the browser. **Symfony bundle
+  hosts** cannot set `auth` and write `show_source: true` once their firewall
+  guards the catalogue. Nothing changes for an existing catalogue that sets
+  neither key.
 
 ### Changed
 

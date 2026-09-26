@@ -95,6 +95,19 @@ final class Router
             return $route;
         }
 
+        // /styleguide/api/source/<kind>/<slug>[?variant=<id>] — the one
+        // endpoint that addresses an entry. `kind`/`slug` are raw here;
+        // SourceEndpoint validates them before any lookup.
+        if ($parts[0] === 'api' && ($parts[1] ?? null) === 'source' && isset($parts[2], $parts[3])) {
+            parse_str($queryString, $query);
+            $route = ['type' => 'api', 'endpoint' => 'source', 'kind' => $parts[2], 'slug' => $parts[3]];
+            $variant = self::whitelistVariant($query['variant'] ?? null);
+            if ($variant !== null) {
+                $route['variant'] = $variant;
+            }
+            return $route;
+        }
+
         // /styleguide/api/<endpoint>
         if ($parts[0] === 'api' && isset($parts[1])) {
             return ['type' => 'api', 'endpoint' => $parts[1]];

@@ -97,5 +97,12 @@
     },
     "locale": {
         "switch": "Change language"
+    },
+    "source": {
+        "toggle": "Code",
+        "copy": "Copy",
+        "copied": "Copied",
+        "loading": "Loading…",
+        "unavailable": "No source for this preview."
     }
 }

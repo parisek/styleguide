@@ -293,6 +293,8 @@ access_control:
 
 `access_control` only bites **inside a firewall that authenticates**. A pattern left on `security: false`, or a firewall with no authenticator, gets no gate from the rule above — check which firewall `^/styleguide` falls into before relying on it.
 
+Because the bundle has no `auth`, the tile "Code" toggle is off by default here. Once the firewall guards the catalogue, turn it on with a top-level `show_source: true` in `styleguide.yaml` (see *Showing the fixture source*).
+
 Cover the whole prefix, not just the shell. `/styleguide/api/*`, `/styleguide/render/*` and `/styleguide/assets/*` are all under it, and the render endpoint is the one that exposes component markup.
 
 #### Asset paths come from the request
@@ -487,6 +489,12 @@ favicon:
   manifest: "/images/touch/site.webmanifest"
   theme_color: "#18181B"
 
+# Fixture source ("Code" toggle on each variant tile). Absent: on only when
+# the `auth` constructor callable is set. A catalogue guarded some other way
+# (the Symfony bundle, HTTP Basic Auth, a VPN) writes `true`. See
+# "Showing the fixture source" below.
+show_source: true
+
 # Open Graph image (#74) — single optional string key. See "OG image audit"
 # below for what it drives. Set `og_image: false` to hide the section
 # entirely on projects that don't want it (the audit doesn't run either).
@@ -592,6 +600,7 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 | `/styleguide/api/docs` | JSON | List of doc entries — same shape as pages; `[]` when `templates/doc/` is absent |
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
 | `/styleguide/api/health` | JSON | Parse-resilience diagnostics — see [API](#api) below |
+| `/styleguide/api/source/<kind>/<slug>` | JSON | Fixture source of one preview (`?variant=<id>` for a variant tile). Answers only while `show_source` is on — see *Showing the fixture source* |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
 
 \* Same whitelist/fallback rules as the render-endpoint row above (`^[a-z0-9-]+$`, unknown/removed values fall back to the default rather than 404ing); `Router::synthesizeEmbeddedRoute()` forwards the SPA-shell's `?variant=` across the iframe-embed swap so the preview and the deep link agree.
@@ -602,7 +611,7 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 
 ## API
 
-Five read-only JSON endpoints under `/styleguide/api/*`. All return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
+Five read-only catalogue endpoints under `/styleguide/api/*`, plus the opt-in `/api/source` below. The five return `200 OK` with `Content-Type: application/json; charset=utf-8` and `Cache-Control: no-cache`. No auth, no pagination, no query parameters — the dataset is small enough (one read per component template) that the SPA refetches the whole list on demand. Unknown endpoints return `404` with `{"error": "Unknown API endpoint: <name>"}`.
 
 The SPA consumes all five (`frontend/src/stores/catalog.js`); external tooling can do the same — e.g. a CI job that lints fields metadata, a script that mirrors the component list into Notion, a Storybook bridge.
 
@@ -692,6 +701,26 @@ Unlike the four endpoints above, the response is an **object**, not a bare array
   "counts": { "components": 42, "pages": 7, "docs": 3 }
 }
 ```
+
+### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]`
+
+The fixture file behind one preview — `styleguide.<id>.twig`, or `styleguide.twig` without a variant — without its leading `{# … #}` annotation. Response: `{ kind, slug, variant, file, source }`. `404` when the entry or variant has no fixture file. Off by default on a public catalogue; see *Showing the fixture source* below. Full contract: `docs/API.md` § JSON API endpoints.
+
+### Showing the fixture source
+
+Each variant tile gets a **Kód / Code** toggle that shows the fixture file which rendered it, with a copy button; an isolated tile shows the same in a drawer under the toolbar. The source is what a developer copies: the component call with its sample data.
+
+`show_source` in `styleguide.yaml` decides whether the catalogue shows it:
+
+| `show_source` | Result |
+|---|---|
+| absent | on when the `auth` constructor callable is set, off otherwise |
+| `true` | on |
+| `false`, or any value that is not a boolean | off |
+
+The default treats a catalogue without an `auth` callable as public. A public catalogue does not publish its templates unless it says so. **The Symfony bundle cannot set `auth`** (the host's firewall guards the catalogue, see *Symfony bundle*), so a bundle host that wants the toggle writes `show_source: true`. So does a library-mode catalogue behind HTTP Basic Auth or a VPN.
+
+Off, the toggle is not rendered and `/api/source` answers `404` like an unknown endpoint: the source never reaches the browser.
 
 ### Caching
 

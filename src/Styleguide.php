@@ -3063,6 +3063,12 @@ final class Styleguide
             // source locale (`source_locale`) is included without a file.
             'locales' => $this->translationCatalog?->availableLocales() ?? [],
         ];
+        // Only when on, so the payload of a catalogue that never enables it
+        // is the same as before the key existed. The SPA shows the "Code"
+        // toggle from this flag; the API enforces it on its own.
+        if ($this->showSource()) {
+            $config['showSource'] = true;
+        }
         $configJson = json_encode(
             $config,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
@@ -3392,10 +3398,41 @@ final class Styleguide
     }
 
     /**
+     * Whether the catalogue shows the fixture source of a variant tile.
+     *
+     * `show_source:` in styleguide.yaml decides when it is a boolean. When
+     * the key is absent, the source is shown only behind the `auth`
+     * callable: a catalogue with no gate of its own is assumed public, and a
+     * public catalogue must not publish its templates by default. Any other
+     * value (a string, a number) turns it off — a typo fails closed.
+     *
+     * A host that guards the catalogue itself (the Symfony bundle, where
+     * `auth` cannot be set, or a web-server login) writes `show_source: true`.
+     */
+    private function showSource(): bool
+    {
+        if (!array_key_exists('show_source', $this->yamlConfig) || $this->yamlConfig['show_source'] === null) {
+            return is_callable($this->config['auth'] ?? null);
+        }
+
+        return $this->yamlConfig['show_source'] === true;
+    }
+
+    /**
      * @param array<string, mixed> $route
      */
     private function dispatchApi(array $route): Http\Result
     {
+        // With `show_source` off the route does not exist: no source reaches
+        // the browser, and the answer does not say that it could.
+        if ($route['endpoint'] === 'source' && $this->showSource()) {
+            return (new Api\SourceEndpoint($this->twig->getLoader()))->handle(
+                (string) ($route['kind'] ?? ''),
+                (string) ($route['slug'] ?? ''),
+                isset($route['variant']) ? (string) $route['variant'] : null,
+            );
+        }
+
         $endpoint = match ($route['endpoint']) {
             'components' => new Api\ComponentsEndpoint($this->parser),
             'docs' => new Api\DocsEndpoint($this->parser),

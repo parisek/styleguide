@@ -115,6 +115,25 @@ final class RouterTest extends TestCase
     }
 
     #[Test]
+    public function parses_the_source_endpoint_with_kind_slug_and_a_whitelisted_variant(): void
+    {
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'source', 'kind' => 'component', 'slug' => 'multi'],
+            Router::parse('/styleguide/api/source/component/multi'),
+        );
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'source', 'kind' => 'page', 'slug' => 'landing', 'variant' => 'dark-bg'],
+            Router::parse('/styleguide/api/source/page/landing?variant=dark-bg'),
+        );
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'source', 'kind' => 'component', 'slug' => 'multi'],
+            Router::parse('/styleguide/api/source/component/multi?variant=Bad_Id'),
+        );
+        // Other endpoints keep their shape: trailing segments and a query are ignored.
+        self::assertSame(['type' => 'api', 'endpoint' => 'components'], Router::parse('/styleguide/api/components/x/y?variant=a'));
+    }
+
+    #[Test]
     public function parses_asset_paths(): void
     {
         self::assertSame(
