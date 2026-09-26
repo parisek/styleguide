@@ -54,7 +54,9 @@ const groups = computed(() => {
 const flatRows = computed(() => groups.value.flatMap((g) => g.rows));
 
 function rowKey(row) {
-    return row.alias ? `${row.type}:${row.entry.id}:alias:${row.alias.name}` : `${row.type}:${row.entry.id}`;
+    return row.alias
+        ? `${row.type}:${row.entry.id}:alias:${row.alias.variant ?? ''}:${row.alias.name}`
+        : `${row.type}:${row.entry.id}`;
 }
 
 function isActiveRow(row) {

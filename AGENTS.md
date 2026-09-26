@@ -6,7 +6,7 @@ Project instructions for AI coding assistants (Claude Code, Codex CLI, Cursor, C
 
 `parisek/styleguide` is a self-contained Composer package that turns a tree of Twig component templates into a live, browsable styleguide — sidebar, ⌘K search, viewport presets, locale switcher, deep links — with no chrome code in the consuming project. The package ships:
 
-- **PHP backend** (`src/`, PSR-4 `Parisek\Styleguide\`) — `Styleguide` bootstrap + `Router` + `Renderer` + `ComponentParser` + `AssetServer`, five `/api/*` endpoints, and a `vendor/bin/styleguide` CLI (`list` / `show` / `lint`).
+- **PHP backend** (`src/`, PSR-4 `Parisek\Styleguide\`) — `Styleguide` bootstrap + `Router` + `Renderer` + `ComponentParser` + `AssetServer`, five catalogue `/api/*` endpoints plus the opt-in `/api/source`, and a `vendor/bin/styleguide` CLI (`list` / `show` / `lint`).
 - **Templates** (`templates/`) — `render-cell.twig` (iframe wrapper), `foundations.twig`, `icons.twig`, `styleguide-404.twig`.
 - **Frontend SPA** (`frontend/` → built into `dist/`) — Vue 3 + Pinia + vue-router + Tailwind v4. Sidebar, search, preview chrome, locale switcher, deep-link routing.
 
@@ -115,7 +115,7 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   ├── IconsCatalog.php       # icon sheet discovery for the Icons page
 │   ├── FaviconAudit.php       # favicon completeness report
 │   ├── OgImageAudit.php       # OG image completeness report
-│   ├── Api/                   # JSON endpoints: components, pages, docs, fields, health
+│   ├── Api/                   # JSON endpoints: components, pages, docs, fields, health, source
 │   └── Cli/                   # vendor/bin/styleguide — list / show / lint
 ├── templates/                 # Twig templates shipped to consumers
 │   ├── render-cell.twig       # iframe wrapper (HTML doc with project CSS/JS)
@@ -131,7 +131,8 @@ After `composer styleguide:local`, edit files freely in `/Users/pari/Sites/style
 │   │   ├── router.js          # vue-router instance + route table
 │   │   ├── views/             # OverviewView, FoundationsView, FieldsView, PreviewView (renders PreviewPane)
 │   │   ├── components/        # Sidebar, SearchPalette, ViewportToolbar, PreviewPane, VariantGrid,
-│   │   │                      #   FieldsDrawer, FieldsTable, UsagePanel, LinkBar, HealthWarningBadge
+│   │   │                      #   FieldsDrawer, FieldsTable, UsagePanel, LinkBar, HealthWarningBadge,
+│   │   │                      #   CompareStrip, SourcePanel, SourceDrawer
 │   │   ├── composables/       # useViewportPreset, useVariant
 │   │   ├── stores/            # Pinia: catalog, ui, i18n, theme
 │   │   └── lib/               # framework-free: searchMatch, prefixTree, viewportMath, fieldsTree,
