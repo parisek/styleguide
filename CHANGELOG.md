@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **The default variant tile takes its title from `styleguide.twig`.** A
+  `title:` in the fixture's own front comment (the annotation a
+  `styleguide.<variant>.twig` sibling already carries) now labels the default
+  tile instead of the fixed "Default" / "Výchozí". The API emits it as the
+  additive field `default_variant_title` (`''` when absent). Without a title
+  nothing changes.
+- **`variants_order:` metadata key.** A list of variant ids puts those tiles
+  first, in that order; the rest keep their file-name order and the default
+  tile stays first. The order reaches the SPA through the order of
+  `variants` on `/api/*`; the key itself is not emitted. `lint` gains the
+  rule `unknown-variants-order`: an id with no `styleguide.<id>.twig`, or a
+  value that is not a list. Without the key nothing changes.
+
 - **Compare mode: several widths side by side.** A new optional key in
   `styleguide.yaml`, `viewports: { compare: [1440, 768, 320] }` (2–4 widths,
   each 100–4000), adds a toolbar button labelled with the widths. It shows

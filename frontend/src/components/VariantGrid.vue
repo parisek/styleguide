@@ -63,7 +63,10 @@ const tiles = computed(() => {
     if (!item) return [];
     const variants = item.variants ?? [];
     const defaultTile = item.has_default_variant !== false
-        ? [{ id: null, label: i18n.t('toolbar.variant_default'), description: '' }]
+        // `default_variant_title` (1.24.0): the `title:` of styleguide.twig's
+        // own front comment; '' (or an older server without the field)
+        // keeps the fixed label.
+        ? [{ id: null, label: item.default_variant_title || i18n.t('toolbar.variant_default'), description: '' }]
         : [];
     return [
         ...defaultTile,

@@ -818,7 +818,7 @@ vendor/bin/styleguide lint --type=component       # scan just one type
 vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
 ```
 
-Reports ten issue types: templates with no parseable `name:` (dropped from
+Reports eleven issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
 the renderer never reads (`dead-styleguide-content` — see *Fixtures &
 sample data* below), `usage:` references to ids that don't exist
@@ -833,7 +833,9 @@ it changes nothing; tailwind-base ADR-0007), and catalogue entries that nothing 
 (`no-fixture`, informational only — no `styleguide.twig`, no variant sibling
 and no `styleguide:` key, so the entry shows an empty frame and no visual or
 behavioural test can reach it; `kind: utility` is exempt, since a utility has
-no stable appearance to pin), and ignore-list entries that no longer match
+no stable appearance to pin), `variants_order:` ids with no
+`styleguide.<id>.twig` next to them, or a value that is not a list
+(`unknown-variants-order` — the runtime skips them silently), and ignore-list entries that no longer match
 anything (`stale-ignore`, informational only — see *Ignoring expected
 findings* below).
 
@@ -1084,6 +1086,7 @@ fields:
 | `styleguide` | legacy presence-only flag — **prefer a sibling `styleguide.twig` file** (the renderer already prefers it; see *Fixtures & sample data* below). Content nested under this YAML key is never read; `vendor/bin/styleguide lint` reports it as `dead-styleguide-content`. |
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for fixed-layout demos where resizing has no meaning. **Ignored for `doc` templates** — a doc page is prose, not a widget, so `responsive` is always forced to `false` there regardless of this key |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below. For `doc` templates the global `iframe.body_class` is skipped entirely, so this per-entry key is the only body class that ever applies |
+| `variants_order` | order of the variant tiles: the listed ids first, the rest by file name — see *File-convention variants* below |
 | `variants` | **legacy fallback** map of display titles (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files, keyed by id — prefer a `title:`/`description:` annotation in the sibling file itself; see *File-convention variants* below |
 
 **Search aliases.** `aliases:` lists other names an entry is found by — the source catalogue's layout numbers, an old name, a client's word for it. A plain string opens the entry. A map with `variant` opens that variant tile:
@@ -1172,6 +1175,24 @@ title: "Secondary style"
 ```
 
 Metadata lives next to the markup it describes instead of a centralised map you'd otherwise have to keep in sync by id as variants are added, renamed, or removed.
+
+**The default tile's title.** `styleguide.twig` takes the same annotation. Its `title:` labels the default tile (since 1.24.0); without one the tile reads "Default" / "Výchozí":
+
+```twig
+{# styleguide.twig #}
+{#
+title: "Layout 238"
+#}
+<div class="hero">…</div>
+```
+
+**Tile order — `variants_order:`.** The tiles follow the file names. To put some first, list their ids in the component's own metadata (front comment or `<id>.yaml`, since 1.24.0):
+
+```yaml
+variants_order: [image-side, image-top]
+```
+
+The listed ids come first, in that order; the rest follow by file name. The default tile stays first. An id with no `styleguide.<id>.twig` is skipped at runtime, and `lint` reports it as `unknown-variants-order`.
 
 **Legacy fallback — the `variants:` map.** Templates written before per-sibling annotations existed (or not yet migrated) can still supply titles/descriptions from the component's own front comment, keyed by variant id — either a plain string, or a map with an optional `description` too:
 

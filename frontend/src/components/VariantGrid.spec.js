@@ -73,6 +73,26 @@ describe('VariantGrid', () => {
         expect(labels).toEqual(['Default', 'dark-bg', 'Secondary style']);
     });
 
+    it('labels the default tile with the title of styleguide.twig when the server sends one', () => {
+        const wrapper = mountGrid('component', 'multi', {
+            items: [{
+                id: 'multi',
+                name: 'Multi',
+                default_variant_title: 'Layout 238',
+                variants: [{ id: 'dark-bg', title: 'dark-bg', description: '' }],
+            }],
+        });
+        const labels = wrapper.findAll('[data-testid="variant-tile-label"]').map((l) => l.text());
+        expect(labels).toEqual(['Layout 238', 'dark-bg']);
+    });
+
+    it('keeps the "Default" label when the title is empty', () => {
+        const wrapper = mountGrid('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', default_variant_title: '', variants: [{ id: 'a', title: 'A', description: '' }] }],
+        });
+        expect(wrapper.find('[data-testid="variant-tile-label"]').text()).toBe('Default');
+    });
+
     it('renders the description only for variants that have one', () => {
         const wrapper = mountGrid();
         const tiles = wrapper.findAll('[data-testid="variant-tile"]');

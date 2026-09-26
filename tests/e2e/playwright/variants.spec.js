@@ -482,3 +482,14 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await expect(page.getByTestId('breadcrumb-variant')).toHaveCount(0);
     });
 });
+
+// Fixture: tests/fixtures/templates/component/ordered. Its styleguide.twig
+// carries `title: "Layout 238"`, and `variants_order: [zeta, alpha]` puts
+// those two first; `mid` is unlisted and follows by file name.
+test.describe('default tile title and variants_order', () => {
+    test('the default tile shows the fixture title and the tiles follow variants_order', async ({ page }) => {
+        await page.goto('/styleguide/component/ordered');
+        await expect(page.getByTestId('variant-tile-label')).toHaveText(['Layout 238', 'zeta', 'alpha', 'mid']);
+        await expect(page.getByTestId('variant-tile').nth(1).frameLocator('iframe').locator('.ordered')).toContainText('Ordered zeta');
+    });
+});

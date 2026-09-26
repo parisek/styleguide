@@ -294,6 +294,7 @@ A sibling `<id>.yaml` wins over the comment when present. A template under an un
 | `usage` | no | `string` (comma-separated) — normalised to `string[]` on the wire | `[]` | Cross-reference between pages and components |
 | `aliases` | no | list; each entry a `string`, or a map `{name: string, variant?: string}` | `[]` | Other names the ⌘K palette and the sidebar filter find this entry by (added 1.24.0). A string alias opens the entry; a map with `variant` opens that variant tile (`?variant=<id>`). Normalised to `Array<{name, variant}>` on the wire: names are trimmed, an entry without a string `name` is dropped, a `variant` that names no discovered `styleguide.<id>.twig` sibling becomes `null` (the alias then opens the entry). A single string counts as one alias. The `"<text> → <variant>"` string form is **not** parsed: write the map. `lint` does not flag the key; versions before it ignore it |
 | `fields` | no | recursive map | `[]` | Fields inspector view + `/api/fields` |
+| `variants_order` | no | list of variant ids (a single string counts as one) | absent | Order of the variant tiles (added 1.24.0). The listed ids come first, in the order written; the other discovered variants follow in id (file-name) order. An id with no `styleguide.<id>.twig` sibling, a repeated id and a non-string entry are skipped; a value that is neither a string nor a list leaves the id order. The default fixture has no id and always shows first. Not emitted on the wire: the order of `variants` carries it. `lint` reports an id with no sibling file, and a value that is not a list, as `unknown-variants-order`; versions before it ignore the key |
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
 | `kind` | no | enum `block \| section \| element \| part \| utility` | `''` | Closed enum declaring what the component *is* (authorial intent — see `docs/adr/0012-component-kind-taxonomy.md` in tailwind-base). Unlike `render`, an absent or unrecognised value normalises to `''`, never a guessed default |
@@ -321,6 +322,8 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
   ```
 
   A sibling with no annotation (or one that fails to parse) falls back to the component's legacy `variants:` map entry for that id, then to the id itself — see the `variants` row in *Component YAML metadata* above.
+
+  `styleguide.twig` takes the same annotation (added 1.24.0): its `title:` labels the default tile of the variant grid (`default_variant_title` on the wire). Without one the tile keys "Default" / "Výchozí" as before. Only `title` is read; the default tile shows no description.
 - `<id>/styleguide.data.yaml` — OPTIONAL. Pure-YAML sidecar, the DEFAULT data set, read via `styleguide_data()` (no argument) (§ *Twig functions & filters* below) — never matched by the variant glob (`styleguide.*.twig`) or `STYLEGUIDE_SIBLING_PATTERN` (both `.twig`-only), so it can coexist with any number of `styleguide.<variant>.twig` siblings without ambiguity.
 - `<id>/styleguide.data-<name>.yaml` — OPTIONAL, zero or more. A NAMED data set, read via `styleguide_data('<name>')`. `<name>` matches `[a-z0-9-]+` — the same id rule `styleguide.<variant>.twig` variant ids already use. Same `.yaml`-vs-`.twig` discovery safety as the default sidecar above.
 - The `@component`, `@page`, `@doc`, `@macro`, `@icons`, `@images`, `@static` Twig namespaces are auto-registered when the matching directory exists under `templates_path`.
@@ -498,13 +501,14 @@ type Field = {
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`; ALWAYS false for /api/docs entries regardless of YAML — see § Component YAML metadata
   has_styleguide: boolean; // true if <id>/styleguide.twig exists, OR YAML has `styleguide:` key, OR (additive, v1.1.0) at least one styleguide.<variant>.twig sibling exists — a component may ship ONLY named variants with no bare default and still surface as a renderable entry
   has_default_variant: boolean; // additive (v1.1.0). true only when <id>/styleguide.twig itself exists on disk — narrower than has_styleguide above, which also goes true from the legacy `styleguide:` flag or from named variants alone. The SPA's variant grid uses this (not has_styleguide) to decide whether to show a synthetic "Default" tile
-  variants: Array<{ id: string; title: string; description: string }>; // [] when no sibling styleguide.<variant>.twig files exist; title/description come from the sibling's own front-comment annotation first, falling back to the component's legacy `variants:` map, then to the id (title only)
+  default_variant_title: string; // additive (1.24.0). The `title:` of <id>/styleguide.twig's own front comment, trimmed; '' when there is none, when the comment is not YAML, or when no styleguide.twig exists. The SPA labels the default tile with it, else "Default"
+  variants: Array<{ id: string; title: string; description: string }>; // [] when no sibling styleguide.<variant>.twig files exist; title/description come from the sibling's own front-comment annotation first, falling back to the component's legacy `variants:` map, then to the id (title only). Ordered by id, except that ids listed in `variants_order:` come first (1.24.0)
 }
 ```
 
 Field order is **not** part of the contract. Adding new fields is non-breaking. Removing or renaming fields is breaking.
 
-`/api/pages` and `/api/docs` inherit the identical additive `variants`, `has_default_variant` and `aliases` fields (already true by construction — same `normaliseMetadata()`).
+`/api/pages` and `/api/docs` inherit the identical additive `variants`, `has_default_variant`, `default_variant_title` and `aliases` fields (already true by construction — same `normaliseMetadata()`).
 
 ### § Fields canonicalisation
 
@@ -649,7 +653,7 @@ A stored locale whose catalogue is no longer offered (renamed/removed `.mo`, or 
 |---|---|
 | `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
 | `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
-| `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions). See README § Command-line catalogue. |
+| `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions, `variants_order:` ids with no sibling file (`unknown-variants-order`, added 1.24.0)). See README § Command-line catalogue. |
 | `doctor [--config=<path>] [--format=text\|json] [--pretty]` | Report what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a catalogue moved off `/styleguide` (notice), an empty catalogue, an `index.php` beside `styleguide.yaml` whose code references `Bridge\Symfony\FrontController` without `symfony/framework-bundle` installed (check `front-controller`, since 1.21.0), and the Twig helper names the package registers. Same exit-code contract as `lint`. See README § `doctor`. |
 | `front-controller:init [--dir=<path>] [--config=<path>] [--force]` | Write `resources/front-controller.php` as `index.php` beside `styleguide.yaml`. Exit `0` written or already current, `1` a different `index.php` exists (kept; `--force` replaces it) or `index.php` is a symlink (never written through), `2` usage error (no `styleguide.yaml`, a missing `--config` file, a bare `--dir`, not a directory, not writable). An explicit `--dir` or `--config` never falls back to `./styleguide.yaml`. Added 1.21.0. |
 | `maintenance:render [--config=<path>] [--locale=<code>] [--css=<path>] [--out=<path>]` | Render the outage screen to one self-contained HTML file. See § Offline outage render below. |
