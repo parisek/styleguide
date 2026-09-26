@@ -291,6 +291,66 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
+    public function normalise_aliases_accepts_strings_and_name_variant_maps(): void
+    {
+        self::assertSame(
+            [
+                ['name' => 'Layout 238', 'variant' => null],
+                ['name' => 'Layout 12', 'variant' => 'grid'],
+                ['name' => 'Layout 13', 'variant' => null],
+                ['name' => 'Layout 14', 'variant' => null],
+            ],
+            ComponentParser::normaliseAliases(
+                [
+                    '  Layout 238 ',
+                    ['name' => 'Layout 12', 'variant' => 'grid'],
+                    // An unknown variant keeps the alias, opening the entry.
+                    ['name' => 'Layout 13', 'variant' => 'retired'],
+                    ['name' => 'Layout 14'],
+                    // Dropped: no usable name.
+                    '',
+                    ['variant' => 'grid'],
+                    ['name' => ['nested']],
+                    42,
+                    null,
+                ],
+                ['grid'],
+            ),
+        );
+    }
+
+    #[Test]
+    public function normalise_aliases_reads_a_single_string_as_one_alias_and_anything_else_as_none(): void
+    {
+        self::assertSame([['name' => 'Hero', 'variant' => null]], ComponentParser::normaliseAliases('Hero', []));
+        self::assertSame([], ComponentParser::normaliseAliases(null, []));
+        self::assertSame([], ComponentParser::normaliseAliases(42, []));
+        self::assertSame([], ComponentParser::normaliseAliases(['name' => 'map, not a list'], []));
+    }
+
+    #[Test]
+    public function parse_emits_aliases_with_variants_checked_against_discovered_siblings(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+
+        $multi = $parser->parse('component', 'multi');
+        self::assertNotNull($multi);
+        self::assertSame(
+            [
+                ['name' => 'Víceúčelový blok', 'variant' => null],
+                ['name' => 'Layout 238', 'variant' => 'secondary'],
+                // `ghost` has a variants: map entry but no sibling file.
+                ['name' => 'Ghost layout', 'variant' => null],
+            ],
+            $multi['aliases'],
+        );
+
+        $another = $parser->parse('component', 'another');
+        self::assertNotNull($another);
+        self::assertSame([], $another['aliases']);
+    }
+
+    #[Test]
     public function has_default_variant_is_true_only_when_the_bare_sibling_exists_on_disk(): void
     {
         // has_default_variant (v1.1.0, additive) is narrower than

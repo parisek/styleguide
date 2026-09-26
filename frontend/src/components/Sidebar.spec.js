@@ -115,6 +115,31 @@ describe('Sidebar', () => {
         expect(ui.sidebarOpen).toBe(false);
     });
 
+    it('finds a component by an alias, shows the alias under its name and opens the aliased tile', async () => {
+        const { wrapper, router } = await mountSidebar();
+        useCatalogStore().items[3].aliases = [{ name: 'Layout 238', variant: 'secondary' }];
+        const ui = useUiStore();
+        ui.searchQuery = 'layout 238';
+        await wrapper.vm.$nextTick();
+
+        const alias = wrapper.find('[data-testid="sidebar-search-alias"]');
+        expect(alias.text()).toBe('Layout 238');
+        const link = alias.element.closest('a');
+        expect(link.textContent).toContain('Gizmo');
+        link.click();
+        await flushPromises();
+        expect(router.currentRoute.value.path).toBe('/component/gizmo');
+        expect(router.currentRoute.value.query.variant).toBe('secondary');
+    });
+
+    it('shows no alias line for a hit by name', async () => {
+        const { wrapper } = await mountSidebar();
+        useCatalogStore().items[3].aliases = [{ name: 'Gizmo classic', variant: null }];
+        useUiStore().searchQuery = 'gizmo';
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="sidebar-search-alias"]').exists()).toBe(false);
+    });
+
     it('flattens the Widget group to full names while a search query is active', async () => {
         const { wrapper } = await mountSidebar();
         const ui = useUiStore();

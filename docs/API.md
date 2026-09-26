@@ -290,6 +290,7 @@ A sibling `<id>.yaml` wins over the comment when present. A template under an un
 | `description` | no | `string` (HTML allowed) | `''` | Sidebar tooltip + Overview card |
 | `weight` | no | `int` | `50` | Sort order within bucket (lower = earlier) |
 | `usage` | no | `string` (comma-separated) — normalised to `string[]` on the wire | `[]` | Cross-reference between pages and components |
+| `aliases` | no | list; each entry a `string`, or a map `{name: string, variant?: string}` | `[]` | Other names the ⌘K palette and the sidebar filter find this entry by (added in [Unreleased]). A string alias opens the entry; a map with `variant` opens that variant tile (`?variant=<id>`). Normalised to `Array<{name, variant}>` on the wire: names are trimmed, an entry without a string `name` is dropped, a `variant` that names no discovered `styleguide.<id>.twig` sibling becomes `null` (the alias then opens the entry). A single string counts as one alias. The `"<text> → <variant>"` string form is **not** parsed: write the map. `lint` does not flag the key; versions before it ignore it |
 | `fields` | no | recursive map | `[]` | Fields inspector view + `/api/fields` |
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
@@ -487,6 +488,7 @@ type Field = {
   web: string;
   weight: number;        // int, default 50
   usage: string[];       // normalised from the YAML comma-separated `usage:` string (or an already-array YAML value) by ComponentParser::normaliseUsage() — see § PHP API
+  aliases: Array<{ name: string; variant: string | null }>; // additive ([Unreleased]). [] when the YAML has no `aliases:`; `variant` is null unless it names a discovered variant — see § Component YAML metadata
   fields: Field[];       // canonical ordered list — see § Fields canonicalisation
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
   kind: '' | 'block' | 'section' | 'element' | 'part' | 'utility';
@@ -500,7 +502,7 @@ type Field = {
 
 Field order is **not** part of the contract. Adding new fields is non-breaking. Removing or renaming fields is breaking.
 
-`/api/pages` and `/api/docs` inherit the identical additive `variants` and `has_default_variant` fields (already true by construction — same `normaliseMetadata()`).
+`/api/pages` and `/api/docs` inherit the identical additive `variants`, `has_default_variant` and `aliases` fields (already true by construction — same `normaliseMetadata()`).
 
 ### § Fields canonicalisation
 

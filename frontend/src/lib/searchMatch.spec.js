@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeForSearch, matchesQuery, filterItems, scoreEntry } from './searchMatch.js';
+import { normalizeForSearch, matchesQuery, filterItems, scoreEntry, matchedAlias, paletteHits } from './searchMatch.js';
 
 describe('normalizeForSearch', () => {
     it('folds Czech diacritics and lowercases', () => {
@@ -90,5 +90,63 @@ describe('scoreEntry', () => {
 
     it('empty query matches nothing meaningfully (score 0, caller decides display)', () => {
         expect(scoreEntry('', entry())).toBe(0);
+    });
+});
+
+describe('aliases', () => {
+    const entry = {
+        id: 'multi',
+        name: 'Multi',
+        aliases: [
+            { name: 'Víceúčelový blok', variant: null },
+            { name: 'Layout 238', variant: 'secondary' },
+            { name: 'Layout 239', variant: 'dark-bg' },
+        ],
+    };
+
+    it('matchesQuery finds an entry by an alias, diacritics-insensitive', () => {
+        expect(matchesQuery(entry, 'viceucelovy')).toBe(true);
+        expect(matchesQuery(entry, 'layout 238')).toBe(true);
+        expect(matchesQuery(entry, 'nothing')).toBe(false);
+    });
+
+    it('matchesQuery tolerates an entry without aliases (older server)', () => {
+        expect(matchesQuery({ id: 'x', name: 'X' }, 'layout')).toBe(false);
+    });
+
+    it('matchedAlias returns the first alias hit only when name and id miss', () => {
+        expect(matchedAlias(entry, 'layout 23')).toEqual({ name: 'Layout 238', variant: 'secondary' });
+        expect(matchedAlias(entry, 'multi')).toBeNull();
+        expect(matchedAlias(entry, '')).toBeNull();
+        expect(matchedAlias({ id: 'x', name: 'X' }, 'x')).toBeNull();
+    });
+
+    it('scoreEntry does not count aliases (the palette ranks alias rows separately)', () => {
+        expect(scoreEntry('layout', entry)).toBe(0);
+    });
+
+    it('paletteHits gives the entry row plus one row per matching variant alias', () => {
+        expect(paletteHits('multi', entry)).toEqual([{ score: 30, alias: null }]);
+        expect(paletteHits('layout', entry)).toEqual([
+            { score: 16, alias: { name: 'Layout 238', variant: 'secondary' } },
+            { score: 16, alias: { name: 'Layout 239', variant: 'dark-bg' } },
+        ]);
+        // An exact alias outranks a prefix one.
+        expect(paletteHits('layout 239', entry)).toEqual([
+            { score: 24, alias: { name: 'Layout 239', variant: 'dark-bg' } },
+        ]);
+    });
+
+    it('paletteHits shows one entry-opening alias row when only a plain alias matches', () => {
+        expect(paletteHits('blok', entry)).toEqual([{ score: 8, alias: { name: 'Víceúčelový blok', variant: null } }]);
+    });
+
+    it('paletteHits drops a plain alias row when the entry row already matches', () => {
+        const e = { id: 'hero', name: 'Hero', aliases: [{ name: 'Hero banner', variant: null }] };
+        expect(paletteHits('hero', e)).toEqual([{ score: 30, alias: null }]);
+    });
+
+    it('paletteHits returns nothing for an empty query', () => {
+        expect(paletteHits('  ', entry)).toEqual([]);
     });
 });

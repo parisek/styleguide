@@ -11,10 +11,31 @@ export function normalizeForSearch(value) {
         .toLowerCase();
 }
 
+function matchesNameOrId(item, q) {
+    return normalizeForSearch(item?.name).includes(q) || normalizeForSearch(item?.id).includes(q);
+}
+
+// `aliases` (ComponentParser::normaliseAliases()): a list of
+// `{name, variant}`. Read defensively: a server older than the key sends
+// none, and the search must behave exactly as before.
+function aliasesOf(item) {
+    return Array.isArray(item?.aliases) ? item.aliases.filter((a) => typeof a?.name === 'string') : [];
+}
+
 export function matchesQuery(item, query) {
     const q = normalizeForSearch(query).trim();
     if (!q) return true;
-    return normalizeForSearch(item?.name).includes(q) || normalizeForSearch(item?.id).includes(q);
+    return matchesNameOrId(item, q)
+        || aliasesOf(item).some((a) => normalizeForSearch(a.name).includes(q));
+}
+
+// The alias a sidebar hit shows as its second line: the first matching
+// alias, but only when the name and id did not match on their own. A hit
+// by name needs no explanation.
+export function matchedAlias(item, query) {
+    const q = normalizeForSearch(query).trim();
+    if (!q || matchesNameOrId(item, q)) return null;
+    return aliasesOf(item).find((a) => normalizeForSearch(a.name).includes(q)) ?? null;
 }
 
 export function filterItems(items, query) {
@@ -60,11 +81,53 @@ export function scoreEntry(query, entry) {
     let score = 0;
     for (const [field, weight] of Object.entries(SCORE_FIELD_WEIGHTS)) {
         const raw = field === 'description' ? stripHtml(entry?.description) : entry?.[field];
-        const folded = normalizeForSearch(raw);
-        if (folded === '') continue;
-        if (folded === q) score = Math.max(score, weight * 3);
-        else if (folded.startsWith(q)) score = Math.max(score, weight * 2);
-        else if (folded.includes(q)) score = Math.max(score, weight);
+        score = Math.max(score, scoreText(q, raw, weight));
     }
     return score;
+}
+
+// Exact > prefix > substring, times the field weight. `q` is already folded.
+function scoreText(q, raw, weight) {
+    const folded = normalizeForSearch(raw);
+    if (folded === '') return 0;
+    if (folded === q) return weight * 3;
+    if (folded.startsWith(q)) return weight * 2;
+    if (folded.includes(q)) return weight;
+    return 0;
+}
+
+// Between name (10) and id (6): an alias is a name a human types, but a
+// second one.
+const ALIAS_WEIGHT = 8;
+
+/**
+ * The palette rows one entry contributes: `{score, alias}` each.
+ *
+ * - `alias: null` is the entry itself, ranked by scoreEntry().
+ * - Every alias with a `variant` that matches is its own row: it opens a
+ *   different tile, so "Layout 238" and "Layout 239" of one family must not
+ *   collapse into one hit.
+ * - An alias without a variant opens the entry, so it adds a row only when
+ *   nothing else of the entry matched, and only once.
+ */
+export function paletteHits(query, entry) {
+    const q = normalizeForSearch(query).trim();
+    if (q === '') return [];
+
+    const rows = [];
+    const base = scoreEntry(query, entry);
+    if (base > 0) rows.push({ score: base, alias: null });
+
+    let plainAliasShown = base > 0;
+    for (const alias of aliasesOf(entry)) {
+        const score = scoreText(q, alias.name, ALIAS_WEIGHT);
+        if (score === 0) continue;
+        if (alias.variant) {
+            rows.push({ score, alias: { name: alias.name, variant: alias.variant } });
+        } else if (!plainAliasShown) {
+            plainAliasShown = true;
+            rows.push({ score, alias: { name: alias.name, variant: null } });
+        }
+    }
+    return rows;
 }

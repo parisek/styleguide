@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
-import { scoreEntry, normalizeForSearch } from '../lib/searchMatch.js';
+import { paletteHits, normalizeForSearch } from '../lib/searchMatch.js';
 
 // Command palette (Task 5). Owns the global ⌘K/Ctrl+K shortcut that used to
 // live in useSearchShortcuts.js (retired) and only focused the sidebar's
@@ -25,10 +25,12 @@ const inputRef = ref(null);
 // components drop has_styleguide:false skeleton templates (Sidebar's
 // pageItems / catalog.bySection), docs stay unfiltered (Sidebar's docItems
 // has never filtered them either).
+// One entry may give several rows: itself, plus one per matching alias that
+// opens a variant tile (lib/searchMatch.js's paletteHits()). Array.sort is
+// stable, so rows of equal score keep the catalogue order.
 function rank(type, list) {
     return list
-        .map((entry) => ({ type, entry, score: scoreEntry(query.value, entry) }))
-        .filter((row) => row.score > 0)
+        .flatMap((entry) => paletteHits(query.value, entry).map((hit) => ({ type, entry, ...hit })))
         .sort((a, b) => b.score - a.score);
 }
 
@@ -52,7 +54,7 @@ const groups = computed(() => {
 const flatRows = computed(() => groups.value.flatMap((g) => g.rows));
 
 function rowKey(row) {
-    return `${row.type}:${row.entry.id}`;
+    return row.alias ? `${row.type}:${row.entry.id}:alias:${row.alias.name}` : `${row.type}:${row.entry.id}`;
 }
 
 function isActiveRow(row) {
@@ -81,7 +83,8 @@ function move(delta) {
 function commit(row) {
     const target = row ?? flatRows.value[activeIndex.value];
     if (!target) return;
-    router.push(`/${target.type}/${target.entry.id}`);
+    const path = `/${target.type}/${target.entry.id}`;
+    router.push(target.alias?.variant ? { path, query: { variant: target.alias.variant } } : path);
     close();
 }
 
@@ -180,12 +183,20 @@ function highlightSegments(text, q) {
                         @mouseenter="activeIndex = flatRows.indexOf(row)"
                         @click="commit(row)"
                     >
-                        <span
+                        <span data-testid="search-row-name" class="block"><span
                             v-for="(segment, idx) in highlightSegments(row.entry.name ?? row.entry.id, query)"
                             :key="idx"
                             :data-matched="segment.matched"
                             :class="segment.matched && 'font-semibold text-red-600 dark:text-red-400'"
-                        >{{ segment.value }}</span>
+                        >{{ segment.value }}</span></span>
+                        <!-- The alias that found this row: without it, a hit
+                             for "Layout 238" would show only "Hero" and read
+                             as a wrong result. -->
+                        <span v-if="row.alias" data-testid="search-row-alias" class="block text-xs text-zinc-500 dark:text-zinc-400"><span
+                            v-for="(segment, idx) in highlightSegments(row.alias.name, query)"
+                            :key="idx"
+                            :class="segment.matched && 'font-semibold text-red-600 dark:text-red-400'"
+                        >{{ segment.value }}</span></span>
                     </li>
                 </template>
             </ul>

@@ -1029,6 +1029,7 @@ fields:
 | `category` | sidebar bucket — folded into a small set of canonical sections by `sectionOf()` in `frontend/src/stores/catalog.js`. Unknown labels never get dropped, they fall into a default bucket. |
 | `weight` | sort order within a bucket (lower = earlier; default `50`) |
 | `usage` | authored as comma-separated ids of pages/components that USE this one (component view) or that THIS one uses (page view); normalized to an array by the parser — drives the cross-reference chip panel |
+| `aliases` | other names the ⌘K palette and the sidebar filter find the entry by — see *Search aliases* below |
 | `description` | sidebar tooltip + overview cards |
 | `fields` | `/api/fields` endpoint + the Fields inspector view |
 | `asana` | external link chip — Asana task URL |
@@ -1040,6 +1041,16 @@ fields:
 | `responsive` | `true` (default) — when `false`, the SPA hides the responsive-width toolbar for this entry; use for fixed-layout demos where resizing has no meaning. **Ignored for `doc` templates** — a doc page is prose, not a widget, so `responsive` is always forced to `false` there regardless of this key |
 | `body_class` | optional class string applied to the render iframe's `<body>`, merged **after** the global `iframe.body_class` — see *Per-entry body class* below. For `doc` templates the global `iframe.body_class` is skipped entirely, so this per-entry key is the only body class that ever applies |
 | `variants` | **legacy fallback** map of display titles (and optional descriptions) for auto-discovered `styleguide.<variant>.twig` sibling files, keyed by id — prefer a `title:`/`description:` annotation in the sibling file itself; see *File-convention variants* below |
+
+**Search aliases.** `aliases:` lists other names an entry is found by — the source catalogue's layout numbers, an old name, a client's word for it. A plain string opens the entry. A map with `variant` opens that variant tile:
+
+```yaml
+aliases:
+  - "Hero banner"
+  - { name: "Layout 238", variant: image-side }
+```
+
+The ⌘K palette shows each matching alias as a second line under the entry name, and gives every variant alias its own row. The sidebar filter shows the first matching alias the same way. A `variant` that names no `styleguide.<id>.twig` sibling opens the entry instead. The `<id>.yaml` sidecar takes the same key. `lint` does not flag it, and versions before it ignore it.
 
 **YAML reserved indicator gotcha:** the first comment is parsed as YAML, so avoid `{% %}` tags inside it (`%` is a YAML directive marker). Put usage examples in a second `{# #}` comment block, or in the sibling `styleguide.twig` file.
 

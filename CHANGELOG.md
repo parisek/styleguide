@@ -8,6 +8,20 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Search aliases.** A new metadata key `aliases:` (twig front comment or
+  `<id>.yaml`) lists other names an entry is found by. A string opens the
+  entry; a map `{ name: "Layout 238", variant: grid }` opens that variant
+  tile. The ⌘K palette and the sidebar filter match aliases and show the
+  matching alias as a second line; the palette gives each variant alias its
+  own row. The API emits the key as `aliases: Array<{name, variant}>` on
+  `/api/components`, `/api/pages` and `/api/docs`, with a `variant` that
+  names no discovered sibling set to `null`. We chose the map over a
+  `"<text> → <variant>"` string: a name may contain an arrow, and a map
+  needs no parsing. Older versions drop the key, and `lint` does not flag
+  it.
+
 ### Changed
 
 - **Isolating a variant tile adds a browser history entry.** A click on a

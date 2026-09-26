@@ -642,6 +642,48 @@ class ComponentParser
     }
 
     /**
+     * @internal Public for its unit tests. Consumers read the normalised
+     *           `aliases` field of `/api/components|pages|docs`.
+     *
+     * The `aliases:` metadata key: other names an entry is searched by, for
+     * example the source catalogue's own layout numbers. Each entry is a
+     * plain string (the alias opens the entry) or a map
+     * `{name: <string>, variant: <id>}` (the alias opens that variant tile).
+     *
+     * A single string counts as one alias. An entry without a usable name is
+     * dropped. A `variant` that names no discovered sibling becomes `null`:
+     * the alias still finds the entry, the same fallback a stale
+     * `?variant=` deep link gets. Never throws.
+     *
+     * @param list<string> $variantIds the discovered variant ids of this entry
+     * @return list<array{name:string, variant:string|null}>
+     */
+    public static function normaliseAliases(mixed $value, array $variantIds): array
+    {
+        if (is_string($value)) {
+            $value = [$value];
+        }
+        if (!is_array($value) || !array_is_list($value)) {
+            return [];
+        }
+
+        $aliases = [];
+        foreach ($value as $entry) {
+            $name = is_array($entry) ? ($entry['name'] ?? null) : $entry;
+            if (!is_string($name) || trim($name) === '') {
+                continue;
+            }
+            $variant = is_array($entry) ? ($entry['variant'] ?? null) : null;
+            $aliases[] = [
+                'name' => trim($name),
+                'variant' => is_string($variant) && in_array($variant, $variantIds, true) ? $variant : null,
+            ];
+        }
+
+        return $aliases;
+    }
+
+    /**
      * @param array<string,mixed> $metadata
      * @param list<array{id:string,title:string,description:string}> $variants
      * @return array<string,mixed>
@@ -666,6 +708,10 @@ class ComponentParser
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
             'usage' => self::normaliseUsage($metadata['usage'] ?? null),
+            'aliases' => self::normaliseAliases(
+                $metadata['aliases'] ?? null,
+                array_column($variants, 'id'),
+            ),
             'fields' => $this->normaliseFields($sourceFile, $metadata['fields'] ?? null),
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height

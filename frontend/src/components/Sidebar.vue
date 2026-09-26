@@ -5,7 +5,7 @@ import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useThemeStore } from '../stores/theme.js';
-import { filterItems } from '../lib/searchMatch.js';
+import { filterItems, matchedAlias } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
@@ -85,10 +85,12 @@ function isActive(type, slug) {
     return info.type === type && info.slug === slug;
 }
 
-function select(type, slug) {
+// `variant` comes from a search hit on an alias that names a variant tile
+// (see searchAlias() below); every other caller leaves it out.
+function select(type, slug, variant = null) {
     // Sectionless URLs (`/overview`, `/foundations`) don't carry a slug.
     const path = slug ? `/${type}/${slug}` : `/${type}`;
-    router.push(path);
+    router.push(variant ? { path, query: { variant } } : path);
     // On small screens the sidebar is a slide-over overlay covering the
     // preview — close it after a pick so the chosen item is visible.
     // No-op on desktop where the sidebar is a persistent column.
@@ -99,6 +101,12 @@ function select(type, slug) {
 
 function items(section) {
     return filterItems(catalog.bySection(section), ui.searchQuery);
+}
+
+// The alias that made a search hit, shown under the name: a hit by name
+// needs no second line, a hit by "Layout 238" does.
+function searchAlias(item) {
+    return matchedAlias(item, ui.searchQuery);
 }
 
 const docItems = computed(() => filterItems(catalog.docEntries, ui.searchQuery));
@@ -239,8 +247,9 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                         </a>
                     </li>
                     <li v-for="item in docItems" :key="item.id">
-                        <a href="#" @click.prevent="select('doc', item.id)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('doc', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
+                        <a href="#" @click.prevent="select('doc', item.id, searchAlias(item)?.variant)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('doc', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ item.name }}</span>
+                            <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
                         </a>
                     </li>
                 </ul>
@@ -283,11 +292,12 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                     <li v-for="item in (ui.searchQuery ? items(section) : [])" :key="'s:' + item.id">
                         <a
                             href="#"
-                            @click.prevent="select('component', item.id)"
+                            @click.prevent="select('component', item.id, searchAlias(item)?.variant)"
                             class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('component', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
                             <span>{{ item.name ?? item.id }}</span>
+                            <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
                         </a>
                     </li>
                     <!-- Otherwise: prefix tree (groups >= 3, suffix-only children). -->
@@ -349,11 +359,12 @@ const pageItems = computed(() => filterItems(catalog.pages.filter((p) => p.has_s
                     <li v-for="page in (ui.searchQuery ? pageItems : [])" :key="'s:' + page.id">
                         <a
                             href="#"
-                            @click.prevent="select('page', page.id)"
+                            @click.prevent="select('page', page.id, searchAlias(page)?.variant)"
                             class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('page', page.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
                             <span>{{ page.name ?? page.id }}</span>
+                            <span v-if="searchAlias(page)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(page).name }}</span>
                         </a>
                     </li>
                     <!-- Otherwise: prefix tree (groups >= 3 by name, suffix-only children) — same as component sections. -->
