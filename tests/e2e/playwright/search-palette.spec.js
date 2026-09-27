@@ -23,6 +23,33 @@ test.describe('Command palette', () => {
         await expect(dialog).toBeHidden();
     });
 
+    // tests/fixtures/templates/component/multi declares
+    // `aliases: [{ name: "Layout 238", variant: secondary }, …]`.
+    test('an alias hit shows the alias and opens the aliased variant tile', async ({ page }) => {
+        await page.goto('/styleguide/');
+        await page.keyboard.press('Meta+k');
+        const dialog = page.getByRole('dialog');
+
+        await dialog.getByPlaceholder(/search|hledat/i).fill('layout 238');
+        await expect(dialog.getByRole('option')).toHaveCount(1);
+        await expect(dialog.getByTestId('search-row-name')).toHaveText('Multi');
+        await expect(dialog.getByTestId('search-row-alias')).toHaveText('Layout 238');
+        await page.keyboard.press('Enter');
+
+        await expect(page).toHaveURL(/\/styleguide\/component\/multi\?variant=secondary$/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+        await expect(page.frameLocator('iframe').locator('.multi')).toContainText('Multi demo (secondary variant)');
+    });
+
+    test('the sidebar filter finds an entry by alias too', async ({ page }) => {
+        await page.goto('/styleguide/');
+        await page.locator('aside input[type="text"]').fill('víceúčelový');
+        const alias = page.getByTestId('sidebar-search-alias');
+        await expect(alias).toHaveText('Víceúčelový blok');
+        await alias.click();
+        await expect(page).toHaveURL(/\/styleguide\/component\/multi$/);
+    });
+
     test('no-results state for a query that matches nothing', async ({ page }) => {
         await page.goto('/styleguide/');
         await page.keyboard.press('Meta+k');

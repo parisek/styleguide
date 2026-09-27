@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL } from './runtimeConfig.js';
+import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, compareWidths, landing } from './runtimeConfig.js';
 
 function inject(payload) {
     const el = document.createElement('script');
@@ -48,5 +48,52 @@ describe('runtimeConfig', () => {
         document.body.innerHTML = '';
         inject({ baseUrl: '/two' });
         expect(baseUrl()).toBe('/one');
+    });
+});
+
+describe('compareWidths', () => {
+    it('returns the configured widths in order', () => {
+        inject({ compareWidths: [1440, 768, 320] });
+        expect(compareWidths()).toEqual([1440, 768, 320]);
+    });
+
+    it.each([[undefined], [[1440]], [[1, 2, 3, 4, 5]], [[1440, '768']], [[1440, 0]], ['1440,768']])(
+        'is null for %j',
+        (value) => {
+            inject({ compareWidths: value });
+            expect(compareWidths()).toBeNull();
+        },
+    );
+});
+
+describe('showSource', () => {
+    it('is true only for a literal true in the payload', () => {
+        inject({ showSource: true });
+        expect(showSource()).toBe(true);
+    });
+
+    it.each([[undefined], [false], ['true'], [1]])('is false for %s', (value) => {
+        inject({ showSource: value });
+        expect(showSource()).toBe(false);
+    });
+
+    it('is false without a payload', () => {
+        expect(showSource()).toBe(false);
+    });
+});
+
+describe('landing', () => {
+    it('is "grid" when the payload says so', () => {
+        inject({ landing: 'grid' });
+        expect(landing()).toBe('grid');
+    });
+
+    it.each([[undefined], ['overview'], ['foundations'], [true]])('is "foundations" for %s', (value) => {
+        inject({ landing: value });
+        expect(landing()).toBe('foundations');
+    });
+
+    it('is "foundations" without a payload', () => {
+        expect(landing()).toBe('foundations');
     });
 });

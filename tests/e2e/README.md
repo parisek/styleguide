@@ -21,6 +21,12 @@ runs the layer, and tears the server down.
 | **PHPUnit** | `composer test` | Backend units — `Router`, `Renderer`, `ComponentParser`, `AssetServer` | ✅ yes |
 | **Playwright** (`tests/e2e/playwright/styleguide.spec.js`) | `cd frontend && npm run test:e2e` | SPA hydration, sidebar buckets, router navigation, iframe `src`, ⌘K focus, viewport presets/drag-resize/rotation, prefix-tree grouping, locale + theme switching, canvas mode, fields drawer, standalone back-bar visibility | ✅ yes (`e2e-playwright` job) |
 
+Playwright starts three fixture servers (`frontend/playwright.config.js`):
+the default mount on 8421, a configured mount on 8423 (`SG_MOUNT`), and the
+opt-in presentation keys on 8424 (`SG_PRESENTATION=1`: `pages.group_by`,
+`overview.default`, merged into a temp copy of `styleguide.yaml` by
+`tests/fixtures/index.php`).
+
 The Playwright suite superseded a local-only "Layer B" (`smoke-browser.sh`,
 driven by the `agent-browser` CLI) that read state directly out of
 `window.Alpine.store(...)`. The Vue rewrite (Phase 1 of the Styleguide 2.0

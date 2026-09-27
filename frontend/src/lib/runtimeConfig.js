@@ -22,17 +22,54 @@ function normalise(value) {
     return trimmed === '' ? DEFAULT_BASE_URL : trimmed;
 }
 
-export function baseUrl() {
+// The payload, read once and reduced to the values this module serves.
+function config() {
     if (cached === null) {
-        let config = {};
+        let raw = {};
         try {
-            config = readSpaConfig();
+            raw = readSpaConfig();
         } catch {
             // See the header: only reachable outside the served shell.
         }
-        cached = normalise(config.baseUrl);
+        cached = {
+            baseUrl: normalise(raw.baseUrl),
+            // The server sends `showSource: true` only when the fixture
+            // source may be shown (Styleguide::showSource()). Anything else
+            // hides the "Code" toggle; the API refuses on its own anyway.
+            showSource: raw.showSource === true,
+            compareWidths: normaliseCompareWidths(raw.compareWidths),
+            // `overview.default: grid` in styleguide.yaml: the bare mount
+            // lands on the overview grid. Anything else keeps Foundations.
+            landing: raw.landing === 'grid' ? 'grid' : 'foundations',
+        };
     }
     return cached;
+}
+
+// The server validates `viewports.compare` at boot; this only guards the
+// shape, so a hand-edited or older payload can never produce a broken
+// compare mode. Anything off -> null (no compare button).
+function normaliseCompareWidths(value) {
+    if (!Array.isArray(value) || value.length < 2 || value.length > 4) return null;
+    return value.every((w) => Number.isInteger(w) && w > 0) ? [...value] : null;
+}
+
+// `viewports.compare` from styleguide.yaml, e.g. [1440, 768, 320], or null.
+export function compareWidths() {
+    return config().compareWidths;
+}
+
+// What the bare mount (`/styleguide/`) shows: 'grid' or 'foundations'.
+export function landing() {
+    return config().landing;
+}
+
+export function baseUrl() {
+    return config().baseUrl;
+}
+
+export function showSource() {
+    return config().showSource;
 }
 
 // `path` is relative to the mount: 'api/components', 'render/component/card'.

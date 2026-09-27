@@ -540,4 +540,48 @@ final class LinterTest extends TestCase
         rmdir($root);
     }
 
+    #[Test]
+    public function flags_a_variants_order_id_with_no_sibling_file(): void
+    {
+        [$root, $findings] = $this->lintTree([
+            'component/stack/stack.yaml' => "name: Stack\ncategory: Block\ndescription: d\nvariants_order: [gamma, ghost, alpha]\n",
+            'component/stack/stack.twig' => "<div></div>\n",
+            'component/stack/styleguide.alpha.twig' => "<div></div>\n",
+            'component/stack/styleguide.gamma.twig' => "<div></div>\n",
+        ]);
+        $this->removeTree($root);
+
+        $order = $this->findingsFor($findings, 'unknown-variants-order');
+        self::assertCount(1, $order);
+        self::assertSame(LintSeverity::Warning, $order[0]->severity);
+        self::assertSame('component/stack/stack.yaml', $order[0]->file);
+        self::assertStringContainsString('"ghost"', $order[0]->message);
+        self::assertStringContainsString('styleguide.ghost.twig', $order[0]->message);
+    }
+
+    #[Test]
+    public function flags_a_variants_order_that_is_not_a_list_of_ids(): void
+    {
+        [$root, $findings] = $this->lintTree([
+            'component/odd/odd.twig' => "{#\nname: Odd\ncategory: Block\ndescription: d\nvariants_order: { a: b }\n#}\n<div></div>\n",
+            'component/odd/styleguide.twig' => "<div></div>\n",
+        ]);
+        $this->removeTree($root);
+
+        $order = $this->findingsFor($findings, 'unknown-variants-order');
+        self::assertCount(1, $order);
+        self::assertStringContainsString('list of variant ids', $order[0]->message);
+    }
+
+    #[Test]
+    public function a_valid_variants_order_has_no_finding(): void
+    {
+        [$root, $findings] = $this->lintTree([
+            'component/fine/fine.twig' => "{#\nname: Fine\ncategory: Block\ndescription: d\nvariants_order: beta\n#}\n<div></div>\n",
+            'component/fine/styleguide.beta.twig' => "<div></div>\n",
+        ]);
+        $this->removeTree($root);
+
+        self::assertSame([], $this->findingsFor($findings, 'unknown-variants-order'));
+    }
 }

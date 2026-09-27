@@ -3,7 +3,9 @@ import { useRoute, useRouter } from 'vue-router';
 
 // Wraps the `?variant=` query param through vue-router (Phase 1 Task 4's
 // router.js) instead of a hand-rolled route object -- reads via
-// useRoute().query.variant, writes via router.replace({ query }). `entry` is
+// useRoute().query.variant, writes via router.push({ query }). A push, not a
+// replace: isolating a tile and going back to the grid are two views the
+// visitor expects the browser's back/forward buttons to step between. `entry` is
 // a ref/computed exposing the current catalogue item (or null); its
 // `.variants` array (Task 1: ComponentParser.discoverVariants(), passed
 // through /api/components|pages|docs) is the whitelist an incoming
@@ -43,7 +45,7 @@ export function useVariant(entry) {
         // resulting route/query update (e.g. tests) can do so; ViewportToolbar.vue's
         // @click handler ignores it, same as every other router.push() call site
         // in this codebase (Sidebar.vue's select(), UsagePanel.vue).
-        return router.replace({ query });
+        return router.push({ query });
     }
 
     return { variant, setVariant };

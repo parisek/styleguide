@@ -6,7 +6,8 @@ import {
     findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
 } from '../lib/viewportMath.js';
 import { flattenFieldsTree } from '../lib/fieldsTree.js';
-import { url } from '../lib/runtimeConfig.js';
+import { compareWidths as configuredCompareWidths } from '../lib/runtimeConfig.js';
+import { buildRenderSrc } from '../lib/renderSrc.js';
 
 // Ported from frontend/components/preview.js. One instance is provided by
 // App.vue (Task 7 Step 9) and injected by ViewportToolbar.vue (this task)
@@ -24,9 +25,12 @@ import { url } from '../lib/runtimeConfig.js';
 // URL > localStorage > YAML default) follows the identical rule for the
 // identical reason; default to a ref of `''` (never equals a real
 // default_locale, so buildIframeSrc()'s `?locale=` append never fires) so a
-// router-free construction renders exactly like today.
+// router-free construction renders exactly like today. `compareWidths` is
+// the `viewports.compare` list from #sg-config (or null); a parameter only so
+// specs can set it without a payload.
 export function useViewportPreset({
     type, slug, variant = ref(null), setVariant = () => {}, contentLocale = ref(''),
+    compareWidths = configuredCompareWidths(),
 }) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
@@ -172,43 +176,21 @@ export function useViewportPreset({
     // ?variant= is). `variantIdOverride` of `null`/`undefined` means "no
     // variant" (the default tile / the historical no-?variant= URL shape).
     function buildIframeSrc(variantIdOverride) {
-        let src;
-        if (type.value === 'foundations' || type.value === 'icons') {
-            src = url(`render/${type.value}/index`);
-        } else if (!slug.value || !['component', 'page', 'doc'].includes(type.value)) {
-            return null;
-        } else {
-            src = url(`render/${type.value}/${slug.value}`);
-        }
-        if (reloadNonce.value) src += (src.includes('?') ? '&' : '?') + `_r=${reloadNonce.value}`;
-        // Iframe content theme — independent of the SPA chrome's own theme
-        // toggle (stores/theme.js). Only appended when dark so the historical
-        // (pre-feature) URL shape is unchanged for the default 'light' case.
-        if (ui.iframeTheme === 'dark') src += (src.includes('?') ? '&' : '?') + 'theme=dark';
-        // File-convention variant (Task 1: ComponentParser.discoverVariants(),
-        // Task 2: Router::whitelistVariant()/Renderer resolve it server-side).
-        // Only appended when set, same omit-the-default-case shape as theme
-        // above -- the historical no-variant render URL is unchanged.
-        if (variantIdOverride) src += (src.includes('?') ? '&' : '?') + `variant=${encodeURIComponent(variantIdOverride)}`;
-        // Design decision: ONE switch drives both the SPA chrome's own UI
-        // language AND the rendered content's locale (design doc §
-        // "Chrome vs content language"). `contentLocale` is
-        // useContentLocale()'s already-resolved value — URL `?locale=` on
-        // the SPA's own address bar, else the visitor's stored switcher
-        // choice, else the YAML `default_locale` (see
-        // lib/contentLocale.js's precedence resolver + its own tests).
-        // Appended only when it differs from the server's own
-        // default_locale, so the historical no-`?locale=` URL shape is
-        // unchanged for a visitor who never touches the switcher, and a
-        // project with no `translations_path` configured sees no behaviour
-        // change at all (the query param is simply inert server-side — see
-        // Router.php).
-        const defaultLocale = document.documentElement.dataset.defaultLocale || '';
-        const resolvedContentLocale = contentLocale.value;
-        if (defaultLocale && resolvedContentLocale && resolvedContentLocale !== defaultLocale) {
-            src += (src.includes('?') ? '&' : '?') + `locale=${encodeURIComponent(resolvedContentLocale)}`;
-        }
-        return src;
+        // The query rules (reload nonce, iframe theme, variant, content
+        // locale) live in lib/renderSrc.js, shared with the overview grid.
+        // `contentLocale` is useContentLocale()'s already-resolved value
+        // (URL `?locale=`, else the stored switcher choice, else the YAML
+        // `default_locale`); one switch drives both the chrome language and
+        // the rendered content's locale.
+        return buildRenderSrc({
+            type: type.value,
+            slug: slug.value,
+            variant: variantIdOverride ?? null,
+            theme: ui.iframeTheme,
+            contentLocale: contentLocale.value,
+            defaultLocale: document.documentElement.dataset.defaultLocale || '',
+            reloadNonce: reloadNonce.value,
+        });
     }
 
     const iframeSrc = computed(() => buildIframeSrc(variant.value));
@@ -270,6 +252,14 @@ export function useViewportPreset({
     // previewActionsVisible everywhere) so a future single-preview-only
     // exception has one place to land.
     const toolbarVisible = computed(() => previewActionsVisible.value);
+
+    // Compare mode: the current entry at every `viewports.compare` width
+    // side by side (CompareStrip.vue), in the single preview and in every
+    // grid tile alike. Needs configured widths, and the same routes the
+    // width presets apply to -- a responsive:false entry has one width only.
+    const compareActive = computed(() => !!compareWidths
+        && ui.compareActive
+        && previewActionsVisible.value);
 
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
@@ -377,6 +367,7 @@ export function useViewportPreset({
         gridZoom, setGridZoom, effectiveZoom,
         dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
         reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, secondaryActionsVisible, gridActive, currentSectionKey, currentItemName,
+        compareWidths, compareActive,
         currentItemDescription, currentVariantLabel, currentVariantDescription, descriptionBarText, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

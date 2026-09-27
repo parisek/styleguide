@@ -249,6 +249,10 @@ The project-level config consumed by `Styleguide::__construct(['config_yaml' => 
 | `typography` | optional | `{ fonts: [{ name, type, stylesheet, url, usage, alphabet }], headings, weights, body_sample }` | Foundations view |
 | `labels` | optional | `{ logo, colors, typography, headings, font_weights, body_text, font_family, click_to_copy, copied, click_swatch }` | i18n strings for foundations view |
 | `colors` | optional | `{ <name>: { name, css_variable, default, shades: { <shade>: { hex, oklch } } } }` | Foundations colour palette |
+| `viewports` | optional | `{ compare?: int[] }` | `compare` (added 1.24.0): 2–4 integer widths, each 100–4000 (the SPA's Custom-width range), e.g. `[1440, 768, 320]`. Adds a toolbar button labelled with the widths (`1440 · 768 · 320`) that shows the current entry at every width side by side, each iframe at its logical width and scaled into a column sized in proportion to it, so all widths share one zoom. In the variant grid every tile gets its own strip and the grid drops to one tile per row. Every compare iframe carries `loading="lazy"`. A malformed `compare` throws `\InvalidArgumentException` at construction; a `viewports` that is not a map is left to the project (unowned top-level keys pass through). Absent: nothing changes. Reaches the SPA as `compareWidths` in `#sg-config`, only when set. Other keys under `viewports` are ignored |
+| `show_source` | optional | `bool` | Whether the SPA offers the "Code" toggle and `/api/source` answers (added 1.24.0). `true` turns it on, `false` off. **Absent (or `null`): on only when the `auth` constructor callable is set** — a catalogue with no gate of its own is treated as public, and a public catalogue does not publish its fixture sources by default. Any other value (a string, a number) turns it off. A host that guards the catalogue itself — the Symfony bundle (where `auth` cannot be set), HTTP Basic Auth, a VPN — writes `show_source: true`. When on, `#sg-config` carries `showSource: true`; when off, the key is absent and `/api/source` answers as an unknown endpoint. Why this default: [ADR-0006](adr/0006-show-source-off-unless-gated.md) |
+| `pages` | optional | `{ group_by?: 'category' }` | `group_by` (added 1.24.0): `category` groups the sidebar's page entries by their `category` metadata, one collapsible group per category, as the component sections group theirs. Groups are ordered by the lowest `weight` among their pages, then by name; pages keep their order inside a group; pages without a category share one default group ("Ostatní" / "Other"), always last. The search filter still shows a flat list. Any other value throws `\InvalidArgumentException` at construction; a `pages` that is not a map is left to the project. Absent: today's flat list (prefix tree). Reaches the SPA as `pagesGroupBy` in `#sg-config`, only when set |
+| `overview` | optional | `{ default?: 'grid' \| 'foundations' }` | `default` (added 1.24.0): what the bare mount (`/styleguide/`) shows. `grid` lands on the overview grid (`/styleguide/grid`, every component and page as a live preview tile); `foundations`, or no key, keeps Foundations. The URL stays at the mount either way. Any other value throws `\InvalidArgumentException` at construction; an `overview` that is not a map is left to the project. Reaches the SPA as `landing: "grid"` in `#sg-config`, only for `grid` |
 | `bootstrap` | optional (required for `Styleguide::fromYaml()`) | `{ templates_path, static_path, default_locale?, base_url?, typography_config?, translations_path?, source_locale?, namespaces?, twig_context? }` | Project-truth bootstrap config consumed **only** by `Styleguide::fromYaml()` (§ PHP API above) — never read by `Styleguide::__construct()`/`run()` directly. See § `bootstrap:` below. |
 
 Adding new optional top-level keys or new optional sub-keys is **non-breaking**. Renaming or removing existing keys is **breaking**.
@@ -290,7 +294,9 @@ A sibling `<id>.yaml` wins over the comment when present. A template under an un
 | `description` | no | `string` (HTML allowed) | `''` | Sidebar tooltip + Overview card |
 | `weight` | no | `int` | `50` | Sort order within bucket (lower = earlier) |
 | `usage` | no | `string` (comma-separated) — normalised to `string[]` on the wire | `[]` | Cross-reference between pages and components |
+| `aliases` | no | list; each entry a `string`, or a map `{name: string, variant?: string}` | `[]` | Other names the ⌘K palette and the sidebar filter find this entry by (added 1.24.0). A string alias opens the entry; a map with `variant` opens that variant tile (`?variant=<id>`). Normalised to `Array<{name, variant}>` on the wire: names are trimmed, an entry without a string `name` is dropped, a `variant` that names no discovered `styleguide.<id>.twig` sibling becomes `null` (the alias then opens the entry). A single string counts as one alias. The `"<text> → <variant>"` string form is **not** parsed: write the map. `lint` does not flag the key; versions before it ignore it |
 | `fields` | no | recursive map | `[]` | Fields inspector view + `/api/fields` |
+| `variants_order` | no | list of variant ids (a single string counts as one) | absent | Order of the variant tiles (added 1.24.0). The listed ids come first, in the order written; the other discovered variants follow in id (file-name) order. An id with no `styleguide.<id>.twig` sibling, a repeated id and a non-string entry are skipped; a value that is neither a string nor a list leaves the id order. The default fixture has no id and always shows first. Not emitted on the wire: the order of `variants` carries it. `lint` reports an id with no sibling file, and a value that is not a list, as `unknown-variants-order`; versions before it ignore the key |
 | `asana` / `figma` / `drupal` / `web` | no | URL string | `''` | External link chips |
 | `render` | no | enum `inset \| bleed \| chrome \| overlay` | `inset` | Iframe wrapper mode |
 | `kind` | no | enum `block \| section \| element \| part \| utility` | `''` | Closed enum declaring what the component *is* (authorial intent — see `docs/adr/0012-component-kind-taxonomy.md` in tailwind-base). Unlike `render`, an absent or unrecognised value normalises to `''`, never a guessed default |
@@ -318,6 +324,8 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
   ```
 
   A sibling with no annotation (or one that fails to parse) falls back to the component's legacy `variants:` map entry for that id, then to the id itself — see the `variants` row in *Component YAML metadata* above.
+
+  `styleguide.twig` takes the same annotation (added 1.24.0): its `title:` labels the default tile of the variant grid (`default_variant_title` on the wire). Without one the tile keys "Default" / "Výchozí" as before. Only `title` is read; the default tile shows no description.
 - `<id>/styleguide.data.yaml` — OPTIONAL. Pure-YAML sidecar, the DEFAULT data set, read via `styleguide_data()` (no argument) (§ *Twig functions & filters* below) — never matched by the variant glob (`styleguide.*.twig`) or `STYLEGUIDE_SIBLING_PATTERN` (both `.twig`-only), so it can coexist with any number of `styleguide.<variant>.twig` siblings without ambiguity.
 - `<id>/styleguide.data-<name>.yaml` — OPTIONAL, zero or more. A NAMED data set, read via `styleguide_data('<name>')`. `<name>` matches `[a-z0-9-]+` — the same id rule `styleguide.<variant>.twig` variant ids already use. Same `.yaml`-vs-`.twig` discovery safety as the default sidecar above.
 - The `@component`, `@page`, `@doc`, `@macro`, `@icons`, `@images`, `@static` Twig namespaces are auto-registered when the matching directory exists under `templates_path`.
@@ -487,6 +495,7 @@ type Field = {
   web: string;
   weight: number;        // int, default 50
   usage: string[];       // normalised from the YAML comma-separated `usage:` string (or an already-array YAML value) by ComponentParser::normaliseUsage() — see § PHP API
+  aliases: Array<{ name: string; variant: string | null }>; // additive (1.24.0). [] when the YAML has no `aliases:`; `variant` is null unless it names a discovered variant — see § Component YAML metadata
   fields: Field[];       // canonical ordered list — see § Fields canonicalisation
   render: 'inset' | 'bleed' | 'chrome' | 'overlay';
   kind: '' | 'block' | 'section' | 'element' | 'part' | 'utility';
@@ -494,13 +503,14 @@ type Field = {
   responsive: boolean;   // from YAML, true unless explicitly `responsive: false`; ALWAYS false for /api/docs entries regardless of YAML — see § Component YAML metadata
   has_styleguide: boolean; // true if <id>/styleguide.twig exists, OR YAML has `styleguide:` key, OR (additive, v1.1.0) at least one styleguide.<variant>.twig sibling exists — a component may ship ONLY named variants with no bare default and still surface as a renderable entry
   has_default_variant: boolean; // additive (v1.1.0). true only when <id>/styleguide.twig itself exists on disk — narrower than has_styleguide above, which also goes true from the legacy `styleguide:` flag or from named variants alone. The SPA's variant grid uses this (not has_styleguide) to decide whether to show a synthetic "Default" tile
-  variants: Array<{ id: string; title: string; description: string }>; // [] when no sibling styleguide.<variant>.twig files exist; title/description come from the sibling's own front-comment annotation first, falling back to the component's legacy `variants:` map, then to the id (title only)
+  default_variant_title: string; // additive (1.24.0). The `title:` of <id>/styleguide.twig's own front comment, trimmed; '' when there is none, when the comment is not YAML, or when no styleguide.twig exists. The SPA labels the default tile with it, else "Default"
+  variants: Array<{ id: string; title: string; description: string }>; // [] when no sibling styleguide.<variant>.twig files exist; title/description come from the sibling's own front-comment annotation first, falling back to the component's legacy `variants:` map, then to the id (title only). Ordered by id, except that ids listed in `variants_order:` come first (1.24.0)
 }
 ```
 
 Field order is **not** part of the contract. Adding new fields is non-breaking. Removing or renaming fields is breaking.
 
-`/api/pages` and `/api/docs` inherit the identical additive `variants` and `has_default_variant` fields (already true by construction — same `normaliseMetadata()`).
+`/api/pages` and `/api/docs` inherit the identical additive `variants`, `has_default_variant`, `default_variant_title` and `aliases` fields (already true by construction — same `normaliseMetadata()`).
 
 ### § Fields canonicalisation
 
@@ -555,22 +565,56 @@ For that, sweep the render endpoint: since 1.8.0 a broken template returns
 stronger than a compile check (it also catches a missing partial, a runtime
 failure, and the alert fallback). See README § *CI smoke test*.
 
+### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]` (added 1.24.0)
+
+The source of the fixture file behind one preview: `styleguide.<id>.twig`
+with `?variant=<id>`, `styleguide.twig` without. The SPA's "Code" toggle
+reads it. The endpoint exists only while `show_source` is on (§ YAML
+schemas → `styleguide.yaml`); off, it answers `404` exactly like an unknown
+endpoint (`{"error": "Unknown API endpoint: source"}`). The `auth` callable
+gates it like every other route.
+
+**Response shape (200):**
+
+```ts
+{
+  kind: 'component' | 'page' | 'doc';
+  slug: string;
+  variant: string | null;  // null = the default fixture, styleguide.twig
+  file: string;            // relative to templates_path, e.g. "component/card/styleguide.dark.twig"
+  source: string;          // the file, without its leading {# … #} block and the blank lines after it
+}
+```
+
+Only a comment that opens the file is removed: that block is the metadata
+annotation (`title:`, `description:`). A comment further down is part of the
+example and stays.
+
+**404** (JSON `{"error": "No fixture source for this entry"}`) for a `kind`
+outside `component | page | doc`, a slug outside `[A-Za-z0-9_-]+`, an entry
+or variant without its fixture file, and an entry that renders its own
+`<slug>.twig` (no fixture). The file is looked up through the same `@project`
+Twig namespace the render endpoint renders from, so it is the file that
+rendered the tile.
+
 ## URL surface — `@api`
 
 Patterns below use the default mount, `/styleguide`. With `base_url` set, every one of them moves under that mount instead, cookie path included; nothing is served at `/styleguide` then.
 
 | Pattern | Purpose |
 |---|---|
-| `/styleguide/` | SPA landing (= Overview) |
+| `/styleguide/` | SPA landing: Foundations, or the overview grid with `overview.default: grid` (added 1.24.0). Rendered in place, the address bar stays at the mount |
 | `/styleguide/component/<slug>` | SPA — component detail with iframe |
 | `/styleguide/page/<slug>` | SPA — page detail |
 | `/styleguide/doc/<slug>` | SPA — doc detail (DOKUMENTACE group) |
 | `/styleguide/foundations` | SPA — foundations (logo/colors/typography) |
 | `/styleguide/fields` | SPA — fields inspector |
 | `/styleguide/overview` | SPA — Components & Pages catalog |
+| `/styleguide/grid` | SPA — overview grid: every component and page as a live preview tile, with a section and text filter (added 1.24.0) |
 | `/styleguide/render/<kind>/<slug>` | Render endpoint — HTML document of a single component / page / doc in isolation (no SPA chrome); `<kind>` ∈ `component \| page \| doc \| foundations`. Accepts an additive `?theme=light\|dark` query param (whitelisted server-side, default `light`) — stamps `class="dark"` + `color-scheme: dark` on the rendered `<html>`. Also accepts an additive `?variant=<id>` query param (whitelisted server-side against `^[a-z0-9-]+$`) for `component \| page \| doc` kinds — resolves `styleguide.<id>.twig` in place of the default `styleguide.twig` when that file exists; absent, invalid, or unknown-but-well-formed values silently fall back to the default `styleguide.twig` → `<slug>.twig` chain (never a 404), so a bookmarked deep link survives a deleted/renamed variant. Query-only — no cookie fallback, unlike `theme`. Composes independently with `?theme=`. This endpoint always renders exactly ONE block regardless of how many variants an entry has — no `?variant=` means the default fixture, a resolvable `?variant=<id>` means that one variant, full stop; there is no server-side "show every variant" response. The SPA is what assembles multiple isolated renders (one iframe per tile, each hitting this same endpoint with its own `?variant=`) into the variant grid described in *Component Twig file conventions* above. Also accepts an additive, **presence-based** `?canvas` query param — any presence of the key (`?canvas`, `?canvas=1`, `?canvas=`, …; the value is never inspected) suppresses the standalone back-bar the render endpoint otherwise shows when its document is the top-level window, so the SPA's own "Canvas" toolbar action can render a truly clean, full-viewport document. Absent → bar shows (top-level) or stays hidden (embedded in an iframe, unaffected either way). Composes independently with `?theme=`/`?variant=`. Also accepts an additive `?locale=<code>` query param (added 1.13.0, whitelisted server-side against `^[A-Za-z0-9_-]{2,35}$`) — see § Locale switching below. |
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
 | `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts + `checked` scope) |
+| `/styleguide/api/source/<kind>/<slug>` | JSON — fixture source of one preview, `?variant=<id>` for a variant; only while `show_source` is on (added 1.24.0) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |
 
@@ -612,7 +656,7 @@ A stored locale whose catalogue is no longer offered (renamed/removed `.mo`, or 
 |---|---|
 | `list [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | List all components / pages / docs as JSON. Shape matches `/api/components` / `/api/pages` / `/api/docs`. |
 | `show <id> [--type=component\|page\|doc] [--templates=<path>] [--pretty]` | Same but for a single id. |
-| `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions). See README § Command-line catalogue. |
+| `lint [--type=component\|page\|doc] [--format=text\|json] [--templates=<path>] [--pretty]` | Report metadata quality issues (invalid metadata YAML (`metadata-yaml-invalid`), unindexed templates, dead `styleguide:` content, broken `usage:` refs, unknown `render:` values, empty descriptions, `variants_order:` ids with no sibling file (`unknown-variants-order`, added 1.24.0)). See README § Command-line catalogue. |
 | `doctor [--config=<path>] [--format=text\|json] [--pretty]` | Report what this project's `styleguide.yaml` will do at runtime: a configured path that does not exist, a stale or unbuilt `dist/`, a catalogue moved off `/styleguide` (notice), an empty catalogue, an `index.php` beside `styleguide.yaml` whose code references `Bridge\Symfony\FrontController` without `symfony/framework-bundle` installed (check `front-controller`, since 1.21.0), and the Twig helper names the package registers. Same exit-code contract as `lint`. See README § `doctor`. |
 | `front-controller:init [--dir=<path>] [--config=<path>] [--force]` | Write `resources/front-controller.php` as `index.php` beside `styleguide.yaml`. Exit `0` written or already current, `1` a different `index.php` exists (kept; `--force` replaces it) or `index.php` is a symlink (never written through), `2` usage error (no `styleguide.yaml`, a missing `--config` file, a bare `--dir`, not a directory, not writable). An explicit `--dir` or `--config` never falls back to `./styleguide.yaml`. Added 1.21.0. |
 | `maintenance:render [--config=<path>] [--locale=<code>] [--css=<path>] [--out=<path>]` | Render the outage screen to one self-contained HTML file. See § Offline outage render below. |

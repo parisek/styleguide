@@ -64,3 +64,12 @@ export function autoGridColumnBasis(presetWidth) {
     if (presetWidth === null || presetWidth === undefined) return AUTO_GRID_FLUID_BASIS_PX;
     return presetWidth + TILE_CHROME_PADDING_PX;
 }
+
+// Compare mode (CompareStrip.vue): one column per `viewports.compare` width,
+// each in proportion to its width. Every iframe then fits its column at the
+// same zoom, so 1440 / 768 / 320 read at one scale, the way they relate on
+// real screens. `minmax(0, …)`: a column must never grow to its iframe's
+// unscaled logical width (the same trap VariantGrid's `min-w-0` guards).
+export function compareColumnTemplate(widths) {
+    return widths.map((w) => `minmax(0, ${w}fr)`).join(' ');
+}

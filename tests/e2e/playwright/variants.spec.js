@@ -103,6 +103,32 @@ test.describe('file-convention variants', () => {
         await expect(page.locator('iframe').first()).toHaveAttribute('src', '/styleguide/render/component/multi');
     });
 
+    // Uncaught exceptions only: the fixture's iframe points at a
+    // /dist/js/script.js that does not exist, so console errors are noise.
+    test('an unknown variant id throws no page error', async ({ page }) => {
+        const errors = [];
+        page.on('pageerror', (err) => errors.push(err.message));
+        await page.goto('/styleguide/component/multi?variant=retired');
+        await expect(page.getByTestId('variant-tile')).toHaveCount(3);
+        expect(errors).toEqual([]);
+    });
+
+    test('isolating a tile is a history entry: back returns to the grid, forward re-isolates', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        await page.getByTestId('variant-tile').nth(2).getByTestId('variant-tile-header').click();
+        await expect(page).toHaveURL(/variant=secondary/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+
+        await page.goBack();
+        await expect(page).not.toHaveURL(/variant=/);
+        await expect(page.getByTestId('variant-grid')).toBeVisible();
+
+        await page.goForward();
+        await expect(page).toHaveURL(/variant=secondary/);
+        await expect(page.getByTestId('variant-grid')).toHaveCount(0);
+        await expect(page.frameLocator('iframe').locator('.multi')).toContainText('Multi demo (secondary variant)');
+    });
+
     test('router-push navigation to a different entry resets the variant and swaps grid for single preview appropriately', async ({ page }) => {
         await page.goto('/styleguide/component/multi?variant=secondary');
         await expect(page.getByTestId('variant-grid')).toHaveCount(0);
@@ -454,5 +480,17 @@ test.describe('variant grid v2 — device presets, layout toggle, click-to-isola
         await expect(page.getByTestId('variant-grid')).toBeVisible();
         await expect(page.getByTestId('variant-tile')).toHaveCount(3);
         await expect(page.getByTestId('breadcrumb-variant')).toHaveCount(0);
+    });
+});
+
+// Fixture: tests/fixtures/templates/component/ordered. Its styleguide.twig
+// carries `title: "Layout 238"`, and `variants_order: [zeta, alpha]` puts
+// those two first; `mid` is unlisted and follows by file name.
+test.describe('default tile title and variants_order', () => {
+    test('the default tile shows the fixture title and the tiles follow variants_order', async ({ page }) => {
+        await page.goto('/styleguide/component/ordered');
+        await expect(page.getByTestId('variant-tile-label')).toHaveText(['Layout 238', 'zeta', 'alpha', 'mid']);
+        await expect(page.getByTestId('variant-tile').nth(1).frameLocator('iframe').locator('.ordered')).toContainText('Ordered zeta');
+        await page.screenshot({ path: 'test-results/variants-ordered.png' });
     });
 });

@@ -8,6 +8,92 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Overview grid of live previews.** A new SPA route, `/styleguide/grid`,
+  shows every component and page as a tile: a scaled live preview, the name,
+  and a badge with the number of variant tiles. A filter bar narrows it by
+  sidebar section and by text (name, id, aliases); a tile opens the entry.
+  The sidebar links to it next to Overview. Previews load only near the
+  visible area, at most 6 at a time: against 300 synthetic entries the first
+  screen settles with 12 loaded, never more than 6 in flight. The router
+  serves the new path like every other SPA route.
+- **`overview.default: grid` in `styleguide.yaml`** makes the bare mount
+  land on the overview grid, with the address bar left at the mount.
+  Without the key (or with `foundations`) the landing stays Foundations. Any
+  other value throws at construction.
+
+- **Pages grouped by category (opt-in).** `pages: { group_by: category }`
+  in `styleguide.yaml` groups the sidebar's page entries by their `category`
+  metadata: one collapsible group per category, ordered by the lowest
+  `weight` in the group, then by name. Pages without a category share one
+  default group ("Ostatní" / "Other"), placed last so its position does not
+  depend on the translated label. The sidebar filter still shows a flat
+  list. Any other value throws at construction. Without the key the list
+  stays flat.
+
+- **The default variant tile takes its title from `styleguide.twig`.** A
+  `title:` in the fixture's own front comment (the annotation a
+  `styleguide.<variant>.twig` sibling already carries) now labels the default
+  tile instead of the fixed "Default" / "Výchozí". The API emits it as the
+  additive field `default_variant_title` (`''` when absent). Without a title
+  nothing changes.
+- **`variants_order:` metadata key.** A list of variant ids puts those tiles
+  first, in that order; the rest keep their file-name order and the default
+  tile stays first. The order reaches the SPA through the order of
+  `variants` on `/api/*`; the key itself is not emitted. `lint` gains the
+  rule `unknown-variants-order`: an id with no `styleguide.<id>.twig`, or a
+  value that is not a list. Without the key nothing changes.
+
+- **Compare mode: several widths side by side.** A new optional key in
+  `styleguide.yaml`, `viewports: { compare: [1440, 768, 320] }` (2–4 widths,
+  each 100–4000), adds a toolbar button labelled with the widths. It shows
+  the current entry at every width at once: each iframe renders at its real
+  width, scaled into a column sized in proportion to it, so all widths share
+  one zoom, and each caption names the width and the zoom. **It composes
+  with the variant grid** rather than isolating one tile: every tile shows
+  its own strip, one tile per row. We chose that because the use case is
+  scanning many layouts at every width; the cost is bounded by
+  `loading="lazy"` on every compare iframe, so only the tiles on screen
+  load. The width preset and the tile density hide while comparing. A
+  malformed list throws at construction. Without the key nothing changes.
+
+- **Search aliases.** A new metadata key `aliases:` (twig front comment or
+  `<id>.yaml`) lists other names an entry is found by. A string opens the
+  entry; a map `{ name: "Layout 238", variant: grid }` opens that variant
+  tile. The ⌘K palette and the sidebar filter match aliases and show the
+  matching alias as a second line; the palette gives each variant alias its
+  own row. The API emits the key as `aliases: Array<{name, variant}>` on
+  `/api/components`, `/api/pages` and `/api/docs`, with a `variant` that
+  names no discovered sibling set to `null`. We chose the map over a
+  `"<text> → <variant>"` string: a name may contain an arrow, and a map
+  needs no parsing. Older versions drop the key, and `lint` does not flag
+  it.
+- **"Kód / Code" toggle on each variant tile.** It shows the fixture file
+  that rendered the tile (`styleguide.<variant>.twig`, or `styleguide.twig`)
+  without its leading `{# … #}` annotation, with a copy button. An isolated
+  tile shows the same in a drawer under the toolbar. The source comes from a
+  new endpoint, `GET /api/source/<kind>/<slug>[?variant=<id>]`.
+- **`show_source` in `styleguide.yaml`** decides whether the toggle and the
+  endpoint exist. Absent, it is on only when the `auth` constructor callable
+  is set: a catalogue without its own gate counts as public, and a public
+  catalogue does not publish its templates by default. `true` turns it on,
+  `false` or any non-boolean turns it off. Off, the endpoint answers `404`
+  like an unknown one, so no source reaches the browser. **Symfony bundle
+  hosts** cannot set `auth` and write `show_source: true` once their firewall
+  guards the catalogue. Nothing changes for an existing catalogue that sets
+  neither key. The rule and the alternatives weighed are in
+  [ADR-0006](docs/adr/0006-show-source-off-unless-gated.md).
+
+### Changed
+
+- **Isolating a variant tile adds a browser history entry.** A click on a
+  tile header, or on the breadcrumb back to the grid, now pushes the new
+  `?variant=` URL instead of replacing the current one. Back returns to the
+  grid and Forward isolates the tile again. The deep link itself is
+  unchanged: `?variant=<id>` opens that tile, and an unknown id opens the
+  full grid.
+
 ## [1.23.0] - 2026-09-25
 
 ### Removed

@@ -13,7 +13,7 @@ namespace Parisek\Styleguide;
  *
  * Parses /styleguide/* request URIs into structured route descriptors.
  *
- * All share-able URLs (`/styleguide/component/<slug>`, `/page/<slug>`, `/overview`, `/fields`)
+ * All share-able URLs (`/styleguide/component/<slug>`, `/page/<slug>`, `/overview`, `/grid`, `/fields`)
  * map to the SPA — server returns the same `dist/index.html` for each, and the SPA
  * router (`frontend/src/router.js`) reads `location.pathname` and renders the right view.
  *
@@ -95,6 +95,19 @@ final class Router
             return $route;
         }
 
+        // /styleguide/api/source/<kind>/<slug>[?variant=<id>] — the one
+        // endpoint that addresses an entry. `kind`/`slug` are raw here;
+        // SourceEndpoint validates them before any lookup.
+        if ($parts[0] === 'api' && ($parts[1] ?? null) === 'source' && isset($parts[2], $parts[3])) {
+            parse_str($queryString, $query);
+            $route = ['type' => 'api', 'endpoint' => 'source', 'kind' => $parts[2], 'slug' => $parts[3]];
+            $variant = self::whitelistVariant($query['variant'] ?? null);
+            if ($variant !== null) {
+                $route['variant'] = $variant;
+            }
+            return $route;
+        }
+
         // /styleguide/api/<endpoint>
         if ($parts[0] === 'api' && isset($parts[1])) {
             return ['type' => 'api', 'endpoint' => $parts[1]];
@@ -106,8 +119,9 @@ final class Router
             return self::withExplicitVariantIfPresent($route, $queryString);
         }
 
-        // /styleguide/overview, /styleguide/foundations, /styleguide/icons, /styleguide/fields
-        if (in_array($parts[0], ['overview', 'foundations', 'icons', 'fields'], true)) {
+        // /styleguide/overview, /styleguide/foundations, /styleguide/icons, /styleguide/fields,
+        // /styleguide/grid (the overview grid of live previews, 1.24.0)
+        if (in_array($parts[0], ['overview', 'foundations', 'icons', 'fields', 'grid'], true)) {
             return self::withExplicitThemeIfPresent(['type' => $parts[0]], $queryString);
         }
 
@@ -243,7 +257,7 @@ final class Router
      * chrome) while the link's href stays semantically correct as the SPA URL.
      *
      * Routes outside the SPA-shell set (`asset`, `render`, `api`, `overview`,
-     * `fields`, `landing`) pass through unchanged — they have no iframe-nesting
+     * `grid`, `fields`, `landing`) pass through unchanged — they have no iframe-nesting
      * problem to solve.
      *
      * Theme precedence for the synthesized route: an explicit `?theme=` on

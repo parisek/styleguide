@@ -121,8 +121,9 @@ final class CommandTest extends TestCase
         self::assertSame(0, $exit, "stderr: $stderr");
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
-        self::assertCount(1, $decoded);
-        self::assertSame('Landing', $decoded[0]['name']);
+        // Landing 30, Pricing 35, Contact 40 (no category: the fixture
+        // for the sidebar's default group under `pages.group_by`).
+        self::assertSame(['Landing', 'Pricing', 'Contact'], array_column($decoded, 'name'));
     }
 
     #[Test]

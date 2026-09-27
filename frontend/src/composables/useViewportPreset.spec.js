@@ -167,6 +167,36 @@ describe('useViewportPreset', () => {
         expect(vp.gridActive.value).toBe(false);
     });
 
+    describe('compare mode', () => {
+        function entry(extra = {}) {
+            useCatalogStore().items = [{ id: 'hero', name: 'Hero', ...extra }];
+            return { type: ref('component'), slug: ref('hero') };
+        }
+
+        it('is off without configured widths, even when toggled', () => {
+            const vp = useViewportPreset({ ...entry(), compareWidths: null });
+            useUiStore().toggleCompare();
+            expect(vp.compareWidths).toBeNull();
+            expect(vp.compareActive.value).toBe(false);
+        });
+
+        it('follows the toggle when widths are configured', () => {
+            const vp = useViewportPreset({ ...entry(), compareWidths: [1440, 768, 320] });
+            expect(vp.compareWidths).toEqual([1440, 768, 320]);
+            expect(vp.compareActive.value).toBe(false);
+            useUiStore().toggleCompare();
+            expect(vp.compareActive.value).toBe(true);
+        });
+
+        it('stays off for a responsive:false entry and for foundations', () => {
+            useUiStore().toggleCompare();
+            const fixed = useViewportPreset({ ...entry({ responsive: false }), compareWidths: [1440, 320] });
+            expect(fixed.compareActive.value).toBe(false);
+            const foundations = useViewportPreset({ type: ref('foundations'), slug: ref(null), compareWidths: [1440, 320] });
+            expect(foundations.compareActive.value).toBe(false);
+        });
+    });
+
     it('gridActive is false for foundations even though iframeSrc is set', () => {
         const type = ref('foundations');
         const slug = ref(null);

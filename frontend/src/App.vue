@@ -13,6 +13,8 @@ import FieldsDrawer from './components/FieldsDrawer.vue';
 import UsagePanel from './components/UsagePanel.vue';
 import LinkBar from './components/LinkBar.vue';
 import SearchPalette from './components/SearchPalette.vue';
+import SourceDrawer from './components/SourceDrawer.vue';
+import { showSource } from './lib/runtimeConfig.js';
 
 const ui = useUiStore();
 const catalog = useCatalogStore();
@@ -51,6 +53,16 @@ const viewport = useViewportPreset({
     type: routeType, slug: routeSlug, variant, setVariant, contentLocale,
 });
 provide('viewport', { ...viewport, setContentLocale });
+
+// The single preview's source drawer: only when the server allows it, and
+// only when the preview renders a fixture file -- an isolated tile, or an
+// entry with a bare styleguide.twig. The grid has a toggle per tile instead.
+const sourceEnabled = showSource();
+const sourceDrawerVisible = computed(() => sourceEnabled
+    && !!routeSlug.value
+    && ['component', 'page', 'doc'].includes(routeType.value)
+    && !viewport.gridActive.value
+    && (!!variant.value || currentEntry.value?.has_default_variant === true));
 </script>
 
 <template>
@@ -101,6 +113,7 @@ provide('viewport', { ...viewport, setContentLocale });
             <UsagePanel />
             <LinkBar />
             <FieldsDrawer v-if="viewport.fieldsCount.value > 0 && routeSlug" :fields="viewport.currentItem.value?.fields" />
+            <SourceDrawer v-if="sourceDrawerVisible" :type="routeType" :slug="routeSlug" :variant="variant" />
             <RouterView />
         </main>
     </div>

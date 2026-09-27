@@ -64,7 +64,8 @@ final class ComponentParserTest extends TestCase
         // ships ONLY named variant siblings, no bare styleguide.twig; see
         // the has_default_variant tests below), With fields 50 (no explicit
         // weight -> parser default), then the sidebar-tree cluster
-        // widget-one/two/three 51/52/53, gizmo 54, and Broken Sample 999
+        // widget-one/two/three 51/52/53, gizmo 54, Ordered 90 (variants_order
+        // and a titled default fixture), and Broken Sample 999
         // (deliberately last — its Twig body throws, exercised by
         // RendererTest, but its YAML metadata is valid so ComponentParser,
         // which never renders the body, picks it up like any other
@@ -73,7 +74,7 @@ final class ComponentParserTest extends TestCase
         // sort on `name` (see parseAll()'s usort()), and "Defkit Card" sorts
         // before "With fields" alphabetically.
         self::assertSame(
-            ['Another', 'Sample', 'Translated sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Broken Sample'],
+            ['Another', 'Sample', 'Translated sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Ordered', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );
@@ -288,6 +289,66 @@ final class ComponentParserTest extends TestCase
         $another = $parser->parse('component', 'another');
         self::assertNotNull($another);
         self::assertFalse($another['has_styleguide'], 'another/ has no sibling styleguide.twig and no `styleguide:` key');
+    }
+
+    #[Test]
+    public function normalise_aliases_accepts_strings_and_name_variant_maps(): void
+    {
+        self::assertSame(
+            [
+                ['name' => 'Layout 238', 'variant' => null],
+                ['name' => 'Layout 12', 'variant' => 'grid'],
+                ['name' => 'Layout 13', 'variant' => null],
+                ['name' => 'Layout 14', 'variant' => null],
+            ],
+            ComponentParser::normaliseAliases(
+                [
+                    '  Layout 238 ',
+                    ['name' => 'Layout 12', 'variant' => 'grid'],
+                    // An unknown variant keeps the alias, opening the entry.
+                    ['name' => 'Layout 13', 'variant' => 'retired'],
+                    ['name' => 'Layout 14'],
+                    // Dropped: no usable name.
+                    '',
+                    ['variant' => 'grid'],
+                    ['name' => ['nested']],
+                    42,
+                    null,
+                ],
+                ['grid'],
+            ),
+        );
+    }
+
+    #[Test]
+    public function normalise_aliases_reads_a_single_string_as_one_alias_and_anything_else_as_none(): void
+    {
+        self::assertSame([['name' => 'Hero', 'variant' => null]], ComponentParser::normaliseAliases('Hero', []));
+        self::assertSame([], ComponentParser::normaliseAliases(null, []));
+        self::assertSame([], ComponentParser::normaliseAliases(42, []));
+        self::assertSame([], ComponentParser::normaliseAliases(['name' => 'map, not a list'], []));
+    }
+
+    #[Test]
+    public function parse_emits_aliases_with_variants_checked_against_discovered_siblings(): void
+    {
+        $parser = new ComponentParser($this->fixturesPath);
+
+        $multi = $parser->parse('component', 'multi');
+        self::assertNotNull($multi);
+        self::assertSame(
+            [
+                ['name' => 'Víceúčelový blok', 'variant' => null],
+                ['name' => 'Layout 238', 'variant' => 'secondary'],
+                // `ghost` has a variants: map entry but no sibling file.
+                ['name' => 'Ghost layout', 'variant' => null],
+            ],
+            $multi['aliases'],
+        );
+
+        $another = $parser->parse('component', 'another');
+        self::assertNotNull($another);
+        self::assertSame([], $another['aliases']);
     }
 
     #[Test]
@@ -854,5 +915,79 @@ final class ComponentParserTest extends TestCase
 
         self::assertSame([], $items);
         self::assertSame([], $parser->getWarnings());
+    }
+    #[Test]
+    public function the_default_fixture_title_comes_from_its_own_front_comment(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/variant-order-templates');
+        $stack = $parser->parse('component', 'stack');
+
+        self::assertNotNull($stack);
+        self::assertSame('Layout 238', $stack['default_variant_title']);
+    }
+
+    #[Test]
+    public function the_default_fixture_title_is_empty_without_a_usable_annotation(): void
+    {
+        $parser = new ComponentParser(__DIR__ . '/fixtures/variant-order-templates');
+        $items = $parser->parseAll('component');
+        $byId = array_column($items, null, 'id');
+
+        // No comment at all.
+        self::assertSame('', $byId['plain']['default_variant_title']);
+        // A prose comment that is not valid YAML: no title, no warning, the
+        // entry still parses.
+        self::assertSame('', $byId['prose']['default_variant_title']);
+        self::assertSame([], $parser->getWarnings());
+
+        // The shared fixture: a bare styleguide.twig, and an entry with no
+        // default fixture at all.
+        $shared = new ComponentParser($this->fixturesPath);
+        self::assertSame('', $shared->parse('component', 'multi')['default_variant_title'] ?? null);
+        self::assertSame('', $shared->parse('component', 'only-variants')['default_variant_title'] ?? null);
+    }
+
+    #[Test]
+    public function variants_order_puts_the_listed_ids_first_and_the_rest_by_id(): void
+    {
+        // `variants_order: [gamma, ghost, alpha, gamma]`: an id with no file
+        // is skipped, a repeated id counts once, beta is unlisted.
+        $parser = new ComponentParser(__DIR__ . '/fixtures/variant-order-templates');
+
+        self::assertSame(['gamma', 'alpha', 'beta'], array_column($parser->parse('component', 'stack')['variants'] ?? [], 'id'));
+        $items = array_column($parser->parseAll('component'), null, 'id');
+        self::assertSame(['gamma', 'alpha', 'beta'], array_column($items['stack']['variants'], 'id'));
+        // A single string counts as a one-item list.
+        self::assertSame(['beta', 'alpha'], array_column($items['prose']['variants'], 'id'));
+        self::assertArrayNotHasKey('variants_order', $items['stack'], 'the order is carried by `variants`, not a key of its own');
+    }
+
+    #[Test]
+    public function variants_order_absent_or_malformed_keeps_the_id_order(): void
+    {
+        self::assertSame(
+            ['a', 'b', 'c'],
+            array_column(ComponentParser::orderVariants(self::variantRecords('a', 'b', 'c'), null), 'id'),
+        );
+        self::assertSame(
+            ['a', 'b', 'c'],
+            array_column(ComponentParser::orderVariants(self::variantRecords('a', 'b', 'c'), ['x' => 'b']), 'id'),
+        );
+        self::assertSame(
+            ['a', 'b', 'c'],
+            array_column(ComponentParser::orderVariants(self::variantRecords('a', 'b', 'c'), 42), 'id'),
+        );
+        self::assertSame(
+            ['c', 'a', 'b'],
+            array_column(ComponentParser::orderVariants(self::variantRecords('a', 'b', 'c'), ['c', 7, null]), 'id'),
+        );
+    }
+
+    /**
+     * @return list<array{id:string,title:string,description:string}>
+     */
+    private static function variantRecords(string ...$ids): array
+    {
+        return array_map(static fn(string $id): array => ['id' => $id, 'title' => $id, 'description' => ''], $ids);
     }
 }

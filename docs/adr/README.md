@@ -74,3 +74,4 @@ referenced here rather than duplicated.
 - [ADR-0003](0003-cross-fixture-sidecar-references.md) — Let a fixture reference another fixture's sidecar by path
 - [ADR-0004](0004-twig-helpers-as-extension-and-runtime.md) — Twig helpers as a stateless extension plus a runtime
 - [ADR-0005](0005-one-mount-path-from-base-url.md) — One mount path, from `bootstrap.base_url`
+- [ADR-0006](0006-show-source-off-unless-gated.md) — Fixture source is off unless the catalogue is gated

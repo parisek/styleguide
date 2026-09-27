@@ -8,7 +8,7 @@ import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 
-function mountPane(type = 'component', slug = 'hero', { onViewport, items, variant } = {}) {
+function mountPane(type = 'component', slug = 'hero', { onViewport, items, variant, compareWidths = null } = {}) {
     setActivePinia(createPinia());
     useI18nStore().strings = {
         toolbar: { rotate: 'Rotate', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape', variant_default: 'Default' },
@@ -28,7 +28,7 @@ function mountPane(type = 'component', slug = 'hero', { onViewport, items, varia
         setup() {
             const typeRef = ref(type);
             const slugRef = ref(slug);
-            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant });
+            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, compareWidths });
             // Hands the composable instance back to the caller without
             // changing the return shape for every pre-existing call site,
             // which never passes this option. The second argument (route
@@ -236,5 +236,49 @@ describe('PreviewPane — variant grid', () => {
         expect(wrapper.find('[data-testid="variant-grid"]').exists()).toBe(false);
         expect(wrapper.find('[data-testid="iframe-wrapper"]').exists()).toBe(true);
         expect(wrapper.find('iframe').attributes('src')).toBe('/styleguide/render/component/multi?variant=secondary');
+    });
+});
+
+describe('PreviewPane — compare mode', () => {
+    it('keeps the single preview while compare mode is off', () => {
+        const wrapper = mountPane('component', 'hero', { compareWidths: [1440, 768, 320] });
+        expect(wrapper.find('[data-testid="compare-strip"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="iframe-wrapper"]').exists()).toBe(true);
+    });
+
+    it('replaces the single preview with one strip at every width', async () => {
+        const wrapper = mountPane('component', 'hero', { compareWidths: [1440, 768, 320] });
+        useUiStore().toggleCompare();
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="iframe-wrapper"]').exists()).toBe(false);
+        const strips = wrapper.findAll('[data-testid="compare-strip"]');
+        expect(strips).toHaveLength(1);
+        expect(strips[0].findAll('iframe').map((f) => f.attributes('src'))).toEqual([
+            '/styleguide/render/component/hero', '/styleguide/render/component/hero', '/styleguide/render/component/hero',
+        ]);
+    });
+
+    it('clears the loading flag once the strip has loaded', async () => {
+        const wrapper = mountPane('component', 'hero', { compareWidths: [1440, 320] });
+        const ui = useUiStore();
+        ui.toggleCompare();
+        ui.isPreviewLoading = true;
+        await wrapper.vm.$nextTick();
+        await wrapper.find('[data-testid="compare-strip"] iframe').trigger('load');
+        expect(ui.isPreviewLoading).toBe(false);
+    });
+
+    it('puts a strip into every grid tile for a multi-variant entry', async () => {
+        const wrapper = mountPane('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', variants: [{ id: 'secondary', title: 'Secondary style' }] }],
+            compareWidths: [1440, 320],
+        });
+        useUiStore().toggleCompare();
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="variant-grid"]').exists()).toBe(true);
+        const tiles = wrapper.findAll('[data-testid="variant-tile"]');
+        expect(tiles).toHaveLength(2);
+        expect(tiles.map((t) => t.findAll('[data-testid="compare-strip"] iframe').length)).toEqual([2, 2]);
+        expect(tiles[1].find('iframe').attributes('src')).toBe('/styleguide/render/component/multi?variant=secondary');
     });
 });

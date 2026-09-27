@@ -264,6 +264,7 @@ class ComponentParser
                 $hasDefaultFixture,
                 $variants,
                 $this->relativePath($sourceFile),
+                $this->defaultFixtureTitle($dir),
             );
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
@@ -333,6 +334,7 @@ class ComponentParser
                     $hasDefaultFixture,
                     $variants,
                     $this->relativePath($sourceFile),
+                    $this->defaultFixtureTitle($file->getPath()),
                 );
             } catch (\Throwable $e) {
                 // One pathological template must not 500 the whole catalogue for
@@ -614,7 +616,66 @@ class ComponentParser
         // platform-dependent return order.
         usort($variants, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
 
-        return $variants;
+        return self::orderVariants($variants, $metadata['variants_order'] ?? null);
+    }
+
+    /**
+     * @internal Public for its unit tests. Consumers read the order of the
+     *           `variants` field of `/api/components|pages|docs`.
+     *
+     * The `variants_order:` metadata key: the listed variant ids come first,
+     * in the order written; the rest keep their id order. A single string
+     * counts as one id. An id with no discovered sibling, a repeated id and
+     * a non-string entry are skipped (`lint` reports the first). A value
+     * that is neither a string nor a list leaves the id order. Never throws.
+     *
+     * The key orders only the named variants. The default fixture has no id,
+     * and the SPA always shows it first.
+     *
+     * @param list<array{id:string,title:string,description:string}> $variants in id order
+     * @return list<array{id:string,title:string,description:string}>
+     */
+    public static function orderVariants(array $variants, mixed $order): array
+    {
+        if (is_string($order)) {
+            $order = [$order];
+        }
+        if (!is_array($order) || !array_is_list($order)) {
+            return $variants;
+        }
+
+        $byId = array_column($variants, null, 'id');
+        $ordered = [];
+        foreach ($order as $id) {
+            if (is_string($id) && isset($byId[$id])) {
+                $ordered[] = $byId[$id];
+                unset($byId[$id]);
+            }
+        }
+
+        // $byId keeps the id order of what is left.
+        return [...$ordered, ...array_values($byId)];
+    }
+
+    /**
+     * The `title:` of the default fixture's (`styleguide.twig`) own front
+     * comment, or `''`. Same lenient read as a variant sibling's annotation
+     * in discoverVariants(): no comment, a prose comment that is not YAML, or
+     * a comment without a string `title` all give `''` and no warning.
+     */
+    private function defaultFixtureTitle(string $dir): string
+    {
+        $file = $dir . '/styleguide.twig';
+        if (!is_file($file)) {
+            return '';
+        }
+        try {
+            $annotation = $this->parseTwigComment((string) file_get_contents($file));
+        } catch (ParseException) {
+            return '';
+        }
+
+        return is_array($annotation) && is_string($annotation['title'] ?? null) ? trim($annotation['title']) : '';
     }
 
     /**
@@ -642,6 +703,48 @@ class ComponentParser
     }
 
     /**
+     * @internal Public for its unit tests. Consumers read the normalised
+     *           `aliases` field of `/api/components|pages|docs`.
+     *
+     * The `aliases:` metadata key: other names an entry is searched by, for
+     * example the source catalogue's own layout numbers. Each entry is a
+     * plain string (the alias opens the entry) or a map
+     * `{name: <string>, variant: <id>}` (the alias opens that variant tile).
+     *
+     * A single string counts as one alias. An entry without a usable name is
+     * dropped. A `variant` that names no discovered sibling becomes `null`:
+     * the alias still finds the entry, the same fallback a stale
+     * `?variant=` deep link gets. Never throws.
+     *
+     * @param list<string> $variantIds the discovered variant ids of this entry
+     * @return list<array{name:string, variant:string|null}>
+     */
+    public static function normaliseAliases(mixed $value, array $variantIds): array
+    {
+        if (is_string($value)) {
+            $value = [$value];
+        }
+        if (!is_array($value) || !array_is_list($value)) {
+            return [];
+        }
+
+        $aliases = [];
+        foreach ($value as $entry) {
+            $name = is_array($entry) ? ($entry['name'] ?? null) : $entry;
+            if (!is_string($name) || trim($name) === '') {
+                continue;
+            }
+            $variant = is_array($entry) ? ($entry['variant'] ?? null) : null;
+            $aliases[] = [
+                'name' => trim($name),
+                'variant' => is_string($variant) && in_array($variant, $variantIds, true) ? $variant : null,
+            ];
+        }
+
+        return $aliases;
+    }
+
+    /**
      * @param array<string,mixed> $metadata
      * @param list<array{id:string,title:string,description:string}> $variants
      * @return array<string,mixed>
@@ -654,6 +757,7 @@ class ComponentParser
         bool $hasDefaultFixture,
         array $variants,
         string $sourceFile,
+        string $defaultVariantTitle = '',
     ): array {
         return [
             'id' => $id,
@@ -666,6 +770,10 @@ class ComponentParser
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
             'usage' => self::normaliseUsage($metadata['usage'] ?? null),
+            'aliases' => self::normaliseAliases(
+                $metadata['aliases'] ?? null,
+                array_column($variants, 'id'),
+            ),
             'fields' => $this->normaliseFields($sourceFile, $metadata['fields'] ?? null),
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
@@ -723,6 +831,11 @@ class ComponentParser
             // the SPA's variant grid uses this flag to skip the Default
             // tile entirely rather than pointing it at that fallback.
             'has_default_variant' => $hasDefaultFixture,
+            // Additive (1.24.0). The `title:` of `styleguide.twig`'s own
+            // front comment, the same annotation a variant sibling carries.
+            // '' when there is none (or no default fixture): the SPA then
+            // labels the default tile "Default" as before.
+            'default_variant_title' => $defaultVariantTitle,
             // Additive (v0.9.0). Auto-discovered styleguide.<variant>.twig
             // siblings; [] when none exist — every pre-Phase-4 template keeps
             // this BC default. Default variant is implicit, never listed here.

@@ -1,8 +1,26 @@
 import { describe, it, expect } from 'vitest';
 import {
-    computeTileGeometry, autoGridColumnBasis,
+    computeTileGeometry, autoGridColumnBasis, compareColumnTemplate,
     AUTO_GRID_FLUID_BASIS_PX, TILE_CHROME_PADDING_PX,
 } from './tileGeometry.js';
+
+describe('compareColumnTemplate', () => {
+    // Columns in proportion to their widths: every column then fits its
+    // iframe at the same zoom, so the widths compare at one scale.
+    it('sizes each column in proportion to its width', () => {
+        expect(compareColumnTemplate([1440, 768, 320])).toBe('minmax(0, 1440fr) minmax(0, 768fr) minmax(0, 320fr)');
+    });
+
+    it('gives every column the same zoom once the gaps are out', () => {
+        const widths = [1440, 768, 320];
+        const available = 1200;
+        const total = widths.reduce((a, b) => a + b, 0);
+        const zooms = widths.map((w) => computeTileGeometry({
+            presetWidth: w, presetHeight: null, cellWidth: (available * w) / total, rawContentHeight: 500, minHeight: 96,
+        }).zoom);
+        expect(new Set(zooms.map((z) => z.toFixed(6))).size).toBe(1);
+    });
+});
 import { CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX } from './previewHeight.js';
 
 describe('computeTileGeometry', () => {
