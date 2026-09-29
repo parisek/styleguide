@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-09-29
+
 ### Added
 
 - **Component sections by kind (opt-in).** `components: { group_by: kind }`
