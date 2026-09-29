@@ -69,6 +69,9 @@ final class Styleguide
     /** `pages.group_by`, validated; null when absent */
     private ?string $pagesGroupBy;
 
+    /** `components.group_by`, validated; null when absent */
+    private ?string $componentsGroupBy;
+
     /** `overview.default`, validated; 'foundations' when absent */
     private string $landing;
     private Environment $twig;
@@ -333,6 +336,7 @@ final class Styleguide
             : [];
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
+        $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
         $this->landing = self::landing($this->yamlConfig['overview'] ?? null);
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
@@ -3090,6 +3094,11 @@ final class Styleguide
         if ($this->pagesGroupBy !== null) {
             $config['pagesGroupBy'] = $this->pagesGroupBy;
         }
+        // And for the component sections: sorted by `kind` only when asked,
+        // so a catalogue without the key keeps its sections as they were.
+        if ($this->componentsGroupBy !== null) {
+            $config['componentsGroupBy'] = $this->componentsGroupBy;
+        }
         // Only for the grid: a catalogue that lands on Foundations (the
         // default, or written out) sends the same payload as before.
         if ($this->landing === 'grid') {
@@ -3495,6 +3504,33 @@ final class Styleguide
         if ($groupBy !== 'category') {
             throw new \InvalidArgumentException(
                 'styleguide.yaml: `pages.group_by` accepts only "category" (or leave it out for a flat list)',
+            );
+        }
+
+        return $groupBy;
+    }
+
+    /**
+     * `components.group_by` in styleguide.yaml: what decides a component's
+     * sidebar section. `kind` sorts by the `kind` metadata key (block,
+     * section, element, part, utility), and `category` becomes the group
+     * inside a section. `null` (absent) keeps the legacy rule, which reads
+     * the section from `category`. Same rules as `pages.group_by`: an
+     * unknown value throws at construction, a `components` that is not a
+     * map is left to the project.
+     */
+    private static function componentsGroupBy(mixed $components): ?string
+    {
+        if (!is_array($components) || array_is_list($components)) {
+            return null;
+        }
+        $groupBy = $components['group_by'] ?? null;
+        if ($groupBy === null) {
+            return null;
+        }
+        if ($groupBy !== 'kind') {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `components.group_by` accepts only "kind" (or leave it out for the sections by category)',
             );
         }
 

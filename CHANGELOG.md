@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **Component sections by kind (opt-in).** `components: { group_by: kind }`
+  in `styleguide.yaml` sorts the sidebar's component sections by the `kind`
+  metadata the parser already validates (Blocks, Page sections, Basic
+  elements, Parts, Utilities) instead of reading them from `category`.
+  `category` becomes the group inside a section. The grid's filter chips and
+  tile size and the overview's columns follow the same sections. A component
+  without a valid `kind` keeps the rule by category. Without the key nothing
+  changes.
+
 ## [1.24.0] - 2026-09-27
 
 ### Added

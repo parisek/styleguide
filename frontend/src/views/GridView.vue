@@ -27,11 +27,13 @@ const queue = createLoadQueue();
 const section = ref(null);
 const query = ref('');
 
+const order = computed(() => [...catalog.componentSectionKeys, 'pages']);
 const entries = computed(() => gridEntries(
     { items: catalog.items, pages: catalog.pages },
     (item, type) => catalog.sectionOf(item, type),
+    order.value,
 ));
-const chips = computed(() => sectionCounts(entries.value));
+const chips = computed(() => sectionCounts(entries.value, order.value));
 const visible = computed(() => filterGridEntries(entries.value, { section: section.value, query: query.value }));
 
 // One measurement of the grid's width decides the columns and the width of
