@@ -27,13 +27,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   preview. The custom width follows the same rule: Enter shows it alone,
   `+` or Shift+Enter adds it. Full is a choice only, since it has no pixel
   width. For assistive technology the row is a `menuitem` named "Ukázat
-  jen …" and the box a `menuitemcheckbox` named "Přidat vedle: …", so no
+  jen …" and the box a `menuitemcheckbox` named "Přidat vedle: …" (ticked:
+  "Odebrat z porovnání: …"), so no
   control says "checkbox" and does something else on Enter. Arrow keys move
   between lines (Up/Down) and between a line's box and row (Left/Right),
   keeping the column across lines with one control. Opening the menu moves
   the focus onto the line on screen; Escape or a choice returns it to the
-  trigger. The custom width and the orientation sit below the menu as an
-  ordinary form, reached with Tab; the orientation is disabled (not only
+  trigger. Menu items sit outside the Tab order, so Tab goes from the menu
+  to the custom width and the orientation, an ordinary form below it; Tab
+  out of the popover closes it; the orientation is disabled (not only
   greyed out) while comparing.
 - **`viewports.compare` now lists the project's widths instead of adding a
   button.** The menu shows them first ("Šířky projektu") with a "Porovnat

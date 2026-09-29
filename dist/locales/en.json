@@ -43,7 +43,8 @@
         "compare_all": "Compare all",
         "compare_add": "Add side by side",
         "compare_max": "At most 4 widths side by side",
-        "show_only": "Show only"
+        "show_only": "Show only",
+        "compare_remove": "Remove from comparison"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

@@ -110,6 +110,15 @@ function closeMenu() {
     triggerRef.value?.focus();
 }
 
+// Menu items sit outside the Tab order (the arrows move between them), so
+// Tab leaves the menu for the form below it. Tab out of the whole popover
+// closes it, as a click outside does, and leaves the focus where Tab put it.
+function onDropdownFocusout(event) {
+    if (!dropdownOpen.value) return;
+    const next = event.relatedTarget;
+    if (next && !dropdownRef.value?.contains(next)) dropdownOpen.value = false;
+}
+
 function onCompareAll() {
     viewport.compareProjectWidths();
     closeMenu();
@@ -425,7 +434,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      side by side (compare mode). The trigger says what is on
                      screen: the device word and dimensions, or "3 šířky"
                      and the widths. -->
-                <div class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen && closeMenu()">
+                <div class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen && closeMenu()" @focusout="onDropdownFocusout">
                     <button type="button"
                             ref="triggerRef"
                             data-testid="viewport-trigger"
@@ -466,6 +475,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                      check: every `viewports.compare` width. -->
                                 <button v-if="group.compareAll" type="button"
                                         role="menuitem"
+                                        tabindex="-1"
                                         data-menu-col="pick"
                                         data-testid="compare-project-widths"
                                         @click="onCompareAll()"
@@ -481,9 +491,10 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                      pixel width and gets a spacer instead. -->
                                 <button v-if="row.width !== null" type="button"
                                         role="menuitemcheckbox"
+                                        tabindex="-1"
                                         :aria-checked="isChecked(row) ? 'true' : 'false'"
                                         :aria-disabled="checkDisabled(row) ? 'true' : undefined"
-                                        :aria-label="`${i18n.t('toolbar.compare_add')}: ${row.label} ${row.width}`"
+                                        :aria-label="`${i18n.t(isChecked(row) ? 'toolbar.compare_remove' : 'toolbar.compare_add')}: ${row.label} ${row.width}`"
                                         :title="i18n.t('toolbar.compare_add')"
                                         :data-testid="row.preset ? `viewport-check-${row.key}` : `viewport-check-${row.width}`"
                                         data-width-check
@@ -500,6 +511,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                 <span v-else aria-hidden="true" class="shrink-0 pl-3 pr-1.5"><span class="block w-3.5 h-3.5"></span></span>
                                 <button type="button"
                                         role="menuitem"
+                                        tabindex="-1"
                                         :aria-label="row.width === null ? row.label : `${i18n.t('toolbar.show_only')} ${row.label} ${row.width}`"
                                         :data-testid="row.preset ? `viewport-preset-${row.key}` : `viewport-width-${row.width}`"
                                         data-menu-col="pick"

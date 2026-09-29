@@ -66,7 +66,7 @@ describe('compareWidths', () => {
         expect(compareWidths()).toEqual([1440]);
     });
 
-    it.each([[undefined], [[]], [[1, 2, 3, 4, 5]], [[1440, '768']], [[1440, 0]], ['1440,768']])(
+    it.each([[undefined], [[]], [[1, 2, 3, 4, 5]], [[1440, '768']], [[1440, 0]], [[1440, 99]], [[4001, 768]], ['1440,768']])(
         'is null for %j',
         (value) => {
             inject({ compareWidths: value });

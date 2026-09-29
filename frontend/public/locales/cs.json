@@ -43,7 +43,8 @@
         "compare_all": "Porovnat vše",
         "compare_add": "Přidat vedle",
         "compare_max": "Nejvýš 4 šířky vedle sebe",
-        "show_only": "Ukázat jen"
+        "show_only": "Ukázat jen",
+        "compare_remove": "Odebrat z porovnání"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

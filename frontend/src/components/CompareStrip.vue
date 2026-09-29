@@ -106,7 +106,10 @@ onBeforeUnmount(() => {
 <template>
     <div data-testid="compare-strip" class="grid gap-4 items-start" :style="{ gridTemplateColumns }">
         <figure v-for="column in columns" :key="column.width" data-testid="compare-column" class="m-0 min-w-0">
-            <figcaption data-testid="compare-caption" class="mb-1.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{{ column.caption }}</figcaption>
+            <!-- truncate: on a phone a 320 column is a few dozen pixels wide,
+                 and a caption running into the next one reads as nonsense.
+                 The full caption stays in the title. -->
+            <figcaption data-testid="compare-caption" :title="column.caption" class="mb-1.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 truncate">{{ column.caption }}</figcaption>
             <div :ref="(el) => registerCell(column.width, el)" class="min-w-0">
                 <div class="overflow-hidden bg-white ring-1 ring-zinc-200 dark:ring-zinc-800 rounded shadow-sm"
                      :style="{ width: column.geometry.wrapperWidth + 'px', height: column.geometry.wrapperHeight + 'px' }">

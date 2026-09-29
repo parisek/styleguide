@@ -110,6 +110,38 @@ test.describe('compare mode (the width checklist)', () => {
         await page.screenshot({ path: 'test-results/compare-grid.png', fullPage: true });
     });
 
+    test('Tab leaves the menu for the form, and Tab out of the popover closes it', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').click();
+        await expect(page.locator('[role="menu"] :focus')).toHaveCount(1);
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('custom-width-input')).toBeFocused();
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('viewport-menu')).toBeHidden();
+    });
+
+    test('a stored comparison rests on an entry without widths and comes back after it', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
+        // sample-doc is `responsive: false`: one width, no width menu.
+        await page.goto('/styleguide/doc/sample-doc');
+        await expect(page.getByTestId('compare-strip')).toHaveCount(0);
+        await expect(page.getByTestId('viewport-trigger')).toHaveCount(0);
+        await page.goto('/styleguide/component/gizmo');
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^320 px/, /^768 px/, /^1440 px/]);
+        // An isolated variant keeps it too.
+        await page.goto('/styleguide/component/multi?variant=secondary');
+        await expect(page.getByTestId('compare-strip')).toHaveCount(1);
+        // A `?width=` link ends it.
+        await page.goto('/styleguide/component/gizmo?width=768');
+        await expect(page.getByTestId('compare-strip')).toHaveCount(0);
+        await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
+    });
+
     test('the comparison carries across entries and survives a reload', async ({ page }) => {
         await page.goto('/styleguide/component/gizmo');
         await page.getByTestId('viewport-trigger').click();

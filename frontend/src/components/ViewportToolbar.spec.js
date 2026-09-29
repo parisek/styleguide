@@ -24,7 +24,7 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             variant_columns_3: '3 columns', variant_columns_4: '4 columns',
             widths_hint: 'Hint', widths_project: 'Project widths', widths_other: 'More',
             widths_word: 'widths', compare_all: 'Compare all', compare_add: 'Add side by side',
-            compare_max: 'At most 4', show_only: 'Show only',
+            compare_max: 'At most 4', show_only: 'Show only', compare_remove: 'Remove from comparison',
         },
         sections: { blocks: 'Blocks' },
     };
@@ -118,6 +118,9 @@ describe('ViewportToolbar — width checklist', () => {
         expect(row(wrapper, 'viewport-preset-tablet').attributes('role')).toBe('menuitem');
         expect(row(wrapper, 'viewport-preset-tablet').attributes('aria-label')).toBe('Show only Tablet 768');
         expect(boxOf(wrapper, 'viewport-preset-tablet').attributes('aria-label')).toBe('Add side by side: Tablet 768');
+        await row(wrapper, 'viewport-preset-tablet').trigger('click');
+        // Ticked, the same box removes: its name says so.
+        expect(boxOf(wrapper, 'viewport-preset-tablet').attributes('aria-label')).toBe('Remove from comparison: Tablet 768');
     });
 
     it('keeps the custom field and orientation out of the menu role', async () => {
@@ -177,6 +180,21 @@ describe('ViewportToolbar — width checklist', () => {
         await menu.trigger('keydown', { key: 'ArrowDown' });
         expect(document.activeElement).toBe(boxOf(wrapper, 'viewport-preset-mobile-s').element);
         wrapper.unmount();
+    });
+
+    it('keeps menu items out of the Tab order; the form below stays in it', async () => {
+        const wrapper = mountWithViewport();
+        await openMenu(wrapper);
+        for (const el of wrapper.findAll('[role^="menuitem"]')) expect(el.attributes('tabindex')).toBe('-1');
+        expect(wrapper.get('[data-testid="custom-width-input"]').attributes('tabindex')).toBeUndefined();
+    });
+
+    it('closes when the focus leaves the popover', async () => {
+        const wrapper = mountWithViewport();
+        const menu = await openMenu(wrapper);
+        const outside = document.createElement('button');
+        await wrapper.get('[data-testid="custom-width-input"]').trigger('focusout', { relatedTarget: outside });
+        expect(menu.isVisible()).toBe(false);
     });
 
     it('hides "Compare all" when the project has one width', async () => {
