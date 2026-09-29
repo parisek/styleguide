@@ -98,10 +98,27 @@ describe('gridLayout', () => {
     });
 });
 
+describe('a custom section order', () => {
+    it('orders the entries and the chips by the order it is given', () => {
+        const byKind = (item) => ({ block: 'blocks', section: 'sections' }[item.kind] ?? 'basic');
+        const catalog = { items: [
+            { id: 'button', kind: 'element' },
+            { id: 'footer', kind: 'section' },
+            { id: 'hero', kind: 'block' },
+        ], pages: [] };
+        const order = ['blocks', 'sections', 'basic', 'pages'];
+        const entries = gridEntries(catalog, byKind, order);
+        expect(entries.map((e) => e.id)).toEqual(['hero', 'footer', 'button']);
+        expect(sectionCounts(entries, order).map((c) => c.section)).toEqual(['blocks', 'sections', 'basic']);
+    });
+});
+
 describe('previewSizeFor', () => {
     it('renders basic elements narrower than blocks and pages', () => {
         expect(previewSizeFor('basic')).toEqual({ width: 480, height: 300 });
         expect(previewSizeFor('blocks')).toEqual({ width: 1280, height: 800 });
         expect(previewSizeFor('pages')).toEqual({ width: 1280, height: 800 });
+        expect(previewSizeFor('sections')).toEqual({ width: 1280, height: 800 });
+        expect(previewSizeFor('parts')).toEqual({ width: 480, height: 300 });
     });
 });

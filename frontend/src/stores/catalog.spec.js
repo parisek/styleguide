@@ -74,6 +74,30 @@ describe('useCatalogStore', () => {
         expect(catalog.sectionOf({}, 'page')).toBe('pages');
     });
 
+    it('with componentsGroupBy kind, sections come from kind and groups from category', () => {
+        const catalog = useCatalogStore();
+        catalog.componentsGroupBy = 'kind';
+        catalog.items = [
+            { id: 'hero', name: 'Hero', kind: 'block', category: 'Hero' },
+            { id: 'cart', name: 'Cart', kind: 'block', category: 'Ecommerce' },
+            { id: 'checkout', name: 'Checkout', kind: 'block', category: 'Ecommerce' },
+            { id: 'footer', name: 'Footer', kind: 'section', category: 'Footer' },
+            { id: 'button', name: 'Button', kind: 'element', category: 'Basic' },
+        ];
+        expect(catalog.componentSectionKeys).toEqual(['basic', 'parts', 'blocks', 'gutenberg', 'sections', 'utilities']);
+        expect(catalog.bySection('blocks').map((c) => c.id)).toEqual(['hero', 'cart', 'checkout']);
+        expect(catalog.bySection('sections').map((c) => c.id)).toEqual(['footer']);
+        expect(catalog.treeOf('blocks').map((n) => (n.type === 'group' ? `g:${n.label}` : n.item.id))).toEqual(['hero', 'g:Ecommerce']);
+        expect(catalog.sectionOf({}, 'page')).toBe('pages');
+    });
+
+    it('without componentsGroupBy the section keys stay the legacy ones', () => {
+        const catalog = useCatalogStore();
+        expect(catalog.componentsGroupBy).toBeNull();
+        expect(catalog.componentSectionKeys).toEqual(['basic', 'blocks', 'gutenberg']);
+        expect(catalog.sectionOf({ kind: 'block', category: 'Hero' })).toBe('basic');
+    });
+
     it('bySection excludes has_styleguide:false skeleton templates', () => {
         const catalog = useCatalogStore();
         catalog.items = [

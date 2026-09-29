@@ -1,5 +1,8 @@
 {
     "sections": {
+        "sections": "Sekce stránky",
+        "parts": "Části",
+        "utilities": "Pomocné",
         "basic": "Základní prvky",
         "blocks": "Bloky",
         "gutenberg": "Gutenberg",

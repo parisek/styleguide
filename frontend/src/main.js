@@ -33,6 +33,7 @@ const catalog = useCatalogStore();
 theme.init();
 i18n.init();
 ui.initFromUrl();
+catalog.componentsGroupBy = config.componentsGroupBy === 'kind' ? 'kind' : null;
 catalog.init();
 
 app.mount('#app');

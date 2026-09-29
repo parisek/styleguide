@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import { buildTree } from '../lib/prefixTree.js';
+import { sectionOf, sectionOrder, buildCategoryTree } from '../lib/componentSections.js';
 import { externalLinksFor } from '../lib/externalLinks.js';
 import { url } from '../lib/runtimeConfig.js';
 
@@ -15,9 +16,15 @@ export const useCatalogStore = defineStore('catalog', {
         docs: [],
         warnings: [],
         loading: true,
+        // `components.group_by` from #sg-config, set by main.js before
+        // init(): 'kind' or null (the legacy sections by category).
+        componentsGroupBy: null,
     }),
     getters: {
         docEntries: (state) => state.docs,
+        // The component sections in reading order, for the sidebar, the
+        // grid chips and the overview alike.
+        componentSectionKeys: (state) => sectionOrder(state.componentsGroupBy),
         pagesTree: (state) => buildTree(state.pages.filter((p) => p.has_styleguide !== false)),
         // Gates the /fields nav entry (Sidebar.vue) and FieldsView's own
         // empty state — mirrors the config.hasIcons pattern but is derived
@@ -61,18 +68,18 @@ export const useCatalogStore = defineStore('catalog', {
 
         sectionOf(item, type = 'component') {
             if (type === 'page') return 'pages';
-            const cat = (item?.category ?? '').toLowerCase();
-            if (cat === 'gutenberg') return 'gutenberg';
-            if (['block', 'blocks', 'layout'].includes(cat)) return 'blocks';
-            return 'basic';
+            return sectionOf(item, this.componentsGroupBy);
         },
 
         bySection(section) {
             return this.items.filter((c) => this.sectionOf(c) === section && c.has_styleguide !== false);
         },
 
+        // By kind, `category` names the groups inside a section; otherwise
+        // the groups come from the "<Prefix> - <Suffix>" names as before.
         treeOf(section) {
-            return buildTree(this.bySection(section));
+            const list = this.bySection(section);
+            return this.componentsGroupBy === 'kind' ? buildCategoryTree(list) : buildTree(list);
         },
 
         find(type, slug) {

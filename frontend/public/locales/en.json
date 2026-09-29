@@ -1,5 +1,8 @@
 {
     "sections": {
+        "sections": "Page sections",
+        "parts": "Parts",
+        "utilities": "Utilities",
         "basic": "Basic elements",
         "blocks": "Blocks",
         "gutenberg": "Gutenberg",
