@@ -18,6 +18,38 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   tile size and the overview's columns follow the same sections. A component
   without a valid `kind` keeps the rule by category. Without the key nothing
   changes.
+- **Syntax highlighting in the Code panel.** The fixture source is
+  highlighted as Twig with HTML. The SPA bundles Prism 1.30 (MIT, about
+  5 kB gzipped) as a separate file loaded with the first open panel, and
+  renders its tokens as text spans, so the source is still never rendered
+  as markup. `highlight_source: false` turns it off; nothing for consumers
+  to install.
+- **Rendered HTML in the Code panel.** A second view, HTML, shows the markup
+  the fixture renders, from the new `/api/markup/<kind>/<slug>` endpoint
+  (same `show_source` gate as `/api/source`, fetched only when the view is
+  opened).
+- **Twig, CSS and JS in the Code panel, chosen per project.** Views for the
+  entry's own Twig template and its stylesheets and scripts (`css/`, `js/`
+  in its folder, tests left out), served by the new
+  `/api/files/<kind>/<slug>` endpoint behind `show_source`. The new
+  `source_views` key lists the views a catalogue offers (`data`, `twig`,
+  `html`, `css`, `js`); absent, it is all but `twig`, so publishing the
+  templates is a project's written choice (ADR-0007). A view left out is gone from the
+  panel and its endpoint answers 404. A file view appears only when the
+  entry has such files.
+- **Line numbers in the Code panel.** Numbered lines (not part of a
+  selection); long lines wrap under their own number.
+- **Repository link (opt-in).** `source_url` with a `{path}` placeholder
+  gives the Code panel one link, labelled by the host (GitHub, GitLab, Git),
+  to the file behind the open view: the fixture for Data, the entry's own
+  template for Twig and HTML. Sent only while `show_source` is on.
+
+### Changed
+
+- **The Code panel is simpler.** The file name and the Copy button are gone:
+  the header holds the view switch (Data, Twig, HTML, CSS, JS) and
+  the repository link, lined up with the tile's Code button, and a
+  selection copies the code (without the line numbers).
 
 ## [1.24.0] - 2026-09-27
 

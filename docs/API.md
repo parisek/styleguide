@@ -251,6 +251,9 @@ The project-level config consumed by `Styleguide::__construct(['config_yaml' => 
 | `colors` | optional | `{ <name>: { name, css_variable, default, shades: { <shade>: { hex, oklch } } } }` | Foundations colour palette |
 | `viewports` | optional | `{ compare?: int[] }` | `compare` (added 1.24.0): 2–4 integer widths, each 100–4000 (the SPA's Custom-width range), e.g. `[1440, 768, 320]`. Adds a toolbar button labelled with the widths (`1440 · 768 · 320`) that shows the current entry at every width side by side, each iframe at its logical width and scaled into a column sized in proportion to it, so all widths share one zoom. In the variant grid every tile gets its own strip and the grid drops to one tile per row. Every compare iframe carries `loading="lazy"`. A malformed `compare` throws `\InvalidArgumentException` at construction; a `viewports` that is not a map is left to the project (unowned top-level keys pass through). Absent: nothing changes. Reaches the SPA as `compareWidths` in `#sg-config`, only when set. Other keys under `viewports` are ignored |
 | `show_source` | optional | `bool` | Whether the SPA offers the "Code" toggle and `/api/source` answers (added 1.24.0). `true` turns it on, `false` off. **Absent (or `null`): on only when the `auth` constructor callable is set** — a catalogue with no gate of its own is treated as public, and a public catalogue does not publish its fixture sources by default. Any other value (a string, a number) turns it off. A host that guards the catalogue itself — the Symfony bundle (where `auth` cannot be set), HTTP Basic Auth, a VPN — writes `show_source: true`. When on, `#sg-config` carries `showSource: true`; when off, the key is absent and `/api/source` answers as an unknown endpoint. Why this default: [ADR-0006](adr/0006-show-source-off-unless-gated.md) |
+| `highlight_source` | optional | `bool` | Whether the Code panel highlights its Twig and HTML views (added 1.25.0). Absent or `true`: on; the highlighter (Prism, bundled) loads as a separate file with the first open panel. `false`: plain text, and the file is never loaded. Anything else throws `\InvalidArgumentException` at construction. Reaches the SPA as `highlightSource: false` in `#sg-config`, only when off and only while `show_source` is on |
+| `source_url` | optional | `string` | Address of a template file in the project's repository, `{path}` standing for its path relative to `templates_path` (added 1.25.0), e.g. `https://github.com/acme/site/blob/main/templates/{path}`. The Code panel links the fixture file and the component's `<slug>.twig` through it. Must be an http(s) address containing `{path}`, or it throws `\InvalidArgumentException` at construction. Reaches the SPA as `sourceUrl`, only while `show_source` is on |
+| `source_views` | optional | `list<'data' \| 'twig' \| 'html' \| 'css' \| 'js'>` | Which views the Code panel offers (added 1.25.0), and so which endpoints answer: `data` → `/api/source`, `html` → `/api/markup`, `twig`/`css`/`js` → `/api/files` for those files. `data` is the fixture (sample data), `twig` the entry's own `<slug>.twig`, `html` what the fixture renders, `css`/`js` the entry's stylesheets and scripts. **Absent: `[data, html, css, js]`** — the template is the implementation, where the rest is sample data or what a browser receives anyway, so a project lists `twig` to publish it ([ADR-0007](adr/0007-code-panel-views-template-opt-in.md)). Takes effect only while `show_source` is on. The panel keeps its own order. Anything but a non-empty list of those names throws `\InvalidArgumentException` at construction. Reaches the SPA as `sourceViews` while `show_source` is on |
 | `pages` | optional | `{ group_by?: 'category' }` | `group_by` (added 1.24.0): `category` groups the sidebar's page entries by their `category` metadata, one collapsible group per category, as the component sections group theirs. Groups are ordered by the lowest `weight` among their pages, then by name; pages keep their order inside a group; pages without a category share one default group ("Ostatní" / "Other"), always last. The search filter still shows a flat list. Any other value throws `\InvalidArgumentException` at construction; a `pages` that is not a map is left to the project. Absent: today's flat list (prefix tree). Reaches the SPA as `pagesGroupBy` in `#sg-config`, only when set |
 | `components` | optional | `{ group_by?: 'kind' }` | `group_by` (added 1.25.0): `kind` sorts the components into sidebar sections by their `kind` metadata (`block` → `blocks`, `section` → `sections`, `element` → `basic`, `part` → `parts`, `utility` → `utilities`) and groups them by `category` inside a section, a category with two or more entries forming one collapsible group. A component without a valid `kind` falls back to the rule by `category`. The same sections drive the grid's filter chips, its tile size and the overview's columns. Any other value throws `\InvalidArgumentException` at construction; a `components` that is not a map is left to the project. Absent: the sections by `category` (`gutenberg`; `block`/`blocks`/`layout` → Blocks; anything else → Basic). Reaches the SPA as `componentsGroupBy` in `#sg-config`, only when set |
 | `overview` | optional | `{ default?: 'grid' \| 'foundations' }` | `default` (added 1.24.0): what the bare mount (`/styleguide/`) shows. `grid` lands on the overview grid (`/styleguide/grid`, every component and page as a live preview tile); `foundations`, or no key, keeps Foundations. The URL stays at the mount either way. Any other value throws `\InvalidArgumentException` at construction; an `overview` that is not a map is left to the project. Reaches the SPA as `landing: "grid"` in `#sg-config`, only for `grid` |
@@ -566,6 +569,58 @@ For that, sweep the render endpoint: since 1.8.0 a broken template returns
 stronger than a compile check (it also catches a missing partial, a runtime
 failure, and the alert fallback). See README § *CI smoke test*.
 
+### `GET /styleguide/api/files/<kind>/<slug>` (added 1.25.0)
+
+An entry's own files, for the Code panel's Template, CSS and JS views:
+`css/**/*.css` and `js/**/*.js` under `templates_path/<kind>/<slug>/`,
+sorted, tests (`*.test.js`, `*.spec.js`) left out; with `twig` in
+`source_views`, the entry's `<slug>.twig` first. Only the kinds of file
+`source_views` lists are read. A file past 200 kB, not valid UTF-8, or
+resolving outside `templates_path` (a symlink out) is skipped; at most 20
+files. Same gate as `/api/source`: it exists only while `show_source` is on.
+
+**Response shape (200):**
+
+```ts
+{
+  kind: 'component' | 'page' | 'doc',
+  slug: string,
+  files: Array<{ path: string, language: 'twig' | 'css' | 'js', source: string }>,
+}
+```
+
+`files` is `[]` for an entry with none. `404` with `{"error": "No files for
+this entry"}` for an unknown kind, a slug outside `[A-Za-z0-9_-]`, or an
+entry without a folder.
+
+### `GET /styleguide/api/markup/<kind>/<slug>[?variant=<id>]` (added 1.25.0)
+
+The HTML one preview renders: the same template the render endpoint uses
+(`styleguide.<id>.twig` with `?variant=<id>`, else `styleguide.twig`, else
+`<slug>.twig`), without the iframe document around it, laid out to read:
+blank lines dropped, each line trimmed, runs of spaces inside a line
+collapsed to one, and each line indented one tab per open element. Line
+breaks stay where the template put them. Markup containing `<pre>` or
+`<textarea>` only loses blank lines and the common indentation, since its
+whitespace is content. The Code panel's HTML view reads it. Same gate as
+`/api/source`: it exists only while `show_source` is on, and answers `404`
+like an unknown endpoint otherwise.
+
+**Response shape (200):**
+
+```ts
+{
+  kind: 'component' | 'page' | 'doc',
+  slug: string,
+  variant: string | null,
+  html: string,
+}
+```
+
+`404` with `{"error": "No markup for this entry"}` for an unknown kind, a
+slug outside `[A-Za-z0-9_-]`, an entry without a template, or a template
+that fails to render (the failure goes to `error_log()`).
+
 ### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]` (added 1.24.0)
 
 The source of the fixture file behind one preview: `styleguide.<id>.twig`
@@ -616,6 +671,8 @@ Patterns below use the default mount, `/styleguide`. With `base_url` set, every 
 | `/styleguide/api/docs` | JSON — list of doc entries (same shape as `/api/pages`) |
 | `/styleguide/api/health` | JSON — parse-resilience diagnostics (warnings + counts + `checked` scope) |
 | `/styleguide/api/source/<kind>/<slug>` | JSON — fixture source of one preview, `?variant=<id>` for a variant; only while `show_source` is on (added 1.24.0) |
+| `/styleguide/api/markup/<kind>/<slug>` | JSON — the HTML one preview renders, `?variant=<id>` for a variant; only while `show_source` is on (added 1.25.0) |
+| `/styleguide/api/files/<kind>/<slug>` | JSON — the entry's own Twig template, CSS and JS, as far as `source_views` lists; only while `show_source` is on (added 1.25.0) |
 | `/styleguide/api/<endpoint>` | JSON API endpoints (see above) |
 | `/styleguide/assets/<path>` | Pre-built SPA bundle (CSS/JS) |
 
