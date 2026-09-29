@@ -96,6 +96,23 @@ describe('CompareStrip — a changed set of widths', () => {
     }
     const heightOf = (wrapper, width) => wrapper.get(`iframe[title="${width} px"]`).attributes('style').match(/height: (\d+)px/)[1];
 
+    it('captions the measured content height once it is known', async () => {
+        const wrapper = mountStrip({ widths: [320, 768] });
+        const captions = () => wrapper.findAll('[data-testid="compare-caption"]').map((c) => c.text());
+        // Before the load there is no height to tell, only the floor.
+        expect(captions()).toEqual(['320 px', '768 px']);
+        await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);
+        expect(captions()).toEqual(['320 × 1500', '768 px']);
+        wrapper.unmount();
+    });
+
+    it('captions a render: chrome entry with its pinned viewport height', () => {
+        const wrapper = mountStrip({ widths: [320, 768], scrolls: true });
+        expect(wrapper.findAll('[data-testid="compare-caption"]').map((c) => c.text()))
+            .toEqual([`320 × ${CHROME_VIEWPORT_HEIGHT_PX}`, `768 × ${CHROME_VIEWPORT_HEIGHT_PX}`]);
+        wrapper.unmount();
+    });
+
     it('keeps each measured height with its width when a width is added in between', async () => {
         const wrapper = mountStrip({ widths: [320, 768] });
         await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);

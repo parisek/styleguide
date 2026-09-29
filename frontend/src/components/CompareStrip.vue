@@ -91,7 +91,14 @@ const columns = computed(() => props.widths.map((width) => {
         minHeight: PRE_MEASURE_MIN_HEIGHT,
         scrolls: props.scrolls,
     });
-    const caption = geometry.zoom < 1 ? `${width} px · ${Math.round(geometry.zoom * 100)} %` : `${width} px`;
+    // The second number is the height the column really renders at: the
+    // content's own height, or a chrome entry's pinned viewport. Never a
+    // device height -- no column is drawn at 568. Until the first load the
+    // height is only the pre-measure floor, so the caption shows the width
+    // alone rather than a number that is about to change.
+    const known = props.scrolls || heights[width] != null;
+    const size = known ? `${width} × ${geometry.iframeHeight}` : `${width} px`;
+    const caption = geometry.zoom < 1 ? `${size} · ${Math.round(geometry.zoom * 100)} %` : size;
     return { width, geometry, caption };
 }));
 

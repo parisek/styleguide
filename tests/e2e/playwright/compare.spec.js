@@ -16,7 +16,7 @@ test.describe('compare mode (the width checklist)', () => {
         const strip = page.getByTestId('compare-strip');
         await expect(strip).toHaveCount(1);
         const captions = strip.getByTestId('compare-caption');
-        await expect(captions).toHaveText([/^320 px/, /^768 px/, /^1440 px/]);
+        await expect(captions).toHaveText([/^320\b/, /^768\b/, /^1440\b/]);
         const frames = strip.locator('iframe');
         await expect(frames).toHaveCount(3);
         for (let i = 0; i < 3; i++) {
@@ -53,12 +53,12 @@ test.describe('compare mode (the width checklist)', () => {
         const menu = page.getByTestId('viewport-menu');
         await page.getByTestId('viewport-check-mobile').click();
         await expect(menu).toBeVisible();
-        await expect(page.getByTestId('compare-caption')).toHaveText([/^375 px/, /^768 px/]);
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^375\b/, /^768\b/]);
 
         // Keyboard: Space on a box ticks it, as on any checkbox.
         await page.getByTestId('viewport-check-1440').focus();
         await page.keyboard.press('Space');
-        await expect(page.getByTestId('compare-caption')).toHaveText([/^375 px/, /^768 px/, /^1440 px/]);
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^375\b/, /^768\b/, /^1440\b/]);
         await expect(menu).toBeVisible();
 
         await page.getByTestId('viewport-check-1440').click();
@@ -84,7 +84,7 @@ test.describe('compare mode (the width checklist)', () => {
         await expect(page.getByTestId('viewport-check-tablet')).toBeFocused();
         await page.keyboard.press('ArrowUp');
         await page.keyboard.press('Space');
-        await expect(page.getByTestId('compare-caption')).toHaveText([/^320 px/, /^768 px/]);
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^320\b/, /^768\b/]);
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('viewport-trigger')).toBeFocused();
         await expect(page.getByTestId('viewport-trigger-dims')).toHaveText('320 · 768');
@@ -132,7 +132,7 @@ test.describe('compare mode (the width checklist)', () => {
         await expect(page.getByTestId('compare-strip')).toHaveCount(0);
         await expect(page.getByTestId('viewport-trigger')).toHaveCount(0);
         await page.goto('/styleguide/component/gizmo');
-        await expect(page.getByTestId('compare-caption')).toHaveText([/^320 px/, /^768 px/, /^1440 px/]);
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^320\b/, /^768\b/, /^1440\b/]);
         // An isolated variant keeps it too.
         await page.goto('/styleguide/component/multi?variant=secondary');
         await expect(page.getByTestId('compare-strip')).toHaveCount(1);

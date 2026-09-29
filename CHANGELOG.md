@@ -44,6 +44,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   compare. A width listed twice is merged (`[320, 320]` lists one project
   width, without "Porovnat vše"); 1.24.0 accepted such a list, so it is not
   refused. Otherwise the key's format and validation are unchanged.
+- **Compare captions show the rendered height**: `320 × 443 · 95 %`
+  instead of `320 px · 95 %`. The height is the content's own, measured
+  after the load, so a reviewer sees at once how tall a section grows at
+  each width. Before the load the caption shows the width alone.
 - **Compared widths show narrowest first** (`320 · 768 · 1440`), whatever
   order `viewports.compare` lists them in: mobile first, as the CSS is
   written. 1.24.0 kept the yaml order.
