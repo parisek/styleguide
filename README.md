@@ -18,7 +18,7 @@ Drop the package into a project that already renders Twig (Symfony, Drupal, Word
 
 | Surface | What you get |
 |---|---|
-| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), an opt-in compare mode that shows several widths side by side (*Compare widths*), an opt-in per-tile "Code" toggle (*Showing the fixture source*), an overview grid of live previews with a section and text filter, optionally the landing (*Overview grid*), sidebar pages grouped by category (opt-in), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
+| **SPA chrome** | Vue 3 + Pinia + vue-router + Tailwind v4 sidebar with collapsible sections, a keyboard-navigable command palette (`⌘K` / `Ctrl+K` — arrows, Enter, Esc; the sidebar's own inline filter keeps working alongside it), iframe preview with named viewport presets (Mobile 375×667 · Tablet 768×1024 · Desktop 1280×800 · Full 100 %) + smooth drag-resize, live dimension readout, a responsive variant grid — one preview tile per discovered `styleguide.<variant>.twig` sibling, the same viewport preset applied per tile (scaled to fit), a preset-aware Auto | 1-4 tile density control, and click-to-isolate tile headers (see *File-convention variants* below), a width menu whose rows are also checkboxes, so ticked widths show side by side (*Compare widths*), an opt-in per-tile "Code" toggle (*Showing the fixture source*), an overview grid of live previews with a section and text filter, optionally the landing (*Overview grid*), sidebar pages grouped by category (opt-in), cs ↔ en locale switcher, deep-link routing via history API. All bundled — zero CDN dependencies, zero JS to write. |
 | **Overview** | Auto-generated palette / typography / fonts page driven by the project's `styleguide.yaml`. Colours are click-to-copy hex; typography rolls preview headings + body sample. Lands here by default at `/styleguide/`. |
 | **DOKUMENTACE group** | Collapsible sidebar section containing Foundations, Overview, and any `doc` kind entries. `doc` templates live at `templates/doc/<name>/<name>.twig` and render inside the iframe like pages. The group always shows (foundations + overview); the doc entries are optional — absent `templates/doc/` → `/api/docs` returns `[]` and no doc items appear. |
 | **Iframe preview** | Each component / page renders inside an iframe that loads the project's real CSS + JS — what you see is what production renders. The package's `Renderer` reuses the project's Twig environment, so component templates keep access to project filters / functions (`component_*`, `_x()`, `placeholder()`, custom helpers). |
@@ -489,10 +489,10 @@ favicon:
   manifest: "/images/touch/site.webmanifest"
   theme_color: "#18181B"
 
-# Compare mode — optional. 2–4 widths; the toolbar gains a "1440 · 768 · 320"
-# button that shows the current entry at every width side by side (each
-# variant tile gets its own strip). Absent: no button. See "Compare widths"
-# below.
+# Project widths — optional. 2–4 widths the width menu lists first, with a
+# "Compare all" action that shows them side by side (each variant tile gets
+# its own strip). Absent: the menu lists the presets only; ticking widths
+# still compares them. See "Compare widths" below.
 viewports:
   compare: [1440, 768, 320]
 
@@ -581,11 +581,15 @@ labels:                                    # i18n labels shown on overview cards
 
 ### Compare widths
 
-`viewports.compare` lists 2–4 widths, each 100–4000 px. The toolbar then gets one button, labelled with the widths (`1440 · 768 · 320`). It shows the current entry at every width side by side: each iframe renders at its real width and scales down into its column. The columns are sized in proportion to their widths, so every width shows at the same zoom, and each caption says the width and the zoom.
+The width menu in the toolbar is a checklist. A click on a row shows that width alone. A tick on the row's checkbox (or Space, or Shift+click) adds the width, and two to four ticked widths show side by side. The strip shows them narrowest first, and the trigger names the set: `3 šířky · 320 · 768 · 1440`. Unticking back to one width returns to the ordinary single preview at that width. The custom width follows the same rule: Enter shows it alone, `+` (or Shift+Enter) adds it. Full has no pixel width, so it is a choice only, never a checkbox.
 
-In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The width preset and the tile density hide while comparing, because the widths are fixed. The mode lasts for the browser session.
+Side by side, each iframe renders at its real width and scales down into its column. The columns are sized in proportion to their widths, so every width shows at the same zoom, and each caption says the width and the zoom.
 
-A malformed list (one width, five widths, a string, a width out of range) throws at construction, so the missing button never needs explaining.
+`viewports.compare` lists the project's own 2–4 widths, each 100–4000 px. The menu shows them first, narrowest first, under "Šířky projektu", with a "Porovnat vše" action that ticks them all. Without the key the menu lists the presets only; ticking still works.
+
+In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The tile density and the orientation switch rest while comparing. The ticked widths persist in the browser (`localStorage`, `sg-preview-compare`), as the single width does.
+
+A malformed `viewports.compare` (one width, five widths, a string, a width out of range) throws at construction.
 
 ### Overview grid
 

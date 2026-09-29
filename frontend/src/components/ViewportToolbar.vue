@@ -1,7 +1,8 @@
 <script setup>
-import { inject, ref, onMounted, onUnmounted } from 'vue';
+import { inject, ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
+import { widthLabel, widthCategory } from '../lib/viewportMath.js';
 
 const i18n = useI18nStore();
 const ui = useUiStore();
@@ -11,6 +12,7 @@ const dropdownOpen = ref(false);
 const overflowOpen = ref(false);
 const columnsOpen = ref(false);
 const dropdownRef = ref(null);
+const menuRef = ref(null);
 const overflowRef = ref(null);
 const columnsRef = ref(null);
 
@@ -30,14 +32,113 @@ function columnsLabel() {
     return i18n.t(`toolbar.variant_columns_${ui.variantColumns}`);
 }
 
+// Compare icon: columns of falling width, the strip's own shape.
+const COMPARE_ICON_PATHS = '<rect x="2" y="4" width="9" height="16" rx="1"/><rect x="13" y="7" width="5" height="13" rx="1"/><rect x="20" y="10" width="2" height="10" rx="0.5"/>';
+
+// The width menu (variant C of the viewport proposal): one list of widths,
+// each row both a choice and a checkbox. `viewports.compare` widths come
+// first as the project's widths; the presets follow, without the widths the
+// project group already lists; custom widths that are checked get rows of
+// their own, so they can be unchecked.
+const widthGroups = computed(() => {
+    const project = viewport.projectWidths ?? [];
+    const presetWidths = viewport.VIEWPORTS.map((v) => v.width);
+    // A project width that is a preset keeps the preset's key, so its row
+    // keeps the `viewport-preset-<key>` hook tests and scripts click.
+    const byWidth = (width) => {
+        const preset = viewport.VIEWPORTS.find((v) => v.width === width);
+        return { key: preset?.key ?? `w-${width}`, preset: !!preset, width, label: widthLabel(width), category: widthCategory(width) };
+    };
+    const presets = viewport.VIEWPORTS
+        .filter((v) => v.width === null || !project.includes(v.width))
+        .map((v) => ({ key: v.key, preset: true, width: v.width, label: v.label, category: v.category }));
+    const custom = viewport.selectedWidths.value
+        .filter((w) => !project.includes(w) && !presetWidths.includes(w))
+        .map((w) => ({ ...byWidth(w), label: i18n.t('toolbar.custom_width_label'), category: 'full' }));
+    const groups = [];
+    // Narrowest first, as the strip shows them, whatever order the yaml has.
+    const projectRows = [...project].sort((a, b) => a - b).map(byWidth);
+    if (project.length) groups.push({ key: 'project', label: i18n.t('toolbar.widths_project'), rows: projectRows });
+    groups.push({ key: 'presets', label: project.length ? i18n.t('toolbar.widths_other') : null, rows: presets });
+    if (custom.length) groups.push({ key: 'custom', label: null, rows: custom });
+    return groups;
+});
+
+const atCompareMax = computed(() => viewport.selectedWidths.value.length >= viewport.COMPARE_MAX);
+
+// Full has no pixel width, so it cannot stand in a strip of widths: it is
+// a choice only, never a checkbox.
+function isChecked(row) {
+    if (row.width === null) return viewport.isFullPreset.value && !viewport.compareActive.value;
+    return viewport.selectedWidths.value.includes(row.width);
+}
+
+// One focusable element per row (a checkbox inside a button is invalid
+// HTML), so the pointer target decides: the checkbox square or Shift adds
+// the width and keeps the menu open; anywhere else picks this width alone.
+function onWidthRowClick(row, event) {
+    if (row.width === null) {
+        viewport.setPreset('full');
+        dropdownOpen.value = false;
+        return;
+    }
+    if (event.shiftKey || event.target.closest?.('[data-width-check]')) {
+        viewport.toggleWidth(row.width);
+        return;
+    }
+    viewport.selectWidth(row.width);
+    dropdownOpen.value = false;
+}
+
+// Space toggles, as on any checkbox. A native button fires click on Space
+// too, so the key is taken before the click; Enter keeps "this width alone".
+function onWidthRowSpace(row) {
+    if (row.width !== null) viewport.toggleWidth(row.width);
+}
+
+function onCustomWidthEnter(event) {
+    if (event.shiftKey) {
+        viewport.addCustomWidth();
+        return;
+    }
+    viewport.applyCustomWidth();
+    event.target.blur();
+}
+
+// Arrow keys walk the menu items, as the menu pattern expects. The number
+// field keeps its own arrows (they step the value).
+function onMenuKeydown(event) {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    if (event.target.tagName === 'INPUT') return;
+    const items = [...(menuRef.value?.querySelectorAll('[role^="menuitem"]') ?? [])];
+    if (!items.length) return;
+    event.preventDefault();
+    const at = items.indexOf(document.activeElement);
+    let next = 0;
+    if (event.key === 'End') next = items.length - 1;
+    else if (event.key === 'ArrowDown') next = at < 0 ? 0 : (at + 1) % items.length;
+    else if (event.key === 'ArrowUp') next = at <= 0 ? items.length - 1 : at - 1;
+    items[next].focus();
+}
+
 function activeWordLabel() {
+    if (viewport.compareActive.value) {
+        return `${viewport.selectedWidths.value.length} ${i18n.t('toolbar.widths_word')}`;
+    }
     const key = viewport.activePreset.value;
     if (key === 'full') return 'Full';
-    if (key === 'custom') return i18n.t('toolbar.custom_width_label');
+    if (key === 'custom') {
+        // A project width (1440) is not a preset but not a stray either:
+        // it gets its device word, as its row does.
+        const px = Number(viewport.customWidthInput.value);
+        if (viewport.projectWidths?.includes(px)) return widthLabel(px);
+        return i18n.t('toolbar.custom_width_label');
+    }
     return viewport.VIEWPORTS.find((v) => v.key === key)?.label ?? '?';
 }
 
 function triggerDims() {
+    if (viewport.compareActive.value) return viewport.selectedWidths.value.join(' · ');
     if (viewport.activePreset.value === 'full') return '100 %';
     if (viewport.activePreset.value === 'custom') {
         // effectiveZoom (not the classic single preview's own zoom)
@@ -78,14 +179,20 @@ function toggleIframeTheme() {
 // popovers close on any click landing outside their own DOM subtree,
 // checked via a single document-level listener — only one popover is ever
 // open at a time in practice, so one listener covers both.
+// The path is the one the click took at dispatch: Vue re-renders between
+// listeners (a microtask checkpoint), and a tick in the width menu removes
+// the very check-mark node that was clicked, so `contains(event.target)`
+// would call a click inside the menu a click outside it.
 function onDocumentClick(event) {
-    if (dropdownOpen.value && dropdownRef.value && !dropdownRef.value.contains(event.target)) {
+    const path = event.composedPath?.() ?? [event.target];
+    const inside = (el) => !!el && path.includes(el);
+    if (dropdownOpen.value && !inside(dropdownRef.value)) {
         dropdownOpen.value = false;
     }
-    if (overflowOpen.value && overflowRef.value && !overflowRef.value.contains(event.target)) {
+    if (overflowOpen.value && !inside(overflowRef.value)) {
         overflowOpen.value = false;
     }
-    if (columnsOpen.value && columnsRef.value && !columnsRef.value.contains(event.target)) {
+    if (columnsOpen.value && !inside(columnsRef.value)) {
         columnsOpen.value = false;
     }
 }
@@ -255,71 +362,118 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      and only on the foundations route / responsive:false
                      entries does this whole block still disappear. -->
                 <template v-if="viewport.toolbarVisible.value">
-                <!-- Compare mode (`viewports.compare` in styleguide.yaml):
-                     every configured width side by side. Labelled with the
-                     widths themselves, so the button says what it shows. -->
-                <button v-if="viewport.compareWidths" type="button"
-                        data-testid="compare-toggle"
-                        @click="ui.toggleCompare()"
-                        :aria-pressed="viewport.compareActive.value ? 'true' : 'false'"
-                        :title="i18n.t('toolbar.compare')"
-                        class="flex items-center h-9 px-3 rounded-full border text-xs font-semibold tabular-nums transition-colors"
-                        :class="viewport.compareActive.value ? 'bg-red-600/10 border-red-600/20 text-red-700 dark:bg-red-400/15 dark:border-red-400/30 dark:text-red-400' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700'">{{ viewport.compareWidths.join(' · ') }}</button>
-                <!-- Unified viewport switcher — one labelled dropdown at every width
-                     (replaces the old xl segmented bar + separate mobile menu). The
-                     trigger always shows the device word + dimensions, so the control
-                     reads identically on desktop and mobile. Hidden while
-                     comparing: the compared widths are fixed. -->
-                <div v-if="!viewport.compareActive.value" class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen = false">
+                <!-- The width menu: one labelled dropdown at every screen
+                     width. Every row is a choice and a checkbox at once: a
+                     click shows that width alone, a tick (or Space, or
+                     Shift+click) adds it, and two or more ticked widths show
+                     side by side (compare mode). The trigger says what is on
+                     screen: the device word and dimensions, or "3 šířky"
+                     and the widths. -->
+                <div class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen = false">
                     <button type="button"
                             data-testid="viewport-trigger"
                             @click="dropdownOpen = !dropdownOpen"
                             :aria-expanded="dropdownOpen"
+                            aria-haspopup="menu"
                             :title="i18n.t('toolbar.viewport_preset')"
                             class="flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border text-xs font-medium tabular-nums transition-colors"
                             :class="dropdownOpen ? 'bg-zinc-200 border-zinc-300 text-zinc-900 dark:bg-zinc-700 dark:border-zinc-600 dark:text-zinc-100' : 'bg-zinc-100 border-zinc-200 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-700'">
-                        <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CATEGORY_ICON_PATHS[viewport.activePresetCategory.value] ?? CATEGORY_ICON_PATHS.desktop"></svg>
-                        <span class="font-semibold">{{ activeWordLabel() }}</span>
-                        <span class="hidden sm:inline text-zinc-500 dark:text-zinc-400">{{ triggerDims() }}</span>
+                        <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="viewport.compareActive.value ? COMPARE_ICON_PATHS : (CATEGORY_ICON_PATHS[viewport.activePresetCategory.value] ?? CATEGORY_ICON_PATHS.desktop)"></svg>
+                        <span class="font-semibold" data-testid="viewport-trigger-word">{{ activeWordLabel() }}</span>
+                        <span class="hidden sm:inline text-zinc-500 dark:text-zinc-400" data-testid="viewport-trigger-dims">{{ triggerDims() }}</span>
                         <svg aria-hidden="true" focusable="false" class="w-3 h-3 shrink-0 transition-transform text-zinc-400 dark:text-zinc-500" :class="dropdownOpen && 'rotate-180'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="6 9 12 15 18 9"/>
                         </svg>
                     </button>
                     <div v-show="dropdownOpen"
-                         class="absolute right-0 top-full mt-2 z-50 min-w-[260px] rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
+                         ref="menuRef"
+                         role="menu"
+                         data-testid="viewport-menu"
+                         :aria-label="i18n.t('toolbar.viewport_preset')"
+                         @keydown="onMenuKeydown"
+                         class="absolute right-0 top-full mt-2 z-50 w-[280px] max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
 
-                        <!-- Presets. Tap any row = set width + height. Active = red pill. -->
-                        <button v-for="vp in viewport.VIEWPORTS" :key="vp.key"
-                                :data-testid="`viewport-preset-${vp.key}`"
-                                @click="viewport.setPreset(vp.key); dropdownOpen = false"
-                                class="w-full px-3 py-2 flex items-center gap-2.5 text-xs tabular-nums rounded-lg transition-colors"
-                                :class="viewport.activePreset.value === vp.key ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
-                            <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CATEGORY_ICON_PATHS[vp.category]"></svg>
-                            <span class="font-medium">{{ vp.label }}</span>
-                            <span class="ml-auto opacity-70">{{ vp.width ? `${vp.width} × ${vp.height}` : '100%' }}</span>
-                        </button>
+                        <p class="px-3 pt-1.5 pb-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{{ i18n.t('toolbar.widths_hint') }}</p>
 
-                        <!-- Custom width input. -->
+                        <template v-for="group in widthGroups" :key="group.key">
+                            <div v-if="group.label" role="presentation" class="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
+                                <span class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ group.label }}</span>
+                                <!-- One click back to the project's standard
+                                     check: every `viewports.compare` width. -->
+                                <button v-if="group.key === 'project'" type="button"
+                                        role="menuitem"
+                                        data-testid="compare-project-widths"
+                                        @click="viewport.compareProjectWidths(); dropdownOpen = false"
+                                        class="text-[11px] font-medium text-red-700 hover:underline dark:text-red-400 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">{{ i18n.t('toolbar.compare_all') }}</button>
+                            </div>
+                            <div v-else-if="group.key === 'custom'" role="separator" class="my-1 border-t border-zinc-200 dark:border-zinc-700"></div>
+                            <button v-for="row in group.rows" :key="row.key" type="button"
+                                    :role="row.width === null ? 'menuitem' : 'menuitemcheckbox'"
+                                    :aria-checked="row.width === null ? undefined : (isChecked(row) ? 'true' : 'false')"
+                                    :data-testid="row.preset ? `viewport-preset-${row.key}` : `viewport-width-${row.width}`"
+                                    @click="onWidthRowClick(row, $event)"
+                                    @keydown.space.prevent="onWidthRowSpace(row)"
+                                    @keyup.space.prevent
+                                    class="w-full px-3 py-2 flex items-center gap-2.5 text-xs tabular-nums rounded-lg transition-colors text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-red-600"
+                                    :class="isChecked(row) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
+                                <!-- The checkbox square. A larger hit area
+                                     than it looks (-m-1 p-1), since it is the
+                                     one pointer target that adds. -->
+                                <span v-if="row.width !== null"
+                                      data-width-check
+                                      :title="i18n.t('toolbar.compare_add')"
+                                      class="-m-1 p-1 shrink-0 inline-flex"
+                                      :class="!isChecked(row) && atCompareMax && 'opacity-30'">
+                                    <span aria-hidden="true"
+                                          class="w-3.5 h-3.5 rounded-[3px] border inline-flex items-center justify-center"
+                                          :class="isChecked(row) ? 'bg-red-600 border-red-600 text-white dark:bg-red-500 dark:border-red-500' : 'border-zinc-400 bg-white dark:border-zinc-500 dark:bg-zinc-800'">
+                                        <svg v-if="isChecked(row)" class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                                    </span>
+                                </span>
+                                <span v-else aria-hidden="true" class="w-3.5 h-3.5 shrink-0"></span>
+                                <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CATEGORY_ICON_PATHS[row.category] ?? CATEGORY_ICON_PATHS.full"></svg>
+                                <span class="font-medium">{{ row.label }}</span>
+                                <span class="ml-auto opacity-70">{{ row.width ?? '100 %' }}</span>
+                            </button>
+                        </template>
+
+                        <p v-if="atCompareMax" data-testid="compare-max" class="px-3 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ i18n.t('toolbar.compare_max') }}</p>
+
+                        <!-- Custom width: Enter shows it alone, "+" (or
+                             Shift+Enter) adds it side by side -- the rows'
+                             own contract. The field stays neutral: every
+                             chosen width already has a checked row. -->
                         <div class="px-3 py-2 mt-1 border-t border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
                             <span class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ i18n.t('toolbar.custom_width_label') }}</span>
                             <input type="number"
+                                   data-testid="custom-width-input"
                                    v-model.number="viewport.customWidthInput.value"
-                                   @keydown.enter.prevent="viewport.applyCustomWidth(); $event.target.blur()"
-                                   @blur="viewport.applyCustomWidth()"
+                                   @keydown.enter.prevent="onCustomWidthEnter($event)"
                                    :min="viewport.CUSTOM_WIDTH_MIN" :max="viewport.CUSTOM_WIDTH_MAX"
                                    :placeholder="i18n.t('toolbar.custom_width_placeholder')"
                                    :aria-label="i18n.t('toolbar.custom_width')"
-                                   class="ml-auto w-20 px-2 h-7 text-xs font-mono tabular-nums rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:focus:ring-zinc-400 transition-colors"
-                                   :class="viewport.activePreset.value === 'custom' ? 'bg-red-600 text-white placeholder-red-200 dark:bg-red-500 dark:text-white dark:placeholder-red-200' : 'bg-zinc-100 text-zinc-700 placeholder-zinc-500 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200 dark:placeholder-zinc-500 dark:hover:bg-zinc-600'">
+                                   :title="i18n.t('toolbar.custom_width')"
+                                   class="ml-auto w-20 px-2 h-7 text-xs font-mono tabular-nums rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:focus:ring-zinc-400 transition-colors bg-zinc-100 text-zinc-700 placeholder-zinc-500 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-200 dark:placeholder-zinc-500 dark:hover:bg-zinc-600">
                             <span class="text-xs text-zinc-400 dark:text-zinc-500">px</span>
+                            <button type="button"
+                                    data-testid="custom-width-add"
+                                    @click="viewport.addCustomWidth()"
+                                    :disabled="atCompareMax"
+                                    :title="i18n.t('toolbar.compare_add')"
+                                    :aria-label="i18n.t('toolbar.compare_add')"
+                                    class="h-7 w-7 flex items-center justify-center rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:text-zinc-100 dark:hover:bg-zinc-700 transition-colors disabled:opacity-30 disabled:pointer-events-none">
+                                <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                            </button>
                         </div>
 
-                        <!-- Orientation switch. Disabled when no device preset is active. -->
+                        <!-- Orientation switch. Only for one device preset:
+                             a comparison shows each width at its content's
+                             own height, so there is nothing to turn. -->
                         <div class="px-3 py-2 border-t border-zinc-200 dark:border-zinc-700 flex items-center gap-2">
                             <span class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ i18n.t('toolbar.orientation_label') }}</span>
                             <div role="group" :aria-label="i18n.t('toolbar.rotate')"
                                  class="ml-auto inline-flex gap-px rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-700"
-                                 :class="ui.previewHeight === null && 'opacity-30 pointer-events-none'">
+                                 :class="(ui.previewHeight === null || viewport.compareActive.value) && 'opacity-30 pointer-events-none'">
                                 <button type="button"
                                         @click="viewport.setPortrait(true)"
                                         :title="i18n.t('toolbar.orientation_portrait')"

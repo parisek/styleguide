@@ -12,7 +12,7 @@
         "toggle_sidebar": "Toggle sidebar",
         "select_prompt": "Select a component",
         "open_in_new_tab": "Open in new tab",
-        "custom_width": "Custom width in pixels (Enter to apply)",
+        "custom_width": "Custom width in pixels (Enter shows it alone, Shift+Enter adds it side by side)",
         "custom_width_label": "Custom",
         "custom_width_placeholder": "px",
         "orientation_label": "Orientation",
@@ -23,7 +23,6 @@
         "orientation_portrait": "Portrait",
         "orientation_landscape": "Landscape",
         "reload": "Reload",
-        "compare": "Show these widths side by side",
         "more_actions": "More actions",
         "iframe_theme": "Toggle iframe dark mode",
         "variant_label": "Variant",
@@ -36,7 +35,14 @@
         "variant_columns_1": "1 column",
         "variant_columns_2": "2 columns",
         "variant_columns_3": "3 columns",
-        "variant_columns_4": "4 columns"
+        "variant_columns_4": "4 columns",
+        "widths_hint": "Click shows one width. Tick to add more side by side.",
+        "widths_project": "Project widths",
+        "widths_other": "More",
+        "widths_word": "widths",
+        "compare_all": "Compare all",
+        "compare_add": "Add side by side",
+        "compare_max": "At most 4 widths side by side"
     },
     "preview": {
         "mobile": "Mobile (375 px)",

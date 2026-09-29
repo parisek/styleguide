@@ -86,3 +86,26 @@ describe('CompareStrip', () => {
         wrapper.unmount();
     });
 });
+
+describe('CompareStrip — a changed set of widths', () => {
+    // A same-origin document of a given height, as the load handler reads it.
+    function loadWithHeight(frame, height) {
+        const doc = { documentElement: { scrollHeight: height }, body: { scrollHeight: height } };
+        Object.defineProperty(frame.element, 'contentDocument', { configurable: true, value: doc });
+        return frame.trigger('load');
+    }
+    const heightOf = (wrapper, width) => wrapper.get(`iframe[title="${width} px"]`).attributes('style').match(/height: (\d+)px/)[1];
+
+    it('keeps each measured height with its width when a width is added in between', async () => {
+        const wrapper = mountStrip({ widths: [320, 768] });
+        await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);
+        await loadWithHeight(wrapper.get('iframe[title="768 px"]'), 900);
+
+        // The existing iframes stay (keyed by width) and never load again,
+        // so a height filed under a position would land on the wrong column.
+        await wrapper.setProps({ widths: [320, 375, 768] });
+        expect(heightOf(wrapper, 320)).toBe('1500');
+        expect(heightOf(wrapper, 768)).toBe('900');
+        wrapper.unmount();
+    });
+});

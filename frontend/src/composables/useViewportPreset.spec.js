@@ -173,26 +173,40 @@ describe('useViewportPreset', () => {
             return { type: ref('component'), slug: ref('hero') };
         }
 
-        it('is off without configured widths, even when toggled', () => {
-            const vp = useViewportPreset({ ...entry(), compareWidths: null });
-            useUiStore().toggleCompare();
-            expect(vp.compareWidths).toBeNull();
+        it('needs no configured widths: two checked widths compare', () => {
+            const vp = useViewportPreset({ ...entry(), projectWidths: null });
+            vp.selectWidth(768);
+            expect(vp.selectedWidths.value).toEqual([768]);
             expect(vp.compareActive.value).toBe(false);
+            vp.toggleWidth(320);
+            expect(vp.compareActive.value).toBe(true);
+            expect(vp.selectedWidths.value).toEqual([320, 768]);
         });
 
-        it('follows the toggle when widths are configured', () => {
-            const vp = useViewportPreset({ ...entry(), compareWidths: [1440, 768, 320] });
-            expect(vp.compareWidths).toEqual([1440, 768, 320]);
-            expect(vp.compareActive.value).toBe(false);
-            useUiStore().toggleCompare();
-            expect(vp.compareActive.value).toBe(true);
+        it('selectWidth keeps the preset height, so orientation still applies', () => {
+            const vp = useViewportPreset({ ...entry() });
+            vp.selectWidth(375);
+            expect(useUiStore().previewHeight).toBe(667);
+            vp.selectWidth(1100);
+            expect(useUiStore().previewHeight).toBeNull();
+        });
+
+        it('compares the project widths in one call, and does nothing without them', () => {
+            const vp = useViewportPreset({ ...entry(), projectWidths: [1440, 768, 320] });
+            vp.compareProjectWidths();
+            expect(vp.selectedWidths.value).toEqual([320, 768, 1440]);
+
+            setActivePinia(createPinia());
+            const none = useViewportPreset({ ...entry(), projectWidths: null });
+            none.compareProjectWidths();
+            expect(none.compareActive.value).toBe(false);
         });
 
         it('stays off for a responsive:false entry and for foundations', () => {
-            useUiStore().toggleCompare();
-            const fixed = useViewportPreset({ ...entry({ responsive: false }), compareWidths: [1440, 320] });
+            useUiStore().setCompareWidths([1440, 320]);
+            const fixed = useViewportPreset({ ...entry({ responsive: false }) });
             expect(fixed.compareActive.value).toBe(false);
-            const foundations = useViewportPreset({ type: ref('foundations'), slug: ref(null), compareWidths: [1440, 320] });
+            const foundations = useViewportPreset({ type: ref('foundations'), slug: ref(null) });
             expect(foundations.compareActive.value).toBe(false);
         });
     });

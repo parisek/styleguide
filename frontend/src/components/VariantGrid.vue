@@ -382,7 +382,7 @@ onBeforeUnmount(() => {
                                  :type="viewport.type.value" :slug="viewport.slug.value" :variant="tile.id" />
                     <CompareStrip v-if="compare"
                                   :src="tile.src"
-                                  :widths="viewport.compareWidths"
+                                  :widths="viewport.selectedWidths.value"
                                   :scrolls="entryScrolls(viewport.currentItem.value)" />
                     <!-- Full preset: fluid tile, no scaling -- iframe width
                          tracks the cell via `w-full`, height is content-fit.

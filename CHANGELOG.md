@@ -8,6 +8,39 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A compare column no longer stays collapsed after a width is ticked in
+  between.** The strip filed each measured height under the column's
+  position, but kept the existing iframes alive by width. A new width in
+  the middle shifted the positions; the kept iframes never loaded again, so
+  a column showed only its top 96 px.
+
+### Changed
+
+- **The width menu is a checklist; the compare button is gone.** Every row
+  of the toolbar's width menu is now a choice and a checkbox at once. A click
+  shows that width alone, as before. A tick (or Space, or Shift+click) adds
+  the width, and two to four ticked widths show side by side in the compare
+  strip that 1.24.0 introduced. The trigger names the set (`3 šířky ·
+  320 · 768 · 1440`); unticking back to one width returns to the single
+  preview. The custom width follows the same rule: Enter shows it alone,
+  `+` or Shift+Enter adds it. Full is a choice only, since it has no pixel
+  width. The menu gains `role="menu"`, `menuitemcheckbox` rows with
+  `aria-checked`, and arrow-key navigation.
+- **`viewports.compare` now lists the project's widths instead of adding a
+  button.** The menu shows them first ("Šířky projektu") with a "Porovnat
+  vše" action that ticks them all. **Visible without the key:** every
+  catalogue now gets checkboxes in the width menu, so any two to four widths
+  compare. The key's format and validation are unchanged.
+- **Compared widths show narrowest first** (`320 · 768 · 1440`), whatever
+  order `viewports.compare` lists them in: mobile first, as the CSS is
+  written. 1.24.0 kept the yaml order.
+- **The compared widths persist** in `localStorage` (`sg-preview-compare`),
+  as the single width does. 1.24.0 kept compare mode for the session only
+  because it depended on the configured widths; the ticked set does not. A
+  malformed stored value means no comparison.
+
 ## [1.24.0] - 2026-09-27
 
 ### Added

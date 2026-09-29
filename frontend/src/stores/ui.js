@@ -1,7 +1,10 @@
 import { defineStore } from 'pinia';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { setCookie } from '../lib/cookie.js';
-import { parseWidthParam, isPortraitOrientation, rotationForPortrait } from '../lib/viewportMath.js';
+import {
+    parseWidthParam, isPortraitOrientation, rotationForPortrait,
+    findPresetByWidth, toggleWidth, sanitizeCompareWidths,
+} from '../lib/viewportMath.js';
 
 // Migrates the pre-2.0 rows/grid tile-layout toggle (key `sg-variant-layout`,
 // values "rows"/"grid") to the new 5-option density control (key
@@ -40,6 +43,8 @@ function migrateVariantColumnsKey() {
 export const useUiStore = defineStore('ui', {
     state: () => {
         migrateVariantColumnsKey();
+        const compareWidths = usePersistedRef('sg-preview-compare', []);
+        compareWidths.value = sanitizeCompareWidths(compareWidths.value);
         return {
             sidebarOpen: usePersistedRef('sg-sidebar-open', true),
             previewWidth: usePersistedRef('sg-preview-width', '100%'),
@@ -63,10 +68,12 @@ export const useUiStore = defineStore('ui', {
             // rows/grid toggle -- see migrateVariantColumnsKey() above for the
             // one-shot upgrade of a visitor's existing preference.
             variantColumns: usePersistedRef('sg-variant-columns', 'auto'),
-            // Compare mode: every `viewports.compare` width side by side.
-            // Session-only on purpose -- a persisted flag would switch the
-            // mode on for a catalogue whose next deploy dropped the widths.
-            compareActive: false,
+            // Compare mode: the checked widths side by side, narrowest first.
+            // Two or more widths compare; an empty list is the single
+            // preview, which previewWidth drives. Persisted like
+            // previewWidth: the set lives in the browser, not in the
+            // catalogue's config, so a deploy cannot leave it dangling.
+            compareWidths,
         };
     },
     getters: {
@@ -99,7 +106,10 @@ export const useUiStore = defineStore('ui', {
             const urlWidth = parseWidthParam(new URLSearchParams(location.search).get('width'));
             if (urlWidth) this.setWidth(urlWidth);
         },
+        // Any single width (a preset, a custom width, a drag, `?width=`)
+        // ends a comparison.
         setWidth(w, h = null) {
+            this.compareWidths = [];
             this.previewWidth = w;
             this.previewHeight = h;
             if (h === null) this.previewRotated = false;
@@ -150,8 +160,25 @@ export const useUiStore = defineStore('ui', {
         // numeric strings -- ViewportToolbar.vue's segmented buttons pass 1-4
         // as actual numbers, matching the type usePersistedRef round-trips
         // through JSON (JSON.parse('1') is the number 1, not "1").
-        toggleCompare() {
-            this.compareActive = !this.compareActive;
+        // Checks or unchecks one width. The set starts from what is on
+        // screen: the compared widths, else the single width (Full has no
+        // width, so checking from Full starts over). One width left falls
+        // back to the single preview at that width, with its preset height.
+        toggleCompareWidth(width) {
+            // parseInt('100%') is 100, so Full is tested by name.
+            const single = this.previewWidth === '100%' ? null : parseInt(this.previewWidth, 10);
+            const current = this.compareWidths.length
+                ? this.compareWidths
+                : (Number.isInteger(single) ? [single] : []);
+            const next = toggleWidth(current, width);
+            if (next.length >= 2) {
+                this.compareWidths = next;
+                return;
+            }
+            this.setWidth(`${next[0]}px`, findPresetByWidth(next[0])?.height ?? null);
+        },
+        setCompareWidths(widths) {
+            this.compareWidths = sanitizeCompareWidths(widths);
         },
         setVariantColumns(value) {
             this.variantColumns = ['auto', 1, 2, 3, 4].includes(value) ? value : 'auto';

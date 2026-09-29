@@ -9,19 +9,51 @@ beforeEach(() => {
 });
 
 describe('compare mode', () => {
-    it('starts off and toggles', () => {
-        const ui = useUiStore();
-        expect(ui.compareActive).toBe(false);
-        ui.toggleCompare();
-        expect(ui.compareActive).toBe(true);
-        ui.toggleCompare();
-        expect(ui.compareActive).toBe(false);
+    it('starts with no comparison', () => {
+        expect(useUiStore().compareWidths).toEqual([]);
     });
 
-    it('is not persisted: a reload starts without it', () => {
-        useUiStore().toggleCompare();
+    it('checking a second width starts a comparison from the single width', () => {
+        const ui = useUiStore();
+        ui.setWidth('768px', 1024);
+        ui.toggleCompareWidth(1440);
+        expect(ui.compareWidths).toEqual([768, 1440]);
+        ui.toggleCompareWidth(320);
+        expect(ui.compareWidths).toEqual([320, 768, 1440]);
+    });
+
+    it('unchecking down to one width returns to the single preview at that width', () => {
+        const ui = useUiStore();
+        ui.setCompareWidths([768, 1440]);
+        ui.toggleCompareWidth(1440);
+        expect(ui.compareWidths).toEqual([]);
+        expect(ui.previewWidth).toBe('768px');
+        expect(ui.previewHeight).toBe(1024);
+    });
+
+    it('checking from Full starts over with that one width', () => {
+        const ui = useUiStore();
+        ui.toggleCompareWidth(768);
+        expect(ui.compareWidths).toEqual([]);
+        expect(ui.previewWidth).toBe('768px');
+    });
+
+    it('setWidth ends a comparison', () => {
+        const ui = useUiStore();
+        ui.setCompareWidths([1440, 768]);
+        ui.setWidth('375px', 667);
+        expect(ui.compareWidths).toEqual([]);
+    });
+
+    it('is persisted, and a broken stored value means no comparison', async () => {
+        useUiStore().setCompareWidths([1440, 320]);
+        await Promise.resolve();
         setActivePinia(createPinia());
-        expect(useUiStore().compareActive).toBe(false);
+        expect(useUiStore().compareWidths).toEqual([320, 1440]);
+
+        localStorage.setItem('sg-preview-compare', JSON.stringify([1440, 'x']));
+        setActivePinia(createPinia());
+        expect(useUiStore().compareWidths).toEqual([]);
     });
 });
 

@@ -74,3 +74,51 @@ export function rotationForPortrait({ width, height, portrait }) {
     const canonicalLandscape = width > height;
     return portrait ? canonicalLandscape : !canonicalLandscape;
 }
+
+// Compare mode shows 2 to COMPARE_MAX widths side by side. More columns
+// shrink every iframe below legibility on a laptop screen.
+export const COMPARE_MAX = 4;
+
+const narrowestFirst = (a, b) => a - b;
+
+// Checks or unchecks one width in the compared set. The result is narrowest
+// first, the order the strip shows: mobile first, as the CSS is written. The last width cannot be unchecked:
+// one width is the ordinary single preview, never an empty one.
+export function toggleWidth(selected, width, max = COMPARE_MAX) {
+    const set = new Set(selected);
+    if (set.has(width)) {
+        if (set.size > 1) set.delete(width);
+    } else if (set.size < max) {
+        set.add(width);
+    }
+    return [...set].sort(narrowestFirst);
+}
+
+// Guards a persisted set: localStorage outlives releases and can be edited
+// by hand. Anything that is not 2 to COMPARE_MAX valid widths means no
+// comparison.
+export function sanitizeCompareWidths(value) {
+    if (!Array.isArray(value)) return [];
+    const valid = value.every((w) => Number.isInteger(w) && w >= CUSTOM_WIDTH_MIN && w <= CUSTOM_WIDTH_MAX);
+    const unique = [...new Set(value)].sort(narrowestFirst);
+    return valid && unique.length >= 2 && unique.length <= COMPARE_MAX ? unique : [];
+}
+
+// A row label for any width: the preset's own name, else the device class
+// the width falls in. `viewports.compare` widths such as 1440 are rarely
+// presets, and "1440 · Desktop" reads better than a bare number.
+export function widthLabel(width) {
+    const preset = findPresetByWidth(width);
+    if (preset) return preset.label;
+    return { mobile: 'Mobile', tablet: 'Tablet', desktop: 'Desktop' }[widthCategory(width)];
+}
+
+// The device class of any width, for the row icon: the preset's own
+// category, else the class the width falls in.
+export function widthCategory(width) {
+    const preset = findPresetByWidth(width);
+    if (preset) return preset.category;
+    if (width < 768) return 'mobile';
+    if (width < 1280) return 'tablet';
+    return 'desktop';
+}

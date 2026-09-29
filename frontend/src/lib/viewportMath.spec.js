@@ -9,6 +9,11 @@ import {
     fitZoom,
     isPortraitOrientation,
     rotationForPortrait,
+    toggleWidth,
+    sanitizeCompareWidths,
+    widthLabel,
+    widthCategory,
+    COMPARE_MAX,
 } from './viewportMath.js';
 
 describe('VIEWPORTS', () => {
@@ -135,5 +140,59 @@ describe('constants', () => {
     it('CUSTOM_WIDTH_MIN/MAX match the legacy sanity range', () => {
         expect(CUSTOM_WIDTH_MIN).toBe(100);
         expect(CUSTOM_WIDTH_MAX).toBe(4000);
+    });
+});
+
+describe('toggleWidth', () => {
+    it('adds a width and keeps the set narrowest first', () => {
+        expect(toggleWidth([768], 1440)).toEqual([768, 1440]);
+        expect(toggleWidth([1440, 768], 320)).toEqual([320, 768, 1440]);
+    });
+
+    it('removes a checked width', () => {
+        expect(toggleWidth([320, 768, 1440], 768)).toEqual([320, 1440]);
+    });
+
+    it('never empties the set: the last width stays', () => {
+        expect(toggleWidth([768], 768)).toEqual([768]);
+    });
+
+    it('stops at COMPARE_MAX widths', () => {
+        const full = [320, 768, 1440, 1920];
+        expect(full).toHaveLength(COMPARE_MAX);
+        expect(toggleWidth(full, 375)).toEqual(full);
+    });
+});
+
+describe('sanitizeCompareWidths', () => {
+    it('keeps 2 to COMPARE_MAX valid widths, unique and narrowest first', () => {
+        expect(sanitizeCompareWidths([320, 1440, 768, 320])).toEqual([320, 768, 1440]);
+    });
+
+    it.each([
+        [null], ['1440'], [[1440]], [[1440, 'x']], [[1440, 50]], [[1440, 768, 425, 375, 320]],
+    ])('drops %j to no comparison', (value) => {
+        expect(sanitizeCompareWidths(value)).toEqual([]);
+    });
+});
+
+describe('widthLabel', () => {
+    it('names a preset width after the preset', () => {
+        expect(widthLabel(768)).toBe('Tablet');
+        expect(widthLabel(320)).toBe('Mobile S');
+    });
+
+    it('names any other width after its device class', () => {
+        expect(widthLabel(1440)).toBe('Desktop');
+        expect(widthLabel(900)).toBe('Tablet');
+        expect(widthLabel(360)).toBe('Mobile');
+    });
+});
+
+describe('widthCategory', () => {
+    it('takes the preset category, else the class the width falls in', () => {
+        expect(widthCategory(1024)).toBe('tablet');
+        expect(widthCategory(1440)).toBe('desktop');
+        expect(widthCategory(360)).toBe('mobile');
     });
 });
