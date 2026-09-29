@@ -876,6 +876,16 @@ final class Renderer
      * the "no active render context" `RuntimeException` a truly inactive
      * environment should produce.
      */
+    /**
+     * @internal For `Api\MarkupEndpoint`: the HTML one preview renders,
+     *           without the iframe document around it. Null when the entry
+     *           has no template.
+     */
+    public function renderMarkup(string $kind, string $slug, ?string $variant = null): ?string
+    {
+        return $this->renderInner($kind, $slug, $variant);
+    }
+
     private function renderInner(string $kind, string $slug, ?string $variant = null): ?string
     {
         $loader = $this->twig->getLoader();

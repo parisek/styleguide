@@ -75,3 +75,4 @@ referenced here rather than duplicated.
 - [ADR-0004](0004-twig-helpers-as-extension-and-runtime.md) — Twig helpers as a stateless extension plus a runtime
 - [ADR-0005](0005-one-mount-path-from-base-url.md) — One mount path, from `bootstrap.base_url`
 - [ADR-0006](0006-show-source-off-unless-gated.md) — Fixture source is off unless the catalogue is gated
+- [ADR-0007](0007-code-panel-views-template-opt-in.md) — The Code panel's views are listed per project, the template only on request

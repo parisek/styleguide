@@ -520,6 +520,12 @@ components:
 # (the Symfony bundle, HTTP Basic Auth, a VPN) writes `true`. See
 # "Showing the fixture source" below.
 show_source: true
+# Code panel extras — optional. Highlighting is on unless this is false;
+# source_url links each file to the repository ({path} = path under
+# templates_path). See "Showing the fixture source" below.
+highlight_source: true
+source_views: [data, html, css, js]   # add twig to show the templates
+source_url: "https://github.com/acme/site/blob/main/templates/{path}"
 
 # Open Graph image (#74) — single optional string key. See "OG image audit"
 # below for what it drives. Set `og_image: false` to hide the section
@@ -660,6 +666,8 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 | `/styleguide/api/fields` | JSON | Field metadata flattened across components |
 | `/styleguide/api/health` | JSON | Parse-resilience diagnostics — see [API](#api) below |
 | `/styleguide/api/source/<kind>/<slug>` | JSON | Fixture source of one preview (`?variant=<id>` for a variant tile). Answers only while `show_source` is on — see *Showing the fixture source* |
+| `/styleguide/api/markup/<kind>/<slug>` | JSON | The HTML one preview renders (`?variant=<id>` for a variant tile). Answers only while `show_source` is on |
+| `/styleguide/api/files/<kind>/<slug>` | JSON | The entry's own Twig template, CSS and JS, as far as `source_views` lists. Answers only while `show_source` is on |
 | `/styleguide/assets/<path>` | static | SPA bundle + locales + any package asset (immutable cache for hashed filenames, ETag for unhashed) |
 
 \* Same whitelist/fallback rules as the render-endpoint row above (`^[a-z0-9-]+$`, unknown/removed values fall back to the default rather than 404ing); `Router::synthesizeEmbeddedRoute()` forwards the SPA-shell's `?variant=` across the iframe-embed swap so the preview and the deep link agree.
@@ -765,9 +773,29 @@ Unlike the four endpoints above, the response is an **object**, not a bare array
 
 The fixture file behind one preview — `styleguide.<id>.twig`, or `styleguide.twig` without a variant — without its leading `{# … #}` annotation. Response: `{ kind, slug, variant, file, source }`. `404` when the entry or variant has no fixture file. Off by default on a public catalogue; see *Showing the fixture source* below. Full contract: `docs/API.md` § JSON API endpoints.
 
+### `GET /styleguide/api/files/<kind>/<slug>`
+
+The entry's own files: `css/**/*.css` and `js/**/*.js` in its folder, tests (`*.test.js`, `*.spec.js`) left out, and with `twig` in `source_views` its `<slug>.twig` first. Response: `{ kind, slug, files: [{ path, language, source }] }`, `language` one of `twig`, `css`, `js`. Files past 200 kB, not UTF-8, or resolving outside `templates_path` are skipped; at most 20 per entry. Behind the same `show_source` gate as `/api/source`.
+
+### `GET /styleguide/api/markup/<kind>/<slug>[?variant=<id>]`
+
+The HTML that one preview renders, without the iframe document around it, re-indented by nesting (blank lines dropped, spaces collapsed; `<pre>`/`<textarea>` keep theirs). Response: `{ kind, slug, variant, html }`. `404` when the entry has no template or its render fails. Behind the same `show_source` gate as `/api/source`. Full contract: `docs/API.md` § JSON API endpoints.
+
 ### Showing the fixture source
 
-Each variant tile gets a **Kód / Code** toggle that shows the fixture file which rendered it, with a copy button; an isolated tile shows the same in a drawer under the toolbar. The source is what a developer copies: the component call with its sample data.
+Each variant tile gets a **Kód / Code** toggle that shows the fixture file which rendered it; an isolated tile shows the same in a drawer under the toolbar. The source is what a developer copies: the component call with its sample data.
+
+The panel has up to five views. **Data** is the fixture: the call with its sample data. **Twig** is the entry's own `<slug>.twig`, shown only when `source_views` lists it (below). **HTML** is the markup that fixture renders, without the iframe document around it, re-indented by nesting instead of by the template's own indentation, fetched from `/api/markup` only when the view is opened: what a developer checks for classes, headings and ARIA. **CSS** and **JS** list the entry's own stylesheets and scripts, `css/**/*.css` and `js/**/*.js` in its folder (tests left out), one block per file with its path; each view appears only when the entry has such files. The lines are numbered, and long lines wrap under their own number; a selection copies the code without the numbers.
+
+Every view is highlighted: Twig delimiters, tags, strings and comments, the HTML tags and attributes around them, CSS and JavaScript. The catalogue bundles [Prism](https://github.com/PrismJS/prism) (MIT) for the tokenising, about 5 kB gzipped, as a separate file the browser loads with the first open panel; nothing loads from a CDN and the consumer installs nothing. The highlighting only colours text spans, so the code is never rendered as markup, and a selection copies plain text. `highlight_source: false` turns it off: the panel shows plain text and the browser never loads the highlighter.
+
+`source_url` links the panel to the repository. Write the address of a template file with `{path}` where its path relative to `templates_path` goes:
+
+```yaml
+source_url: "https://github.com/acme/site/blob/main/templates/{path}"
+```
+
+The panel then shows one link, **GitHub** / **GitLab** / **Git** by the host, to the file behind the open view: the fixture for Data, the entry's own `<slug>.twig` for Twig and HTML; in the CSS and JS views each file's path links to it. It opens in a new tab. One line covers every file. It is a setting rather than read from git, because a deployed catalogue usually has no `.git`. It travels with `show_source`: a catalogue that does not show its source does not point at its repository either. An address that is not http(s) or has no `{path}` throws at construction.
 
 `show_source` in `styleguide.yaml` decides whether the catalogue shows it:
 
@@ -780,6 +808,15 @@ Each variant tile gets a **Kód / Code** toggle that shows the fixture file whic
 The default treats a catalogue without an `auth` callable as public. A public catalogue does not publish its templates unless it says so. **The Symfony bundle cannot set `auth`** (the host's firewall guards the catalogue, see *Symfony bundle*), so a bundle host that wants the toggle writes `show_source: true`. So does a library-mode catalogue behind HTTP Basic Auth or a VPN.
 
 Off, the toggle is not rendered and `/api/source` answers `404` like an unknown endpoint: the source never reaches the browser.
+
+`source_views` picks the views, per project:
+
+```yaml
+source_views: [data, twig, html, css, js]   # everything
+source_views: [data, html]                  # the call and its output only
+```
+
+Absent, it is `[data, html, css, js]`: everything but the template. The fixture is sample data a reader copies, and the HTML, CSS and JS are what a browser receives anyway; the template is the implementation, so a project lists `twig` to publish it ([ADR-0007](docs/adr/0007-code-panel-views-template-opt-in.md)). A view left out is gone from the panel, and its endpoint answers `404` like an unknown one. It takes effect only while `show_source` is on. The panel keeps its own order; anything but a non-empty list of `data`, `twig`, `html`, `css`, `js` throws at construction.
 
 ### Caching
 
