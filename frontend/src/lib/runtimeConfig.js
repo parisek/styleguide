@@ -46,12 +46,14 @@ function config() {
     return cached;
 }
 
-// The server validates `viewports.compare` at boot; this only guards the
-// shape, so a hand-edited or older payload can never produce a broken
-// compare mode. Anything off -> null (no compare button).
+// The server validates `viewports.compare` at boot and merges a width
+// listed twice, so one width can arrive. This only guards the shape, so a
+// hand-edited or older payload can never produce a broken width menu.
+// Anything off -> null (no project group).
 function normaliseCompareWidths(value) {
-    if (!Array.isArray(value) || value.length < 2 || value.length > 4) return null;
-    return value.every((w) => Number.isInteger(w) && w > 0) ? [...value] : null;
+    if (!Array.isArray(value) || !value.every((w) => Number.isInteger(w) && w > 0)) return null;
+    const unique = [...new Set(value)];
+    return unique.length >= 1 && unique.length <= 4 ? unique : null;
 }
 
 // `viewports.compare` from styleguide.yaml, e.g. [1440, 768, 320], or null.

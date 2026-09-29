@@ -67,6 +67,29 @@ test.describe('compare mode (the width checklist)', () => {
         await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
     });
 
+    test('works from the keyboard alone', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').focus();
+        await page.keyboard.press('Enter');
+        // Opening puts the focus in the menu, so the arrows work at once.
+        await expect(page.locator('[role="menu"] :focus')).toHaveCount(1);
+        await page.getByTestId('viewport-preset-tablet').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
+        await expect(page.getByTestId('viewport-trigger')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('viewport-preset-tablet')).toBeFocused();
+        await page.keyboard.press('ArrowLeft');
+        await expect(page.getByTestId('viewport-check-tablet')).toBeFocused();
+        await page.keyboard.press('ArrowUp');
+        await page.keyboard.press('Space');
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^320 px/, /^768 px/]);
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('viewport-trigger')).toBeFocused();
+        await expect(page.getByTestId('viewport-trigger-dims')).toHaveText('320 · 768');
+    });
+
     test('the variant grid gives every tile its own strip, one tile per row', async ({ page }) => {
         await page.goto('/styleguide/component/multi');
         await page.getByTestId('viewport-trigger').click();

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
-import { ref, provide, defineComponent, h } from 'vue';
+import { ref, provide, defineComponent, h, nextTick } from 'vue';
 import ViewportToolbar from './ViewportToolbar.vue';
 import { useViewportPreset } from '../composables/useViewportPreset.js';
 import { useI18nStore } from '../stores/i18n.js';
@@ -15,7 +15,7 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
     useI18nStore().strings = {
         toolbar: {
             viewport_preset: 'Viewport', custom_width_label: 'Custom', custom_width_placeholder: 'px',
-            orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
+            orientation_label: 'Orientation', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape', rotate: 'Rotate', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
             variant_label: 'Variant', variant_default: 'Default', breadcrumb_back_to_grid: 'Back to all variants',
             variant_columns_label: 'Tile density', variant_columns_auto_label: 'Auto',
@@ -140,6 +140,61 @@ describe('ViewportToolbar — width checklist', () => {
         await menu.trigger('keydown', { key: 'ArrowUp' });
         expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-mobile-s').element);
         wrapper.unmount();
+    });
+
+    it('opening moves the focus onto the line on screen; Escape returns it to the trigger', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { attach: true });
+        useUiStore().setWidth('768px', 1024);
+        await openMenu(wrapper);
+        await nextTick();
+        expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-tablet').element);
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Escape' });
+        expect(wrapper.get('[data-testid="viewport-menu"]').isVisible()).toBe(false);
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="viewport-trigger"]').element);
+        wrapper.unmount();
+    });
+
+    it('a choice returns the focus to the trigger', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { attach: true });
+        await openMenu(wrapper);
+        await row(wrapper, 'viewport-preset-mobile').trigger('click');
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="viewport-trigger"]').element);
+        wrapper.unmount();
+    });
+
+    it('the arrows keep the column across a line with one control', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [320, 768, 1440], attach: true });
+        await openMenu(wrapper);
+        const menu = wrapper.get('[role="menu"]');
+        row(wrapper, 'viewport-preset-mobile-s').element.focus();
+        await menu.trigger('keydown', { key: 'ArrowUp' });
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="compare-project-widths"]').element);
+        await menu.trigger('keydown', { key: 'ArrowDown' });
+        expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-mobile-s').element);
+
+        boxOf(wrapper, 'viewport-preset-mobile-s').element.focus();
+        await menu.trigger('keydown', { key: 'ArrowUp' });
+        await menu.trigger('keydown', { key: 'ArrowDown' });
+        expect(document.activeElement).toBe(boxOf(wrapper, 'viewport-preset-mobile-s').element);
+        wrapper.unmount();
+    });
+
+    it('hides "Compare all" when the project has one width', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [320] });
+        await openMenu(wrapper);
+        expect(wrapper.text()).toContain('Project widths');
+        expect(wrapper.find('[data-testid="compare-project-widths"]').exists()).toBe(false);
+    });
+
+    it('disables the orientation for real while comparing, not only visually', async () => {
+        const wrapper = mountWithViewport();
+        useUiStore().setWidth('375px', 667);
+        await openMenu(wrapper);
+        const portrait = () => wrapper.get('[aria-label="Portrait"]');
+        expect(portrait().attributes('disabled')).toBeUndefined();
+        useUiStore().setCompareWidths([320, 768]);
+        await nextTick();
+        expect(portrait().attributes('disabled')).toBeDefined();
     });
 
     it('Shift+Enter in the custom field adds, and stops at four widths', async () => {

@@ -3433,8 +3433,10 @@ final class Styleguide
     private const COMPARE_WIDTH_MAX = 4000;
 
     /**
-     * `viewports.compare` in styleguide.yaml: the project's 2–4 different
-     * integer widths. The SPA's width menu lists them first and compares
+     * `viewports.compare` in styleguide.yaml: the project's 2–4 integer
+     * widths. A width listed twice is merged, not refused: 1.24.0 accepted
+     * `[320, 320]`, and a minor release must not break that config. The SPA
+     * holds the widths as a set anyway, so the result can be one width. The SPA's width menu lists them first and compares
      * them in one click, narrowest first whatever the order written. `null`
      * when absent: the menu then lists the presets only.
      *
@@ -3459,10 +3461,7 @@ final class Styleguide
         $valid = is_array($compare)
             && array_is_list($compare)
             && count($compare) >= 2
-            && count($compare) <= 4
-            // The SPA holds the widths as a set; a width listed twice would
-            // collapse there and "compare all" would show fewer than written.
-            && count($compare) === count(array_unique($compare, SORT_REGULAR));
+            && count($compare) <= 4;
         foreach ($valid ? $compare : [] as $width) {
             if (!is_int($width) || $width < self::COMPARE_WIDTH_MIN || $width > self::COMPARE_WIDTH_MAX) {
                 $valid = false;
@@ -3470,15 +3469,15 @@ final class Styleguide
         }
         if (!$valid) {
             throw new \InvalidArgumentException(sprintf(
-                'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 different integer widths '
-                    . 'between %d and %d, e.g. [320, 768, 1440]',
+                'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 integer widths between %d and %d, '
+                    . 'e.g. [320, 768, 1440]',
                 self::COMPARE_WIDTH_MIN,
                 self::COMPARE_WIDTH_MAX,
             ));
         }
 
         /** @var list<int> $compare */
-        return $compare;
+        return array_values(array_unique($compare));
     }
 
     /**

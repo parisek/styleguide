@@ -57,6 +57,15 @@ final class CompareWidthsTest extends TestCase
     }
 
     #[Test]
+    public function a_width_listed_twice_is_merged_not_refused(): void
+    {
+        // 1.24.0 accepted duplicates; refusing them now would break a
+        // config on a minor upgrade.
+        self::assertSame([1440, 768], $this->spaConfig($this->styleguide(['viewports' => ['compare' => [1440, 768, 768]]]))['compareWidths']);
+        self::assertSame([320], $this->spaConfig($this->styleguide(['viewports' => ['compare' => [320, 320]]]))['compareWidths']);
+    }
+
+    #[Test]
     public function the_widths_reach_the_spa_in_their_order(): void
     {
         $config = $this->spaConfig($this->styleguide(['viewports' => ['compare' => [1440, 768, 320]]]));
@@ -83,8 +92,6 @@ final class CompareWidthsTest extends TestCase
         yield 'below the custom-width minimum' => [[1440, 99]];
         yield 'above the custom-width maximum' => [[4001, 768]];
         yield 'a map' => [['desktop' => 1440, 'mobile' => 320]];
-        yield 'a width twice' => [[320, 320]];
-        yield 'a width twice among others' => [[1440, 768, 768]];
     }
 
     #[Test]

@@ -1,5 +1,5 @@
 <script setup>
-import { inject, ref, computed, onMounted, onUnmounted } from 'vue';
+import { inject, ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { widthLabel, widthCategory } from '../lib/viewportMath.js';
@@ -13,6 +13,7 @@ const overflowOpen = ref(false);
 const columnsOpen = ref(false);
 const dropdownRef = ref(null);
 const menuRef = ref(null);
+const triggerRef = ref(null);
 const overflowRef = ref(null);
 const columnsRef = ref(null);
 
@@ -58,11 +59,18 @@ const widthGroups = computed(() => {
     const groups = [];
     // Narrowest first, as the strip shows them, whatever order the yaml has.
     const projectRows = [...new Set(project)].sort((a, b) => a - b).map(byWidth);
-    if (project.length) groups.push({ key: 'project', label: i18n.t('toolbar.widths_project'), rows: projectRows });
+    // "Compare all" needs two widths; a config that merged down to one
+    // (`[320, 320]`) still lists its width first.
+    if (project.length) groups.push({ key: 'project', label: i18n.t('toolbar.widths_project'), rows: projectRows, compareAll: projectRows.length >= 2 });
     groups.push({ key: 'presets', label: project.length ? i18n.t('toolbar.widths_other') : null, rows: presets });
     if (custom.length) groups.push({ key: 'custom', label: null, rows: custom });
     return groups;
 });
+
+// Orientation needs one device preset: a custom width has no height, and a
+// comparison shows each width at its content's own height. Disabled for
+// real, not only greyed out, so the keyboard skips it too.
+const orientationDisabled = computed(() => ui.previewHeight === null || viewport.compareActive.value);
 
 const atCompareMax = computed(() => viewport.selectedWidths.value.length >= viewport.COMPARE_MAX);
 
@@ -82,7 +90,7 @@ function isChecked(row) {
 function onWidthPick(row, event) {
     if (row.width === null) {
         viewport.setPreset('full');
-        dropdownOpen.value = false;
+        closeMenu();
         return;
     }
     if (event.shiftKey) {
@@ -90,8 +98,34 @@ function onWidthPick(row, event) {
         return;
     }
     viewport.selectWidth(row.width);
-    dropdownOpen.value = false;
+    closeMenu();
 }
+
+// The menu pattern: opening moves the focus into the menu, onto the line
+// of what is on screen (the first ticked width, else the first line), so
+// arrow keys work at once. A close by Escape or by a choice returns the
+// focus to the trigger; a click outside leaves it where the click put it.
+function closeMenu() {
+    dropdownOpen.value = false;
+    triggerRef.value?.focus();
+}
+
+function onCompareAll() {
+    viewport.compareProjectWidths();
+    closeMenu();
+}
+
+watch(dropdownOpen, (open) => {
+    if (!open) return;
+    nextTick(() => {
+        const menu = menuRef.value;
+        if (!menu) return;
+        const ticked = menu.querySelector('[data-menu-col="pick"][data-selected]')
+            ?? menu.querySelector('[role^="menuitem"]');
+        lastCol = 'pick';
+        ticked?.focus();
+    });
+});
 
 function checkDisabled(row) {
     return !isChecked(row) && atCompareMax.value;
@@ -114,6 +148,11 @@ function onCustomWidthEnter(event) {
 // the next line and keep the column (box or row), Left and Right switch
 // between a line's box and its row. Home and End go to the first and last
 // line.
+// The column the arrows keep: 'check' (the box) or 'pick' (the row). It
+// lives outside any one line, because a line with one control (Full,
+// "Compare all") must not reset it.
+let lastCol = 'pick';
+
 function onMenuKeydown(event) {
     if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     const lines = [...(menuRef.value?.querySelectorAll('[data-menu-line]') ?? [])];
@@ -121,11 +160,13 @@ function onMenuKeydown(event) {
     event.preventDefault();
     const items = (line) => [...line.querySelectorAll('[role^="menuitem"]')];
     const at = lines.findIndex((line) => line.contains(document.activeElement));
-    const col = at < 0 ? 0 : items(lines[at]).indexOf(document.activeElement);
+    const own = at < 0 ? [] : items(lines[at]);
+    if (own.length > 1) lastCol = document.activeElement?.dataset.menuCol ?? lastCol;
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-        if (at < 0) return;
-        const own = items(lines[at]);
-        own[Math.max(0, Math.min(own.length - 1, col + (event.key === 'ArrowRight' ? 1 : -1)))].focus();
+        if (own.length < 2) return;
+        const target = own.find((el) => el.dataset.menuCol === (event.key === 'ArrowLeft' ? 'check' : 'pick'));
+        lastCol = target.dataset.menuCol;
+        target.focus();
         return;
     }
     let next = 0;
@@ -133,9 +174,7 @@ function onMenuKeydown(event) {
     else if (event.key === 'ArrowDown') next = at < 0 ? 0 : (at + 1) % lines.length;
     else if (event.key === 'ArrowUp') next = at <= 0 ? lines.length - 1 : at - 1;
     const target = items(lines[next]);
-    // A line without a box (Full, "Compare all") takes the focus on its one
-    // control; the column comes back on the next line that has both.
-    (target[col] ?? target[target.length - 1]).focus();
+    (target.find((el) => el.dataset.menuCol === lastCol) ?? target[target.length - 1]).focus();
 }
 
 function activeWordLabel() {
@@ -386,8 +425,9 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                      side by side (compare mode). The trigger says what is on
                      screen: the device word and dimensions, or "3 šířky"
                      and the widths. -->
-                <div class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen = false">
+                <div class="relative" ref="dropdownRef" @keydown.escape="dropdownOpen && closeMenu()">
                     <button type="button"
+                            ref="triggerRef"
                             data-testid="viewport-trigger"
                             @click="dropdownOpen = !dropdownOpen"
                             :aria-expanded="dropdownOpen"
@@ -420,14 +460,15 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                         <div v-for="group in widthGroups" :key="group.key"
                              role="group"
                              :aria-label="group.label ?? (group.key === 'custom' ? i18n.t('toolbar.custom_width_label') : i18n.t('toolbar.viewport_preset'))">
-                            <div v-if="group.label" :data-menu-line="group.key === 'project' ? '' : undefined" class="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
+                            <div v-if="group.label" :data-menu-line="group.compareAll ? '' : undefined" class="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
                                 <span aria-hidden="true" class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ group.label }}</span>
                                 <!-- One click back to the project's standard
                                      check: every `viewports.compare` width. -->
-                                <button v-if="group.key === 'project'" type="button"
+                                <button v-if="group.compareAll" type="button"
                                         role="menuitem"
+                                        data-menu-col="pick"
                                         data-testid="compare-project-widths"
-                                        @click="viewport.compareProjectWidths(); dropdownOpen = false"
+                                        @click="onCompareAll()"
                                         class="text-[11px] font-medium text-red-700 hover:underline dark:text-red-400 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">{{ i18n.t('toolbar.compare_all') }}</button>
                             </div>
                             <div v-else-if="group.key === 'custom'" role="separator" class="my-1 border-t border-zinc-200 dark:border-zinc-700"></div>
@@ -446,6 +487,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                         :title="i18n.t('toolbar.compare_add')"
                                         :data-testid="row.preset ? `viewport-check-${row.key}` : `viewport-check-${row.width}`"
                                         data-width-check
+                                        data-menu-col="check"
                                         @click="onWidthCheck(row)"
                                         class="shrink-0 self-stretch pl-3 pr-1.5 flex items-center rounded-l-lg focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-red-600"
                                         :class="checkDisabled(row) && 'opacity-30 cursor-not-allowed'">
@@ -460,6 +502,8 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                         role="menuitem"
                                         :aria-label="row.width === null ? row.label : `${i18n.t('toolbar.show_only')} ${row.label} ${row.width}`"
                                         :data-testid="row.preset ? `viewport-preset-${row.key}` : `viewport-width-${row.width}`"
+                                        data-menu-col="pick"
+                                        :data-selected="isChecked(row) ? '' : undefined"
                                         @click="onWidthPick(row, $event)"
                                         class="flex-1 min-w-0 pl-1 pr-3 py-2 flex items-center gap-2.5 text-xs tabular-nums text-left rounded-r-lg focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-red-600">
                                     <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CATEGORY_ICON_PATHS[row.category] ?? CATEGORY_ICON_PATHS.full"></svg>
@@ -506,9 +550,10 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                             <span class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ i18n.t('toolbar.orientation_label') }}</span>
                             <div role="group" :aria-label="i18n.t('toolbar.rotate')"
                                  class="ml-auto inline-flex gap-px rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-700"
-                                 :class="(ui.previewHeight === null || viewport.compareActive.value) && 'opacity-30 pointer-events-none'">
+                                 :class="orientationDisabled && 'opacity-30 pointer-events-none'">
                                 <button type="button"
                                         @click="viewport.setPortrait(true)"
+                                        :disabled="orientationDisabled"
                                         :title="i18n.t('toolbar.orientation_portrait')"
                                         :aria-label="i18n.t('toolbar.orientation_portrait')"
                                         :aria-pressed="viewport.isPortrait.value ? 'true' : 'false'"
@@ -520,6 +565,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                 </button>
                                 <button type="button"
                                         @click="viewport.setPortrait(false)"
+                                        :disabled="orientationDisabled"
                                         :title="i18n.t('toolbar.orientation_landscape')"
                                         :aria-label="i18n.t('toolbar.orientation_landscape')"
                                         :aria-pressed="!viewport.isPortrait.value ? 'true' : 'false'"

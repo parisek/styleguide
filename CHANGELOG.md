@@ -29,16 +29,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   width. For assistive technology the row is a `menuitem` named "Ukázat
   jen …" and the box a `menuitemcheckbox` named "Přidat vedle: …", so no
   control says "checkbox" and does something else on Enter. Arrow keys move
-  between lines (Up/Down) and between a line's box and row (Left/Right).
-  The custom width and the orientation sit below the menu as an ordinary
-  form, reached with Tab.
+  between lines (Up/Down) and between a line's box and row (Left/Right),
+  keeping the column across lines with one control. Opening the menu moves
+  the focus onto the line on screen; Escape or a choice returns it to the
+  trigger. The custom width and the orientation sit below the menu as an
+  ordinary form, reached with Tab; the orientation is disabled (not only
+  greyed out) while comparing.
 - **`viewports.compare` now lists the project's widths instead of adding a
   button.** The menu shows them first ("Šířky projektu") with a "Porovnat
   vše" action that ticks them all. **Visible without the key:** every
   catalogue now gets checkboxes in the width menu, so any two to four widths
-  compare. **A width listed twice now throws** at construction (the SPA
-  holds the widths as a set, so `[320, 320]` would compare nothing);
-  otherwise the key's format and validation are unchanged.
+  compare. A width listed twice is merged (`[320, 320]` lists one project
+  width, without "Porovnat vše"); 1.24.0 accepted such a list, so it is not
+  refused. Otherwise the key's format and validation are unchanged.
 - **Compared widths show narrowest first** (`320 · 768 · 1440`), whatever
   order `viewports.compare` lists them in: mobile first, as the CSS is
   written. 1.24.0 kept the yaml order.

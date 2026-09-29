@@ -581,15 +581,15 @@ labels:                                    # i18n labels shown on overview cards
 
 ### Compare widths
 
-The width menu in the toolbar is a checklist. A click on a row shows that width alone. A tick on the row's box (or Shift+click on the row) adds the width, and two to four ticked widths show side by side. Row and box are two controls with their own names, so a screen reader hears "Ukázat jen Tablet 768" and "Přidat vedle: Tablet 768"; arrow keys move between lines and between a line's box and row. The custom width and the orientation sit below the menu as an ordinary form. The strip shows them narrowest first, and the trigger names the set: `3 šířky · 320 · 768 · 1440`. Unticking back to one width returns to the ordinary single preview at that width. The custom width follows the same rule: Enter shows it alone, `+` (or Shift+Enter) adds it. Full has no pixel width, so it is a choice only, never a checkbox.
+The width menu in the toolbar is a checklist. A click on a row shows that width alone. A tick on the row's box (or Shift+click on the row) adds the width, and two to four ticked widths show side by side. Row and box are two controls with their own names, so a screen reader hears "Ukázat jen Tablet 768" and "Přidat vedle: Tablet 768"; opening the menu puts the focus on the line on screen, arrow keys move between lines and between a line's box and row, and Escape returns to the trigger. The custom width and the orientation sit below the menu as an ordinary form. The strip shows them narrowest first, and the trigger names the set: `3 šířky · 320 · 768 · 1440`. Unticking back to one width returns to the ordinary single preview at that width. The custom width follows the same rule: Enter shows it alone, `+` (or Shift+Enter) adds it. Full has no pixel width, so it is a choice only, never a checkbox.
 
 Side by side, each iframe renders at its real width and scales down into its column. The columns are sized in proportion to their widths, so every width shows at the same zoom, and each caption says the width and the zoom.
 
-`viewports.compare` lists the project's own 2–4 different widths, each 100–4000 px. The menu shows them first, narrowest first, under "Šířky projektu", with a "Porovnat vše" action that ticks them all. Without the key the menu lists the presets only; ticking still works.
+`viewports.compare` lists the project's own 2–4 widths, each 100–4000 px. A width listed twice is merged. The menu shows them first, narrowest first, under "Šířky projektu", with a "Porovnat vše" action that ticks them all. Without the key the menu lists the presets only; ticking still works.
 
 In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The tile density and the orientation switch rest while comparing. The ticked widths persist in the browser (`localStorage`, `sg-preview-compare`), as the single width does.
 
-A malformed `viewports.compare` (one width, five widths, a width listed twice, a string, a width out of range) throws at construction.
+A malformed `viewports.compare` (one width, five widths, a string, a width out of range) throws at construction.
 
 ### Overview grid
 

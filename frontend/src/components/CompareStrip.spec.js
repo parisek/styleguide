@@ -109,22 +109,33 @@ describe('CompareStrip — a changed set of widths', () => {
         wrapper.unmount();
     });
 
-    it('lets an unticked width go: its height observer disconnects, the rest stay measured', async () => {
-        const disconnect = vi.spyOn(ResizeObserver.prototype, 'disconnect');
+    it('lets an unticked width go: its own height observer disconnects, the rest stay measured', async () => {
+        // Record every observer and what it watches, so the assertion can
+        // name the one that belonged to the removed width.
+        const observers = [];
+        class Recording {
+            constructor() { this.targets = []; this.disconnected = false; observers.push(this); }
+            observe(target) { this.targets.push(target); }
+            unobserve() {}
+            disconnect() { this.disconnected = true; }
+        }
+        vi.stubGlobal('ResizeObserver', Recording);
         const wrapper = mountStrip({ widths: [320, 768, 1440] });
-        await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);
-        await loadWithHeight(wrapper.get('iframe[title="768 px"]'), 900);
-        await loadWithHeight(wrapper.get('iframe[title="1440 px"]'), 600);
-        disconnect.mockClear();
+        const docs = {};
+        for (const [width, height] of [[320, 1500], [768, 900], [1440, 600]]) {
+            const frame = wrapper.get(`iframe[title="${width} px"]`);
+            await loadWithHeight(frame, height);
+            docs[width] = frame.element.contentDocument.documentElement;
+        }
+        const watching = (width) => observers.find((o) => o.targets.includes(docs[width]));
 
         await wrapper.setProps({ widths: [320, 1440] });
-        // 768's observers go. (Vue also re-runs every function ref on an
-        // update, which re-registers the kept cells, so the count is not 2.)
-        expect(disconnect).toHaveBeenCalled();
-        expect(wrapper.find('iframe[title="768 px"]').exists()).toBe(false);
+        expect(watching(768).disconnected).toBe(true);
+        expect(watching(320).disconnected).toBe(false);
+        expect(watching(1440).disconnected).toBe(false);
         expect(heightOf(wrapper, 320)).toBe('1500');
         expect(heightOf(wrapper, 1440)).toBe('600');
-        disconnect.mockRestore();
         wrapper.unmount();
+        vi.unstubAllGlobals();
     });
 });
