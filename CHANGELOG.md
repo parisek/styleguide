@@ -19,20 +19,26 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 ### Changed
 
 - **The width menu is a checklist; the compare button is gone.** Every row
-  of the toolbar's width menu is now a choice and a checkbox at once. A click
-  shows that width alone, as before. A tick (or Space, or Shift+click) adds
-  the width, and two to four ticked widths show side by side in the compare
+  of the toolbar's width menu now has two controls. A click on the row
+  shows that width alone, as before. A tick on its box (or Shift+click on
+  the row) adds the width, and two to four ticked widths show side by side in the compare
   strip that 1.24.0 introduced. The trigger names the set (`3 šířky ·
   320 · 768 · 1440`); unticking back to one width returns to the single
   preview. The custom width follows the same rule: Enter shows it alone,
   `+` or Shift+Enter adds it. Full is a choice only, since it has no pixel
-  width. The menu gains `role="menu"`, `menuitemcheckbox` rows with
-  `aria-checked`, and arrow-key navigation.
+  width. For assistive technology the row is a `menuitem` named "Ukázat
+  jen …" and the box a `menuitemcheckbox` named "Přidat vedle: …", so no
+  control says "checkbox" and does something else on Enter. Arrow keys move
+  between lines (Up/Down) and between a line's box and row (Left/Right).
+  The custom width and the orientation sit below the menu as an ordinary
+  form, reached with Tab.
 - **`viewports.compare` now lists the project's widths instead of adding a
   button.** The menu shows them first ("Šířky projektu") with a "Porovnat
   vše" action that ticks them all. **Visible without the key:** every
   catalogue now gets checkboxes in the width menu, so any two to four widths
-  compare. The key's format and validation are unchanged.
+  compare. **A width listed twice now throws** at construction (the SPA
+  holds the widths as a set, so `[320, 320]` would compare nothing);
+  otherwise the key's format and validation are unchanged.
 - **Compared widths show narrowest first** (`320 · 768 · 1440`), whatever
   order `viewports.compare` lists them in: mobile first, as the CSS is
   written. 1.24.0 kept the yaml order.

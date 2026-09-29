@@ -12,8 +12,9 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * `viewports.compare` in styleguide.yaml: the widths the SPA's compare mode
- * shows side by side, handed to the SPA as `compareWidths` in #sg-config.
+ * `viewports.compare` in styleguide.yaml: the project's widths, which the SPA's
+ * width menu lists first and compares in one click, handed to the SPA as
+ * `compareWidths` in #sg-config.
  */
 final class CompareWidthsTest extends TestCase
 {
@@ -82,6 +83,8 @@ final class CompareWidthsTest extends TestCase
         yield 'below the custom-width minimum' => [[1440, 99]];
         yield 'above the custom-width maximum' => [[4001, 768]];
         yield 'a map' => [['desktop' => 1440, 'mobile' => 320]];
+        yield 'a width twice' => [[320, 320]];
+        yield 'a width twice among others' => [[1440, 768, 768]];
     }
 
     #[Test]

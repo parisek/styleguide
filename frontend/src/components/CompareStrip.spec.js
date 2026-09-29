@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import CompareStrip from './CompareStrip.vue';
@@ -106,6 +106,25 @@ describe('CompareStrip — a changed set of widths', () => {
         await wrapper.setProps({ widths: [320, 375, 768] });
         expect(heightOf(wrapper, 320)).toBe('1500');
         expect(heightOf(wrapper, 768)).toBe('900');
+        wrapper.unmount();
+    });
+
+    it('lets an unticked width go: its height observer disconnects, the rest stay measured', async () => {
+        const disconnect = vi.spyOn(ResizeObserver.prototype, 'disconnect');
+        const wrapper = mountStrip({ widths: [320, 768, 1440] });
+        await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);
+        await loadWithHeight(wrapper.get('iframe[title="768 px"]'), 900);
+        await loadWithHeight(wrapper.get('iframe[title="1440 px"]'), 600);
+        disconnect.mockClear();
+
+        await wrapper.setProps({ widths: [320, 1440] });
+        // 768's observers go. (Vue also re-runs every function ref on an
+        // update, which re-registers the kept cells, so the count is not 2.)
+        expect(disconnect).toHaveBeenCalled();
+        expect(wrapper.find('iframe[title="768 px"]').exists()).toBe(false);
+        expect(heightOf(wrapper, 320)).toBe('1500');
+        expect(heightOf(wrapper, 1440)).toBe('600');
+        disconnect.mockRestore();
         wrapper.unmount();
     });
 });

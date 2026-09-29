@@ -42,7 +42,8 @@
         "widths_word": "šířky",
         "compare_all": "Porovnat vše",
         "compare_add": "Přidat vedle",
-        "compare_max": "Nejvýš 4 šířky vedle sebe"
+        "compare_max": "Nejvýš 4 šířky vedle sebe",
+        "show_only": "Ukázat jen"
     },
     "preview": {
         "mobile": "Mobil (375 px)",

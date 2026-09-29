@@ -3080,8 +3080,8 @@ final class Styleguide
         if ($this->showSource()) {
             $config['showSource'] = true;
         }
-        // Same rule: only when configured. The SPA shows the compare button
-        // from this list and builds its label from it.
+        // Same rule: only when configured. The SPA's width menu lists these
+        // widths first, as the project's own.
         if ($this->compareWidths !== null) {
             $config['compareWidths'] = $this->compareWidths;
         }
@@ -3433,13 +3433,14 @@ final class Styleguide
     private const COMPARE_WIDTH_MAX = 4000;
 
     /**
-     * `viewports.compare` in styleguide.yaml: 2–4 integer widths, shown side
-     * by side by the SPA's compare mode, in the order written. `null` when
-     * absent, which leaves the SPA exactly as before.
+     * `viewports.compare` in styleguide.yaml: the project's 2–4 different
+     * integer widths. The SPA's width menu lists them first and compares
+     * them in one click, narrowest first whatever the order written. `null`
+     * when absent: the menu then lists the presets only.
      *
      * A malformed `compare` throws at construction, like a malformed
      * `bootstrap` key: dropping it quietly would leave the author looking for
-     * a button that never appears. A `viewports` that is not a map is left
+     * a project group that never appears. A `viewports` that is not a map is left
      * alone instead: top-level keys the package does not own pass through to
      * the templates, so a project may already use the name for itself.
      *
@@ -3458,7 +3459,10 @@ final class Styleguide
         $valid = is_array($compare)
             && array_is_list($compare)
             && count($compare) >= 2
-            && count($compare) <= 4;
+            && count($compare) <= 4
+            // The SPA holds the widths as a set; a width listed twice would
+            // collapse there and "compare all" would show fewer than written.
+            && count($compare) === count(array_unique($compare, SORT_REGULAR));
         foreach ($valid ? $compare : [] as $width) {
             if (!is_int($width) || $width < self::COMPARE_WIDTH_MIN || $width > self::COMPARE_WIDTH_MAX) {
                 $valid = false;
@@ -3466,8 +3470,8 @@ final class Styleguide
         }
         if (!$valid) {
             throw new \InvalidArgumentException(sprintf(
-                'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 integer widths between %d and %d, '
-                    . 'e.g. [1440, 768, 320]',
+                'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 different integer widths '
+                    . 'between %d and %d, e.g. [320, 768, 1440]',
                 self::COMPARE_WIDTH_MIN,
                 self::COMPARE_WIDTH_MAX,
             ));

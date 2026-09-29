@@ -45,6 +45,16 @@ describe('compare mode', () => {
         expect(ui.compareWidths).toEqual([]);
     });
 
+    it('a `?width=` link wins over a stored comparison', () => {
+        localStorage.setItem('sg-preview-compare', JSON.stringify([320, 1440]));
+        window.history.replaceState(null, '', '/styleguide/?width=768');
+        const ui = useUiStore();
+        expect(ui.compareWidths).toEqual([320, 1440]);
+        ui.initFromUrl();
+        expect(ui.compareWidths).toEqual([]);
+        expect(ui.previewWidth).toBe('768px');
+    });
+
     it('is persisted, and a broken stored value means no comparison', async () => {
         useUiStore().setCompareWidths([1440, 320]);
         await Promise.resolve();

@@ -57,7 +57,7 @@ const widthGroups = computed(() => {
         .map((w) => ({ ...byWidth(w), label: i18n.t('toolbar.custom_width_label'), category: 'full' }));
     const groups = [];
     // Narrowest first, as the strip shows them, whatever order the yaml has.
-    const projectRows = [...project].sort((a, b) => a - b).map(byWidth);
+    const projectRows = [...new Set(project)].sort((a, b) => a - b).map(byWidth);
     if (project.length) groups.push({ key: 'project', label: i18n.t('toolbar.widths_project'), rows: projectRows });
     groups.push({ key: 'presets', label: project.length ? i18n.t('toolbar.widths_other') : null, rows: presets });
     if (custom.length) groups.push({ key: 'custom', label: null, rows: custom });
@@ -73,16 +73,19 @@ function isChecked(row) {
     return viewport.selectedWidths.value.includes(row.width);
 }
 
-// One focusable element per row (a checkbox inside a button is invalid
-// HTML), so the pointer target decides: the checkbox square or Shift adds
-// the width and keeps the menu open; anywhere else picks this width alone.
-function onWidthRowClick(row, event) {
+// Each row carries two controls, and each says what it does. The row
+// itself is a menuitem that shows this width alone; its box is a
+// menuitemcheckbox that adds the width to the comparison or drops it. A
+// screen reader hears "Show only Tablet" and "Add side by side: Tablet",
+// never a checkbox whose Enter does something else. Shift+click on the row
+// adds too, as a pointer shortcut.
+function onWidthPick(row, event) {
     if (row.width === null) {
         viewport.setPreset('full');
         dropdownOpen.value = false;
         return;
     }
-    if (event.shiftKey || event.target.closest?.('[data-width-check]')) {
+    if (event.shiftKey) {
         viewport.toggleWidth(row.width);
         return;
     }
@@ -90,10 +93,12 @@ function onWidthRowClick(row, event) {
     dropdownOpen.value = false;
 }
 
-// Space toggles, as on any checkbox. A native button fires click on Space
-// too, so the key is taken before the click; Enter keeps "this width alone".
-function onWidthRowSpace(row) {
-    if (row.width !== null) viewport.toggleWidth(row.width);
+function checkDisabled(row) {
+    return !isChecked(row) && atCompareMax.value;
+}
+
+function onWidthCheck(row) {
+    if (!checkDisabled(row)) viewport.toggleWidth(row.width);
 }
 
 function onCustomWidthEnter(event) {
@@ -105,20 +110,32 @@ function onCustomWidthEnter(event) {
     event.target.blur();
 }
 
-// Arrow keys walk the menu items, as the menu pattern expects. The number
-// field keeps its own arrows (they step the value).
+// Arrow keys move through the menu as a grid of lines: Up and Down go to
+// the next line and keep the column (box or row), Left and Right switch
+// between a line's box and its row. Home and End go to the first and last
+// line.
 function onMenuKeydown(event) {
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    if (event.target.tagName === 'INPUT') return;
-    const items = [...(menuRef.value?.querySelectorAll('[role^="menuitem"]') ?? [])];
-    if (!items.length) return;
+    if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const lines = [...(menuRef.value?.querySelectorAll('[data-menu-line]') ?? [])];
+    if (!lines.length) return;
     event.preventDefault();
-    const at = items.indexOf(document.activeElement);
+    const items = (line) => [...line.querySelectorAll('[role^="menuitem"]')];
+    const at = lines.findIndex((line) => line.contains(document.activeElement));
+    const col = at < 0 ? 0 : items(lines[at]).indexOf(document.activeElement);
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        if (at < 0) return;
+        const own = items(lines[at]);
+        own[Math.max(0, Math.min(own.length - 1, col + (event.key === 'ArrowRight' ? 1 : -1)))].focus();
+        return;
+    }
     let next = 0;
-    if (event.key === 'End') next = items.length - 1;
-    else if (event.key === 'ArrowDown') next = at < 0 ? 0 : (at + 1) % items.length;
-    else if (event.key === 'ArrowUp') next = at <= 0 ? items.length - 1 : at - 1;
-    items[next].focus();
+    if (event.key === 'End') next = lines.length - 1;
+    else if (event.key === 'ArrowDown') next = at < 0 ? 0 : (at + 1) % lines.length;
+    else if (event.key === 'ArrowUp') next = at <= 0 ? lines.length - 1 : at - 1;
+    const target = items(lines[next]);
+    // A line without a box (Full, "Compare all") takes the focus on its one
+    // control; the column comes back on the next line that has both.
+    (target[col] ?? target[target.length - 1]).focus();
 }
 
 function activeWordLabel() {
@@ -385,19 +402,26 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                             <polyline points="6 9 12 15 18 9"/>
                         </svg>
                     </button>
+                    <!-- The popover holds two parts: the menu of widths
+                         (role="menu", arrow keys) and, below it, an ordinary
+                         form -- the custom width and the orientation -- that
+                         Tab reaches. A field is not a menu item. -->
                     <div v-show="dropdownOpen"
-                         ref="menuRef"
-                         role="menu"
                          data-testid="viewport-menu"
-                         :aria-label="i18n.t('toolbar.viewport_preset')"
-                         @keydown="onMenuKeydown"
                          class="absolute right-0 top-full mt-2 z-50 w-[280px] max-h-[calc(100vh-6rem)] overflow-y-auto rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-1.5">
 
-                        <p class="px-3 pt-1.5 pb-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{{ i18n.t('toolbar.widths_hint') }}</p>
+                        <p id="sg-widths-hint" class="px-3 pt-1.5 pb-1 text-[11px] leading-snug text-zinc-500 dark:text-zinc-400">{{ i18n.t('toolbar.widths_hint') }}</p>
 
-                        <template v-for="group in widthGroups" :key="group.key">
-                            <div v-if="group.label" role="presentation" class="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
-                                <span class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ group.label }}</span>
+                        <div ref="menuRef"
+                             role="menu"
+                             :aria-label="i18n.t('toolbar.viewport_preset')"
+                             aria-describedby="sg-widths-hint"
+                             @keydown="onMenuKeydown">
+                        <div v-for="group in widthGroups" :key="group.key"
+                             role="group"
+                             :aria-label="group.label ?? (group.key === 'custom' ? i18n.t('toolbar.custom_width_label') : i18n.t('toolbar.viewport_preset'))">
+                            <div v-if="group.label" :data-menu-line="group.key === 'project' ? '' : undefined" class="flex items-center justify-between gap-2 px-3 pt-2.5 pb-1">
+                                <span aria-hidden="true" class="text-[10px] uppercase tracking-wider text-zinc-500 dark:text-zinc-400 font-semibold">{{ group.label }}</span>
                                 <!-- One click back to the project's standard
                                      check: every `viewports.compare` width. -->
                                 <button v-if="group.key === 'project'" type="button"
@@ -407,37 +431,46 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                                         class="text-[11px] font-medium text-red-700 hover:underline dark:text-red-400 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">{{ i18n.t('toolbar.compare_all') }}</button>
                             </div>
                             <div v-else-if="group.key === 'custom'" role="separator" class="my-1 border-t border-zinc-200 dark:border-zinc-700"></div>
-                            <button v-for="row in group.rows" :key="row.key" type="button"
-                                    :role="row.width === null ? 'menuitem' : 'menuitemcheckbox'"
-                                    :aria-checked="row.width === null ? undefined : (isChecked(row) ? 'true' : 'false')"
-                                    :data-testid="row.preset ? `viewport-preset-${row.key}` : `viewport-width-${row.width}`"
-                                    @click="onWidthRowClick(row, $event)"
-                                    @keydown.space.prevent="onWidthRowSpace(row)"
-                                    @keyup.space.prevent
-                                    class="w-full px-3 py-2 flex items-center gap-2.5 text-xs tabular-nums rounded-lg transition-colors text-left focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-red-600"
-                                    :class="isChecked(row) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
-                                <!-- The checkbox square. A larger hit area
-                                     than it looks (-m-1 p-1), since it is the
-                                     one pointer target that adds. -->
-                                <span v-if="row.width !== null"
-                                      data-width-check
-                                      :title="i18n.t('toolbar.compare_add')"
-                                      class="-m-1 p-1 shrink-0 inline-flex"
-                                      :class="!isChecked(row) && atCompareMax && 'opacity-30'">
+                            <div v-for="row in group.rows" :key="row.key"
+                                 data-menu-line
+                                 class="flex items-center rounded-lg transition-colors"
+                                 :class="isChecked(row) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700'">
+                                <!-- The box: its own control, so "add" is a
+                                     name a screen reader can say. Full has no
+                                     pixel width and gets a spacer instead. -->
+                                <button v-if="row.width !== null" type="button"
+                                        role="menuitemcheckbox"
+                                        :aria-checked="isChecked(row) ? 'true' : 'false'"
+                                        :aria-disabled="checkDisabled(row) ? 'true' : undefined"
+                                        :aria-label="`${i18n.t('toolbar.compare_add')}: ${row.label} ${row.width}`"
+                                        :title="i18n.t('toolbar.compare_add')"
+                                        :data-testid="row.preset ? `viewport-check-${row.key}` : `viewport-check-${row.width}`"
+                                        data-width-check
+                                        @click="onWidthCheck(row)"
+                                        class="shrink-0 self-stretch pl-3 pr-1.5 flex items-center rounded-l-lg focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-red-600"
+                                        :class="checkDisabled(row) && 'opacity-30 cursor-not-allowed'">
                                     <span aria-hidden="true"
                                           class="w-3.5 h-3.5 rounded-[3px] border inline-flex items-center justify-center"
                                           :class="isChecked(row) ? 'bg-red-600 border-red-600 text-white dark:bg-red-500 dark:border-red-500' : 'border-zinc-400 bg-white dark:border-zinc-500 dark:bg-zinc-800'">
                                         <svg v-if="isChecked(row)" class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                                     </span>
-                                </span>
-                                <span v-else aria-hidden="true" class="w-3.5 h-3.5 shrink-0"></span>
-                                <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CATEGORY_ICON_PATHS[row.category] ?? CATEGORY_ICON_PATHS.full"></svg>
-                                <span class="font-medium">{{ row.label }}</span>
-                                <span class="ml-auto opacity-70">{{ row.width ?? '100 %' }}</span>
-                            </button>
-                        </template>
+                                </button>
+                                <span v-else aria-hidden="true" class="shrink-0 pl-3 pr-1.5"><span class="block w-3.5 h-3.5"></span></span>
+                                <button type="button"
+                                        role="menuitem"
+                                        :aria-label="row.width === null ? row.label : `${i18n.t('toolbar.show_only')} ${row.label} ${row.width}`"
+                                        :data-testid="row.preset ? `viewport-preset-${row.key}` : `viewport-width-${row.width}`"
+                                        @click="onWidthPick(row, $event)"
+                                        class="flex-1 min-w-0 pl-1 pr-3 py-2 flex items-center gap-2.5 text-xs tabular-nums text-left rounded-r-lg focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-red-600">
+                                    <svg aria-hidden="true" focusable="false" class="w-3.5 h-3.5 shrink-0 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" v-html="CATEGORY_ICON_PATHS[row.category] ?? CATEGORY_ICON_PATHS.full"></svg>
+                                    <span class="font-medium">{{ row.label }}</span>
+                                    <span class="ml-auto opacity-70">{{ row.width ?? '100 %' }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        </div>
 
-                        <p v-if="atCompareMax" data-testid="compare-max" class="px-3 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ i18n.t('toolbar.compare_max') }}</p>
+                        <p v-if="atCompareMax" role="status" data-testid="compare-max" class="px-3 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">{{ i18n.t('toolbar.compare_max') }}</p>
 
                         <!-- Custom width: Enter shows it alone, "+" (or
                              Shift+Enter) adds it side by side -- the rows'

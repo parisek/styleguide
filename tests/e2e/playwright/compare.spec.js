@@ -34,7 +34,7 @@ test.describe('compare mode (the width checklist)', () => {
         expect(logical).toEqual([320, 768, 1440]);
 
         await trigger.click();
-        await expect(page.getByTestId('viewport-preset-mobile-s')).toHaveAttribute('aria-checked', 'true');
+        await expect(page.getByTestId('viewport-check-mobile-s')).toHaveAttribute('aria-checked', 'true');
         await page.screenshot({ path: 'test-results/compare-menu.png' });
 
         // A click on a row (not its tick) shows that width alone.
@@ -51,18 +51,18 @@ test.describe('compare mode (the width checklist)', () => {
 
         await page.getByTestId('viewport-trigger').click();
         const menu = page.getByTestId('viewport-menu');
-        await page.getByTestId('viewport-preset-mobile').locator('[data-width-check]').click();
+        await page.getByTestId('viewport-check-mobile').click();
         await expect(menu).toBeVisible();
         await expect(page.getByTestId('compare-caption')).toHaveText([/^375 px/, /^768 px/]);
 
-        // Keyboard: Space ticks, as on any checkbox.
-        await page.getByTestId('viewport-width-1440').focus();
+        // Keyboard: Space on a box ticks it, as on any checkbox.
+        await page.getByTestId('viewport-check-1440').focus();
         await page.keyboard.press('Space');
         await expect(page.getByTestId('compare-caption')).toHaveText([/^375 px/, /^768 px/, /^1440 px/]);
         await expect(menu).toBeVisible();
 
-        await page.getByTestId('viewport-width-1440').locator('[data-width-check]').click();
-        await page.getByTestId('viewport-preset-mobile').locator('[data-width-check]').click();
+        await page.getByTestId('viewport-check-1440').click();
+        await page.getByTestId('viewport-check-mobile').click();
         await expect(page.getByTestId('compare-strip')).toHaveCount(0);
         await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
     });
