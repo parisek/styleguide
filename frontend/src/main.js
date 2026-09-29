@@ -13,6 +13,7 @@ import { useI18nStore } from './stores/i18n.js';
 import { useUiStore } from './stores/ui.js';
 import { useThemeStore } from './stores/theme.js';
 import { useCatalogStore } from './stores/catalog.js';
+import { useRenderErrorsStore } from './stores/renderErrors.js';
 import { routeInfo } from './lib/routeInfo.js';
 
 const config = readSpaConfig();
@@ -34,6 +35,8 @@ theme.init();
 i18n.init();
 ui.initFromUrl();
 catalog.init();
+// The previews' JavaScript errors (templates/render-cell.twig relays them).
+useRenderErrorsStore().listen();
 
 app.mount('#app');
 

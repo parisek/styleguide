@@ -131,6 +131,8 @@ const variantsLabel = computed(() => `${i18n.t('grid.variants')}: ${props.entry.
                 v-if="loadedSrc"
                 :src="loadedSrc"
                 :title="entry.name"
+                :data-sg-tile="entry.key"
+                :data-sg-label="entry.name"
                 tabindex="-1"
                 class="absolute top-0 left-0 origin-top-left border-0 pointer-events-none bg-white"
                 :style="{ width: `${size.width}px`, height: `${size.height}px`, transform: `scale(${geometry.zoom})` }"

@@ -9,6 +9,8 @@ import { useViewportPreset } from '../composables/useViewportPreset.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
+import { useRenderErrorsStore } from '../stores/renderErrors.js';
+import { vi } from 'vitest';
 
 function mountGrid(type = 'component', slug = 'multi', { items, variant, setVariant } = {}) {
     // Every mount gets a genuinely fresh ui store -- localStorage.clear()
@@ -435,6 +437,29 @@ describe('VariantGrid -- chrome entries do not size to their own content (#116)'
         for (const f of wrapper.findAll('iframe')) {
             expect(f.attributes('style')).not.toContain(`height: ${CHROME_VIEWPORT_HEIGHT_PX}px`);
         }
+        wrapper.unmount();
+    });
+});
+
+describe('VariantGrid — JavaScript error marks', () => {
+    it('stamps each tile iframe and marks a tile header that reported errors, without isolating it', async () => {
+        const setVariant = vi.fn();
+        const wrapper = mountGrid('component', 'multi', { setVariant });
+        const tiles = wrapper.findAll('[data-testid="variant-tile"]');
+        const frame = tiles[2].find('iframe');
+        expect(frame.attributes('data-sg-label')).toBe('Secondary style');
+        const key = frame.attributes('data-sg-tile');
+        expect(key).toBeTruthy();
+
+        useRenderErrorsStore().entries = [{ id: 1, frame: frame.element, tile: key, label: 'Secondary style', width: null, kind: 'error', message: 'x', source: '', line: 0 }];
+        await wrapper.vm.$nextTick();
+        const mark = tiles[2].get('[data-testid="error-mark"]');
+        expect(tiles[0].find('[data-testid="error-mark"]').exists()).toBe(false);
+
+        const before = useRenderErrorsStore().openRequest;
+        await mark.trigger('click');
+        expect(useRenderErrorsStore().openRequest).toBe(before + 1);
+        expect(setVariant).not.toHaveBeenCalled();
         wrapper.unmount();
     });
 });

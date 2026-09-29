@@ -3,6 +3,8 @@ import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
 import HealthWarningBadge from './HealthWarningBadge.vue';
 import { useCatalogStore } from '../stores/catalog.js';
+import { useRenderErrorsStore } from '../stores/renderErrors.js';
+import { nextTick } from 'vue';
 
 beforeEach(() => {
     setActivePinia(createPinia());
@@ -114,5 +116,46 @@ describe('HealthWarningBadge', () => {
         // Click landing on the <dialog> element itself = the ::backdrop area.
         await dialog.trigger('click');
         expect(dialog.element.close).toHaveBeenCalled();
+    });
+});
+
+describe('HealthWarningBadge — JavaScript errors from the previews', () => {
+    const entry = (extra) => ({ id: Math.random(), frame: document.body, tile: 'a', label: 'Default', width: 320, kind: 'error', message: 'TypeError: x is null', source: '/js/app.js', line: 7, ...extra });
+
+    it('counts template warnings and JavaScript errors in one badge', () => {
+        useRenderErrorsStore().entries = [entry(), entry({ width: 768 })];
+        const wrapper = mountWithWarnings([{ file: 'component/broken/broken.twig', error: 'boom' }]);
+        expect(wrapper.find('button').text()).toBe('3');
+    });
+
+    it('lists JavaScript errors in their own section, identical ones as one row with places', async () => {
+        useRenderErrorsStore().entries = [entry(), entry({ width: 768 }), entry({ kind: 'resource', message: 'script', source: '/js/missing.js', line: 0 })];
+        const wrapper = mountWithWarnings([]);
+        await wrapper.find('button').trigger('click');
+        expect(wrapper.find('[data-testid="health-templates"]').exists()).toBe(false);
+        const rows = wrapper.findAll('[data-testid="health-js-row"]');
+        expect(rows).toHaveLength(2);
+        expect(rows[0].text()).toContain('TypeError: x is null');
+        expect(rows[0].text()).toContain('/js/app.js:7');
+        expect(rows[0].text()).toContain('Default · 320 px, Default · 768 px');
+        expect(rows[1].text()).toContain('/js/missing.js');
+        wrapper.unmount();
+    });
+
+    it('says why a cross-origin error has no details', async () => {
+        useRenderErrorsStore().entries = [entry({ message: 'Script error.', source: '', line: 0 })];
+        const wrapper = mountWithWarnings([]);
+        await wrapper.find('button').trigger('click');
+        expect(wrapper.find('[data-testid="health-js-row"]').text()).toContain('health.js_cross_origin');
+        wrapper.unmount();
+    });
+
+    it('opens when a tile\'s mark asks for it', async () => {
+        useRenderErrorsStore().entries = [entry()];
+        const wrapper = mountWithWarnings([]);
+        useRenderErrorsStore().requestOpen();
+        await nextTick();
+        expect(wrapper.find('dialog').attributes('open')).toBeDefined();
+        wrapper.unmount();
     });
 });

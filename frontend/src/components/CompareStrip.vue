@@ -9,6 +9,10 @@
 // widths would otherwise start every render at once.
 import { computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { computeTileGeometry, compareColumnTemplate } from '../lib/tileGeometry.js';
+import { useRenderErrorsStore } from '../stores/renderErrors.js';
+import ErrorMark from './ErrorMark.vue';
+
+const errors = useRenderErrorsStore();
 
 const props = defineProps({
     src: { type: String, required: true },
@@ -16,6 +20,10 @@ const props = defineProps({
     // `render: chrome` entries size to their viewport, not their content
     // (lib/previewHeight.js, #116).
     scrolls: { type: Boolean, default: false },
+    // Where these frames sit, stamped on each iframe for the error list
+    // (stores/renderErrors.js): the tile's key and its human label.
+    tile: { type: String, default: 'single' },
+    label: { type: String, default: '' },
 });
 
 const emit = defineEmits(['load']);
@@ -116,7 +124,10 @@ onBeforeUnmount(() => {
             <!-- truncate: on a phone a 320 column is a few dozen pixels wide,
                  and a caption running into the next one reads as nonsense.
                  The full caption stays in the title. -->
-            <figcaption data-testid="compare-caption" :title="column.caption" class="mb-1.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 truncate">{{ column.caption }}</figcaption>
+            <div class="mb-1.5 flex items-center gap-1.5 min-w-0">
+                <figcaption data-testid="compare-caption" :title="column.caption" class="min-w-0 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 truncate">{{ column.caption }}</figcaption>
+                <ErrorMark :count="errors.countFor(tile, column.width)" />
+            </div>
             <div :ref="(el) => registerCell(column.width, el)" class="min-w-0">
                 <div class="overflow-hidden bg-white ring-1 ring-zinc-200 dark:ring-zinc-800 rounded shadow-sm"
                      :style="{ width: column.geometry.wrapperWidth + 'px', height: column.geometry.wrapperHeight + 'px' }">
@@ -126,6 +137,9 @@ onBeforeUnmount(() => {
                             :src="src"
                             loading="lazy"
                             :title="`${column.width} px`"
+                            :data-sg-tile="tile"
+                            :data-sg-label="label"
+                            :data-sg-width="column.width"
                             class="border-0 block"
                             :style="{ width: column.geometry.iframeWidth + 'px', height: column.geometry.iframeHeight + 'px', transform: `scale(${column.geometry.zoom})`, transformOrigin: '0 0' }"
                             @load="onLoad(column.width, $event)"></iframe>

@@ -119,6 +119,13 @@ final class RendererTest extends TestCase
         // Components render inside a padded wrapper so short bodies don't sit flush
         // against the iframe's top edge underneath the styleguide chrome.
         self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        // The error relay is the first script in <head>: it must listen
+        // before any project script can throw at start-up.
+        $head = substr($html, (int) strpos($html, '<head>'));
+        self::assertStringStartsWith('<head>', $head);
+        self::assertSame(strpos($head, '<script>'), strpos($head, '<script>(function () {'));
+        self::assertStringContainsString('postMessage({ sgRender: payload }, location.origin)', $html);
+        self::assertLessThan(strpos($html, '/dist/script.js'), strpos($html, 'sgRender'));
     }
 
     #[Test]

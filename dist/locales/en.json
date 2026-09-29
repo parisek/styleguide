@@ -111,9 +111,18 @@
         "toggle": "Toggle theme"
     },
     "health": {
-        "warnings_title": "Some templates failed to parse — click for details",
-        "dialog_title": "Templates that failed to parse",
-        "dialog_close": "Close"
+        "warnings_title": "The catalogue reports problems — click for details",
+        "dialog_title": "Warnings",
+        "dialog_close": "Close",
+        "section_templates": "Templates that failed to parse",
+        "section_js": "JavaScript on this page",
+        "mark_title": "JavaScript errors in this preview",
+        "js_kind_error": "Error",
+        "js_kind_rejection": "Unhandled promise",
+        "js_kind_console": "console.error",
+        "js_kind_resource": "Failed to load",
+        "js_cross_origin": "Cross-origin script: the browser hides the details.",
+        "js_more": "A preview reported more than 50 errors; the first 50 are shown."
     },
     "locale": {
         "switch": "Change language"

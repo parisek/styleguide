@@ -111,9 +111,18 @@
         "toggle": "Přepnout vzhled"
     },
     "health": {
-        "warnings_title": "Některé šablony se nepodařilo zpracovat — kliknutím zobrazíte podrobnosti",
-        "dialog_title": "Šablony, které se nepodařilo zpracovat",
-        "dialog_close": "Zavřít"
+        "warnings_title": "Katalog hlásí problémy — kliknutím zobrazíte podrobnosti",
+        "dialog_title": "Upozornění",
+        "dialog_close": "Zavřít",
+        "section_templates": "Šablony, které se nepodařilo zpracovat",
+        "section_js": "JavaScript na této stránce",
+        "mark_title": "Chyby JavaScriptu v tomto náhledu",
+        "js_kind_error": "Chyba",
+        "js_kind_rejection": "Neošetřený promise",
+        "js_kind_console": "console.error",
+        "js_kind_resource": "Nenačtený soubor",
+        "js_cross_origin": "Skript z jiné domény: prohlížeč podrobnosti neukáže.",
+        "js_more": "Některý náhled hlásil víc než 50 chyb, zobrazeno je prvních 50."
     },
     "locale": {
         "switch": "Změnit jazyk"
