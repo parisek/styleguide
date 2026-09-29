@@ -81,7 +81,7 @@ final class FilesEndpointTest extends TestCase
                 ['component/card/js/card.js', 'js'],
                 ['component/card/js/lib/helper.js', 'js'],
             ],
-            array_map(static fn (array $f): array => [$f['path'], $f['language']], self::body($result)['files']),
+            array_map(static fn(array $f): array => [$f['path'], $f['language']], self::body($result)['files']),
         );
         self::assertSame(".card { display: grid; }\n", self::body($result)['files'][0]['source']);
     }
@@ -151,7 +151,7 @@ final class FilesEndpointTest extends TestCase
     #[Test]
     public function each_view_is_read_only_when_listed(): void
     {
-        $languages = fn (array $views): array => array_column(
+        $languages = fn(array $views): array => array_column(
             self::body((new FilesEndpoint($this->root, $views))->handle('component', 'card'))['files'],
             'language',
         );
@@ -164,7 +164,7 @@ final class FilesEndpointTest extends TestCase
     #[Test]
     public function the_routes_follow_show_source_and_source_views(): void
     {
-        $get = fn (array $yaml, string $endpoint = 'files'): Result => $this->styleguide($yaml)
+        $get = fn(array $yaml, string $endpoint = 'files'): Result => $this->styleguide($yaml)
             ->handle(new Request('/styleguide/api/' . $endpoint . '/component/card'))
             ?? self::fail('no result');
 

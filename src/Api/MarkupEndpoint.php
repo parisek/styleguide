@@ -67,8 +67,8 @@ final class MarkupEndpoint
     public static function tidy(string $html): string
     {
         $lines = array_values(array_filter(
-            array_map(static fn (string $line): string => rtrim($line), preg_split('/\R/', $html) ?: []),
-            static fn (string $line): bool => trim($line) !== '',
+            array_map(static fn(string $line): string => rtrim($line), preg_split('/\R/', $html) ?: []),
+            static fn(string $line): bool => trim($line) !== '',
         ));
         if ($lines === []) {
             return '';
@@ -76,11 +76,11 @@ final class MarkupEndpoint
 
         if (preg_match('/<(pre|textarea)\b/i', $html) === 1) {
             $indent = min(array_map(
-                static fn (string $line): int => strlen($line) - strlen(ltrim($line, " \t")),
+                static fn(string $line): int => strlen($line) - strlen(ltrim($line, " \t")),
                 $lines,
             ));
 
-            return implode("\n", array_map(static fn (string $line): string => substr($line, $indent), $lines)) . "\n";
+            return implode("\n", array_map(static fn(string $line): string => substr($line, $indent), $lines)) . "\n";
         }
 
         $depth = 0;

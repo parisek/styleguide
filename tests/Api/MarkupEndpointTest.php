@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Tests\Api;
 
-use Parisek\Styleguide\Http\Request;
 use Parisek\Styleguide\Api\MarkupEndpoint;
+use Parisek\Styleguide\Http\Request;
 use Parisek\Styleguide\Http\Result;
 use Parisek\Styleguide\Styleguide;
 use PHPUnit\Framework\Attributes\DataProvider;
