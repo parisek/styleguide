@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.29.1] - 2026-09-30
+
 ### Fixed
 
 - **No more flash of the interface with raw keys.** Until the interface
