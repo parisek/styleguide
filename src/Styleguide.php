@@ -3107,8 +3107,8 @@ final class Styleguide
                 $config['sourceUrl'] = $this->sourceUrl;
             }
         }
-        // Same rule: only when configured. The SPA shows the compare button
-        // from this list and builds its label from it.
+        // Same rule: only when configured. The SPA's width menu lists these
+        // widths first, as the project's own.
         if ($this->compareWidths !== null) {
             $config['compareWidths'] = $this->compareWidths;
         }
@@ -3465,13 +3465,16 @@ final class Styleguide
     private const COMPARE_WIDTH_MAX = 4000;
 
     /**
-     * `viewports.compare` in styleguide.yaml: 2–4 integer widths, shown side
-     * by side by the SPA's compare mode, in the order written. `null` when
-     * absent, which leaves the SPA exactly as before.
+     * `viewports.compare` in styleguide.yaml: the project's 2–4 integer
+     * widths. A width listed twice is merged, not refused: 1.24.0 accepted
+     * `[320, 320]`, and a minor release must not break that config. The SPA
+     * holds the widths as a set anyway, so the result can be one width. The SPA's width menu lists them first and compares
+     * them in one click, narrowest first whatever the order written. `null`
+     * when absent: the menu then lists the presets only.
      *
      * A malformed `compare` throws at construction, like a malformed
      * `bootstrap` key: dropping it quietly would leave the author looking for
-     * a button that never appears. A `viewports` that is not a map is left
+     * a project group that never appears. A `viewports` that is not a map is left
      * alone instead: top-level keys the package does not own pass through to
      * the templates, so a project may already use the name for itself.
      *
@@ -3499,14 +3502,14 @@ final class Styleguide
         if (!$valid) {
             throw new \InvalidArgumentException(sprintf(
                 'styleguide.yaml: `viewports.compare` must be a list of 2 to 4 integer widths between %d and %d, '
-                    . 'e.g. [1440, 768, 320]',
+                    . 'e.g. [320, 768, 1440]',
                 self::COMPARE_WIDTH_MIN,
                 self::COMPARE_WIDTH_MAX,
             ));
         }
 
         /** @var list<int> $compare */
-        return $compare;
+        return array_values(array_unique($compare));
     }
 
     /**

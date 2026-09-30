@@ -8,6 +8,54 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A compare column no longer stays collapsed after a width is ticked in
+  between.** The strip filed each measured height under the column's
+  position, but kept the existing iframes alive by width. A new width in
+  the middle shifted the positions; the kept iframes never loaded again, so
+  a column showed only its top 96 px.
+
+### Changed
+
+- **The width menu is a checklist; the compare button is gone.** Every row
+  of the toolbar's width menu now has two controls. A click on the row
+  shows that width alone, as before. A tick on its box (or Shift+click on
+  the row) adds the width, and two to four ticked widths show side by side in the compare
+  strip that 1.24.0 introduced. The trigger names the set (`3 šířky ·
+  320 · 768 · 1440`); unticking back to one width returns to the single
+  preview. The custom width follows the same rule: Enter shows it alone,
+  `+` or Shift+Enter adds it. Full is a choice only, since it has no pixel
+  width. For assistive technology the row is a `menuitem` named "Ukázat
+  jen …" and the box a `menuitemcheckbox` named "Přidat vedle: …" (ticked:
+  "Odebrat z porovnání: …"), so no
+  control says "checkbox" and does something else on Enter. Arrow keys move
+  between lines (Up/Down) and between a line's box and row (Left/Right),
+  keeping the column across lines with one control. Opening the menu moves
+  the focus onto the line on screen; Escape or a choice returns it to the
+  trigger. Menu items sit outside the Tab order, so Tab goes from the menu
+  to the custom width and the orientation, an ordinary form below it; Tab
+  out of the popover closes it; the orientation is disabled (not only
+  greyed out) while comparing.
+- **`viewports.compare` now lists the project's widths instead of adding a
+  button.** The menu shows them first ("Šířky projektu") with a "Porovnat
+  vše" action that ticks them all. **Visible without the key:** every
+  catalogue now gets checkboxes in the width menu, so any two to four widths
+  compare. A width listed twice is merged (`[320, 320]` lists one project
+  width, without "Porovnat vše"); 1.24.0 accepted such a list, so it is not
+  refused. Otherwise the key's format and validation are unchanged.
+- **Compare captions show the rendered height**: `320 × 443 · 95 %`
+  instead of `320 px · 95 %`. The height is the content's own, measured
+  after the load, so a reviewer sees at once how tall a section grows at
+  each width. Before the load the caption shows the width alone.
+- **Compared widths show narrowest first** (`320 · 768 · 1440`), whatever
+  order `viewports.compare` lists them in: mobile first, as the CSS is
+  written. 1.24.0 kept the yaml order.
+- **The compared widths persist** in `localStorage` (`sg-preview-compare`),
+  as the single width does. 1.24.0 kept compare mode for the session only
+  because it depended on the configured widths; the ticked set does not. A
+  malformed stored value means no comparison.
+
 ## [1.25.0] - 2026-09-29
 
 ### Added

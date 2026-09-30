@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import CompareStrip from './CompareStrip.vue';
@@ -84,5 +84,75 @@ describe('CompareStrip', () => {
         await wrapper.findAll('iframe')[0].trigger('load');
         expect(wrapper.emitted('load')).toHaveLength(1);
         wrapper.unmount();
+    });
+});
+
+describe('CompareStrip — a changed set of widths', () => {
+    // A same-origin document of a given height, as the load handler reads it.
+    function loadWithHeight(frame, height) {
+        const doc = { documentElement: { scrollHeight: height }, body: { scrollHeight: height } };
+        Object.defineProperty(frame.element, 'contentDocument', { configurable: true, value: doc });
+        return frame.trigger('load');
+    }
+    const heightOf = (wrapper, width) => wrapper.get(`iframe[title="${width} px"]`).attributes('style').match(/height: (\d+)px/)[1];
+
+    it('captions the measured content height once it is known', async () => {
+        const wrapper = mountStrip({ widths: [320, 768] });
+        const captions = () => wrapper.findAll('[data-testid="compare-caption"]').map((c) => c.text());
+        // Before the load there is no height to tell, only the floor.
+        expect(captions()).toEqual(['320 px', '768 px']);
+        await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);
+        expect(captions()).toEqual(['320 × 1500', '768 px']);
+        wrapper.unmount();
+    });
+
+    it('captions a render: chrome entry with its pinned viewport height', () => {
+        const wrapper = mountStrip({ widths: [320, 768], scrolls: true });
+        expect(wrapper.findAll('[data-testid="compare-caption"]').map((c) => c.text()))
+            .toEqual([`320 × ${CHROME_VIEWPORT_HEIGHT_PX}`, `768 × ${CHROME_VIEWPORT_HEIGHT_PX}`]);
+        wrapper.unmount();
+    });
+
+    it('keeps each measured height with its width when a width is added in between', async () => {
+        const wrapper = mountStrip({ widths: [320, 768] });
+        await loadWithHeight(wrapper.get('iframe[title="320 px"]'), 1500);
+        await loadWithHeight(wrapper.get('iframe[title="768 px"]'), 900);
+
+        // The existing iframes stay (keyed by width) and never load again,
+        // so a height filed under a position would land on the wrong column.
+        await wrapper.setProps({ widths: [320, 375, 768] });
+        expect(heightOf(wrapper, 320)).toBe('1500');
+        expect(heightOf(wrapper, 768)).toBe('900');
+        wrapper.unmount();
+    });
+
+    it('lets an unticked width go: its own height observer disconnects, the rest stay measured', async () => {
+        // Record every observer and what it watches, so the assertion can
+        // name the one that belonged to the removed width.
+        const observers = [];
+        class Recording {
+            constructor() { this.targets = []; this.disconnected = false; observers.push(this); }
+            observe(target) { this.targets.push(target); }
+            unobserve() {}
+            disconnect() { this.disconnected = true; }
+        }
+        vi.stubGlobal('ResizeObserver', Recording);
+        const wrapper = mountStrip({ widths: [320, 768, 1440] });
+        const docs = {};
+        for (const [width, height] of [[320, 1500], [768, 900], [1440, 600]]) {
+            const frame = wrapper.get(`iframe[title="${width} px"]`);
+            await loadWithHeight(frame, height);
+            docs[width] = frame.element.contentDocument.documentElement;
+        }
+        const watching = (width) => observers.find((o) => o.targets.includes(docs[width]));
+
+        await wrapper.setProps({ widths: [320, 1440] });
+        expect(watching(768).disconnected).toBe(true);
+        expect(watching(320).disconnected).toBe(false);
+        expect(watching(1440).disconnected).toBe(false);
+        expect(heightOf(wrapper, 320)).toBe('1500');
+        expect(heightOf(wrapper, 1440)).toBe('600');
+        wrapper.unmount();
+        vi.unstubAllGlobals();
     });
 });

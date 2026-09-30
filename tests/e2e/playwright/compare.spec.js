@@ -1,22 +1,22 @@
 import { test, expect } from '@playwright/test';
 
-// tests/fixtures/styleguide.yaml sets `viewports.compare: [1440, 768, 320]`.
-test.describe('compare mode (viewports.compare)', () => {
-    test('a single preview shows every width side by side, at one scale, lazily', async ({ page }) => {
+// tests/fixtures/styleguide.yaml sets `viewports.compare: [1440, 768, 320]`:
+// the width menu lists those widths first as the project's widths.
+test.describe('compare mode (the width checklist)', () => {
+    test('ticked widths show side by side, at one scale, lazily', async ({ page }) => {
         await page.goto('/styleguide/component/gizmo');
-        const toggle = page.getByTestId('compare-toggle');
-        await expect(toggle).toHaveText('1440 · 768 · 320');
-        await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+        await expect(page.getByTestId('compare-toggle')).toHaveCount(0);
 
-        await toggle.click();
-        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-        await expect(page.getByTestId('viewport-trigger')).toHaveCount(0);
+        const trigger = page.getByTestId('viewport-trigger');
+        await trigger.click();
+        await page.getByTestId('compare-project-widths').click();
+        await expect(page.getByTestId('viewport-trigger-dims')).toHaveText('320 · 768 · 1440');
         await expect(page.getByTestId('iframe-wrapper')).toHaveCount(0);
 
         const strip = page.getByTestId('compare-strip');
         await expect(strip).toHaveCount(1);
         const captions = strip.getByTestId('compare-caption');
-        await expect(captions).toHaveText([/^1440 px/, /^768 px/, /^320 px/]);
+        await expect(captions).toHaveText([/^320\b/, /^768\b/, /^1440\b/]);
         const frames = strip.locator('iframe');
         await expect(frames).toHaveCount(3);
         for (let i = 0; i < 3; i++) {
@@ -31,17 +31,69 @@ test.describe('compare mode (viewports.compare)', () => {
 
         // Each iframe renders at its logical width.
         const logical = await frames.evaluateAll((els) => els.map((el) => el.contentWindow?.innerWidth));
-        expect(logical).toEqual([1440, 768, 320]);
-        await page.screenshot({ path: 'test-results/compare-single.png' });
+        expect(logical).toEqual([320, 768, 1440]);
 
-        await toggle.click();
+        await trigger.click();
+        await expect(page.getByTestId('viewport-check-mobile-s')).toHaveAttribute('aria-checked', 'true');
+        await page.screenshot({ path: 'test-results/compare-menu.png' });
+
+        // A click on a row (not its tick) shows that width alone.
+        await page.getByTestId('viewport-preset-tablet').click();
         await expect(page.getByTestId('compare-strip')).toHaveCount(0);
         await expect(page.getByTestId('iframe-wrapper')).toHaveCount(1);
+        await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
+    });
+
+    test('a tick adds a width and keeps the menu open; unticking back to one ends the comparison', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-tablet').click();
+
+        await page.getByTestId('viewport-trigger').click();
+        const menu = page.getByTestId('viewport-menu');
+        await page.getByTestId('viewport-check-mobile').click();
+        await expect(menu).toBeVisible();
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^375\b/, /^768\b/]);
+
+        // Keyboard: Space on a box ticks it, as on any checkbox.
+        await page.getByTestId('viewport-check-1440').focus();
+        await page.keyboard.press('Space');
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^375\b/, /^768\b/, /^1440\b/]);
+        await expect(menu).toBeVisible();
+
+        await page.getByTestId('viewport-check-1440').click();
+        await page.getByTestId('viewport-check-mobile').click();
+        await expect(page.getByTestId('compare-strip')).toHaveCount(0);
+        await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
+    });
+
+    test('works from the keyboard alone', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').focus();
+        await page.keyboard.press('Enter');
+        // Opening puts the focus in the menu, so the arrows work at once.
+        await expect(page.locator('[role="menu"] :focus')).toHaveCount(1);
+        await page.getByTestId('viewport-preset-tablet').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
+        await expect(page.getByTestId('viewport-trigger')).toBeFocused();
+
+        await page.keyboard.press('Enter');
+        await expect(page.getByTestId('viewport-preset-tablet')).toBeFocused();
+        await page.keyboard.press('ArrowLeft');
+        await expect(page.getByTestId('viewport-check-tablet')).toBeFocused();
+        await page.keyboard.press('ArrowUp');
+        await page.keyboard.press('Space');
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^320\b/, /^768\b/]);
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('viewport-trigger')).toBeFocused();
+        await expect(page.getByTestId('viewport-trigger-dims')).toHaveText('320 · 768');
     });
 
     test('the variant grid gives every tile its own strip, one tile per row', async ({ page }) => {
         await page.goto('/styleguide/component/multi');
-        await page.getByTestId('compare-toggle').click();
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
 
         const tiles = page.getByTestId('variant-tile');
         await expect(tiles).toHaveCount(3);
@@ -58,11 +110,47 @@ test.describe('compare mode (viewports.compare)', () => {
         await page.screenshot({ path: 'test-results/compare-grid.png', fullPage: true });
     });
 
-    test('compare mode carries across entries in one session', async ({ page }) => {
+    test('Tab leaves the menu for the form, and Tab out of the popover closes it', async ({ page }) => {
         await page.goto('/styleguide/component/gizmo');
-        await page.getByTestId('compare-toggle').click();
+        await page.getByTestId('viewport-trigger').click();
+        await expect(page.locator('[role="menu"] :focus')).toHaveCount(1);
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('custom-width-input')).toBeFocused();
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await expect(page.getByTestId('viewport-menu')).toBeHidden();
+    });
+
+    test('a stored comparison rests on an entry without widths and comes back after it', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
+        // sample-doc is `responsive: false`: one width, no width menu.
+        await page.goto('/styleguide/doc/sample-doc');
+        await expect(page.getByTestId('compare-strip')).toHaveCount(0);
+        await expect(page.getByTestId('viewport-trigger')).toHaveCount(0);
+        await page.goto('/styleguide/component/gizmo');
+        await expect(page.getByTestId('compare-caption')).toHaveText([/^320\b/, /^768\b/, /^1440\b/]);
+        // An isolated variant keeps it too.
+        await page.goto('/styleguide/component/multi?variant=secondary');
+        await expect(page.getByTestId('compare-strip')).toHaveCount(1);
+        // A `?width=` link ends it.
+        await page.goto('/styleguide/component/gizmo?width=768');
+        await expect(page.getByTestId('compare-strip')).toHaveCount(0);
+        await expect(page.getByTestId('viewport-trigger-word')).toHaveText('Tablet');
+    });
+
+    test('the comparison carries across entries and survives a reload', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
         await page.getByRole('link', { name: 'Multi', exact: true }).click();
         await expect(page).toHaveURL(/\/component\/multi$/);
+        await expect(page.getByTestId('variant-tile').first().getByTestId('compare-strip')).toHaveCount(1);
+
+        await page.reload();
         await expect(page.getByTestId('variant-tile').first().getByTestId('compare-strip')).toHaveCount(1);
     });
 });

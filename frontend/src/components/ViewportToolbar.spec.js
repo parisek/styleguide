@@ -1,25 +1,30 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { setActivePinia, createPinia } from 'pinia';
-import { ref, provide, defineComponent, h } from 'vue';
+import { ref, provide, defineComponent, h, nextTick } from 'vue';
 import ViewportToolbar from './ViewportToolbar.vue';
 import { useViewportPreset } from '../composables/useViewportPreset.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useUiStore } from '../stores/ui.js';
 
-function mountWithViewport(type = 'component', slug = 'hero', { items, variant, setVariant, onViewport, compareWidths = null } = {}) {
+function mountWithViewport(type = 'component', slug = 'hero', { items, variant, setVariant, onViewport, projectWidths = null, attach = false } = {}) {
+    // The width set persists; one spec's comparison must not leak into the next.
+    localStorage.removeItem('sg-preview-compare');
     setActivePinia(createPinia());
     useI18nStore().strings = {
         toolbar: {
             viewport_preset: 'Viewport', custom_width_label: 'Custom', custom_width_placeholder: 'px',
-            orientation_label: 'Orientation', type_component: 'Component', type_page: 'Page',
+            orientation_label: 'Orientation', orientation_portrait: 'Portrait', orientation_landscape: 'Landscape', rotate: 'Rotate', type_component: 'Component', type_page: 'Page',
             canvas_mode_label: 'Canvas', open_in_new_tab: 'Open', reload: 'Reload', more_actions: 'More',
             variant_label: 'Variant', variant_default: 'Default', breadcrumb_back_to_grid: 'Back to all variants',
             variant_columns_label: 'Tile density', variant_columns_auto_label: 'Auto',
             variant_columns_auto: 'Auto tooltip',
             variant_columns_1: '1 column', variant_columns_2: '2 columns',
             variant_columns_3: '3 columns', variant_columns_4: '4 columns',
+            widths_hint: 'Hint', widths_project: 'Project widths', widths_other: 'More',
+            widths_word: 'widths', compare_all: 'Compare all', compare_add: 'Add side by side',
+            compare_max: 'At most 4', show_only: 'Show only', compare_remove: 'Remove from comparison',
         },
         sections: { blocks: 'Blocks' },
     };
@@ -29,7 +34,7 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
         setup() {
             const typeRef = ref(type);
             const slugRef = ref(slug);
-            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, setVariant, compareWidths });
+            const viewport = useViewportPreset({ type: typeRef, slug: slugRef, variant, setVariant, projectWidths });
             // Hands the composable instance back to the caller — optional,
             // so every pre-existing call site above is unaffected.
             onViewport?.(viewport);
@@ -37,47 +42,238 @@ function mountWithViewport(type = 'component', slug = 'hero', { items, variant, 
             return () => h(ViewportToolbar);
         },
     });
-    return mount(Host);
+    // Focus moves only in an attached document.
+    return mount(Host, attach ? { attachTo: document.body } : {});
 }
 
-describe('ViewportToolbar — compare button', () => {
-    it('is absent without configured widths', () => {
-        const wrapper = mountWithViewport();
+describe('ViewportToolbar — width checklist', () => {
+    async function openMenu(wrapper) {
+        await wrapper.get('[data-testid="viewport-trigger"]').trigger('click');
+        return wrapper.get('[data-testid="viewport-menu"]');
+    }
+    const row = (wrapper, id) => wrapper.get(`[data-testid="${id}"]`);
+    // Row ids name the pick control (`viewport-preset-tablet`); its box is
+    // the same id with `check` (`viewport-check-tablet`).
+    const boxOf = (wrapper, id) => wrapper.get(`[data-testid="${id.replace(/^viewport-(preset|width)-/, 'viewport-check-')}"]`);
+    const check = async (wrapper, id) => boxOf(wrapper, id).trigger('click');
+
+    it('has no separate compare button any more', () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [1440, 768, 320] });
         expect(wrapper.find('[data-testid="compare-toggle"]').exists()).toBe(false);
     });
 
-    it('is labelled with the configured widths and toggles compare mode', async () => {
-        const wrapper = mountWithViewport('component', 'hero', { compareWidths: [1440, 768, 320] });
-        const button = wrapper.get('[data-testid="compare-toggle"]');
-        expect(button.text()).toBe('1440 · 768 · 320');
-        expect(button.attributes('aria-pressed')).toBe('false');
-
-        await button.trigger('click');
-        expect(useUiStore().compareActive).toBe(true);
-        expect(button.attributes('aria-pressed')).toBe('true');
+    it('lists the project widths first, then the presets without them', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [1440, 768, 320] });
+        const menu = await openMenu(wrapper);
+        const ids = menu.findAll('[role="menuitem"][data-testid^="viewport-"]').map((el) => el.attributes('data-testid'));
+        expect(ids.slice(0, 3)).toEqual(['viewport-preset-mobile-s', 'viewport-preset-tablet', 'viewport-width-1440']);
+        expect(ids.filter((id) => id === 'viewport-preset-tablet')).toHaveLength(1);
+        expect(ids.at(-1)).toBe('viewport-preset-full');
+        expect(row(wrapper, 'viewport-width-1440').text()).toContain('Desktop');
     });
 
-    it('hides the width preset and the tile density while comparing: the widths are fixed', async () => {
+    it('has no project group without configured widths, but still checkboxes', async () => {
+        const wrapper = mountWithViewport();
+        const menu = await openMenu(wrapper);
+        expect(menu.text()).not.toContain('Project widths');
+        expect(menu.find('[data-testid="compare-project-widths"]').exists()).toBe(false);
+        expect(boxOf(wrapper, 'viewport-preset-tablet').attributes('role')).toBe('menuitemcheckbox');
+        // Full has no pixel width: a choice, never a checkbox.
+        expect(wrapper.find('[data-testid="viewport-check-full"]').exists()).toBe(false);
+    });
+
+    it('a click on the row shows that width alone and closes the menu', async () => {
+        const wrapper = mountWithViewport();
+        const menu = await openMenu(wrapper);
+        await row(wrapper, 'viewport-preset-tablet').trigger('click');
+        expect(useUiStore().previewWidth).toBe('768px');
+        expect(boxOf(wrapper, 'viewport-preset-tablet').attributes('aria-checked')).toBe('true');
+        expect(menu.isVisible()).toBe(false);
+    });
+
+    it('a tick adds a width, keeps the menu open, and the trigger names the set', async () => {
+        const wrapper = mountWithViewport();
+        const menu = await openMenu(wrapper);
+        await row(wrapper, 'viewport-preset-tablet').trigger('click');
+        await wrapper.get('[data-testid="viewport-trigger"]').trigger('click');
+        await check(wrapper, 'viewport-preset-mobile-s');
+        expect(useUiStore().compareWidths).toEqual([320, 768]);
+        expect(menu.isVisible()).toBe(true);
+        expect(boxOf(wrapper, 'viewport-preset-mobile-s').attributes('aria-checked')).toBe('true');
+        expect(wrapper.get('[data-testid="viewport-trigger-word"]').text()).toBe('2 widths');
+        expect(wrapper.get('[data-testid="viewport-trigger-dims"]').text()).toBe('320 · 768');
+    });
+
+    it('Shift+click on a row adds, as its box does', async () => {
+        const wrapper = mountWithViewport();
+        await openMenu(wrapper);
+        await row(wrapper, 'viewport-preset-desktop').trigger('click');
+        await row(wrapper, 'viewport-preset-mobile').trigger('click', { shiftKey: true });
+        expect(useUiStore().compareWidths).toEqual([375, 1280]);
+    });
+
+    it('names both controls for a screen reader: the row shows only, the box adds', async () => {
+        const wrapper = mountWithViewport();
+        await openMenu(wrapper);
+        expect(row(wrapper, 'viewport-preset-tablet').attributes('role')).toBe('menuitem');
+        expect(row(wrapper, 'viewport-preset-tablet').attributes('aria-label')).toBe('Show only Tablet 768');
+        expect(boxOf(wrapper, 'viewport-preset-tablet').attributes('aria-label')).toBe('Add side by side: Tablet 768');
+        await row(wrapper, 'viewport-preset-tablet').trigger('click');
+        // Ticked, the same box removes: its name says so.
+        expect(boxOf(wrapper, 'viewport-preset-tablet').attributes('aria-label')).toBe('Remove from comparison: Tablet 768');
+    });
+
+    it('keeps the custom field and orientation out of the menu role', async () => {
+        const wrapper = mountWithViewport();
+        await openMenu(wrapper);
+        const menu = wrapper.get('[role="menu"]');
+        expect(menu.find('[data-testid="custom-width-input"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="custom-width-input"]').exists()).toBe(true);
+    });
+
+    it('arrow keys keep the column between lines and switch it with Left and Right', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { attach: true });
+        await openMenu(wrapper);
+        const menu = wrapper.get('[role="menu"]');
+        boxOf(wrapper, 'viewport-preset-mobile-s').element.focus();
+        await menu.trigger('keydown', { key: 'ArrowDown' });
+        expect(document.activeElement).toBe(boxOf(wrapper, 'viewport-preset-mobile').element);
+        await menu.trigger('keydown', { key: 'ArrowRight' });
+        expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-mobile').element);
+        await menu.trigger('keydown', { key: 'ArrowUp' });
+        expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-mobile-s').element);
+        wrapper.unmount();
+    });
+
+    it('opening moves the focus onto the line on screen; Escape returns it to the trigger', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { attach: true });
+        useUiStore().setWidth('768px', 1024);
+        await openMenu(wrapper);
+        await nextTick();
+        expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-tablet').element);
+        await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Escape' });
+        expect(wrapper.get('[data-testid="viewport-menu"]').isVisible()).toBe(false);
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="viewport-trigger"]').element);
+        wrapper.unmount();
+    });
+
+    it('a choice returns the focus to the trigger', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { attach: true });
+        await openMenu(wrapper);
+        await row(wrapper, 'viewport-preset-mobile').trigger('click');
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="viewport-trigger"]').element);
+        wrapper.unmount();
+    });
+
+    it('the arrows keep the column across a line with one control', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [320, 768, 1440], attach: true });
+        await openMenu(wrapper);
+        const menu = wrapper.get('[role="menu"]');
+        row(wrapper, 'viewport-preset-mobile-s').element.focus();
+        await menu.trigger('keydown', { key: 'ArrowUp' });
+        expect(document.activeElement).toBe(wrapper.get('[data-testid="compare-project-widths"]').element);
+        await menu.trigger('keydown', { key: 'ArrowDown' });
+        expect(document.activeElement).toBe(row(wrapper, 'viewport-preset-mobile-s').element);
+
+        boxOf(wrapper, 'viewport-preset-mobile-s').element.focus();
+        await menu.trigger('keydown', { key: 'ArrowUp' });
+        await menu.trigger('keydown', { key: 'ArrowDown' });
+        expect(document.activeElement).toBe(boxOf(wrapper, 'viewport-preset-mobile-s').element);
+        wrapper.unmount();
+    });
+
+    it('keeps menu items out of the Tab order; the form below stays in it', async () => {
+        const wrapper = mountWithViewport();
+        await openMenu(wrapper);
+        for (const el of wrapper.findAll('[role^="menuitem"]')) expect(el.attributes('tabindex')).toBe('-1');
+        expect(wrapper.get('[data-testid="custom-width-input"]').attributes('tabindex')).toBeUndefined();
+    });
+
+    it('closes when the focus leaves the popover', async () => {
+        const wrapper = mountWithViewport();
+        const menu = await openMenu(wrapper);
+        const outside = document.createElement('button');
+        await wrapper.get('[data-testid="custom-width-input"]').trigger('focusout', { relatedTarget: outside });
+        expect(menu.isVisible()).toBe(false);
+    });
+
+    it('hides "Compare all" when the project has one width', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [320] });
+        await openMenu(wrapper);
+        expect(wrapper.text()).toContain('Project widths');
+        expect(wrapper.find('[data-testid="compare-project-widths"]').exists()).toBe(false);
+    });
+
+    it('disables the orientation for real while comparing, not only visually', async () => {
+        const wrapper = mountWithViewport();
+        useUiStore().setWidth('375px', 667);
+        await openMenu(wrapper);
+        const portrait = () => wrapper.get('[aria-label="Portrait"]');
+        expect(portrait().attributes('disabled')).toBeUndefined();
+        useUiStore().setCompareWidths([320, 768]);
+        await nextTick();
+        expect(portrait().attributes('disabled')).toBeDefined();
+    });
+
+    it('Shift+Enter in the custom field adds, and stops at four widths', async () => {
+        const wrapper = mountWithViewport();
+        useUiStore().setCompareWidths([320, 768, 1280]);
+        await openMenu(wrapper);
+        const input = wrapper.get('[data-testid="custom-width-input"]');
+        await input.setValue(1100);
+        await input.trigger('keydown', { key: 'Enter', shiftKey: true });
+        expect(useUiStore().compareWidths).toEqual([320, 768, 1100, 1280]);
+        await input.setValue(900);
+        await input.trigger('keydown', { key: 'Enter', shiftKey: true });
+        expect(useUiStore().compareWidths).toEqual([320, 768, 1100, 1280]);
+        expect(boxOf(wrapper, 'viewport-preset-mobile').attributes('aria-disabled')).toBe('true');
+    });
+
+    it('"Compare all" checks every project width', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [1440, 768, 320] });
+        await openMenu(wrapper);
+        await wrapper.get('[data-testid="compare-project-widths"]').trigger('click');
+        expect(useUiStore().compareWidths).toEqual([320, 768, 1440]);
+    });
+
+    it('a checked custom width gets a row of its own, so it can be unchecked', async () => {
+        const wrapper = mountWithViewport();
+        await openMenu(wrapper);
+        await row(wrapper, 'viewport-preset-tablet').trigger('click');
+        await wrapper.get('[data-testid="custom-width-input"]').setValue(1100);
+        await wrapper.get('[data-testid="custom-width-add"]').trigger('click');
+        expect(useUiStore().compareWidths).toEqual([768, 1100]);
+        await check(wrapper, 'viewport-width-1100');
+        expect(useUiStore().compareWidths).toEqual([]);
+        expect(useUiStore().previewWidth).toBe('768px');
+    });
+
+    it('stops adding at four widths and says so', async () => {
+        const wrapper = mountWithViewport();
+        useUiStore().setCompareWidths([320, 768, 1280, 1920]);
+        await openMenu(wrapper);
+        expect(wrapper.find('[data-testid="compare-max"]').exists()).toBe(true);
+        await check(wrapper, 'viewport-preset-mobile');
+        expect(useUiStore().compareWidths).toEqual([320, 768, 1280, 1920]);
+    });
+
+    it('keeps the width menu while comparing (it is the way out) and hides the tile density', async () => {
         const wrapper = mountWithViewport('component', 'multi', {
             items: [{ id: 'multi', name: 'Multi', category: 'Block', variants: [{ id: 'secondary', title: 'Secondary' }] }],
-            compareWidths: [1440, 320],
         });
-        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(true);
-
-        await wrapper.get('[data-testid="compare-toggle"]').trigger('click');
-        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(false);
+        useUiStore().setCompareWidths([1440, 320]);
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="viewport-trigger"]').exists()).toBe(true);
         expect(wrapper.find('[data-testid="variant-columns-trigger"]').exists()).toBe(false);
-        // The rest of the toolbar stays.
         expect(wrapper.find('[data-testid="iframe-theme-toggle"]').exists()).toBe(true);
     });
 
-    it('is absent for a responsive:false entry', () => {
-        const wrapper = mountWithViewport('component', 'hero', {
-            items: [{ id: 'hero', name: 'Hero', category: 'Block', responsive: false }],
-            compareWidths: [1440, 320],
-        });
-        expect(wrapper.find('[data-testid="compare-toggle"]').exists()).toBe(false);
+    it('names a single project width by its device word, not "Custom"', async () => {
+        const wrapper = mountWithViewport('component', 'hero', { projectWidths: [1440, 768, 320] });
+        await openMenu(wrapper);
+        await row(wrapper, 'viewport-width-1440').trigger('click');
+        expect(wrapper.get('[data-testid="viewport-trigger-word"]').text()).toBe('Desktop');
     });
 });
 

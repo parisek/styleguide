@@ -57,7 +57,16 @@ describe('compareWidths', () => {
         expect(compareWidths()).toEqual([1440, 768, 320]);
     });
 
-    it.each([[undefined], [[1440]], [[1, 2, 3, 4, 5]], [[1440, '768']], [[1440, 0]], ['1440,768']])(
+    it('merges a width listed twice, which can leave one width', () => {
+        inject({ compareWidths: [768, 768, 320] });
+        expect(compareWidths()).toEqual([768, 320]);
+        document.body.innerHTML = '';
+        resetRuntimeConfig();
+        inject({ compareWidths: [1440] });
+        expect(compareWidths()).toEqual([1440]);
+    });
+
+    it.each([[undefined], [[]], [[1, 2, 3, 4, 5]], [[1440, '768']], [[1440, 0]], [[1440, 99]], [[4001, 768]], ['1440,768']])(
         'is null for %j',
         (value) => {
             inject({ compareWidths: value });

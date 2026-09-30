@@ -2,7 +2,7 @@ import { ref, computed, watch } from 'vue';
 import { useUiStore } from '../stores/ui.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import {
-    VIEWPORTS, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX,
+    VIEWPORTS, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, COMPARE_MAX,
     findPresetByWidth, effectiveDims, fitZoom, isPortraitOrientation,
 } from '../lib/viewportMath.js';
 import { flattenFieldsTree } from '../lib/fieldsTree.js';
@@ -25,12 +25,13 @@ import { buildRenderSrc } from '../lib/renderSrc.js';
 // URL > localStorage > YAML default) follows the identical rule for the
 // identical reason; default to a ref of `''` (never equals a real
 // default_locale, so buildIframeSrc()'s `?locale=` append never fires) so a
-// router-free construction renders exactly like today. `compareWidths` is
-// the `viewports.compare` list from #sg-config (or null); a parameter only so
+// router-free construction renders exactly like today. `projectWidths` is
+// the `viewports.compare` list from #sg-config (or null): the widths the
+// width menu offers first and can compare in one click. A parameter only so
 // specs can set it without a payload.
 export function useViewportPreset({
     type, slug, variant = ref(null), setVariant = () => {}, contentLocale = ref(''),
-    compareWidths = configuredCompareWidths(),
+    projectWidths = configuredCompareWidths(),
 }) {
     const ui = useUiStore();
     const catalog = useCatalogStore();
@@ -140,25 +141,53 @@ export function useViewportPreset({
         ui.setWidth(preset.width === null ? '100%' : `${preset.width}px`, preset.height);
     }
 
+    // The width menu's two actions on one row. selectWidth: this width
+    // alone, as the ordinary single preview (with the preset's height when
+    // the width is a preset, so orientation still works). toggleWidth: add
+    // it to or drop it from the widths shown side by side.
+    function selectWidth(width) {
+        ui.setWidth(`${width}px`, findPresetByWidth(width)?.height ?? null);
+    }
+
+    function toggleWidth(width) {
+        ui.toggleCompareWidth(width);
+    }
+
+    function compareProjectWidths() {
+        if (projectWidths) ui.setCompareWidths(projectWidths);
+    }
+
     function setPortrait(portrait) {
         ui.setPortrait(portrait);
     }
 
+    // While comparing the field starts empty: it shows one width, and the
+    // single width behind a comparison is not on screen.
     const customWidthInput = ref('');
     function syncCustomFromStore() {
-        if (ui.previewWidth === '100%') { customWidthInput.value = ''; return; }
+        if (ui.previewWidth === '100%' || ui.compareWidths.length) { customWidthInput.value = ''; return; }
         const px = parseInt(ui.previewWidth, 10);
         if (Number.isInteger(px)) customWidthInput.value = px;
     }
-    watch(() => ui.previewWidth, syncCustomFromStore, { immediate: true });
+    watch(() => [ui.previewWidth, ui.compareWidths], syncCustomFromStore, { immediate: true });
 
-    function applyCustomWidth() {
+    function customWidthPx() {
         const px = Number(customWidthInput.value);
-        if (!Number.isInteger(px) || px < CUSTOM_WIDTH_MIN || px > CUSTOM_WIDTH_MAX) {
-            syncCustomFromStore();
-            return;
-        }
+        return Number.isInteger(px) && px >= CUSTOM_WIDTH_MIN && px <= CUSTOM_WIDTH_MAX ? px : null;
+    }
+
+    // The custom width follows the rows' contract: apply = this width
+    // alone, add = one more width side by side.
+    function applyCustomWidth() {
+        const px = customWidthPx();
+        if (px === null) { syncCustomFromStore(); return; }
         ui.setWidth(`${px}px`);
+    }
+
+    function addCustomWidth() {
+        const px = customWidthPx();
+        if (px === null) { syncCustomFromStore(); return; }
+        if (!selectedWidths.value.includes(px)) ui.toggleCompareWidth(px);
     }
 
     const reloadNonce = ref(0);
@@ -253,13 +282,19 @@ export function useViewportPreset({
     // exception has one place to land.
     const toolbarVisible = computed(() => previewActionsVisible.value);
 
-    // Compare mode: the current entry at every `viewports.compare` width
-    // side by side (CompareStrip.vue), in the single preview and in every
-    // grid tile alike. Needs configured widths, and the same routes the
-    // width presets apply to -- a responsive:false entry has one width only.
-    const compareActive = computed(() => !!compareWidths
-        && ui.compareActive
+    // Compare mode: the current entry at every checked width side by side
+    // (CompareStrip.vue), in the single preview and in every grid tile
+    // alike. Two or more checked widths, on the routes the width presets
+    // apply to -- a responsive:false entry has one width only.
+    const compareActive = computed(() => ui.compareWidths.length >= 2
         && previewActionsVisible.value);
+
+    // What the width menu shows as checked: the compared widths, else the
+    // single width. Full has no width, so nothing is checked for it.
+    const selectedWidths = computed(() => {
+        if (ui.compareWidths.length >= 2) return ui.compareWidths;
+        return previewWidthPx.value ? [previewWidthPx.value] : [];
+    });
 
     const currentSectionKey = computed(() => {
         if (!slug.value) return null;
@@ -365,9 +400,9 @@ export function useViewportPreset({
         type, slug, variant, setVariant,
         currentItem, activePreset, activePresetCategory, isFullPreset, effective, zoom,
         gridZoom, setGridZoom, effectiveZoom,
-        dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth,
+        dimensionsLabel, isPortrait, setPreset, setPortrait, customWidthInput, applyCustomWidth, addCustomWidth,
         reloadPreview, iframeSrc, iframeSrcForVariant, toolbarVisible, previewActionsVisible, secondaryActionsVisible, gridActive, currentSectionKey, currentItemName,
-        compareWidths, compareActive,
+        projectWidths, compareActive, selectedWidths, selectWidth, toggleWidth, compareProjectWidths, COMPARE_MAX,
         currentItemDescription, currentVariantLabel, currentVariantDescription, descriptionBarText, fieldsTree, fieldsCount, isDragging, startDrag,
         observeWrapper, observeContainer, CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX, VIEWPORTS,
     };

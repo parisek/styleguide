@@ -12,8 +12,9 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * `viewports.compare` in styleguide.yaml: the widths the SPA's compare mode
- * shows side by side, handed to the SPA as `compareWidths` in #sg-config.
+ * `viewports.compare` in styleguide.yaml: the project's widths, which the SPA's
+ * width menu lists first and compares in one click, handed to the SPA as
+ * `compareWidths` in #sg-config.
  */
 final class CompareWidthsTest extends TestCase
 {
@@ -53,6 +54,15 @@ final class CompareWidthsTest extends TestCase
         self::assertSame(1, preg_match('#<script id="sg-config" type="application/json">(.*?)</script>#s', (string) $result->body, $m));
 
         return (array) json_decode($m[1], true, flags: \JSON_THROW_ON_ERROR);
+    }
+
+    #[Test]
+    public function a_width_listed_twice_is_merged_not_refused(): void
+    {
+        // 1.24.0 accepted duplicates; refusing them now would break a
+        // config on a minor upgrade.
+        self::assertSame([1440, 768], $this->spaConfig($this->styleguide(['viewports' => ['compare' => [1440, 768, 768]]]))['compareWidths']);
+        self::assertSame([320], $this->spaConfig($this->styleguide(['viewports' => ['compare' => [320, 320]]]))['compareWidths']);
     }
 
     #[Test]

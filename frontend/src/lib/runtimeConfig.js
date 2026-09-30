@@ -9,6 +9,7 @@
 // fallback. The fallback exists for modules imported in isolation (unit
 // tests), and for a payload from a server older than `baseUrl`.
 import { readSpaConfig } from './config.js';
+import { CUSTOM_WIDTH_MIN, CUSTOM_WIDTH_MAX } from './viewportMath.js';
 
 export const DEFAULT_BASE_URL = '/styleguide';
 
@@ -57,12 +58,15 @@ function config() {
     return cached;
 }
 
-// The server validates `viewports.compare` at boot; this only guards the
-// shape, so a hand-edited or older payload can never produce a broken
-// compare mode. Anything off -> null (no compare button).
+// The server validates `viewports.compare` at boot and merges a width
+// listed twice, so one width can arrive. This only guards the shape, so a
+// hand-edited or older payload can never produce a broken width menu.
+// Anything off -> null (no project group).
 function normaliseCompareWidths(value) {
-    if (!Array.isArray(value) || value.length < 2 || value.length > 4) return null;
-    return value.every((w) => Number.isInteger(w) && w > 0) ? [...value] : null;
+    const inRange = (w) => Number.isInteger(w) && w >= CUSTOM_WIDTH_MIN && w <= CUSTOM_WIDTH_MAX;
+    if (!Array.isArray(value) || !value.every(inRange)) return null;
+    const unique = [...new Set(value)];
+    return unique.length >= 1 && unique.length <= 4 ? unique : null;
 }
 
 export const SOURCE_VIEWS = ['data', 'twig', 'html', 'css', 'js'];

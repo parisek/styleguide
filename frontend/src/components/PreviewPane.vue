@@ -156,7 +156,7 @@ const iframeStyle = computed(() => {
         <VariantGrid v-if="viewport.gridActive.value" />
         <div v-if="singleCompare && viewport.iframeSrc.value" class="w-full p-6">
             <CompareStrip :src="viewport.iframeSrc.value"
-                          :widths="viewport.compareWidths"
+                          :widths="viewport.selectedWidths.value"
                           :scrolls="entryScrolls(viewport.currentItem.value)"
                           @load="ui.isPreviewLoading = false" />
         </div>

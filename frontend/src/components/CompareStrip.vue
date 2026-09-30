@@ -22,6 +22,10 @@ const emit = defineEmits(['load']);
 
 const PRE_MEASURE_MIN_HEIGHT = 96;
 
+// Keyed by width, never by position. The figures are keyed by width too, so
+// ticking a width in between keeps the other iframes alive: they never load
+// again, and a height filed under a position would land on the wrong column
+// (it stayed at the pre-measure floor).
 const heights = reactive({});
 const cellWidths = reactive({});
 const heightObservers = new Map();
@@ -37,19 +41,19 @@ watch(() => props.src, () => {
     loadEmitted = false;
 });
 
-function registerCell(index, el) {
-    const previous = cellObservers.get(index);
-    if (previous) { previous.disconnect(); cellObservers.delete(index); }
+function registerCell(width, el) {
+    const previous = cellObservers.get(width);
+    if (previous) { previous.disconnect(); cellObservers.delete(width); }
     if (!el) return;
-    cellWidths[index] = el.clientWidth;
+    cellWidths[width] = el.clientWidth;
     const ro = new ResizeObserver((entries) => {
-        for (const entry of entries) cellWidths[index] = entry.contentRect.width;
+        for (const entry of entries) cellWidths[width] = entry.contentRect.width;
     });
     ro.observe(el);
-    cellObservers.set(index, ro);
+    cellObservers.set(width, ro);
 }
 
-function onLoad(index, event) {
+function onLoad(width, event) {
     if (!loadEmitted) {
         loadEmitted = true;
         emit('load');
@@ -58,27 +62,44 @@ function onLoad(index, event) {
     if (!doc) return;
     const measure = () => {
         const h = Math.max(doc.documentElement?.scrollHeight ?? 0, doc.body?.scrollHeight ?? 0);
-        if (h > 0) heights[index] = h;
+        if (h > 0) heights[width] = h;
     };
     measure();
-    heightObservers.get(index)?.disconnect();
+    heightObservers.get(width)?.disconnect();
     const ro = new ResizeObserver(measure);
     if (doc.documentElement) ro.observe(doc.documentElement);
     if (doc.body) ro.observe(doc.body);
-    heightObservers.set(index, ro);
+    heightObservers.set(width, ro);
 }
 
-const columns = computed(() => props.widths.map((width, index) => {
+// An unticked width takes its observers with it.
+watch(() => props.widths, (widths) => {
+    for (const [width, ro] of heightObservers) {
+        if (widths.includes(width)) continue;
+        ro.disconnect();
+        heightObservers.delete(width);
+        delete heights[width];
+    }
+});
+
+const columns = computed(() => props.widths.map((width) => {
     const geometry = computeTileGeometry({
         presetWidth: width,
         presetHeight: null,
-        cellWidth: cellWidths[index] ?? 0,
-        rawContentHeight: heights[index] ?? null,
+        cellWidth: cellWidths[width] ?? 0,
+        rawContentHeight: heights[width] ?? null,
         minHeight: PRE_MEASURE_MIN_HEIGHT,
         scrolls: props.scrolls,
     });
-    const caption = geometry.zoom < 1 ? `${width} px · ${Math.round(geometry.zoom * 100)} %` : `${width} px`;
-    return { width, index, geometry, caption };
+    // The second number is the height the column really renders at: the
+    // content's own height, or a chrome entry's pinned viewport. Never a
+    // device height -- no column is drawn at 568. Until the first load the
+    // height is only the pre-measure floor, so the caption shows the width
+    // alone rather than a number that is about to change.
+    const known = props.scrolls || heights[width] != null;
+    const size = known ? `${width} × ${geometry.iframeHeight}` : `${width} px`;
+    const caption = geometry.zoom < 1 ? `${size} · ${Math.round(geometry.zoom * 100)} %` : size;
+    return { width, geometry, caption };
 }));
 
 const gridTemplateColumns = computed(() => compareColumnTemplate(props.widths));
@@ -92,8 +113,11 @@ onBeforeUnmount(() => {
 <template>
     <div data-testid="compare-strip" class="grid gap-4 items-start" :style="{ gridTemplateColumns }">
         <figure v-for="column in columns" :key="column.width" data-testid="compare-column" class="m-0 min-w-0">
-            <figcaption data-testid="compare-caption" class="mb-1.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 whitespace-nowrap">{{ column.caption }}</figcaption>
-            <div :ref="(el) => registerCell(column.index, el)" class="min-w-0">
+            <!-- truncate: on a phone a 320 column is a few dozen pixels wide,
+                 and a caption running into the next one reads as nonsense.
+                 The full caption stays in the title. -->
+            <figcaption data-testid="compare-caption" :title="column.caption" class="mb-1.5 font-mono text-xs tabular-nums text-zinc-500 dark:text-zinc-400 truncate">{{ column.caption }}</figcaption>
+            <div :ref="(el) => registerCell(column.width, el)" class="min-w-0">
                 <div class="overflow-hidden bg-white ring-1 ring-zinc-200 dark:ring-zinc-800 rounded shadow-sm"
                      :style="{ width: column.geometry.wrapperWidth + 'px', height: column.geometry.wrapperHeight + 'px' }">
                     <!-- :key on src: a fresh element per document, as in
@@ -104,7 +128,7 @@ onBeforeUnmount(() => {
                             :title="`${column.width} px`"
                             class="border-0 block"
                             :style="{ width: column.geometry.iframeWidth + 'px', height: column.geometry.iframeHeight + 'px', transform: `scale(${column.geometry.zoom})`, transformOrigin: '0 0' }"
-                            @load="onLoad(column.index, $event)"></iframe>
+                            @load="onLoad(column.width, $event)"></iframe>
                 </div>
             </div>
         </figure>
