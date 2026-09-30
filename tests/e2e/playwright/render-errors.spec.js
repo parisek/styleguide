@@ -39,7 +39,7 @@ test.describe('JavaScript errors from the previews', () => {
         await page.keyboard.press('Escape');
 
         // Another entry: the old iframe leaves the page and its errors go.
-        await page.getByRole('link', { name: 'Multi', exact: true }).click();
+        await page.getByRole('link', { name: /^Multi( \d+)?$/ }).click();
         await expect(page).toHaveURL(/\/component\/multi$/);
         await expect(badge).toHaveCount(0);
     });
