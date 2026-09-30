@@ -11,46 +11,13 @@
    — same name, so the check is version-agnostic. #}
 <html lang="{{ langcode|default('en')|e }}"{{ create_attribute({ class: ['is-styleguide-render', iframe.html_class|default(''), theme == 'dark' ? 'dark' : ''] }) }}>
 <head>
-	{# Error relay: reports this preview's JavaScript errors to the catalogue
-	   around it, which shows them under its warning badge and on the tile.
-	   It must be the first script in the document, so it is listening before
-	   any project script can throw at start-up -- the parent can only attach
-	   after `load`, and start-up errors are the common ones. It posts only
-	   when framed, only to its own origin, strings only, and at most 50 per
-	   document: a render loop that throws every frame must not flood the
-	   parent. `console.error` still reaches the console; the wrapper only
-	   copies the message. The first message ("start") tells the parent a new
-	   document began in this frame, so a link clicked inside the preview
-	   drops the old document's errors. #}
-	<script>(function () {
-		if (window.parent === window) return;
-		var sent = 0, LIMIT = 50;
-		function post(payload) {
-			try { window.parent.postMessage({ sgRender: payload }, location.origin); } catch (e) {}
-		}
-		function text(value) {
-			if (value instanceof Error) return value.name + ': ' + value.message;
-			if (typeof value === 'string') return value;
-			try { return JSON.stringify(value); } catch (e) { return String(value); }
-		}
-		function report(kind, message, source, line) {
-			sent++;
-			if (sent > LIMIT) { if (sent === LIMIT + 1) post({ type: 'more' }); return; }
-			post({ type: 'error', kind: kind, message: String(message).slice(0, 500), source: source ? String(source).slice(0, 500) : '', line: line || 0 });
-		}
-		post({ type: 'start' });
-		window.addEventListener('error', function (e) {
-			var el = e.target;
-			if (el && el !== window && (el.src || el.href)) { report('resource', el.tagName.toLowerCase(), el.src || el.href, 0); return; }
-			report('error', e.message || 'Error', e.filename, e.lineno);
-		}, true);
-		window.addEventListener('unhandledrejection', function (e) { report('rejection', text(e.reason), '', 0); });
-		var original = console.error;
-		console.error = function () {
-			report('console', Array.prototype.map.call(arguments, text).join(' '), '', 0);
-			return original.apply(this, arguments);
-		};
-	})();</script>
+	{# Error relay (dist/render-relay.js): reports this preview's JavaScript
+	   errors to the catalogue around it. First script in the document and
+	   loaded synchronously, so it listens before any project script can
+	   throw at start-up. A file rather than inline, so a `script-src 'self'`
+	   Content-Security-Policy lets it run; `relay_version` busts the cache
+	   when the package updates it. #}
+	<script src="{{ base_url|default('/styleguide')|e }}/assets/render-relay.js?v={{ relay_version|e }}"></script>
 	<script>document.documentElement.classList.remove('no-js');</script>
 	{# Lock the iframe to a light backdrop regardless of OS `prefers-color-scheme`
 	   or the parent SPA's dark mode toggle. Two things are at play:

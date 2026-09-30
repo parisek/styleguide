@@ -685,8 +685,10 @@ final class Renderer
             'theme' => $theme === 'dark' ? 'dark' : 'light',
             'project' => $config['project'] ?? [],
             'iframe' => $iframe,
-            // The catalogue's mount path, for the standalone back-link.
+            // The catalogue's mount path, for the standalone back-link and
+            // the error relay's URL.
             'base_url' => \is_string($config['base_url'] ?? null) ? $config['base_url'] : MountPath::DEFAULT,
+            'relay_version' => self::relayVersion(),
             'component' => [
                 'id' => $slug,
                 'name' => $config['component_name'] ?? $slug,
@@ -962,5 +964,22 @@ final class Renderer
             . '<strong>Render error:</strong><br>'
             . htmlspecialchars($e->getMessage())
             . '</div>';
+    }
+
+    /**
+     * A short content hash of dist/render-relay.js for its `?v=`. The file's
+     * name carries no hash (render-cell.twig must know it), so AssetServer
+     * sends it with a one-hour cache; the query makes a package update reach
+     * the previews at once. Empty when the file is missing (a broken build).
+     */
+    private static function relayVersion(): string
+    {
+        static $version = null;
+        if ($version === null) {
+            $hash = @md5_file(\dirname(__DIR__) . '/dist/render-relay.js');
+            $version = \is_string($hash) ? substr($hash, 0, 8) : '';
+        }
+
+        return $version;
     }
 }

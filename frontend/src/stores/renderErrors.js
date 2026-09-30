@@ -1,14 +1,21 @@
 import { defineStore } from 'pinia';
 import { markRaw } from 'vue';
 
-// JavaScript errors reported by the previews (the relay script at the top of
-// templates/render-cell.twig posts them). Each entry belongs to one <iframe>
+// JavaScript errors reported by the previews (dist/render-relay.js, loaded
+// first in templates/render-cell.twig, posts them). Each entry belongs to one <iframe>
 // element, and no entry outlives its element: an iframe leaves the DOM on
 // every change that matters -- another entry, a theme or locale switch, a
 // reload, an unticked compare width, an isolated variant -- and a
 // MutationObserver prunes on that. A link clicked inside a preview keeps the
-// element but starts a new document; the relay's "start" message clears the
-// element's entries for that case.
+// element but ends the document: the relay's "start" from the next document
+// clears the element's entries, and when the link leads to a page without
+// the relay (a project page, another site, an error page) the frame's
+// `load` does, since no "start" will come.
+//
+// The checks on a message (same origin, a known iframe, a known shape) keep
+// out other windows and accidental collisions. They are not a security
+// boundary: a preview's own scripts can post the same messages, and they
+// already have full access to this same-origin page anyway.
 //
 // Where an error happened is read from stamps on the iframe element
 // (data-sg-tile, data-sg-label, data-sg-width), put there by PreviewPane,
@@ -78,13 +85,32 @@ export const useRenderErrorsStore = defineStore('renderErrors', {
         listen(target = window) {
             const onMessage = (event) => this.receive(event);
             target.addEventListener('message', onMessage);
+            // `load` does not bubble, but a capturing listener on the
+            // document sees every iframe's.
+            const onLoad = (event) => {
+                if (event.target?.nodeName === 'IFRAME') this.frameLoaded(event.target);
+            };
+            document.addEventListener('load', onLoad, true);
+            // A grid re-render removes many nodes at once; one prune per
+            // frame is enough, and the check per node stays cheap.
+            let scheduled = false;
+            const schedule = () => {
+                if (scheduled) return;
+                scheduled = true;
+                const run = () => { scheduled = false; this.prune(); };
+                if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+                else setTimeout(run, 0);
+            };
+            const holdsFrame = (node) => node.nodeType === 1
+                && (node.nodeName === 'IFRAME' || node.getElementsByTagName('iframe').length > 0);
             const observer = new MutationObserver((records) => {
-                const removedFrame = records.some((r) => [...r.removedNodes].some((n) => n.nodeName === 'IFRAME' || n.querySelector?.('iframe')));
-                if (removedFrame) this.prune();
+                if (!this.entries.length && !this.truncated.length) return;
+                if (records.some((r) => [...r.removedNodes].some(holdsFrame))) schedule();
             });
             observer.observe(document.body, { childList: true, subtree: true });
             return () => {
                 target.removeEventListener('message', onMessage);
+                document.removeEventListener('load', onLoad, true);
                 observer.disconnect();
             };
         },
@@ -113,6 +139,21 @@ export const useRenderErrorsStore = defineStore('renderErrors', {
                 source: String(payload.source ?? '').slice(0, 500),
                 line: Number.isInteger(payload.line) ? payload.line : 0,
             });
+        },
+        // A frame finished loading a document. With the relay in it, "start"
+        // has already cleared the old errors; without it (or across
+        // origins, where the document cannot be read) nothing will, so
+        // clear them here.
+        frameLoaded(frame) {
+            let relayed = false;
+            try {
+                relayed = !!frame.contentDocument?.querySelector('script[src*="/render-relay.js"]');
+            } catch {
+                relayed = false;
+            }
+            if (relayed) return;
+            if (this.entries.some((e) => e.frame === frame)) this.entries = this.entries.filter((e) => e.frame !== frame);
+            this.truncated = this.truncated.filter((f) => f !== frame);
         },
         prune() {
             if (this.entries.some((e) => !e.frame.isConnected)) {

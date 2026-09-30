@@ -23,11 +23,15 @@ const errors = useRenderErrorsStore();
             @keydown.space.stop
             :title="i18n.t('health.mark_title')"
             :aria-label="`${i18n.t('health.mark_title')}: ${count}`"
-            class="shrink-0 inline-flex items-center gap-0.5 h-5 px-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50 transition-colors">
-        <svg aria-hidden="true" focusable="false" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2 22 20H2z"/>
-            <path d="M12 9v5M12 17.5v.01"/>
-        </svg>
-        <span class="text-[10px] font-semibold tabular-nums">{{ count }}</span>
+            class="group shrink-0 inline-flex items-center justify-center min-h-6 min-w-6 -my-0.5 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-600">
+        <!-- The pill stays small; the button around it is the 24 × 24 px
+             target WCAG 2.2 asks for. -->
+        <span class="inline-flex items-center gap-0.5 h-5 px-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700 group-hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-400 dark:group-hover:bg-amber-900/50 transition-colors">
+            <svg aria-hidden="true" focusable="false" class="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2 22 20H2z"/>
+                <path d="M12 9v5M12 17.5v.01"/>
+            </svg>
+            <span class="text-[10px] font-semibold tabular-nums">{{ count }}</span>
+        </span>
     </button>
 </template>

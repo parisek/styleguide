@@ -18,7 +18,8 @@ function send(el, payload, origin = window.location.origin) {
 }
 
 const error = (message, extra = {}) => ({ type: 'error', kind: 'error', message, source: '/js/app.js', line: 12, ...extra });
-const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+// Pruning waits for the next animation frame.
+const tick = () => new Promise((resolve) => setTimeout(resolve, 50));
 
 beforeEach(() => {
     document.body.innerHTML = '';
@@ -54,6 +55,23 @@ describe('renderErrors', () => {
         send(el, error('old'));
         send(el, { type: 'start' });
         expect(useRenderErrorsStore().count).toBe(0);
+    });
+
+    it('drops a frame\'s errors when it loads a document without the relay', () => {
+        const el = frame();
+        send(el, error('old'));
+        el.dispatchEvent(new Event('load'));
+        expect(useRenderErrorsStore().count).toBe(0);
+    });
+
+    it('keeps them when the loaded document has the relay (its "start" already ran)', () => {
+        const el = frame();
+        const relay = el.contentDocument.createElement('script');
+        relay.src = '/styleguide/assets/render-relay.js?v=1';
+        el.contentDocument.head.appendChild(relay);
+        send(el, error('new'));
+        el.dispatchEvent(new Event('load'));
+        expect(useRenderErrorsStore().count).toBe(1);
     });
 
     it('drops a frame\'s errors when the frame leaves the page', async () => {
