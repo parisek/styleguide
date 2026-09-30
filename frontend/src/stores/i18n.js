@@ -57,10 +57,20 @@ export const useI18nStore = defineStore('i18n', {
     state: () => ({
         locale: 'en',
         strings: {},
+        // True once the first strings load has finished, however it ended:
+        // until then t() answers with the raw keys, so App.vue shows a
+        // loader instead of the interface.
+        ready: false,
     }),
     actions: {
         async init() {
-            await this.load(detectLocale());
+            try {
+                await this.load(detectLocale());
+            } catch (err) {
+                console.error('[styleguide] failed to load the interface strings', err);
+            } finally {
+                this.ready = true;
+            }
         },
         async load(locale) {
             if (!locale) return;

@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **No more flash of the interface with raw keys.** Until the interface
+  strings and the catalogue have loaded, a small loader stands in for the
+  interface (it fades in after 250 ms, so a fast load shows none). A failed
+  load ends the wait, as before.
+- **The grid's filter chips, the width buttons and the text filter share one
+  height.**
+
 ## [1.28.0] - 2026-09-30
 
 ### Added
