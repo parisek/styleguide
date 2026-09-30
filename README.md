@@ -635,7 +635,7 @@ Blocks and pages render at 1280 × 800 before scaling, basic elements at 480 × 
 
 ### Pages grouped by category
 
-`pages.group_by: category` groups the sidebar's page entries by their `category` metadata, the way the component sections group theirs. Each category is one collapsible group with a count. The groups are ordered by the lowest `weight` among their pages, then by name, and the pages keep their order inside a group. Categories match without regard to case. Pages without a category share one default group ("Ostatní" / "Other"), always last. While the sidebar filter has a query, the pages show as a flat list, as before.
+`pages.group_by: category` groups the sidebar's page entries by their `category` metadata. Each category is one collapsible group with a count. The groups are ordered by the lowest `weight` among their pages, then by name, and the pages keep their order inside a group. Categories match without regard to case. Pages without a category share one default group ("Ostatní" / "Other"), always last. While the sidebar filter has a query, the pages show as a flat list, as before.
 
 Without the key the Pages section stays a flat list. Any other value throws at construction.
 

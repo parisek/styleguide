@@ -146,7 +146,7 @@ test.describe('compare mode (the width checklist)', () => {
         await page.goto('/styleguide/component/gizmo');
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('compare-project-widths').click();
-        await page.getByRole('link', { name: /^Multi( \d+)?$/ }).click();
+        await page.getByRole('link', { name: /^Multi/ }).click();
         await expect(page).toHaveURL(/\/component\/multi$/);
         await expect(page.getByTestId('variant-tile').first().getByTestId('compare-strip')).toHaveCount(1);
 

@@ -318,29 +318,24 @@ function categoryGroupKey(group) {
                      height instead of snapping. -->
                 <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections[section] || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections[section] || ui.searchQuery)">
                 <ul class="mt-1 space-y-0.5 overflow-hidden">
-                    <!-- While searching: flat full-name results (grouping bypassed, spec #38). -->
-                    <li v-for="item in (ui.searchQuery ? items(section) : [])" :key="'s:' + item.id">
+                    <!-- A flat list in the server order (weight, then name); while
+                         searching, only the hits, with the alias that made one. Each
+                         row shows the variant count its grid tile shows. -->
+                    <li v-for="item in (ui.searchQuery ? items(section) : catalog.bySection(section))" :key="item.id">
                         <a
                             href="#"
-                            @click.prevent="select('component', item.id, searchAlias(item)?.variant)"
-                            class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
-                            :class="isActive('component', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
-                        >
-                            <span>{{ item.name ?? item.id }}</span>
-                            <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
-                        </a>
-                    </li>
-                    <!-- Otherwise: a flat list in the server order (weight, then name),
-                         each row with the variant count its grid tile shows. -->
-                    <li v-for="item in (ui.searchQuery ? [] : catalog.bySection(section))" :key="'i:' + item.id">
-                        <a
-                            href="#"
-                            @click.prevent="select('component', item.id)"
+                            @click.prevent="select('component', item.id, ui.searchQuery ? searchAlias(item)?.variant : null)"
                             class="flex items-baseline px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('component', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
-                            <span>{{ item.name ?? item.id }}</span>
-                            <span v-if="variantCountOf(item) > 0" data-testid="sidebar-variant-count" :title="`${i18n.t('grid.variants')}: ${variantCountOf(item)}`" class="ml-auto pl-2 text-xs text-zinc-400 dark:text-zinc-600 font-semibold tabular-nums">{{ variantCountOf(item) }}</span>
+                            <span class="min-w-0">
+                                <span>{{ item.name ?? item.id }}</span>
+                                <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
+                            </span>
+                            <template v-if="variantCountOf(item) > 0">
+                                <span data-testid="sidebar-variant-count" aria-hidden="true" class="ml-auto pl-2 text-xs text-zinc-400 dark:text-zinc-600 font-semibold tabular-nums">{{ variantCountOf(item) }}</span>
+                                <span class="sr-only">, {{ i18n.t('grid.variants') }}: {{ variantCountOf(item) }}</span>
+                            </template>
                         </a>
                     </li>
                 </ul>

@@ -195,6 +195,21 @@ describe('Sidebar', () => {
         ];
         await wrapper.vm.$nextTick();
         expect(wrapper.findAll('[data-testid="sidebar-variant-count"]').map((c) => c.text())).toEqual(['3', '2']);
+        // Read out as "Hero, Variants: 3", not a bare number.
+        expect(wrapper.findAll('a').find((a) => a.text().startsWith('Hero')).find('.sr-only').text()).toContain('3');
+    });
+
+    it('keeps the variant count on a search hit', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.items = [
+            { id: 'hero', name: 'Hero', category: 'Block', has_styleguide: true, has_default_variant: true, variants: [{ id: 'a' }, { id: 'b' }] },
+            { id: 'button', name: 'Button', category: 'Block', has_styleguide: true, variants: [] },
+        ];
+        useUiStore().searchQuery = 'hero';
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('[data-testid="sidebar-variant-count"]').map((c) => c.text())).toEqual(['3']);
+        expect(wrapper.text()).not.toContain('Button');
     });
 
     it('fills sections missing from a stored state with their defaults, keeping stored choices', async () => {
