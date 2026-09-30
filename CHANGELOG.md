@@ -17,6 +17,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- **The component sections are flat lists with variant counts.** The
+  sidebar no longer groups components, neither by name prefix
+  ("Widget - one") nor, with `components.group_by: kind`, by `category`.
+  Each row shows its variant count on the right, the number the grid
+  tile badge shows. The order stays `weight`, then name. There is no
+  option: a group count next to a variant count would read as the same
+  thing. The Pages section keeps its groups.
+
 - **Basic elements no longer render in a narrower frame in the grid.**
   Every tile renders at the chosen width, so a pagination no longer wraps
   in a 480 px frame at desktop width. A frame narrower than the tile is

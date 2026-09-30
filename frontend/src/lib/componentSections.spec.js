@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    sectionOf, legacySectionOf, sectionOrder, buildCategoryTree, CATEGORY_GROUP_MIN,
+    sectionOf, legacySectionOf, sectionOrder,
 } from './componentSections.js';
 
 const c = (id, kind, category) => ({ id, name: id, kind, category });
@@ -39,29 +39,5 @@ describe('sectionOrder', () => {
 
     it('reads atomic before composite with group_by kind', () => {
         expect(sectionOrder('kind')).toEqual(['basic', 'parts', 'blocks', 'gutenberg', 'sections', 'utilities']);
-    });
-});
-
-describe('buildCategoryTree', () => {
-    it('groups a category with enough entries and keeps the server order', () => {
-        const nodes = buildCategoryTree([
-            c('hero', 'block', 'Hero'),
-            c('cart', 'block', 'Ecommerce'),
-            c('cta', 'block', 'CTA'),
-            c('checkout', 'block', 'ecommerce '),
-        ]);
-        expect(nodes.map((n) => (n.type === 'group' ? `g:${n.label}` : n.item.id))).toEqual(['hero', 'g:Ecommerce', 'cta']);
-        expect(nodes[1].children.map((ch) => ch.leaf)).toEqual(['cart', 'checkout']);
-    });
-
-    it('leaves a category below the minimum flat', () => {
-        expect(CATEGORY_GROUP_MIN).toBe(2);
-        const nodes = buildCategoryTree([c('hero', 'block', 'Hero')]);
-        expect(nodes).toEqual([{ type: 'item', item: c('hero', 'block', 'Hero'), sortKey: 'hero' }]);
-    });
-
-    it('never groups entries without a category', () => {
-        const nodes = buildCategoryTree([c('a', 'block', ''), c('b', 'block', undefined)]);
-        expect(nodes.every((n) => n.type === 'item')).toBe(true);
     });
 });

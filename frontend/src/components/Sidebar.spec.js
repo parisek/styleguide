@@ -74,32 +74,13 @@ beforeEach(() => {
 });
 
 describe('Sidebar', () => {
-    it('renders a Widget group for a >=3 prefix cluster with suffix-only children', async () => {
+    it('lists the components flat with their full names, no groups', async () => {
         const { wrapper } = await mountSidebar();
         await wrapper.vm.$nextTick();
-        expect(wrapper.text()).toContain('Widget');
-        expect(wrapper.text()).toContain('One');
-        expect(wrapper.text()).not.toContain('Widget - one');
-    });
-
-    it('renders the Gizmo singleton flat with its full name', async () => {
-        const { wrapper } = await mountSidebar();
-        expect(wrapper.text()).toContain('Gizmo');
-    });
-
-    // Chevron-less group rows: the count badge alone signals a group now --
-    // no arrow glyph pushing the label out of alignment with flat sibling
-    // items. The whole row remains the toggle (aria-expanded carries the
-    // state now that there's no visual chevron cue).
-    it('renders the Widget group toggle with no chevron svg, aria-expanded wired to its open state', async () => {
-        const { wrapper } = await mountSidebar();
-        const groupToggle = wrapper.findAll('button').find((b) => b.find('span').exists() && b.find('span').text() === 'Widget');
-        expect(groupToggle.find('svg').exists()).toBe(false);
-        expect(groupToggle.attributes('aria-expanded')).toBe('true');
-
-        await groupToggle.trigger('click');
-        await wrapper.vm.$nextTick();
-        expect(groupToggle.attributes('aria-expanded')).toBe('false');
+        for (const name of ['Widget - one', 'Widget - two', 'Widget - three', 'Gizmo']) {
+            expect(wrapper.text()).toContain(name);
+        }
+        expect(wrapper.findAll('[aria-expanded]').some((b) => b.text().startsWith('Widget'))).toBe(false);
     });
 
     it('navigates via router.push when a component link is clicked, then closes the sidebar on mobile', async () => {
@@ -145,7 +126,7 @@ describe('Sidebar', () => {
         expect(wrapper.find('[data-testid="sidebar-search-alias"]').exists()).toBe(false);
     });
 
-    it('flattens the Widget group to full names while a search query is active', async () => {
+    it('keeps full names while a search query is active', async () => {
         const { wrapper } = await mountSidebar();
         const ui = useUiStore();
         ui.searchQuery = 'widget';
@@ -188,7 +169,7 @@ describe('Sidebar', () => {
         expect(JSON.parse(localStorage.getItem('sg-sections')).basic).toBe(false);
     });
 
-    it('with group_by kind, category groups start collapsed and read atomic first', async () => {
+    it('with group_by kind, the sections read atomic first and list their components flat', async () => {
         const { wrapper } = await mountSidebar();
         const catalog = useCatalogStore();
         catalog.componentsGroupBy = 'kind';
@@ -198,12 +179,37 @@ describe('Sidebar', () => {
             { id: 'button', name: 'Button', kind: 'element', category: 'Basic', has_styleguide: true },
         ];
         await wrapper.vm.$nextTick();
-        const group = wrapper.findAll('button').find((b) => b.text().startsWith('Ecommerce'));
-        expect(group.attributes('aria-expanded')).toBe('false');
+        expect(wrapper.findAll('[aria-expanded]').some((b) => b.text().startsWith('Ecommerce'))).toBe(false);
+        expect(wrapper.text()).toContain('Checkout');
         const headers = wrapper.findAll('nav > div > button').map((b) => b.find('span').text());
         expect(headers.indexOf('Basic')).toBeLessThan(headers.indexOf('Blocks'));
-        await group.trigger('click');
-        expect(group.attributes('aria-expanded')).toBe('true');
+    });
+
+    it('shows the variant count the grid tile shows, and nothing for a component without variants', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.items = [
+            { id: 'hero', name: 'Hero', category: 'Block', has_styleguide: true, has_default_variant: true, variants: [{ id: 'a' }, { id: 'b' }] },
+            { id: 'button', name: 'Button', category: 'Block', has_styleguide: true, variants: [] },
+            { id: 'form', name: 'Form', category: 'Block', has_styleguide: true, has_default_variant: false, variants: [{ id: 'a' }, { id: 'b' }] },
+        ];
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('[data-testid="sidebar-variant-count"]').map((c) => c.text())).toEqual(['3', '2']);
+        // Read out as "Hero, Variants: 3", not a bare number.
+        expect(wrapper.findAll('a').find((a) => a.text().startsWith('Hero')).find('.sr-only').text()).toContain('3');
+    });
+
+    it('keeps the variant count on a search hit', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.items = [
+            { id: 'hero', name: 'Hero', category: 'Block', has_styleguide: true, has_default_variant: true, variants: [{ id: 'a' }, { id: 'b' }] },
+            { id: 'button', name: 'Button', category: 'Block', has_styleguide: true, variants: [] },
+        ];
+        useUiStore().searchQuery = 'hero';
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('[data-testid="sidebar-variant-count"]').map((c) => c.text())).toEqual(['3']);
+        expect(wrapper.text()).not.toContain('Button');
     });
 
     it('fills sections missing from a stored state with their defaults, keeping stored choices', async () => {
