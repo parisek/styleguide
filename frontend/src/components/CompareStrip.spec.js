@@ -1,4 +1,6 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import { setActivePinia, createPinia } from 'pinia';
+import { useRenderErrorsStore } from '../stores/renderErrors.js';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import CompareStrip from './CompareStrip.vue';
@@ -15,6 +17,10 @@ function stubClientWidth(px) {
         else delete HTMLElement.prototype.clientWidth;
     };
 }
+
+beforeEach(() => {
+    setActivePinia(createPinia());
+});
 
 afterEach(() => {
     restore?.();
@@ -154,5 +160,19 @@ describe('CompareStrip — a changed set of widths', () => {
         expect(heightOf(wrapper, 1440)).toBe('600');
         wrapper.unmount();
         vi.unstubAllGlobals();
+    });
+
+    it('stamps each iframe with its place, and marks a column that reported errors', async () => {
+        const wrapper = mountStrip({ widths: [320, 768], tile: 'secondary', label: 'Secondary' });
+        const narrow = wrapper.get('iframe[title="320 px"]');
+        expect(narrow.attributes()).toMatchObject({ 'data-sg-tile': 'secondary', 'data-sg-label': 'Secondary', 'data-sg-width': '320' });
+        expect(wrapper.find('[data-testid="error-mark"]').exists()).toBe(false);
+
+        useRenderErrorsStore().entries.push({ id: 1, frame: narrow.element, tile: 'secondary', label: 'Secondary', width: 320, kind: 'error', message: 'x', source: '', line: 0 });
+        await nextTick();
+        const marks = wrapper.findAll('[data-testid="error-mark"]');
+        expect(marks).toHaveLength(1);
+        expect(marks[0].text()).toBe('1');
+        wrapper.unmount();
     });
 });

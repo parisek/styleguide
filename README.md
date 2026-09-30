@@ -773,6 +773,12 @@ Unlike the four endpoints above, the response is an **object**, not a bare array
 }
 ```
 
+### JavaScript errors in the previews
+
+Every preview reports its JavaScript errors to the catalogue: uncaught errors, unhandled promise rejections, `console.error` calls and files that failed to load (a script, a stylesheet, an image). They appear under the same warning badge as the skipped templates, in their own section "JavaScript na této stránce", and a small mark on the variant tile or compare column says where. Identical errors from several tiles or widths make one row with the list of places, so an error that only happens at 320 px is visible as such.
+
+A small script does the reporting: `dist/render-relay.js`, served under `<mount>/assets/` and loaded by `render-cell.twig` as the first script in `<head>`. It runs before any project script, so start-up errors are caught too. It is a file, not an inline script, so a `Content-Security-Policy` of `script-src 'self'` lets it run. It posts only when the preview is framed, only to its own origin, and reports the first 50 errors of a document; the dialog then says the list is cut. `console.error` still reaches the browser console. An error belongs to its iframe: switching entry, theme or locale, reloading, unticking a compare width or isolating a variant clears it, and so does a link clicked inside a preview, also when it leads to a page without the relay. A script from another origin without CORS yields only "Script error.", which the dialog says. The reports are a convenience, not a security boundary: a preview's own scripts could post the same messages. Nothing to configure.
+
 ### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]`
 
 The fixture file behind one preview — `styleguide.<id>.twig`, or `styleguide.twig` without a variant — without its leading `{# … #}` annotation. Response: `{ kind, slug, variant, file, source }`. `404` when the entry or variant has no fixture file. Off by default on a public catalogue; see *Showing the fixture source* below. Full contract: `docs/API.md` § JSON API endpoints.

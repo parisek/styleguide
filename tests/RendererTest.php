@@ -119,6 +119,13 @@ final class RendererTest extends TestCase
         // Components render inside a padded wrapper so short bodies don't sit flush
         // against the iframe's top edge underneath the styleguide chrome.
         self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        // The error relay is the first script in <head>: it must listen
+        // before any project script can throw at start-up. A file, so a
+        // `script-src 'self'` CSP lets it run; versioned by content.
+        $head = substr($html, (int) strpos($html, '<head>'));
+        self::assertMatchesRegularExpression('#^<head>\s*(?:<!--.*?-->\s*)?<script src="/styleguide/assets/render-relay\.js\?v=[0-9a-f]{8}"></script>#s', $head);
+        self::assertStringNotContainsString('<script>(function', $html);
+        self::assertLessThan(strpos($html, '/dist/script.js'), strpos($html, 'render-relay.js'));
     }
 
     #[Test]

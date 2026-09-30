@@ -8,6 +8,24 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **JavaScript errors from the previews** appear under the warning badge,
+  next to the skipped templates, and as a small mark on the variant tile or
+  compare column where they happened. `dist/render-relay.js`, loaded by
+  `render-cell.twig` as the first script in `<head>`, reports uncaught
+  errors, unhandled rejections, `console.error` calls and files that failed
+  to load, before any project script runs. A file rather than an inline
+  script, so a `script-src 'self'` CSP lets it run. It posts only when
+  framed, only to its own origin, the first 50 errors per document;
+  `console.error` still reaches the console.
+  Identical errors are grouped with their places (tile · width). Errors go
+  with their iframe (another entry, theme, reload, unticked width, a link
+  inside the preview, also to a page without the relay). **Every
+  render now carries this script**; a render opened on its own posts
+  nothing. The badge's tooltip and dialog title become general ("Katalog
+  hlásí problémy", "Upozornění"), with the template list as one section.
+
 ### Fixed
 
 - **A compare column no longer stays collapsed after a width is ticked in

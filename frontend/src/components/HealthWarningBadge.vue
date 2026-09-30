@@ -1,7 +1,8 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
+import { useRenderErrorsStore } from '../stores/renderErrors.js';
 
 // Unobtrusive operator signal for GET /styleguide/api/health: a template
 // that throws while parsing no longer 500s the whole catalogue (see
@@ -17,10 +18,16 @@ import { useI18nStore } from '../stores/i18n.js';
 // Esc handling, focus containment and a ::backdrop for free, consistent
 // with the consumer-side native-first floating-UI doctrine. console.warn
 // stays as a debugging side channel.
+// Two sources share the one badge and dialog: templates the parser skipped
+// (catalogue-wide, from /api/health) and JavaScript errors the previews on
+// this page reported (stores/renderErrors.js, gone with their iframes).
+// One mark for "something is wrong" keeps the catalogue from growing a
+// second warning signal.
 const catalog = useCatalogStore();
 const i18n = useI18nStore();
+const errors = useRenderErrorsStore();
 
-const count = computed(() => catalog.warnings.length);
+const count = computed(() => catalog.warnings.length + errors.count);
 const visible = computed(() => count.value > 0);
 
 const dialogEl = ref(null);
@@ -33,8 +40,23 @@ const isOpen = ref(false);
 
 const title = computed(() => i18n.t('health.warnings_title'));
 
+// A tile's own mark asks for the dialog through the store.
+watch(() => errors.openRequest, () => open());
+
+function kindLabel(kind) {
+    return i18n.t(`health.js_kind_${kind}`);
+}
+
+// Where the error came from: file and line, or the note that the browser
+// hides a cross-origin script's details ("Script error.").
+function sourceLabel(group) {
+    if (group.kind === 'error' && !group.source && /^Script error\.?$/.test(group.message)) return i18n.t('health.js_cross_origin');
+    if (!group.source) return '';
+    return group.line ? `${group.source}:${group.line}` : group.source;
+}
+
 function open() {
-    console.warn('[styleguide] parser warnings', catalog.warnings);
+    if (catalog.warnings.length) console.warn('[styleguide] parser warnings', catalog.warnings);
     isOpen.value = true;
     dialogEl.value?.showModal();
 }
@@ -98,11 +120,31 @@ function onDialogClick(e) {
                 </svg>
             </button>
         </div>
-        <ul class="max-h-96 overflow-y-auto divide-y divide-zinc-100 dark:divide-zinc-800">
-            <li v-for="(warning, i) in catalog.warnings" :key="i" class="px-5 py-3">
-                <p class="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400 break-all">{{ warning.file }}</p>
-                <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ warning.error }}</p>
-            </li>
-        </ul>
+        <div class="max-h-[70vh] overflow-y-auto">
+            <section v-if="catalog.warnings.length" data-testid="health-templates">
+                <h3 class="px-5 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ i18n.t('health.section_templates') }}</h3>
+                <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    <li v-for="(warning, i) in catalog.warnings" :key="i" class="px-5 py-3">
+                        <p class="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400 break-all">{{ warning.file }}</p>
+                        <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{{ warning.error }}</p>
+                    </li>
+                </ul>
+            </section>
+            <section v-if="errors.count" data-testid="health-js">
+                <h3 class="px-5 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ i18n.t('health.section_js') }}</h3>
+                <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                    <li v-for="group in errors.groups" :key="group.key" data-testid="health-js-row" class="px-5 py-3">
+                        <p class="flex items-baseline gap-2">
+                            <span class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">{{ kindLabel(group.kind) }}</span>
+                            <span v-if="group.count > 1" class="shrink-0 text-[11px] tabular-nums text-zinc-500">× {{ group.count }}</span>
+                        </p>
+                        <p class="mt-1 font-mono text-xs text-zinc-800 dark:text-zinc-200 break-all">{{ group.message }}</p>
+                        <p v-if="sourceLabel(group)" class="mt-1 font-mono text-[11px] text-zinc-500 dark:text-zinc-400 break-all">{{ sourceLabel(group) }}</p>
+                        <p v-if="group.places.length" class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ group.places.join(', ') }}</p>
+                    </li>
+                </ul>
+                <p v-if="errors.hasTruncated" class="px-5 py-3 text-xs text-zinc-500 dark:text-zinc-400">{{ i18n.t('health.js_more') }}</p>
+            </section>
+        </div>
     </dialog>
 </template>

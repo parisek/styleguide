@@ -685,8 +685,10 @@ final class Renderer
             'theme' => $theme === 'dark' ? 'dark' : 'light',
             'project' => $config['project'] ?? [],
             'iframe' => $iframe,
-            // The catalogue's mount path, for the standalone back-link.
+            // The catalogue's mount path, for the standalone back-link and
+            // the error relay's URL.
             'base_url' => \is_string($config['base_url'] ?? null) ? $config['base_url'] : MountPath::DEFAULT,
+            'relay_version' => self::relayVersion(),
             'component' => [
                 'id' => $slug,
                 'name' => $config['component_name'] ?? $slug,
@@ -962,5 +964,33 @@ final class Renderer
             . '<strong>Render error:</strong><br>'
             . htmlspecialchars($e->getMessage())
             . '</div>';
+    }
+
+    /**
+     * A short content hash of dist/render-relay.js for its `?v=`. The file's
+     * name carries no hash (render-cell.twig must know it), so AssetServer
+     * sends it with a one-hour cache; the query makes a package update reach
+     * the previews at once. Empty when the file is missing (a broken build).
+     *
+     * Cached against the file's mtime and size, not for the process's life:
+     * a long-running worker (FrankenPHP, a Symfony runtime) outlives a
+     * package update or a rebuild in the symlinked development setup, and a
+     * stale hash would keep browsers on the old relay for up to an hour.
+     */
+    private static function relayVersion(): string
+    {
+        static $key = null;
+        static $version = '';
+        $path = \dirname(__DIR__) . '/dist/render-relay.js';
+        clearstatcache(false, $path);
+        $stat = @stat($path);
+        $now = \is_array($stat) ? $stat['mtime'] . ':' . $stat['size'] : 'missing';
+        if ($now !== $key) {
+            $key = $now;
+            $hash = \is_array($stat) ? @md5_file($path) : false;
+            $version = \is_string($hash) ? substr($hash, 0, 8) : '';
+        }
+
+        return $version;
     }
 }

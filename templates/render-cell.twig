@@ -11,6 +11,13 @@
    — same name, so the check is version-agnostic. #}
 <html lang="{{ langcode|default('en')|e }}"{{ create_attribute({ class: ['is-styleguide-render', iframe.html_class|default(''), theme == 'dark' ? 'dark' : ''] }) }}>
 <head>
+	{# Error relay (dist/render-relay.js): reports this preview's JavaScript
+	   errors to the catalogue around it. First script in the document and
+	   loaded synchronously, so it listens before any project script can
+	   throw at start-up. A file rather than inline, so a `script-src 'self'`
+	   Content-Security-Policy lets it run; `relay_version` busts the cache
+	   when the package updates it. #}
+	<script src="{{ base_url|default('/styleguide')|e }}/assets/render-relay.js?v={{ relay_version|e }}"></script>
 	<script>document.documentElement.classList.remove('no-js');</script>
 	{# Lock the iframe to a light backdrop regardless of OS `prefers-color-scheme`
 	   or the parent SPA's dark mode toggle. Two things are at play:

@@ -29,8 +29,11 @@ import { entryScrolls } from '../lib/previewHeight.js';
 import { showSource } from '../lib/runtimeConfig.js';
 import SourcePanel from './SourcePanel.vue';
 import CompareStrip from './CompareStrip.vue';
+import ErrorMark from './ErrorMark.vue';
+import { useRenderErrorsStore } from '../stores/renderErrors.js';
 
 const i18n = useI18nStore();
+const errors = useRenderErrorsStore();
 const ui = useUiStore();
 const viewport = inject('viewport');
 
@@ -343,6 +346,8 @@ onBeforeUnmount(() => {
                              :class="tile.clickable ? 'group-hover:text-zinc-900 dark:group-hover:text-zinc-100 group-hover:underline' : ''">{{ tile.label }}</div>
                         <div v-if="tile.description" data-testid="variant-tile-description" class="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500 leading-relaxed" v-html="tile.description"></div>
                     </div>
+                    <!-- JavaScript errors in this tile, at any width. -->
+                    <ErrorMark :count="errors.countFor(tile.key)" />
                     <!-- Expand affordance: a discoverable hint that this
                          header click-throughs to the classic single
                          preview (VariantGrid's own equivalent of a link
@@ -381,6 +386,8 @@ onBeforeUnmount(() => {
                                  class="absolute inset-0 z-10"
                                  :type="viewport.type.value" :slug="viewport.slug.value" :variant="tile.id" />
                     <CompareStrip v-if="compare"
+                                  :tile="tile.key"
+                                  :label="tile.label"
                                   :src="tile.src"
                                   :widths="viewport.selectedWidths.value"
                                   :scrolls="entryScrolls(viewport.currentItem.value)" />
@@ -395,6 +402,8 @@ onBeforeUnmount(() => {
                     <iframe v-else-if="tile.geometry.fluid"
                             :key="tile.src"
                             :src="tile.src"
+                            :data-sg-tile="tile.key"
+                            :data-sg-label="tile.label"
                             class="w-full border-0 block bg-white"
                             :style="{ height: tile.geometry.iframeHeight + 'px' }"
                             @load="onTileLoad(tile, $event)"></iframe>
@@ -408,6 +417,9 @@ onBeforeUnmount(() => {
                          :style="{ width: tile.geometry.wrapperWidth + 'px', height: tile.geometry.wrapperHeight + 'px' }">
                         <iframe :key="tile.src"
                                 :src="tile.src"
+                                :data-sg-tile="tile.key"
+                                :data-sg-label="tile.label"
+                                :data-sg-width="tile.geometry.iframeWidth"
                                 class="border-0 block"
                                 :style="{ width: tile.geometry.iframeWidth + 'px', height: tile.geometry.iframeHeight + 'px', transform: `scale(${tile.geometry.zoom})`, transformOrigin: '0 0' }"
                                 @load="onTileLoad(tile, $event)"></iframe>

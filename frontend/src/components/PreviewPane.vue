@@ -156,6 +156,7 @@ const iframeStyle = computed(() => {
         <VariantGrid v-if="viewport.gridActive.value" />
         <div v-if="singleCompare && viewport.iframeSrc.value" class="w-full p-6">
             <CompareStrip :src="viewport.iframeSrc.value"
+                          :label="viewport.currentVariantLabel.value ?? viewport.currentItemName.value"
                           :widths="viewport.selectedWidths.value"
                           :scrolls="entryScrolls(viewport.currentItem.value)"
                           @load="ui.isPreviewLoading = false" />
@@ -257,6 +258,9 @@ const iframeStyle = computed(() => {
                          for why this also has to reset the measured content
                          height in lockstep. -->
                     <iframe :key="viewport.iframeSrc.value" :src="viewport.iframeSrc.value" @load="onIframeLoad"
+                            data-sg-tile="single"
+                            :data-sg-label="viewport.currentVariantLabel.value ?? viewport.currentItemName.value"
+                            :data-sg-width="viewport.effective.value.width ?? ''"
                             class="border-0 block"
                             :style="iframeStyle"
                             :class="{ 'pointer-events-none': viewport.isDragging.value }"></iframe>
