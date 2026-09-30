@@ -8,6 +8,7 @@ import { useThemeStore } from '../stores/theme.js';
 import { filterItems, matchedAlias } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
+import { variantCountOf } from '../lib/catalogGrid.js';
 import { pageEnabled } from '../lib/runtimeConfig.js';
 import { groupPagesByCategory } from '../lib/pageGroups.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
@@ -72,25 +73,16 @@ function groupKey(section, prefix) {
     return `${section}/${prefix}`;
 }
 
-// With `components.group_by: kind` the component sections hold many
-// category groups; open, they stretch the sidebar to several screens, so
-// they start collapsed. The prefix-tree groups and the page groups keep
-// starting open.
-function groupOpenByDefault(section) {
-    return !(catalog.componentsGroupBy === 'kind' && section !== 'pages');
-}
-
+// Only the Pages section has groups now; they start open.
 function isGroupOpen(section, prefix, children) {
-    // Group children are components in component sections and pages in the
-    // Pages section — check both so a deep-linked active child force-opens
-    // its group regardless of kind.
-    if (children.some((c) => isActive('component', c.id) || isActive('page', c.id))) return true;
-    return groups.value[groupKey(section, prefix)] ?? groupOpenByDefault(section);
+    // A deep-linked active page force-opens its group.
+    if (children.some((c) => isActive('page', c.id))) return true;
+    return groups.value[groupKey(section, prefix)] ?? true;
 }
 
 function toggleGroup(section, prefix) {
     const key = groupKey(section, prefix);
-    groups.value[key] = !(groups.value[key] ?? groupOpenByDefault(section));
+    groups.value[key] = !(groups.value[key] ?? true);
 }
 
 function isActive(type, slug) {
@@ -326,59 +318,25 @@ function categoryGroupKey(group) {
                      height instead of snapping. -->
                 <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections[section] || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections[section] || ui.searchQuery)">
                 <ul class="mt-1 space-y-0.5 overflow-hidden">
-                    <!-- While searching: flat full-name results (grouping bypassed, spec #38). -->
-                    <li v-for="item in (ui.searchQuery ? items(section) : [])" :key="'s:' + item.id">
+                    <!-- A flat list in the server order (weight, then name); while
+                         searching, only the hits, with the alias that made one. Each
+                         row shows the variant count its grid tile shows. -->
+                    <li v-for="item in (ui.searchQuery ? items(section) : catalog.bySection(section))" :key="item.id">
                         <a
                             href="#"
-                            @click.prevent="select('component', item.id, searchAlias(item)?.variant)"
-                            class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
+                            @click.prevent="select('component', item.id, ui.searchQuery ? searchAlias(item)?.variant : null)"
+                            class="flex items-baseline px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('component', item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
-                            <span>{{ item.name ?? item.id }}</span>
-                            <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
+                            <span class="min-w-0">
+                                <span>{{ item.name ?? item.id }}</span>
+                                <span v-if="searchAlias(item)" data-testid="sidebar-search-alias" class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">{{ searchAlias(item).name }}</span>
+                            </span>
+                            <template v-if="variantCountOf(item) > 0">
+                                <span data-testid="sidebar-variant-count" aria-hidden="true" class="ml-auto pl-2 text-xs text-zinc-400 dark:text-zinc-600 font-semibold tabular-nums">{{ variantCountOf(item) }}</span>
+                                <span class="sr-only">, {{ i18n.t('grid.variants') }}: {{ variantCountOf(item) }}</span>
+                            </template>
                         </a>
-                    </li>
-                    <!-- Otherwise: prefix tree (groups >= 3, suffix-only children). -->
-                    <li v-for="node in (ui.searchQuery ? [] : catalog.treeOf(section))" :key="node.type === 'group' ? 'g:' + node.label : 'i:' + node.item.id">
-                        <!-- Top-level items sit flush-left, aligned with section
-                             content; only grouped children (below) indent. -->
-                        <a
-                            v-if="node.type === 'item'"
-                            href="#"
-                            @click.prevent="select('component', node.item.id)"
-                            class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
-                            :class="isActive('component', node.item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
-                        >
-                            <span>{{ node.item.name ?? node.item.id }}</span>
-                        </a>
-                        <!-- Group row: no chevron -- the count badge alone signals
-                             a group, and dropping the arrow glyph lets the label
-                             sit flush at the same left padding (px-3.5) as every
-                             flat sibling item above/below it, instead of being
-                             indented out of line by the icon + gap. The whole row
-                             stays the expand/collapse toggle; aria-expanded keeps
-                             the state programmatically discoverable now that the
-                             visual chevron cue is gone. -->
-                        <div v-else>
-                            <button @click="toggleGroup(section, node.label)" :aria-expanded="isGroupOpen(section, node.label, node.children) ? 'true' : 'false'" class="w-full flex items-center px-3.5 py-2 text-sm rounded-lg text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white transition-colors">
-                                <span class="font-medium">{{ node.label }}</span>
-                                <span class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold">{{ node.children.length }}</span>
-                            </button>
-                            <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: isGroupOpen(section, node.label, node.children) ? '1fr' : '0fr' }" :inert="!isGroupOpen(section, node.label, node.children)">
-                            <ul class="mt-0.5 ml-4 pl-3 border-l border-zinc-200 dark:border-zinc-800 space-y-0.5 overflow-hidden">
-                                <li v-for="child in node.children" :key="child.id">
-                                    <a
-                                        href="#"
-                                        @click.prevent="select('component', child.id)"
-                                        class="block px-3 py-1.5 text-[13px] rounded-lg transition-colors"
-                                        :class="isActive('component', child.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
-                                    >
-                                        <span>{{ child.leaf }}</span>
-                                    </a>
-                                </li>
-                            </ul>
-                            </div>
-                        </div>
                     </li>
                 </ul>
                 </div>

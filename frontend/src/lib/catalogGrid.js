@@ -32,6 +32,13 @@ export function gridEntries({ items = [], pages = [] }, sectionOf, order = GRID_
     return entries.sort((a, b) => rank(a.section) - rank(b.section));
 }
 
+// The number a tile and a flat sidebar row both show: every tile the entry's
+// own variant grid would show, the default included; 0 means none at all.
+export function variantCountOf(item) {
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    return variants.length === 0 ? 0 : variants.length + (item.has_default_variant !== false ? 1 : 0);
+}
+
 function toEntry(item, type, section) {
     const variants = Array.isArray(item.variants) ? item.variants : [];
     const hasDefault = item.has_default_variant !== false;
@@ -43,7 +50,7 @@ function toEntry(item, type, section) {
         section,
         item,
         variant: hasDefault ? null : (variants[0]?.id ?? null),
-        variantCount: variants.length === 0 ? 0 : variants.length + (hasDefault ? 1 : 0),
+        variantCount: variantCountOf(item),
     };
 }
 

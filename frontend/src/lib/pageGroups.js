@@ -1,6 +1,5 @@
 // `pages.group_by: category` (styleguide.yaml): the sidebar's page entries
-// grouped by their `category` metadata, the way component sections group
-// their entries.
+// grouped by their `category` metadata.
 //
 // - Categories match case-insensitively after trimming; a group's label is
 //   the spelling of its first page (pages arrive sorted by weight, then name,

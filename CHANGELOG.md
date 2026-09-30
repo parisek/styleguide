@@ -8,6 +8,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **The component sections are flat lists with variant counts.** The
+  sidebar no longer groups components, neither by name prefix
+  ("Widget - one") nor, with `components.group_by: kind`, by `category`.
+  Each row shows its variant count on the right, the number the grid
+  tile badge shows. The order stays `weight`, then name. There is no
+  option: a group count next to a variant count would read as the same
+  thing. The Pages section keeps its groups.
+
 ## [1.27.0] - 2026-09-30
 
 ### Added
