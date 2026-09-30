@@ -1576,9 +1576,9 @@ final class Styleguide
      * Invoke a registered Twig function by name, returning $fallback when the
      * function is absent or its callable can't be resolved.
      *
-     * The translation stubs (`__`/`_x`/`_n`/`_nx`) are registered just before
-     * the typography aliases call this, so the fallback is unreachable at
-     * runtime — it exists because Twig's `getFunction()` and `getCallable()`
+     * The translators (`__`/`_x`/`_n`/`_nx`) are registered just before the
+     * typography aliases call this, so the fallback is unreachable at runtime
+     * for the bundled ones — it exists because Twig's `getFunction()` and `getCallable()`
      * are both nullable in the type signature, and the project bans
      * ignore-annotations / `assert()` for narrowing.
      *
@@ -1590,6 +1590,19 @@ final class Styleguide
     public static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
     {
         $callable = $twig->getFunction($name)?->getCallable();
+
+        // The bundled translators are runtime callables, `[Runtime::class,
+        // 'method']`: a class-string and a non-static method, which
+        // `is_callable()` rejects. Twig resolves them through its runtime
+        // loaders, so do the same. Without this every `…t` alias fell back to
+        // the source string and never translated, whatever the catalogue held.
+        if (is_array($callable) && is_string($callable[0] ?? null) && !is_callable($callable)) {
+            try {
+                $callable = [$twig->getRuntime($callable[0]), $callable[1] ?? ''];
+            } catch (\Twig\Error\RuntimeError) {
+                return $fallback;
+            }
+        }
 
         return is_callable($callable) ? (string) $callable(...$args) : $fallback;
     }
