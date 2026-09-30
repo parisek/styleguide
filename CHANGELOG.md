@@ -8,6 +8,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A `responsive: false` entry ignores the stored width preset (#178).** A doc
+  page, or any entry with `responsive: false`, has one width and no width
+  toolbar. It still read the preset chosen on another entry, so it showed a
+  phone bezel, chassis and rotate button with no control to clear them. Such an
+  entry is now always the full preset. Responsive entries keep the stored one.
+
 ## [1.28.1] - 2026-09-30
 
 ### Fixed

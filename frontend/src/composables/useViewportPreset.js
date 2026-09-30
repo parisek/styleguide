@@ -44,8 +44,14 @@ export function useViewportPreset({
         return Number.isInteger(px) ? px : null;
     });
 
+    // A `responsive: false` entry (every doc page, a fixed-layout demo) has one
+    // width and no width toolbar. The preset a visitor picked on another entry
+    // stays in the persisted UI state, so without this the entry inherited a
+    // phone bezel, chassis and rotate button it has no control to remove.
+    const fixedLayout = computed(() => currentItem.value?.responsive === false);
+
     const activePreset = computed(() => {
-        if (ui.previewWidth === '100%') return 'full';
+        if (fixedLayout.value || ui.previewWidth === '100%') return 'full';
         const match = findPresetByWidth(previewWidthPx.value);
         return match?.key ?? 'custom';
     });
@@ -56,7 +62,7 @@ export function useViewportPreset({
         return VIEWPORTS.find((v) => v.key === activePreset.value)?.category ?? 'desktop';
     });
 
-    const isFullPreset = computed(() => ui.previewWidth === '100%');
+    const isFullPreset = computed(() => fixedLayout.value || ui.previewWidth === '100%');
 
     const effective = computed(() => {
         if (currentItem.value?.responsive === false) return { width: null, height: null };
