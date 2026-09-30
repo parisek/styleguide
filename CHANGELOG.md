@@ -19,6 +19,20 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **The grid's filter chips, the width buttons and the text filter share one
   height.**
 
+## [1.28.1] - 2026-09-30
+
+### Fixed
+
+- **`_xt()`, `__t()`, `_nt()` and `_nxt()` translate again.** Since 1.18.0 the
+  bundled translators are runtime callables (`[StyleguideRuntime::class,
+  'translateWithContext']`), and the aliases looked their base translator up
+  with `is_callable()`, which rejects that shape. Every alias returned its
+  source string, whatever the `.mo` held, while `_x()` and `__()` on their own
+  translated. The lookup now resolves the runtime through the environment, as
+  Twig does, passing the environment to a translator that asks for it. A host
+  that registers its own translator first keeps it; one that needs the
+  template context cannot be called from an alias and yields the source string.
+
 ## [1.28.0] - 2026-09-30
 
 ### Added
