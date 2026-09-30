@@ -108,9 +108,19 @@ describe('GridView', () => {
         FakeIntersectionObserver.instances.forEach((o) => o.fire(true));
         await wrapper.find('[data-testid="grid-width"]').trigger('click');
         await flushPromises();
-        expect(wrapper.find('iframe').attributes('style')).toContain('width: 375px');
+        const frames = wrapper.findAll('iframe');
+        expect(frames.length).toBeGreaterThan(1);
+        for (const frame of frames) expect(frame.attributes('style')).toContain('width: 375px');
         expect(localStorage.getItem('sg-grid-width')).toBe('375');
         expect(wrapper.find('[data-testid="grid-width"]').attributes('aria-pressed')).toBe('true');
+    });
+
+    it('drops a stored width the project does not offer', async () => {
+        localStorage.setItem('sg-grid-width', '999');
+        const { wrapper } = await mountGrid();
+        expect(wrapper.findAll('[data-testid="grid-width"]').map((b) => b.attributes('aria-pressed'))).toEqual(['false', 'false', 'true']);
+        await flushPromises();
+        expect(useUiStore().gridWidth).toBeNull();
     });
 
     it('filters by section chip and by text', async () => {

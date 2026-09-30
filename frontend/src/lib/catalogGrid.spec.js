@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    gridEntries, filterGridEntries, sectionCounts, gridLayout, gridWidthOptions, resolveGridWidth, gridPreviewSize, GRID_SECTIONS,
+    gridEntries, filterGridEntries, sectionCounts, gridLayout, gridWidthOptions, resolveGridWidth, gridPreviewSize, widthClass, GRID_SECTIONS,
 } from './catalogGrid.js';
 
 // The catalog store's rule, reduced to what these fixtures need.
@@ -132,8 +132,15 @@ describe('resolveGridWidth', () => {
     });
 });
 
+describe('widthClass', () => {
+    it('names the device class, tablet up to and including 1024', () => {
+        expect([320, 480, 481, 768, 1024, 1025, 1440].map(widthClass)).toEqual(['mobile', 'mobile', 'tablet', 'tablet', 'tablet', 'desktop', 'desktop']);
+    });
+});
+
 describe('gridPreviewSize', () => {
-    it('is 16:10 from desktop width up and square below', () => {
+    it('is 16:10 for a desktop width and square for a mobile or tablet one', () => {
+        expect(gridPreviewSize(1024)).toEqual({ width: 1024, height: 1024 });
         expect(gridPreviewSize(1280)).toEqual({ width: 1280, height: 800 });
         expect(gridPreviewSize(1440)).toEqual({ width: 1440, height: 900 });
         expect(gridPreviewSize(768)).toEqual({ width: 768, height: 768 });

@@ -78,6 +78,12 @@ export function gridLayout(containerWidth, { minTile = GRID_MIN_TILE_PX, gap = G
 // (`viewports.compare`), smallest first, or these when the project sets none.
 export const GRID_DEFAULT_WIDTHS = [375, 768, 1280];
 
+// The device class of a width: what the toggle names a button by, and what
+// decides the frame's shape.
+export function widthClass(width) {
+    return width <= 480 ? 'mobile' : width <= 1024 ? 'tablet' : 'desktop';
+}
+
 export function gridWidthOptions(projectWidths = null) {
     const widths = Array.isArray(projectWidths) && projectWidths.length > 0 ? projectWidths : GRID_DEFAULT_WIDTHS;
     return [...new Set(widths)].sort((a, b) => a - b);
@@ -90,9 +96,9 @@ export function resolveGridWidth(stored, options) {
 }
 
 // The logical frame a tile renders its entry in at `width`, before it is
-// scaled to the tile. A desktop-wide frame is 16:10; a narrower one is
+// scaled to the tile. A desktop frame is 16:10; a mobile or tablet one is
 // square, so a phone tile shows the top of the page and stays as tall as
 // the others.
 export function gridPreviewSize(width) {
-    return { width, height: Math.round(width >= 1024 ? width * 0.625 : width) };
+    return { width, height: Math.round(widthClass(width) === 'desktop' ? width * 0.625 : width) };
 }
