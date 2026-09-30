@@ -971,12 +971,23 @@ final class Renderer
      * name carries no hash (render-cell.twig must know it), so AssetServer
      * sends it with a one-hour cache; the query makes a package update reach
      * the previews at once. Empty when the file is missing (a broken build).
+     *
+     * Cached against the file's mtime and size, not for the process's life:
+     * a long-running worker (FrankenPHP, a Symfony runtime) outlives a
+     * package update or a rebuild in the symlinked development setup, and a
+     * stale hash would keep browsers on the old relay for up to an hour.
      */
     private static function relayVersion(): string
     {
-        static $version = null;
-        if ($version === null) {
-            $hash = @md5_file(\dirname(__DIR__) . '/dist/render-relay.js');
+        static $key = null;
+        static $version = '';
+        $path = \dirname(__DIR__) . '/dist/render-relay.js';
+        clearstatcache(false, $path);
+        $stat = @stat($path);
+        $now = \is_array($stat) ? $stat['mtime'] . ':' . $stat['size'] : 'missing';
+        if ($now !== $key) {
+            $key = $now;
+            $hash = \is_array($stat) ? @md5_file($path) : false;
             $version = \is_string($hash) ? substr($hash, 0, 8) : '';
         }
 
