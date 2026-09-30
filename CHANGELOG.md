@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.28.0] - 2026-09-30
+
 ### Added
 
 - **A width toggle in the overview grid.** Buttons in the filter bar set the
