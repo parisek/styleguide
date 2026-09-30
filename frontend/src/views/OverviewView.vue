@@ -26,9 +26,12 @@ const componentSections = computed(() => {
         if (!buckets[section]) buckets[section] = [];
         buckets[section].push(item);
     }
-    // Reading order: Pages (own section, rendered separately above) -> Blocks
-    // -> Gutenberg -> Basic — composite groups before the atomic-element bucket.
-    return ['blocks', 'gutenberg', 'basic']
+    // Reading order: Pages (own section, rendered separately above), then
+    // the component sections. The legacy sections read Blocks -> Gutenberg
+    // -> Basic; `components.group_by: kind` brings its own order, the
+    // sidebar's.
+    const order = catalog.componentsGroupBy === 'kind' ? catalog.componentSectionKeys : ['blocks', 'gutenberg', 'basic'];
+    return order
         .filter((section) => buckets[section]?.length > 0)
         .map((section) => ({ section, items: buckets[section] }));
 });
@@ -186,6 +189,18 @@ function reverseUsage(id) {
                         <div v-if="block.section === 'gutenberg'" class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-300 flex items-center justify-center">
                             <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.39 48.39 0 01-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 01-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 00-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 01-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 00.657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 01-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 005.427-.63 48.05 48.05 0 00.582-4.717.532.532 0 00-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 00.658-.663 48.422 48.422 0 00-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 01-.61-.58v0z"/>
+                            </svg>
+                        </div>
+                        <!-- `components.group_by: kind` sections: page chrome gets
+                             a frame glyph; parts and utilities share one. -->
+                        <div v-if="block.section === 'sections'" class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300 flex items-center justify-center">
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M3 8h18M3 16h18"/>
+                            </svg>
+                        </div>
+                        <div v-if="block.section === 'parts' || block.section === 'utilities'" class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300 flex items-center justify-center">
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 13h7v7h-7z"/>
                             </svg>
                         </div>
                         <h2 class="text-base font-semibold tracking-tight mr-2">{{ i18n.t(`sections.${block.section}`) }}</h2>

@@ -50,6 +50,10 @@ export default defineConfig({
                 // same as it already does for foundations.[hash].css. Every
                 // other entry (the main SPA bundle) keeps the untouched
                 // styleguide.[hash].js naming.
+                // A lazily loaded module (the Code panel's highlighter) sits
+                // next to the entry bundle, hashed like it, so the asset
+                // route serves it with the same immutable cache.
+                chunkFileNames: 'styleguide-[name].[hash].js',
                 entryFileNames: (info) => {
                     return info.name === 'foundations' ? 'foundations.[hash].js' : 'styleguide.[hash].js';
                 },

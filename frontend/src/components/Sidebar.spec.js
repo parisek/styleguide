@@ -185,6 +185,34 @@ describe('Sidebar', () => {
         expect(JSON.parse(localStorage.getItem('sg-sections')).basic).toBe(false);
     });
 
+    it('with group_by kind, category groups start collapsed and read atomic first', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.componentsGroupBy = 'kind';
+        catalog.items = [
+            { id: 'cart', name: 'Cart', kind: 'block', category: 'Ecommerce', has_styleguide: true },
+            { id: 'checkout', name: 'Checkout', kind: 'block', category: 'Ecommerce', has_styleguide: true },
+            { id: 'button', name: 'Button', kind: 'element', category: 'Basic', has_styleguide: true },
+        ];
+        await wrapper.vm.$nextTick();
+        const group = wrapper.findAll('button').find((b) => b.text().startsWith('Ecommerce'));
+        expect(group.attributes('aria-expanded')).toBe('false');
+        const headers = wrapper.findAll('nav > div > button').map((b) => b.find('span').text());
+        expect(headers.indexOf('Basic')).toBeLessThan(headers.indexOf('Blocks'));
+        await group.trigger('click');
+        expect(group.attributes('aria-expanded')).toBe('true');
+    });
+
+    it('fills sections missing from a stored state with their defaults, keeping stored choices', async () => {
+        localStorage.setItem('sg-sections', JSON.stringify({ docs: true, basic: false, blocks: true, gutenberg: false, pages: false }));
+        await mountSidebar();
+        const stored = JSON.parse(localStorage.getItem('sg-sections'));
+        expect(stored.basic).toBe(false);
+        expect(stored.sections).toBe(true);
+        expect(stored.parts).toBe(true);
+        expect(stored.utilities).toBe(false);
+    });
+
     it('renders the section header count badge with the filtered item count', async () => {
         const { wrapper } = await mountSidebar();
         // Fixture: 3 items categorised 'Block' -> Blocks section, 1 ('gizmo',

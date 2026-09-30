@@ -1,5 +1,8 @@
 {
     "sections": {
+        "sections": "Sekce stránky",
+        "parts": "Části",
+        "utilities": "Pomocné",
         "basic": "Základní prvky",
         "blocks": "Bloky",
         "gutenberg": "Gutenberg",
@@ -120,9 +123,10 @@
     },
     "source": {
         "toggle": "Kód",
-        "copy": "Kopírovat",
-        "copied": "Zkopírováno",
         "loading": "Načítám…",
-        "unavailable": "K tomuto náhledu není zdrojový kód."
+        "unavailable": "K tomuto náhledu není zdrojový kód.",
+        "view": "Zobrazení kódu",
+        "no_markup": "K tomuto náhledu není HTML.",
+        "opens_new_tab": "otevře se v nové záložce"
     }
 }

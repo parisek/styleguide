@@ -2,8 +2,11 @@
 // /grid): which entries it shows, how the filter bar narrows them, and how
 // many columns fit.
 import { matchesQuery } from './searchMatch.js';
+import { isAtomicSection } from './componentSections.js';
 
-// Sidebar order, so the filter chips read like the sidebar sections.
+// Sidebar order, so the filter chips read like the sidebar sections. The
+// default is the legacy order; with `components.group_by: kind` the view
+// passes the store's own `componentSectionKeys` plus 'pages'.
 export const GRID_SECTIONS = ['basic', 'blocks', 'gutenberg', 'pages'];
 
 // Every renderable component and page, as one flat list of tiles: sidebar
@@ -16,14 +19,14 @@ export const GRID_SECTIONS = ['basic', 'blocks', 'gutenberg', 'pages'];
 // `variants` already honours `variants_order`). `variantCount` counts every
 // tile the entry's own variant grid would show, the default included; 0
 // means the entry has no variants at all.
-export function gridEntries({ items = [], pages = [] }, sectionOf) {
+export function gridEntries({ items = [], pages = [] }, sectionOf, order = GRID_SECTIONS) {
     const entries = [
         ...items.filter((i) => i.has_styleguide !== false).map((item) => toEntry(item, 'component', sectionOf(item, 'component'))),
         ...pages.filter((p) => p.has_styleguide !== false).map((page) => toEntry(page, 'page', 'pages')),
     ];
     const rank = (section) => {
-        const index = GRID_SECTIONS.indexOf(section);
-        return index === -1 ? GRID_SECTIONS.length : index;
+        const index = order.indexOf(section);
+        return index === -1 ? order.length : index;
     };
     // Array.prototype.sort is stable, so the server order survives.
     return entries.sort((a, b) => rank(a.section) - rank(b.section));
@@ -50,10 +53,10 @@ export function filterGridEntries(entries, { section = null, query = '' } = {}) 
     return entries.filter((entry) => (!section || entry.section === section) && matchesQuery(entry.item, query));
 }
 
-// One count per section that has entries, in GRID_SECTIONS order, for the
-// filter chips. A section with no entries gets no chip.
-export function sectionCounts(entries) {
-    return GRID_SECTIONS
+// One count per section that has entries, in `order`, for the filter chips.
+// A section with no entries gets no chip.
+export function sectionCounts(entries, order = GRID_SECTIONS) {
+    return order
         .map((section) => ({ section, count: entries.filter((e) => e.section === section).length }))
         .filter(({ count }) => count > 0);
 }
@@ -73,8 +76,9 @@ export function gridLayout(containerWidth, { minTile = GRID_MIN_TILE_PX, gap = G
 }
 
 // The logical size a tile renders its entry at, before scaling it down to
-// the tile. A basic element (a button, a badge) is lost in a desktop-wide
-// frame, so it renders narrower; blocks and pages render at desktop width.
+// the tile. A basic element (a button, a badge) or a part is lost in a
+// desktop-wide frame, so it renders narrower; blocks, page sections and
+// pages render at desktop width.
 export function previewSizeFor(section) {
-    return section === 'basic' ? { width: 480, height: 300 } : { width: 1280, height: 800 };
+    return isAtomicSection(section) ? { width: 480, height: 300 } : { width: 1280, height: 800 };
 }

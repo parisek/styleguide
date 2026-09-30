@@ -132,6 +132,10 @@ final class RouterTest extends TestCase
             ['type' => 'api', 'endpoint' => 'source', 'kind' => 'component', 'slug' => 'multi'],
             Router::parse('/styleguide/api/source/component/multi?variant=Bad_Id'),
         );
+        self::assertSame(
+            ['type' => 'api', 'endpoint' => 'markup', 'kind' => 'component', 'slug' => 'multi', 'variant' => 'dark-bg'],
+            Router::parse('/styleguide/api/markup/component/multi?variant=dark-bg'),
+        );
         // Other endpoints keep their shape: trailing segments and a query are ignored.
         self::assertSame(['type' => 'api', 'endpoint' => 'components'], Router::parse('/styleguide/api/components/x/y?variant=a'));
     }

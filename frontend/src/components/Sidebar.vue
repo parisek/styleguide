@@ -28,9 +28,16 @@ const theme = useThemeStore();
 const route = useRoute();
 const router = useRouter();
 
-const sections = usePersistedRef('sg-sections', {
+const SECTION_DEFAULTS = {
     docs: true, basic: true, blocks: true, gutenberg: false, pages: false,
-});
+    sections: true, parts: true, utilities: false,
+};
+const sections = usePersistedRef('sg-sections', SECTION_DEFAULTS);
+// A stored state from before a section existed lacks its key, and a missing
+// key reads as collapsed. Fill in the defaults once; a stored choice wins.
+for (const [key, open] of Object.entries(SECTION_DEFAULTS)) {
+    if (typeof sections.value?.[key] !== 'boolean') sections.value[key] = open;
+}
 const groups = usePersistedRef('sg-groups', {});
 const config = readSpaConfig();
 // Swapped to GENERIC_FAVICON by the <img> @error handler when the configured
@@ -64,17 +71,25 @@ function groupKey(section, prefix) {
     return `${section}/${prefix}`;
 }
 
+// With `components.group_by: kind` the component sections hold many
+// category groups; open, they stretch the sidebar to several screens, so
+// they start collapsed. The prefix-tree groups and the page groups keep
+// starting open.
+function groupOpenByDefault(section) {
+    return !(catalog.componentsGroupBy === 'kind' && section !== 'pages');
+}
+
 function isGroupOpen(section, prefix, children) {
     // Group children are components in component sections and pages in the
     // Pages section — check both so a deep-linked active child force-opens
     // its group regardless of kind.
     if (children.some((c) => isActive('component', c.id) || isActive('page', c.id))) return true;
-    return groups.value[groupKey(section, prefix)] ?? true;
+    return groups.value[groupKey(section, prefix)] ?? groupOpenByDefault(section);
 }
 
 function toggleGroup(section, prefix) {
     const key = groupKey(section, prefix);
-    groups.value[key] = !(groups.value[key] ?? true);
+    groups.value[key] = !(groups.value[key] ?? groupOpenByDefault(section));
 }
 
 function isActive(type, slug) {
@@ -295,7 +310,7 @@ function categoryGroupKey(group) {
                  (non-v-for) binding that re-evaluates on every update, same
                  as the legacy Alpine markup's `x-show` on the section
                  wrapper. -->
-            <template v-for="section in ['basic', 'blocks', 'gutenberg']" :key="section">
+            <template v-for="section in catalog.componentSectionKeys" :key="section">
             <div v-show="items(section).length > 0">
                 <button @click="toggleSection(section)" :aria-expanded="(sections[section] || !!ui.searchQuery) ? 'true' : 'false'" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
                     <span>{{ i18n.t(`sections.${section}`) }}</span>

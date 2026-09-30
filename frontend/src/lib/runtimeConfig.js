@@ -38,6 +38,17 @@ function config() {
             // source may be shown (Styleguide::showSource()). Anything else
             // hides the "Code" toggle; the API refuses on its own anyway.
             showSource: raw.showSource === true,
+            // `highlight_source: false` in styleguide.yaml. The server sends
+            // the key only to turn highlighting off.
+            highlightSource: raw.highlightSource !== false,
+            // `source_views` in styleguide.yaml, in the panel's order. An
+            // older server sends none: the views it had, Data and HTML.
+            sourceViews: normaliseSourceViews(raw.sourceViews),
+            // `source_url` in styleguide.yaml: a template file's address in
+            // the repository, `{path}` standing for its path.
+            sourceUrl: typeof raw.sourceUrl === 'string' && /^https?:\/\//.test(raw.sourceUrl) && raw.sourceUrl.includes('{path}')
+                ? raw.sourceUrl
+                : null,
             compareWidths: normaliseCompareWidths(raw.compareWidths),
             // `overview.default: grid` in styleguide.yaml: the bare mount
             // lands on the overview grid. Anything else keeps Foundations.
@@ -58,6 +69,19 @@ function normaliseCompareWidths(value) {
     return unique.length >= 1 && unique.length <= 4 ? unique : null;
 }
 
+export const SOURCE_VIEWS = ['data', 'twig', 'html', 'css', 'js'];
+
+function normaliseSourceViews(value) {
+    if (!Array.isArray(value)) return ['data', 'html'];
+    const views = SOURCE_VIEWS.filter((view) => value.includes(view));
+    return views.length ? views : ['data', 'html'];
+}
+
+// The Code panel's views, e.g. ['data', 'html', 'css', 'js'].
+export function sourceViews() {
+    return config().sourceViews;
+}
+
 // `viewports.compare` from styleguide.yaml, e.g. [1440, 768, 320], or null.
 export function compareWidths() {
     return config().compareWidths;
@@ -74,6 +98,16 @@ export function baseUrl() {
 
 export function showSource() {
     return config().showSource;
+}
+
+// `source_url` from styleguide.yaml, or null.
+export function sourceUrl() {
+    return config().sourceUrl;
+}
+
+// Whether the Code panel highlights the source (on unless turned off).
+export function highlightSource() {
+    return config().highlightSource;
 }
 
 // `path` is relative to the mount: 'api/components', 'render/component/card'.
