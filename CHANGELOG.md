@@ -16,6 +16,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   phone bezel, chassis and rotate button with no control to clear them. Such an
   entry is now always the full preset. Responsive entries keep the stored one.
 
+### Changed
+
+- **The overview fits every section side by side (#180).** The grid used three
+  columns at most, chosen by window breakpoints. It is now
+  `repeat(auto-fit, minmax(min(100%, 22rem), 1fr))` in an `@container`, so the
+  column count follows the width the page has. An entry's id sits on its own
+  row under the name and breaks when it is long. Pages come first, then Blocks,
+  then the other sections in the mode's own order; under `components.group_by:
+  kind` Blocks no longer come after Basic elements and Parts. The sidebar order
+  is unchanged.
+
 ## [1.28.1] - 2026-09-30
 
 ### Fixed

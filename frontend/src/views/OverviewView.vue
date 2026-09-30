@@ -27,10 +27,12 @@ const componentSections = computed(() => {
         buckets[section].push(item);
     }
     // Reading order: Pages (own section, rendered separately above), then
-    // the component sections. The legacy sections read Blocks -> Gutenberg
-    // -> Basic; `components.group_by: kind` brings its own order, the
-    // sidebar's.
-    const order = catalog.componentsGroupBy === 'kind' ? catalog.componentSectionKeys : ['blocks', 'gutenberg', 'basic'];
+    // Blocks, then every other section. The overview is where a catalogue is
+    // read for its pages and blocks, so they lead in both modes. The rest keep
+    // the order the mode brings: the legacy Gutenberg -> Basic, or the
+    // sidebar's under `components.group_by: kind`.
+    const rest = catalog.componentsGroupBy === 'kind' ? catalog.componentSectionKeys : ['gutenberg', 'basic'];
+    const order = ['blocks', ...rest.filter((section) => section !== 'blocks')];
     return order
         .filter((section) => buckets[section]?.length > 0)
         .map((section) => ({ section, items: buckets[section] }));
@@ -113,7 +115,7 @@ function reverseUsage(id) {
             </header>
 
             <!-- Sections grid: Pages + components, side by side on wide viewports -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+            <div class="@container"><div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-6 items-start">
 
                 <!-- Pages section -->
                 <section v-show="pages.length > 0">
@@ -130,10 +132,10 @@ function reverseUsage(id) {
                         <div v-for="(page, idx) in pages" :key="page.id"
                              :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="px-5 py-3">
                             <div class="flex items-center gap-2 flex-wrap justify-between min-h-7">
-                                <div class="flex items-baseline gap-2 flex-wrap min-w-0">
+                                <div class="flex flex-col items-start min-w-0">
                                     <a href="#" @click.prevent="select({ id: page.id, type: 'page' })"
                                        class="font-semibold text-zinc-900 hover:text-zinc-500 dark:text-zinc-100 dark:hover:text-zinc-400 transition-colors">{{ page.name ?? page.id }}</a>
-                                    <code class="text-xs font-mono text-zinc-400">{{ page.id }}</code>
+                                    <code class="text-xs font-mono text-zinc-400 max-w-full break-all">{{ page.id }}</code>
                                 </div>
                                 <div v-if="linksFor(page).length > 0" class="flex items-center gap-1 shrink-0">
                                     <a v-for="link in linksFor(page)" :key="link.key"
@@ -210,10 +212,10 @@ function reverseUsage(id) {
                         <div v-for="(item, idx) in block.items" :key="item.id"
                              :class="idx > 0 && 'border-t border-zinc-100 dark:border-zinc-700'" class="px-5 py-3">
                             <div class="flex items-center gap-2 flex-wrap justify-between min-h-7">
-                                <div class="flex items-baseline gap-2 flex-wrap min-w-0">
+                                <div class="flex flex-col items-start min-w-0">
                                     <a href="#" @click.prevent="select({ id: item.id, type: 'component' })"
                                        class="font-semibold text-zinc-900 hover:text-zinc-500 dark:text-zinc-100 dark:hover:text-zinc-400 transition-colors">{{ item.name ?? item.id }}</a>
-                                    <code class="text-xs font-mono text-zinc-400">{{ item.id }}</code>
+                                    <code class="text-xs font-mono text-zinc-400 max-w-full break-all">{{ item.id }}</code>
                                 </div>
                                 <div v-if="linksFor(item).length > 0" class="flex items-center gap-1 shrink-0">
                                     <a v-for="link in linksFor(item)" :key="link.key"
@@ -250,7 +252,7 @@ function reverseUsage(id) {
                         </div>
                     </div>
                 </section>
-            </div>
+            </div></div>
         </div>
     </div>
 </template>

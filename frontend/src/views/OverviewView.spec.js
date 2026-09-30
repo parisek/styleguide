@@ -32,6 +32,22 @@ describe('OverviewView', () => {
         expect(wrapper.text()).toContain('GB block');
     });
 
+    it('lists Pages first, then Blocks, then the other sections, under group_by: kind', async () => {
+        const { wrapper, catalog } = await mountOverview();
+        catalog.componentsGroupBy = 'kind';
+        catalog.items = [
+            { id: 'btn', name: 'Button', kind: 'element', has_styleguide: true },
+            { id: 'nav', name: 'Nav part', kind: 'part', has_styleguide: true },
+            { id: 'hero', name: 'Hero', kind: 'block', has_styleguide: true },
+            { id: 'top', name: 'Top', kind: 'section', has_styleguide: true },
+        ];
+        useI18nStore().strings.sections = { blocks: 'Blocks', sections: 'Sections', basic: 'Basic', parts: 'Parts' };
+        await flushPromises();
+        const headings = wrapper.findAll('h2').map((h) => h.text());
+        expect(headings.slice(0, 3)).toEqual(['Pages', 'Blocks', 'Basic']);
+        expect(headings).toEqual(['Pages', 'Blocks', 'Basic', 'Parts', 'Sections']);
+    });
+
     it('shows a Figma link icon for an item carrying a figma metadata field', async () => {
         const { wrapper } = await mountOverview();
         expect(wrapper.find('a[href="https://figma/hero"]').exists()).toBe(true);
