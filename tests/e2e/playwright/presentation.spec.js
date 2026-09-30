@@ -2,8 +2,8 @@ import { test, expect } from '@playwright/test';
 
 // The fixture with the opt-in presentation keys switched on, served by the
 // third webServer in frontend/playwright.config.js (SG_PRESENTATION=1, read
-// by tests/fixtures/index.php): `pages.group_by: category` and
-// `overview.default: grid`.
+// by tests/fixtures/index.php): `pages.group_by: category`,
+// `overview.default: grid` and `builtin_pages: { fields: false, overview: false }`.
 const ORIGIN = 'http://127.0.0.1:8424';
 
 test.describe('pages grouped by category', () => {
@@ -31,5 +31,25 @@ test.describe('pages grouped by category', () => {
         await page.locator('aside').getByRole('button', { name: /^(Stránky|Pages)/ }).click();
         await expect(page.getByTestId('sidebar-page-group')).toHaveCount(0);
         await expect(page.locator('aside').getByRole('link', { name: 'Contact' })).toBeVisible();
+    });
+});
+
+test.describe('builtin_pages', () => {
+    test('a page switched off is gone from the sidebar and its URL shows the landing', async ({ page }) => {
+        await page.goto(`${ORIGIN}/styleguide/`);
+        const docs = page.locator('aside nav');
+        await expect(docs.getByRole('link', { name: /^(Základy|Foundations)$/ })).toBeVisible();
+        await expect(docs.getByRole('link', { name: /^(Náhledy|Previews)$/ })).toBeVisible();
+        await expect(docs.getByRole('link', { name: /^(Přehled|Overview)$/ })).toHaveCount(0);
+        await expect(docs.getByRole('link', { name: /^(Pole|Fields)$/ })).toHaveCount(0);
+
+        await page.goto(`${ORIGIN}/styleguide/overview`);
+        await expect(page).toHaveURL(`${ORIGIN}/styleguide/`);
+        await expect(page.getByTestId('grid-tile').first()).toBeVisible();
+    });
+
+    test('without the key every page stays', async ({ page }) => {
+        await page.goto('/styleguide/foundations');
+        await expect(page.locator('aside nav').getByRole('link', { name: /^(Přehled|Overview)$/ })).toBeVisible();
     });
 });

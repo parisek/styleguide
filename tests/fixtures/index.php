@@ -34,6 +34,7 @@ if (getenv('SG_PRESENTATION')) {
     $presentation = Yaml::parseFile($configYaml);
     $presentation['pages'] = ['group_by' => 'category'];
     $presentation['overview'] = ['default' => 'grid'];
+    $presentation['builtin_pages'] = ['fields' => false, 'overview' => false];
     $configYaml = sys_get_temp_dir() . '/sg-fixture-presentation.yaml';
     file_put_contents($configYaml, Yaml::dump($presentation, 8));
 }

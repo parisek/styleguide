@@ -1,3 +1,4 @@
+import { resetRuntimeConfig } from '../lib/runtimeConfig.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
@@ -39,6 +40,8 @@ function stubSgConfig(overrides = {}) {
         locale: 'cs', projectName: 'Styleguide', favicon: '', title: 'Styleguide', baseUrl: '/styleguide', ...overrides,
     });
     document.body.appendChild(el);
+    // lib/runtimeConfig.js caches the payload; a new stub must be read anew.
+    resetRuntimeConfig();
 }
 
 async function mountSidebar(initialPath = '/foundations', mountOptions = {}) {
@@ -261,6 +264,15 @@ describe('Sidebar', () => {
     // Standalone icon catalog (#87): the nav entry is gated on the
     // server-side yaml-shape check injected as sg-config `hasIcons`, so
     // projects without an icons: block never render a dead menu item.
+    it('hides the pages a project switched off in builtin_pages', async () => {
+        stubSgConfig({ disabledPages: ['overview', 'foundations'], landing: 'grid' });
+        const { wrapper } = await mountSidebar('/grid');
+        const texts = wrapper.findAll('a').map((a) => a.text());
+        expect(texts).not.toContain('Overview');
+        expect(texts).not.toContain('Foundations');
+        expect(texts).toContain('Previews');
+    });
+
     it('hides the Icons nav item when sg-config carries no hasIcons flag', async () => {
         const { wrapper } = await mountSidebar();
         expect(wrapper.findAll('a').find((a) => a.text() === 'Icons')).toBeUndefined();
