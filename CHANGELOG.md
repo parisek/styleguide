@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`builtin_pages` switches off the package's own pages.** In
+  `styleguide.yaml`, `builtin_pages: { fields: false, overview: false }`
+  removes Pole / Fields and Přehled / Overview from the sidebar, and their
+  URLs show the landing instead. Any of `foundations`, `icons`, `fields`,
+  `overview`, `grid` can be switched off. Switching Foundations off makes
+  the grid the landing. The landing cannot be switched off, and an unknown
+  page or a non-boolean throws at construction. Absent, nothing changes;
+  the SPA receives `disabledPages` only when a page is off.
+
 ## [1.26.0] - 2026-09-30
 
 ### Added

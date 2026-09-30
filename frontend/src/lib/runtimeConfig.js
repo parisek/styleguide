@@ -53,6 +53,11 @@ function config() {
             // `overview.default: grid` in styleguide.yaml: the bare mount
             // lands on the overview grid. Anything else keeps Foundations.
             landing: raw.landing === 'grid' ? 'grid' : 'foundations',
+            // `builtin_pages` in styleguide.yaml: the package's own pages a
+            // project switched off. Unknown names are dropped.
+            disabledPages: Array.isArray(raw.disabledPages)
+                ? raw.disabledPages.filter((p) => BUILTIN_PAGES.includes(p))
+                : [],
         };
     }
     return cached;
@@ -85,6 +90,15 @@ export function sourceViews() {
 // `viewports.compare` from styleguide.yaml, e.g. [1440, 768, 320], or null.
 export function compareWidths() {
     return config().compareWidths;
+}
+
+// The package's own pages, which `builtin_pages` can switch off.
+export const BUILTIN_PAGES = ['foundations', 'icons', 'fields', 'overview', 'grid'];
+
+// Whether one of the package's own pages is on (the sidebar shows it, its
+// route renders it). Every page is on unless the payload names it.
+export function pageEnabled(name) {
+    return !config().disabledPages.includes(name);
 }
 
 // What the bare mount (`/styleguide/`) shows: 'grid' or 'foundations'.

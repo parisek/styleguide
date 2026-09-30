@@ -17,6 +17,21 @@ afterEach(() => {
     resetRuntimeConfig();
 });
 
+describe('routeInfo — builtin_pages', () => {
+    it('shows the landing for a page switched off', () => {
+        injectConfig({ disabledPages: ['overview', 'fields'] });
+        expect(routeInfo({ name: 'overview', params: {} })).toEqual({ type: 'foundations', slug: null });
+        expect(routeInfo({ name: 'fields', params: {} })).toEqual({ type: 'foundations', slug: null });
+        expect(routeInfo({ name: 'grid', params: {} })).toEqual({ type: 'grid', slug: null });
+    });
+
+    it('lands on the grid, also for unknown paths, once Foundations is off', () => {
+        injectConfig({ disabledPages: ['foundations'], landing: 'grid' });
+        expect(routeInfo({ name: 'foundations', params: {} })).toEqual({ type: 'grid', slug: null });
+        expect(routeInfo({ name: 'not-found-fallback', params: {} })).toEqual({ type: 'grid', slug: null });
+    });
+});
+
 describe('routeInfo', () => {
     it('maps component/page/doc routes with their slug param', () => {
         expect(routeInfo({ name: 'component', params: { slug: 'hero' } })).toEqual({ type: 'component', slug: 'hero' });

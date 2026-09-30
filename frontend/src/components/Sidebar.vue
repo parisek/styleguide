@@ -8,6 +8,7 @@ import { useThemeStore } from '../stores/theme.js';
 import { filterItems, matchedAlias } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
+import { pageEnabled } from '../lib/runtimeConfig.js';
 import { groupPagesByCategory } from '../lib/pageGroups.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
 // Read directly rather than `import { config } from '../main.js'`: main.js
@@ -248,7 +249,7 @@ function categoryGroupKey(group) {
                      height transition the way `visibility: hidden` would. -->
                 <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections.docs || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections.docs || ui.searchQuery)">
                 <ul class="mt-1 space-y-0.5 overflow-hidden">
-                    <li>
+                    <li v-if="pageEnabled('foundations')">
                         <a href="#" @click.prevent="select('foundations', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('foundations', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.foundations') }}</span>
                         </a>
@@ -256,7 +257,7 @@ function categoryGroupKey(group) {
                     <!-- Standalone icon catalog (#87) — gated on the server-side
                          yaml-shape check (sg-config hasIcons) so projects without
                          an icons: block don't get a dead menu entry. -->
-                    <li v-if="config.hasIcons">
+                    <li v-if="config.hasIcons && pageEnabled('icons')">
                         <a href="#" @click.prevent="select('icons', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('icons', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.icons') }}</span>
                         </a>
@@ -266,19 +267,19 @@ function categoryGroupKey(group) {
                          server-injected config flag like Icons above, since
                          "any component declares fields" is only known once
                          the components API response has landed. -->
-                    <li v-if="catalog.hasFields">
+                    <li v-if="catalog.hasFields && pageEnabled('fields')">
                         <a href="#" @click.prevent="select('fields', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('fields', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.fields') }}</span>
                         </a>
                     </li>
-                    <li>
+                    <li v-if="pageEnabled('overview')">
                         <a href="#" @click.prevent="select('overview', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('overview', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.overview') }}</span>
                         </a>
                     </li>
                     <!-- The overview grid (1.24.0): every entry as a live
                          preview tile, next to the Overview index. -->
-                    <li>
+                    <li v-if="pageEnabled('grid')">
                         <a href="#" data-testid="sidebar-grid-link" @click.prevent="select('grid', null)" class="block px-3.5 py-2 text-sm rounded-lg transition-colors" :class="isActive('grid', null) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'">
                             <span>{{ i18n.t('nav.grid') }}</span>
                         </a>

@@ -82,6 +82,12 @@ final class Styleguide
 
     /** `overview.default`, validated; 'foundations' when absent */
     private string $landing;
+
+    /** @var list<string> `builtin_pages` switched off, validated; empty when absent */
+    private array $disabledPages;
+
+    /** The package's own pages `builtin_pages` can switch off. */
+    private const BUILTIN_PAGES = ['foundations', 'icons', 'fields', 'overview', 'grid'];
     private Environment $twig;
     private ComponentParser $parser;
     private Renderer $renderer;
@@ -349,6 +355,8 @@ final class Styleguide
         $this->sourceUrl = self::sourceUrl($this->yamlConfig['source_url'] ?? null);
         $this->sourceViews = self::sourceViews($this->yamlConfig['source_views'] ?? null);
         $this->landing = self::landing($this->yamlConfig['overview'] ?? null);
+        $this->disabledPages = self::disabledPages($this->yamlConfig['builtin_pages'] ?? null);
+        $this->landing = self::landingAmong($this->landing, $this->disabledPages, isset($this->yamlConfig['overview']['default']));
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
         // throwaway temp dir so writing a synthetic index.html fixture doesn't
@@ -3127,6 +3135,11 @@ final class Styleguide
         if ($this->landing === 'grid') {
             $config['landing'] = 'grid';
         }
+        // The pages a project switched off: gone from the sidebar, and their
+        // routes show the landing instead. Absent when none is off.
+        if ($this->disabledPages !== []) {
+            $config['disabledPages'] = $this->disabledPages;
+        }
         $configJson = json_encode(
             $config,
             JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG,
@@ -3667,6 +3680,65 @@ final class Styleguide
         }
 
         return $default;
+    }
+
+    /**
+     * `builtin_pages` in styleguide.yaml: which of the package's own pages a
+     * project switches off, as `{ <page>: false }`. A catalogue that has no
+     * use for a page (a fields overview nobody reads, an index the grid
+     * already covers) should not show it. Every page stays on unless named
+     * with `false`, so a catalogue without the key is unchanged. A list, an
+     * unknown page or a non-boolean throws at construction: a typo must not
+     * leave a page on silently.
+     *
+     * @return list<string>
+     */
+    private static function disabledPages(mixed $builtinPages): array
+    {
+        if ($builtinPages === null) {
+            return [];
+        }
+        if (!is_array($builtinPages) || ($builtinPages !== [] && array_is_list($builtinPages))) {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `builtin_pages` is a map of page => true|false, e.g. { fields: false }',
+            );
+        }
+        $disabled = [];
+        foreach ($builtinPages as $page => $on) {
+            if (!in_array($page, self::BUILTIN_PAGES, true) || !is_bool($on)) {
+                throw new \InvalidArgumentException(sprintf(
+                    'styleguide.yaml: `builtin_pages` accepts %s, each true or false',
+                    implode(', ', self::BUILTIN_PAGES),
+                ));
+            }
+            if (!$on) {
+                $disabled[] = $page;
+            }
+        }
+
+        return array_values(array_intersect(self::BUILTIN_PAGES, $disabled));
+    }
+
+    /**
+     * The landing once `builtin_pages` has had its say. A written
+     * `overview.default` must name a page that is on. Without one, a
+     * catalogue that switched Foundations off lands on the grid. When
+     * neither can be the landing there is nothing to show at the mount.
+     *
+     * @param list<string> $disabled
+     */
+    private static function landingAmong(string $landing, array $disabled, bool $written): string
+    {
+        if (!in_array($landing, $disabled, true)) {
+            return $landing;
+        }
+        if (!$written && !in_array('grid', $disabled, true)) {
+            return 'grid';
+        }
+        throw new \InvalidArgumentException(sprintf(
+            'styleguide.yaml: `builtin_pages` switches off "%s", which is the landing; keep it on or set `overview.default` to a page that is on',
+            $landing,
+        ));
     }
 
     /**

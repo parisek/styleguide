@@ -502,6 +502,13 @@ viewports:
 overview:
   default: grid
 
+# The package's own pages — optional. Each is on unless set to false; a page
+# switched off leaves the sidebar and its URL shows the landing. See
+# "Switching off the package's pages" below.
+builtin_pages:
+  fields: false
+  overview: false
+
 # Pages grouped by category — optional. The sidebar lists one collapsible
 # group per page `category` (lowest weight first, uncategorised last).
 # Absent: a flat list. See "Pages grouped by category" below.
@@ -603,6 +610,18 @@ Side by side, each iframe renders at its real width and scales down into its col
 In the variant grid, every tile gets its own strip and the grid shows one tile per row. The grid composes with compare mode instead of isolating one tile: scanning many layouts at every width is what the mode is for. Every compare iframe loads lazily (`loading="lazy"`), so a family with dozens of tiles loads only what is on screen. The tile density and the orientation switch rest while comparing. The ticked widths persist in the browser (`localStorage`, `sg-preview-compare`), as the single width does.
 
 A malformed `viewports.compare` (one width, five widths, a string, a width out of range) throws at construction.
+
+### Switching off the package's pages
+
+The sidebar's DOKUMENTACE group starts with the package's own pages: Základy / Foundations, Ikony / Icons, Pole / Fields, Přehled / Overview and Náhledy / Previews (the grid). A catalogue that has no use for one switches it off in `styleguide.yaml`:
+
+```yaml
+builtin_pages:
+  fields: false     # the fields overview across components
+  overview: false   # the index; the grid shows the same entries with previews
+```
+
+A page switched off leaves the sidebar, and its URL shows the landing instead. Every page is on unless named with `false`, so a catalogue without the key is unchanged. Switching Foundations off makes the grid the landing (and an unknown path shows the grid too). The landing itself cannot be switched off: `overview.default: grid` with `grid: false`, or Foundations and the grid both off, throws at construction, as does an unknown page name or a value that is not `true` or `false`. The per-component Fields drawer under a preview is not a page and stays.
 
 ### Overview grid
 

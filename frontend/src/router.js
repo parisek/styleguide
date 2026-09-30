@@ -7,7 +7,7 @@ import FoundationsView from './views/FoundationsView.vue';
 import FieldsView from './views/FieldsView.vue';
 import GridView from './views/GridView.vue';
 import LandingView from './views/LandingView.vue';
-import { baseUrl } from './lib/runtimeConfig.js';
+import { baseUrl, pageEnabled, BUILTIN_PAGES } from './lib/runtimeConfig.js';
 
 // Route table mirrors frontend/router.js's regex exactly:
 //   ^/styleguide(?:\/(component|page|doc|overview|foundations|fields)(?:\/(.+?))?\/?$
@@ -47,7 +47,9 @@ const routes = [
     { path: '/fields', name: 'fields', component: FieldsView },
     // Any unmatched path falls back to the landing/foundations view, same
     // as the legacy parse()'s `if (!m) return { type: 'landing', slug: null }`.
-    { path: '/:pathMatch(.*)*', name: 'not-found-fallback', component: FoundationsView },
+    // With Foundations switched off (`builtin_pages`), it renders the
+    // landing instead, which is then the grid.
+    { path: '/:pathMatch(.*)*', name: 'not-found-fallback', component: pageEnabled('foundations') ? FoundationsView : LandingView },
 ];
 
 export const router = createRouter({
@@ -60,6 +62,9 @@ export const router = createRouter({
 // ordering guarantee the legacy code calls out as load-bearing (avoids a
 // race with cached iframe `load` events firing before isLoading flips true).
 router.beforeEach((to) => {
+    // A page switched off in `builtin_pages` (styleguide.yaml) is not a
+    // place to be: its URL goes to the landing.
+    if (BUILTIN_PAGES.includes(to.name) && !pageEnabled(to.name)) return { path: '/', replace: true };
     const ui = useUiStore();
     const { type, slug } = routeInfo(to);
     ui.setRoute(type, slug);

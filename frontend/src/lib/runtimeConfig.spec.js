@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, highlightSource, sourceViews, compareWidths, landing } from './runtimeConfig.js';
+import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, highlightSource, sourceViews, compareWidths, landing, pageEnabled } from './runtimeConfig.js';
 
 function inject(payload) {
     const el = document.createElement('script');
@@ -48,6 +48,18 @@ describe('runtimeConfig', () => {
         document.body.innerHTML = '';
         inject({ baseUrl: '/two' });
         expect(baseUrl()).toBe('/one');
+    });
+});
+
+describe('pageEnabled', () => {
+    it('is true for every page unless the payload switches it off', () => {
+        inject({});
+        expect(pageEnabled('fields')).toBe(true);
+        document.body.innerHTML = '';
+        resetRuntimeConfig();
+        inject({ disabledPages: ['fields', 'nonsense'] });
+        expect(pageEnabled('fields')).toBe(false);
+        expect(pageEnabled('overview')).toBe(true);
     });
 });
 

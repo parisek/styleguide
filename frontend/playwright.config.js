@@ -48,7 +48,7 @@ export default defineConfig({
             timeout: 10_000,
         },
         // The same fixture with the opt-in presentation keys on
-        // (`pages.group_by`, `overview.default`), for presentation.spec.js and
+        // (`pages.group_by`, `overview.default`, `builtin_pages`), for presentation.spec.js and
         // grid.spec.js.
         // SG_PRESENTATION is read by tests/fixtures/index.php.
         {
