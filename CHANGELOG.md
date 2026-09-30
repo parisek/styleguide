@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.27.0] - 2026-09-30
+
 ### Added
 
 - **`builtin_pages` switches off the package's own pages.** In
