@@ -138,6 +138,27 @@ describe('useViewportPreset', () => {
         expect(vp.effective.value).toEqual({ width: null, height: null });
     });
 
+    it('a responsive:false entry ignores a phone preset picked elsewhere: no bezel, no chassis, full width', () => {
+        // The preset persists in the UI store. A doc has no toolbar to clear it,
+        // so it used to inherit the phone frame and the rotate button.
+        const ui = useUiStore();
+        ui.previewWidth = '375px';
+        ui.previewHeight = 667;
+        const type = ref('doc');
+        const slug = ref('sample-doc');
+        const catalog = useCatalogStore();
+        catalog.docs = [{ id: 'sample-doc', name: 'Sample doc', responsive: false }];
+        const vp = useViewportPreset({ type, slug });
+        expect(vp.activePresetCategory.value).toBe('full');
+        expect(vp.isFullPreset.value).toBe(true);
+
+        // The same stored preset still applies to a responsive entry.
+        catalog.items = [{ id: 'button', name: 'Button' }];
+        const other = useViewportPreset({ type: ref('component'), slug: ref('button') });
+        expect(other.activePresetCategory.value).toBe('mobile');
+        expect(other.isFullPreset.value).toBe(false);
+    });
+
     // gridActive replaces the never-shipped variantSwitcherVisible pill
     // gate: the whole preview area becomes a tile grid whenever the current
     // entry has discovered variants and no `?variant=` is selected.
