@@ -691,6 +691,29 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function typography_alias_keeps_the_source_string_for_any_host_translator_needing_injected_arguments(): void
+    {
+        // The same guard, whatever shape the host callable has and whichever
+        // injected argument it asks for.
+        foreach (['needs_environment', 'needs_context'] as $option) {
+            $env = new Environment(new ArrayLoader());
+            $env->addFunction(new TwigFunction(
+                '_x',
+                static fn(mixed $injected, string $t, string $c = '', string $d = 'default'): string => 'HOST:' . $t,
+                [$option => true],
+            ));
+            $sg = new Styleguide([
+                'templates_path' => __DIR__ . '/fixtures/templates',
+                'static_path' => __DIR__ . '/fixtures',
+                'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+                'twig' => $env,
+            ]);
+
+            self::assertSame('hi', self::twigOf($sg)->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render(), $option);
+        }
+    }
+
+    #[Test]
     public function project_preregistered_helper_wins_without_throwing(): void
     {
         $env = new Environment(new ArrayLoader());

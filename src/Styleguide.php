@@ -1597,14 +1597,15 @@ final class Styleguide
         // `is_callable()` rejects. Twig resolves them through its runtime
         // loaders, so do the same. Without this every `…t` alias fell back to
         // the source string and never translated, whatever the catalogue held.
-        if (is_array($callable) && is_string($callable[0] ?? null) && !is_callable($callable)) {
-            // Twig would prepend the environment and the context for these
-            // options; the aliases hold neither, so calling the runtime with
-            // the bare arguments would shift them. Keep the source string.
-            if (null !== $function && ($function->needsEnvironment() || $function->needsContext())) {
-                return $fallback;
-            }
+        // Twig prepends the environment and the context for these options. The
+        // aliases hold neither, so any callable shape (closure, invokable,
+        // static or runtime method) would be called with shifted arguments.
+        // Keep the source string.
+        if (null !== $function && ($function->needsEnvironment() || $function->needsContext())) {
+            return $fallback;
+        }
 
+        if (is_array($callable) && is_string($callable[0] ?? null) && !is_callable($callable)) {
             try {
                 $callable = [$twig->getRuntime($callable[0]), $callable[1] ?? ''];
             } catch (\Twig\Error\RuntimeError) {
