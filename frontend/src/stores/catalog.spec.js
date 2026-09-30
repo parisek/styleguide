@@ -119,6 +119,17 @@ describe('useCatalogStore', () => {
         ]);
     });
 
+    it('with componentsTree off, treeOf lists every component flat in the server order', () => {
+        const catalog = useCatalogStore();
+        catalog.componentsTree = false;
+        catalog.items = [
+            { id: 'widget-one', name: 'Widget - one', category: 'Block' },
+            { id: 'widget-two', name: 'Widget - two', category: 'Block' },
+            { id: 'widget-three', name: 'Widget - three', category: 'Block' },
+        ];
+        expect(catalog.treeOf('blocks').map((n) => `${n.type}:${n.item.id}`)).toEqual(['item:widget-one', 'item:widget-two', 'item:widget-three']);
+    });
+
     it('find() looks up by id in the type-appropriate list', () => {
         const catalog = useCatalogStore();
         catalog.items = [{ id: 'hero', name: 'Hero' }];

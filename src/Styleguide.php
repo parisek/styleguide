@@ -71,6 +71,7 @@ final class Styleguide
 
     /** `components.group_by`, validated; null when absent */
     private ?string $componentsGroupBy;
+    private bool $componentsTree = true;
     /** `highlight_source`, validated; true when absent */
     private bool $highlightSource;
 
@@ -351,6 +352,7 @@ final class Styleguide
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
         $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
+        $this->componentsTree = self::componentsTree($this->yamlConfig['components'] ?? null);
         $this->highlightSource = self::highlightSource($this->yamlConfig['highlight_source'] ?? null);
         $this->sourceUrl = self::sourceUrl($this->yamlConfig['source_url'] ?? null);
         $this->sourceViews = self::sourceViews($this->yamlConfig['source_views'] ?? null);
@@ -3130,6 +3132,11 @@ final class Styleguide
         if ($this->componentsGroupBy !== null) {
             $config['componentsGroupBy'] = $this->componentsGroupBy;
         }
+        // A flat list only when asked (`components.tree: false`): the payload
+        // of a catalogue without the key stays as it was.
+        if (!$this->componentsTree) {
+            $config['componentsTree'] = false;
+        }
         // Only for the grid: a catalogue that lands on Foundations (the
         // default, or written out) sends the same payload as before.
         if ($this->landing === 'grid') {
@@ -3655,6 +3662,27 @@ final class Styleguide
         }
 
         return $groupBy;
+    }
+
+    /**
+     * `components.tree` in styleguide.yaml: whether the sidebar groups the
+     * components of a section (`true`, the default) or lists them flat, each
+     * row with its variant count (`false`). Not a boolean throws at
+     * construction; a `components` that is not a map is left to the project.
+     */
+    private static function componentsTree(mixed $components): bool
+    {
+        if (!is_array($components) || array_is_list($components)) {
+            return true;
+        }
+        $tree = $components['tree'] ?? true;
+        if (!is_bool($tree)) {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `components.tree` accepts only true or false (false lists the components flat)',
+            );
+        }
+
+        return $tree;
     }
 
     /**

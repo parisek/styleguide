@@ -206,6 +206,32 @@ describe('Sidebar', () => {
         expect(group.attributes('aria-expanded')).toBe('true');
     });
 
+    it('with componentsTree off, lists components flat and shows the variant count the tile shows', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.componentsTree = false;
+        catalog.items = [
+            { id: 'hero', name: 'Hero', category: 'Block', has_styleguide: true, has_default_variant: true, variants: [{ id: 'a' }, { id: 'b' }] },
+            { id: 'button', name: 'Button', category: 'Block', has_styleguide: true, variants: [] },
+            { id: 'widget-one', name: 'Widget - one', category: 'Block', has_styleguide: true },
+            { id: 'widget-two', name: 'Widget - two', category: 'Block', has_styleguide: true },
+            { id: 'widget-three', name: 'Widget - three', category: 'Block', has_styleguide: true },
+        ];
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('[aria-expanded]').some((b) => b.text().startsWith('Widget'))).toBe(false);
+        expect(wrapper.text()).toContain('Widget - three');
+        const counts = wrapper.findAll('[data-testid="sidebar-variant-count"]').map((c) => c.text());
+        expect(counts).toEqual(['3']);
+    });
+
+    it('with the tree on, rows carry no variant count', async () => {
+        const { wrapper } = await mountSidebar();
+        const catalog = useCatalogStore();
+        catalog.items = [{ id: 'hero', name: 'Hero', category: 'Block', has_styleguide: true, variants: [{ id: 'a' }] }];
+        await wrapper.vm.$nextTick();
+        expect(wrapper.find('[data-testid="sidebar-variant-count"]').exists()).toBe(false);
+    });
+
     it('fills sections missing from a stored state with their defaults, keeping stored choices', async () => {
         localStorage.setItem('sg-sections', JSON.stringify({ docs: true, basic: false, blocks: true, gutenberg: false, pages: false }));
         await mountSidebar();

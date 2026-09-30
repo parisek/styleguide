@@ -521,6 +521,10 @@ pages:
 # the sections by category. See "Component sections by kind" below.
 components:
   group_by: kind
+  # Flat list — optional. `false` lists each section's components flat, no
+  # groups, each row with its variant count. Absent: the groups.
+  # See "Flat component list" below.
+  tree: false
 
 # Fixture source ("Code" toggle on each variant tile). Absent: on only when
 # the `auth` constructor callable is set. A catalogue guarded some other way
@@ -646,6 +650,10 @@ Without the key the Pages section stays a flat list. Any other value throws at c
 The same sections drive the overview grid's filter chips, its tile size (Basic elements, Parts and Utilities render at 480 × 300, the rest at 1280 × 800) and the overview's columns.
 
 Without the key the sections come from `category` as before: `gutenberg` is Gutenberg, `block`, `blocks` and `layout` are Blocks, anything else is Basic elements. Any other value than `kind` throws at construction.
+
+### Flat component list
+
+`components.tree: false` lists the components of every sidebar section flat, without the groups (neither the prefix groups nor the `group_by: kind` category groups). Each row shows its variant count on the right, counted as the overview grid's tile badge counts it: every tile the component's own variant grid shows, the default included. A component without variants shows no number. The order stays the server order: `weight`, then name. While the sidebar filter has a query the list is flat as before. A value other than `true` or `false` throws at construction. Without the key nothing changes, and the rows carry no count.
 
 ### iframe asset paths — resolved against `templateUrl`
 

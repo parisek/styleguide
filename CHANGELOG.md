@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`components.tree: false` lists the components flat, with variant
+  counts.** In `styleguide.yaml`, `components: { tree: false }` drops the
+  sidebar groups and shows each component's variant count on its row, the
+  number the grid tile badge shows. The order stays `weight`, then name.
+  A non-boolean throws at construction. Absent, nothing changes; the SPA
+  receives `componentsTree` only when it is `false`.
+
 ## [1.27.0] - 2026-09-30
 
 ### Added

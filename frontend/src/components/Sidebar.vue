@@ -8,6 +8,7 @@ import { useThemeStore } from '../stores/theme.js';
 import { filterItems, matchedAlias } from '../lib/searchMatch.js';
 import { usePersistedRef } from '../lib/persistedRef.js';
 import { routeInfo } from '../lib/routeInfo.js';
+import { variantCountOf } from '../lib/catalogGrid.js';
 import { pageEnabled } from '../lib/runtimeConfig.js';
 import { groupPagesByCategory } from '../lib/pageGroups.js';
 import HealthWarningBadge from './HealthWarningBadge.vue';
@@ -346,10 +347,11 @@ function categoryGroupKey(group) {
                             v-if="node.type === 'item'"
                             href="#"
                             @click.prevent="select('component', node.item.id)"
-                            class="block px-3.5 py-2 text-sm rounded-lg transition-colors"
+                            class="flex items-baseline px-3.5 py-2 text-sm rounded-lg transition-colors"
                             :class="isActive('component', node.item.id) ? 'bg-red-600/10 text-red-700 font-semibold dark:bg-red-400/15 dark:text-red-400' : 'text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white'"
                         >
                             <span>{{ node.item.name ?? node.item.id }}</span>
+                            <span v-if="!catalog.componentsTree && variantCountOf(node.item) > 0" data-testid="sidebar-variant-count" :title="`${i18n.t('grid.variants')}: ${variantCountOf(node.item)}`" class="ml-auto text-xs text-zinc-400 dark:text-zinc-600 font-semibold tabular-nums">{{ variantCountOf(node.item) }}</span>
                         </a>
                         <!-- Group row: no chevron -- the count badge alone signals
                              a group, and dropping the arrow glyph lets the label
