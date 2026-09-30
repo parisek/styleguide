@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.28.1] - 2026-09-30
+
 ### Fixed
 
 - **`_xt()`, `__t()`, `_nt()` and `_nxt()` translate again.** Since 1.18.0 the
