@@ -517,14 +517,10 @@ pages:
 
 # Component sections by kind — optional. The sidebar, the grid chips and the
 # overview sort components by `kind` (Blocks, Page sections, Basic elements,
-# Parts, Utilities) and group them by `category` inside a section. Absent:
-# the sections by category. See "Component sections by kind" below.
+# Parts, Utilities). Absent: the sections by category. See "Component
+# sections by kind" below.
 components:
   group_by: kind
-  # Flat list — optional. `false` lists each section's components flat, no
-  # groups, each row with its variant count. Absent: the groups.
-  # See "Flat component list" below.
-  tree: false
 
 # Fixture source ("Code" toggle on each variant tile). Absent: on only when
 # the `auth` constructor callable is set. A catalogue guarded some other way
@@ -645,15 +641,15 @@ Without the key the Pages section stays a flat list. Any other value throws at c
 
 ### Component sections by kind
 
-`components.group_by: kind` sorts the components into sidebar sections by their `kind` metadata instead of their `category`: `block` → Blocks, `section` → Page sections, `element` → Basic elements, `part` → Parts, `utility` → Utilities. The sections read composite first, the way a page is read: Blocks, Page sections, then Basic elements, Parts and Utilities. `category` is then free for what it names, and becomes the group inside a section: a category with two or more entries is one collapsible group, a category with one entry stays a flat item. Groups keep the server order (weight, then name). A component without a valid `kind` falls back to the rule by category, so a catalogue can move over one component at a time.
+`components.group_by: kind` sorts the components into sidebar sections by their `kind` metadata instead of their `category`: `block` → Blocks, `section` → Page sections, `element` → Basic elements, `part` → Parts, `utility` → Utilities. The sections read composite first, the way a page is read: Blocks, Page sections, then Basic elements, Parts and Utilities. `category` is then free for what it names. A component without a valid `kind` falls back to the rule by category, so a catalogue can move over one component at a time.
 
 The same sections drive the overview grid's filter chips, its tile size (Basic elements, Parts and Utilities render at 480 × 300, the rest at 1280 × 800) and the overview's columns.
 
 Without the key the sections come from `category` as before: `gutenberg` is Gutenberg, `block`, `blocks` and `layout` are Blocks, anything else is Basic elements. Any other value than `kind` throws at construction.
 
-### Flat component list
+### The component list
 
-`components.tree: false` lists the components of every sidebar section flat, without the groups (neither the prefix groups nor the `group_by: kind` category groups). Each row shows its variant count on the right, counted as the overview grid's tile badge counts it: every tile the component's own variant grid shows, the default included. A component without variants shows no number. The order stays the server order: `weight`, then name. While the sidebar filter has a query the list is flat as before. A value other than `true` or `false` throws at construction. Without the key nothing changes, and the rows carry no count.
+Every sidebar section lists its components flat, in the server order (`weight`, then name). There are no groups. Each row shows its variant count on the right, counted as the overview grid's tile badge counts it: every tile the component's own variant grid shows, the default included. A component without variants shows no number. The Pages section keeps its groups (see above).
 
 ### iframe asset paths — resolved against `templateUrl`
 

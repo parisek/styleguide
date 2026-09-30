@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { buildTree } from '../lib/prefixTree.js';
-import { sectionOf, sectionOrder, buildCategoryTree } from '../lib/componentSections.js';
+import { sectionOf, sectionOrder } from '../lib/componentSections.js';
 import { externalLinksFor } from '../lib/externalLinks.js';
 import { url } from '../lib/runtimeConfig.js';
 
@@ -19,8 +19,6 @@ export const useCatalogStore = defineStore('catalog', {
         // `components.group_by` from #sg-config, set by main.js before
         // init(): 'kind' or null (the legacy sections by category).
         componentsGroupBy: null,
-        // `components.tree` from #sg-config: false lists each section flat.
-        componentsTree: true,
     }),
     getters: {
         docEntries: (state) => state.docs,
@@ -75,14 +73,6 @@ export const useCatalogStore = defineStore('catalog', {
 
         bySection(section) {
             return this.items.filter((c) => this.sectionOf(c) === section && c.has_styleguide !== false);
-        },
-
-        // By kind, `category` names the groups inside a section; otherwise
-        // the groups come from the "<Prefix> - <Suffix>" names as before.
-        treeOf(section) {
-            const list = this.bySection(section);
-            if (!this.componentsTree) return list.map((item) => ({ type: 'item', item }));
-            return this.componentsGroupBy === 'kind' ? buildCategoryTree(list) : buildTree(list);
         },
 
         find(type, slug) {

@@ -75,16 +75,14 @@ test.describe('Styleguide SPA', () => {
     // itself carries no DOM node to freeze, so the inner div's v-show is a
     // normal (non-v-for) binding that re-evaluates on every update, matching
     // the legacy Alpine markup's `x-show` on the section wrapper.
-    test('a >=3 prefix cluster renders as a collapsible group with suffix-only children; a singleton stays flat', async ({ page }) => {
-        // Replaces smoke-browser.sh section 3c (issue #38 regression guard).
+    test('components are listed flat with their full names, no groups', async ({ page }) => {
         await page.goto('/styleguide/');
-        await expect(page.getByRole('button', { name: /^Widget/ })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'One', exact: true })).toBeVisible();
-        await expect(page.getByRole('link', { name: 'Widget - one', exact: true })).toHaveCount(0);
+        await expect(page.getByRole('link', { name: 'Widget - one', exact: true })).toBeVisible();
+        await expect(page.getByRole('button', { name: /^Widget/ })).toHaveCount(0);
         await expect(page.getByRole('link', { name: 'Gizmo', exact: true })).toBeVisible();
     });
 
-    test('a search query flattens the Widget group to full names', async ({ page }) => {
+    test('a search query keeps the full names', async ({ page }) => {
         // Same root cause as the fix above, now resolved: the "blocks"
         // section's wrapping div is no longer stuck at display:none from the
         // initial pre-fetch render.
@@ -297,11 +295,8 @@ test.describe('Styleguide SPA', () => {
         const sectionDivs = page.locator('aside nav > div');
         const countLinks = (index) => sectionDivs.nth(index).locator('a').count();
 
-        // Counting raw <a> elements (not getByRole('link')) intentionally
-        // includes both flat top-level items AND grouped children's leaf
-        // links from the prefix-tree grouping (buildTree()/GROUP_MIN) --
-        // group *headers* are <button>s, never <a>s, so they're never
-        // double-counted alongside their children.
+        // Counting raw <a> elements (not getByRole('link')): the component
+        // sections are flat lists now, one link per component.
         const basicLinks = await countLinks(1);
         const blocksLinks = await countLinks(2);
         const gutenbergLinks = await countLinks(3);

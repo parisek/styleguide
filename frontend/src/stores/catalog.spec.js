@@ -74,7 +74,7 @@ describe('useCatalogStore', () => {
         expect(catalog.sectionOf({}, 'page')).toBe('pages');
     });
 
-    it('with componentsGroupBy kind, sections come from kind and groups from category', () => {
+    it('with componentsGroupBy kind, sections come from kind', () => {
         const catalog = useCatalogStore();
         catalog.componentsGroupBy = 'kind';
         catalog.items = [
@@ -87,7 +87,6 @@ describe('useCatalogStore', () => {
         expect(catalog.componentSectionKeys).toEqual(['basic', 'parts', 'blocks', 'gutenberg', 'sections', 'utilities']);
         expect(catalog.bySection('blocks').map((c) => c.id)).toEqual(['hero', 'cart', 'checkout']);
         expect(catalog.bySection('sections').map((c) => c.id)).toEqual(['footer']);
-        expect(catalog.treeOf('blocks').map((n) => (n.type === 'group' ? `g:${n.label}` : n.item.id))).toEqual(['hero', 'g:Ecommerce']);
         expect(catalog.sectionOf({}, 'page')).toBe('pages');
     });
 
@@ -105,29 +104,6 @@ describe('useCatalogStore', () => {
             { id: 'b', category: 'Block', has_styleguide: false },
         ];
         expect(catalog.bySection('blocks').map((i) => i.id)).toEqual(['a']);
-    });
-
-    it('treeOf delegates to the prefix-tree lib for a section', () => {
-        const catalog = useCatalogStore();
-        catalog.items = [
-            { id: 'widget-one', name: 'Widget - one', category: 'Block' },
-            { id: 'widget-two', name: 'Widget - two', category: 'Block' },
-            { id: 'widget-three', name: 'Widget - three', category: 'Block' },
-        ];
-        expect(catalog.treeOf('blocks')).toEqual([
-            { type: 'group', label: 'Widget', sortKey: 'Widget', children: expect.any(Array) },
-        ]);
-    });
-
-    it('with componentsTree off, treeOf lists every component flat in the server order', () => {
-        const catalog = useCatalogStore();
-        catalog.componentsTree = false;
-        catalog.items = [
-            { id: 'widget-one', name: 'Widget - one', category: 'Block' },
-            { id: 'widget-two', name: 'Widget - two', category: 'Block' },
-            { id: 'widget-three', name: 'Widget - three', category: 'Block' },
-        ];
-        expect(catalog.treeOf('blocks').map((n) => `${n.type}:${n.item.id}`)).toEqual(['item:widget-one', 'item:widget-two', 'item:widget-three']);
     });
 
     it('find() looks up by id in the type-appropriate list', () => {
