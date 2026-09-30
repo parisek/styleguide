@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.29.0] - 2026-09-30
+
 ### Fixed
 
 - **A `responsive: false` entry ignores the stored width preset (#178).** A doc
