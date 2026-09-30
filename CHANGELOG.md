@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-09-30
+
 ### Added
 
 - **JavaScript errors from the previews** appear under the warning badge,
