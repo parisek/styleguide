@@ -16,14 +16,15 @@
 // starts, and a lazy iframe could hold a slot without starting at all.
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
-import { computeTileGeometry } from '../lib/tileGeometry.js';
-import { previewSizeFor } from '../lib/catalogGrid.js';
+import { gridPreviewSize } from '../lib/catalogGrid.js';
 
 const props = defineProps({
     entry: { type: Object, required: true },
     src: { type: String, required: true },
     href: { type: String, required: true },
     tileWidth: { type: Number, required: true },
+    // The logical width the entry renders at (the grid's width toggle).
+    previewWidth: { type: Number, required: true },
     queue: { type: Object, required: true },
     // The element that scrolls the grid. The observer must use it as its
     // root: with the default (the browser viewport) a tile clipped by that
@@ -40,16 +41,13 @@ const NEAR_MARGIN = '400px';
 // A render that never fires `load` must not hold a slot for ever.
 const LOAD_TIMEOUT_MS = 15000;
 
-const size = computed(() => previewSizeFor(props.entry.section));
-// The shared fit-to-width math of the variant grid, at a fixed logical size:
-// scale down to the tile, never up.
-const geometry = computed(() => computeTileGeometry({
-    presetWidth: size.value.width,
-    presetHeight: size.value.height,
-    cellWidth: props.tileWidth,
-    rawContentHeight: null,
-    minHeight: 0,
-}));
+const size = computed(() => gridPreviewSize(props.previewWidth));
+// Fit the frame to the tile's width, up as well as down: a phone frame
+// narrower than the tile fills it instead of leaving a blank strip.
+const geometry = computed(() => {
+    const zoom = props.tileWidth / size.value.width;
+    return { zoom, wrapperHeight: Math.max(1, Math.round(size.value.height * zoom)) };
+});
 
 const root = ref(null);
 const near = ref(false);

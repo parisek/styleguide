@@ -31,13 +31,14 @@ const entry = (id, extra = {}) => ({
     key: `component:${id}`, type: 'component', id, name: id.toUpperCase(), section: 'blocks', variant: null, variantCount: 0, item: {}, ...extra,
 });
 
-function mountTile({ id = 'hero', queue = createLoadQueue(6), tileWidth = 320, src, extra } = {}) {
+function mountTile({ id = 'hero', queue = createLoadQueue(6), tileWidth = 320, previewWidth = 1280, src, extra } = {}) {
     return mount(GridTile, {
         props: {
             entry: entry(id, extra),
             src: src ?? `/styleguide/render/component/${id}`,
             href: `/styleguide/component/${id}`,
             tileWidth,
+            previewWidth,
             queue,
         },
         attachTo: document.body,
@@ -140,6 +141,18 @@ describe('GridTile', () => {
         expect(style).toContain('scale(0.25)');
         // 800 * 0.25
         expect(wrapper.find('[aria-hidden="true"]').attributes('style')).toContain('height: 200px');
+    });
+
+    it('renders at the chosen width, and scales a narrow frame up to fill the tile', async () => {
+        const wrapper = mountTile({ tileWidth: 450, previewWidth: 375 });
+        FakeIntersectionObserver.instances[0].fire(true);
+        await wrapper.vm.$nextTick();
+        const style = wrapper.find('iframe').attributes('style');
+        expect(style).toContain('width: 375px');
+        expect(style).toContain('height: 375px');
+        expect(style).toContain('scale(1.2)');
+        // 375 * 1.2
+        expect(wrapper.find('[aria-hidden="true"]').attributes('style')).toContain('height: 450px');
     });
 
     it('opens the entry from a stretched link with a real href', async () => {

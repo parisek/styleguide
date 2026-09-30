@@ -4,13 +4,16 @@
 // scaled live preview. A filter bar narrows it by sidebar section and by
 // text; a tile opens the entry. Loading rules live in GridTile.vue and
 // lib/loadQueue.js; data and layout rules in lib/catalogGrid.js.
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { useContentLocale } from '../composables/useContentLocale.js';
-import { gridEntries, filterGridEntries, sectionCounts, gridLayout, GRID_GAP_PX } from '../lib/catalogGrid.js';
+import {
+    gridEntries, filterGridEntries, sectionCounts, gridLayout, gridWidthOptions, resolveGridWidth, widthClass, GRID_GAP_PX,
+} from '../lib/catalogGrid.js';
+import { compareWidths } from '../lib/runtimeConfig.js';
 import { createLoadQueue } from '../lib/loadQueue.js';
 import { buildRenderSrc } from '../lib/renderSrc.js';
 import GridTile from '../components/GridTile.vue';
@@ -26,6 +29,24 @@ const queue = createLoadQueue();
 
 const section = ref(null);
 const query = ref('');
+
+// The width every tile renders at: one of the project's widths, remembered
+// in localStorage. A stored width the project no longer offers falls back
+// to the widest.
+const widthOptions = computed(() => gridWidthOptions(compareWidths()));
+const previewWidth = computed(() => resolveGridWidth(ui.gridWidth, widthOptions.value));
+// A stored width the project no longer offers is dropped, so it cannot
+// come back if a later config offers that width again.
+watch(widthOptions, (options) => {
+    if (ui.gridWidth !== null && !options.includes(ui.gridWidth)) ui.gridWidth = null;
+}, { immediate: true });
+// Named by device class when the class is unique among the options, else by
+// pixels, so two "tablet" widths never read alike.
+function widthLabel(width) {
+    const kind = widthClass(width);
+    const same = widthOptions.value.filter((w) => widthClass(w) === kind);
+    return same.length === 1 ? i18n.t(`grid.width_${kind}`) : `${width}`;
+}
 
 const order = computed(() => [...catalog.componentSectionKeys, 'pages']);
 const entries = computed(() => gridEntries(
@@ -115,13 +136,26 @@ function chipClass(active) {
                     :class="chipClass(section === chip.section)"
                     @click="section = chip.section"
                 >{{ i18n.t(`sections.${chip.section}`) }} <span class="opacity-60">{{ chip.count }}</span></button>
+                <div class="ml-auto flex items-center gap-2" role="group" :aria-label="i18n.t('grid.width_label')">
+                    <button
+                        v-for="width in widthOptions"
+                        :key="width"
+                        type="button"
+                        data-testid="grid-width"
+                        :aria-pressed="previewWidth === width ? 'true' : 'false'"
+                        :title="`${width} px`"
+                        class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+                        :class="chipClass(previewWidth === width)"
+                        @click="ui.gridWidth = width"
+                    >{{ widthLabel(width) }}</button>
+                </div>
                 <input
                     v-model="query"
                     type="search"
                     data-testid="grid-filter-query"
                     :placeholder="i18n.t('grid.filter_placeholder')"
                     :aria-label="i18n.t('grid.filter_placeholder')"
-                    class="ml-auto w-full sm:w-64 rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-sm placeholder-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
+                    class="w-full sm:w-64 rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-sm placeholder-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
                 >
             </div>
 
@@ -139,6 +173,7 @@ function chipClass(active) {
                         :src="srcFor(entry)"
                         :href="hrefFor(entry)"
                         :tile-width="layout.tileWidth"
+                        :preview-width="previewWidth"
                         :queue="queue"
                         :scroll-root="scroller"
                         @open="open"

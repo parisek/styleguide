@@ -2,7 +2,6 @@
 // /grid): which entries it shows, how the filter bar narrows them, and how
 // many columns fit.
 import { matchesQuery } from './searchMatch.js';
-import { isAtomicSection } from './componentSections.js';
 
 // Sidebar order, so the filter chips read like the sidebar sections. The
 // default is the legacy order; with `components.group_by: kind` the view
@@ -82,10 +81,31 @@ export function gridLayout(containerWidth, { minTile = GRID_MIN_TILE_PX, gap = G
     return { columns, tileWidth: (containerWidth - gap * (columns - 1)) / columns };
 }
 
-// The logical size a tile renders its entry at, before scaling it down to
-// the tile. A basic element (a button, a badge) or a part is lost in a
-// desktop-wide frame, so it renders narrower; blocks, page sections and
-// pages render at desktop width.
-export function previewSizeFor(section) {
-    return isAtomicSection(section) ? { width: 480, height: 300 } : { width: 1280, height: 800 };
+// The widths the grid's width toggle offers: the project's compare widths
+// (`viewports.compare`), smallest first, or these when the project sets none.
+export const GRID_DEFAULT_WIDTHS = [375, 768, 1280];
+
+// The device class of a width: what the toggle names a button by, and what
+// decides the frame's shape.
+export function widthClass(width) {
+    return width <= 480 ? 'mobile' : width <= 1024 ? 'tablet' : 'desktop';
+}
+
+export function gridWidthOptions(projectWidths = null) {
+    const widths = Array.isArray(projectWidths) && projectWidths.length > 0 ? projectWidths : GRID_DEFAULT_WIDTHS;
+    return [...new Set(widths)].sort((a, b) => a - b);
+}
+
+// The stored choice if it is one of the options, else the widest: the
+// desktop view, which is what a page is judged at first.
+export function resolveGridWidth(stored, options) {
+    return options.includes(stored) ? stored : options[options.length - 1];
+}
+
+// The logical frame a tile renders its entry in at `width`, before it is
+// scaled to the tile. A desktop frame is 16:10; a mobile or tablet one is
+// square, so a phone tile shows the top of the page and stays as tall as
+// the others.
+export function gridPreviewSize(width) {
+    return { width, height: Math.round(widthClass(width) === 'desktop' ? width * 0.625 : width) };
 }

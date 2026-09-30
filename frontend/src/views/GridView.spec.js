@@ -96,6 +96,33 @@ describe('GridView', () => {
         expect(wrapper.find('[data-testid="grid-tiles"]').attributes('style')).toContain('repeat(4, minmax(0, 1fr))');
     });
 
+    it('offers the phone, tablet and desktop widths, the widest pressed at first', async () => {
+        const { wrapper } = await mountGrid();
+        const buttons = wrapper.findAll('[data-testid="grid-width"]');
+        expect(buttons.map((b) => b.attributes('title'))).toEqual(['375 px', '768 px', '1280 px']);
+        expect(buttons.map((b) => b.attributes('aria-pressed'))).toEqual(['false', 'false', 'true']);
+    });
+
+    it('renders every tile at the chosen width and remembers the choice', async () => {
+        const { wrapper } = await mountGrid();
+        FakeIntersectionObserver.instances.forEach((o) => o.fire(true));
+        await wrapper.find('[data-testid="grid-width"]').trigger('click');
+        await flushPromises();
+        const frames = wrapper.findAll('iframe');
+        expect(frames.length).toBeGreaterThan(1);
+        for (const frame of frames) expect(frame.attributes('style')).toContain('width: 375px');
+        expect(localStorage.getItem('sg-grid-width')).toBe('375');
+        expect(wrapper.find('[data-testid="grid-width"]').attributes('aria-pressed')).toBe('true');
+    });
+
+    it('drops a stored width the project does not offer', async () => {
+        localStorage.setItem('sg-grid-width', '999');
+        const { wrapper } = await mountGrid();
+        expect(wrapper.findAll('[data-testid="grid-width"]').map((b) => b.attributes('aria-pressed'))).toEqual(['false', 'false', 'true']);
+        await flushPromises();
+        expect(useUiStore().gridWidth).toBeNull();
+    });
+
     it('filters by section chip and by text', async () => {
         const { wrapper } = await mountGrid();
         const chips = wrapper.findAll('[data-testid="grid-filter-section"]');

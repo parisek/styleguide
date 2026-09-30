@@ -45,9 +45,3 @@ export function sectionOf(item, groupBy = null) {
 export function sectionOrder(groupBy = null) {
     return groupBy === 'kind' ? KIND_ORDER : LEGACY_ORDER;
 }
-
-// Sections whose entries are small on their own (a button, a menu
-// fragment): the overview grid renders them narrower than a block.
-export function isAtomicSection(section) {
-    return ['basic', 'parts', 'utilities'].includes(section);
-}

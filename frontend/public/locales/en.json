@@ -91,6 +91,10 @@
         "filter_placeholder": "Filter…",
         "filter_label": "Filter previews",
         "variants": "Variants",
+        "width_label": "Preview width",
+        "width_mobile": "Mobile",
+        "width_tablet": "Tablet",
+        "width_desktop": "Desktop",
         "empty": "Nothing matches the filter."
     },
     "empty_state": "Select a component in the sidebar",
