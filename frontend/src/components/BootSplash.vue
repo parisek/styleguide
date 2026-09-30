@@ -1,11 +1,15 @@
 <script setup>
+import { detectLocale, chromeStringsLocaleFor } from '../stores/i18n.js';
+
 // Covers the interface (App.vue) until the strings and the catalogue have
 // loaded, so the visitor never sees it with raw keys and no data. The
-// strings are not there yet, so the one label is picked from the document
-// language. The cover is opaque from the first frame; only the ring fades
-// in after a short delay, so a fast load shows a blank page instead of a
-// flash of loader.
-const label = document.documentElement.lang?.toLowerCase().startsWith('cs') ? 'Načítám\u2026' : 'Loading\u2026';
+// cover is opaque from the first frame; only the ring fades in after a
+// short delay, so a fast load shows a blank page instead of a flash of
+// loader. The strings are not there yet, so the one label follows the
+// locale the interface is about to load: the same precedence the i18n
+// store uses (?lang=, the stored choice, the default), not the still
+// unset <html lang>.
+const label = chromeStringsLocaleFor(detectLocale()) === 'cs' ? 'Načítám\u2026' : 'Loading\u2026';
 </script>
 
 <template>
@@ -30,6 +34,6 @@ const label = document.documentElement.lang?.toLowerCase().startsWith('cs') ? 'N
     to { transform: rotate(360deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-    .sg-boot-ring { animation: sg-boot-in 200ms ease-out 250ms backwards, sg-boot-spin 2.4s linear infinite; }
+    .sg-boot-ring { animation: sg-boot-in 200ms ease-out 250ms backwards; }
 }
 </style>

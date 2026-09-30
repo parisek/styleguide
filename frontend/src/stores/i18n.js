@@ -18,12 +18,12 @@ export const SUPPORTED = ['cs', 'en'];
 // English chrome strings rather than refusing to load anything -- the owner
 // is explicit that mixed UI/content language is an acceptable trade so
 // every discovered locale stays reachable from the switcher.
-function chromeStringsLocaleFor(locale) {
+export function chromeStringsLocaleFor(locale) {
     const short = (locale || '').slice(0, 2).toLowerCase();
     return SUPPORTED.includes(short) ? short : 'en';
 }
 
-function detectLocale() {
+export function detectLocale() {
     const html = document.documentElement;
     const defaultLocale = html.dataset.defaultLocale || 'en';
 

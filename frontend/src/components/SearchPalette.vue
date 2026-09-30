@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
+import { useBooting } from '../composables/useBooting.js';
 import { paletteHits, normalizeForSearch } from '../lib/searchMatch.js';
 
 // Command palette (Task 5). Owns the global ⌘K/Ctrl+K shortcut that used to
@@ -112,6 +113,14 @@ function onGlobalKeydown(e) {
 // result set itself changed shape), so snap back to the top match rather
 // than risk it landing on an unrelated row or past the new, shorter list.
 watch(query, () => { activeIndex.value = 0; });
+
+// A shortcut pressed while the interface is still covered and inert (see
+// App.vue) opens the palette, but its input cannot take focus yet: focus it
+// when the boot ends.
+const booting = useBooting();
+watch(booting, (now) => {
+    if (!now && isOpen.value) nextTick(() => inputRef.value?.focus());
+});
 
 onMounted(() => window.addEventListener('keydown', onGlobalKeydown));
 onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown));

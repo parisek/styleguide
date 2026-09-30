@@ -1,9 +1,9 @@
 <script setup>
-import { computed, provide } from 'vue';
+import { computed, provide, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUiStore } from './stores/ui.js';
 import { useCatalogStore } from './stores/catalog.js';
-import { useI18nStore } from './stores/i18n.js';
+import { useBooting, startBootTimeout } from './composables/useBooting.js';
 import { routeInfo } from './lib/routeInfo.js';
 import { useViewportPreset } from './composables/useViewportPreset.js';
 import { useVariant } from './composables/useVariant.js';
@@ -20,12 +20,14 @@ import { showSource } from './lib/runtimeConfig.js';
 
 const ui = useUiStore();
 const catalog = useCatalogStore();
-const i18n = useI18nStore();
 const route = useRoute();
 
 // Until the strings and the catalogue are in, the interface would show raw
-// keys and no data: a loader stands in for it.
-const booting = computed(() => !i18n.ready || catalog.loading);
+// keys and no data: a loader covers it (for 10 s at most).
+const booting = useBooting();
+let cancelBootTimeout = () => {};
+onMounted(() => { cancelBootTimeout = startBootTimeout(); });
+onBeforeUnmount(() => cancelBootTimeout());
 
 const routeType = computed(() => routeInfo(route).type);
 const routeSlug = computed(() => routeInfo(route).slug);
