@@ -122,7 +122,7 @@ function chipClass(active) {
                     type="button"
                     data-testid="grid-filter-section"
                     :aria-pressed="section === null ? 'true' : 'false'"
-                    class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+                    class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors"
                     :class="chipClass(section === null)"
                     @click="section = null"
                 >{{ i18n.t('grid.filter_all') }} <span class="opacity-60">{{ entries.length }}</span></button>
@@ -132,7 +132,7 @@ function chipClass(active) {
                     type="button"
                     data-testid="grid-filter-section"
                     :aria-pressed="section === chip.section ? 'true' : 'false'"
-                    class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+                    class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors"
                     :class="chipClass(section === chip.section)"
                     @click="section = chip.section"
                 >{{ i18n.t(`sections.${chip.section}`) }} <span class="opacity-60">{{ chip.count }}</span></button>
@@ -144,7 +144,7 @@ function chipClass(active) {
                         data-testid="grid-width"
                         :aria-pressed="previewWidth === width ? 'true' : 'false'"
                         :title="`${width} px`"
-                        class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors"
+                        class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors"
                         :class="chipClass(previewWidth === width)"
                         @click="ui.gridWidth = width"
                     >{{ widthLabel(width) }}</button>
@@ -155,7 +155,7 @@ function chipClass(active) {
                     data-testid="grid-filter-query"
                     :placeholder="i18n.t('grid.filter_placeholder')"
                     :aria-label="i18n.t('grid.filter_placeholder')"
-                    class="w-full sm:w-64 rounded-full border border-zinc-300 bg-white px-4 py-1.5 text-sm placeholder-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
+                    class="h-8 w-full sm:w-64 rounded-full border border-zinc-300 bg-white px-4 text-sm placeholder-zinc-500 dark:border-zinc-700 dark:bg-zinc-800"
                 >
             </div>
 

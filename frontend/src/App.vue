@@ -1,8 +1,9 @@
 <script setup>
-import { computed, provide } from 'vue';
+import { computed, provide, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUiStore } from './stores/ui.js';
 import { useCatalogStore } from './stores/catalog.js';
+import { useBooting, startBootTimeout } from './composables/useBooting.js';
 import { routeInfo } from './lib/routeInfo.js';
 import { useViewportPreset } from './composables/useViewportPreset.js';
 import { useVariant } from './composables/useVariant.js';
@@ -14,11 +15,19 @@ import UsagePanel from './components/UsagePanel.vue';
 import LinkBar from './components/LinkBar.vue';
 import SearchPalette from './components/SearchPalette.vue';
 import SourceDrawer from './components/SourceDrawer.vue';
+import BootSplash from './components/BootSplash.vue';
 import { showSource } from './lib/runtimeConfig.js';
 
 const ui = useUiStore();
 const catalog = useCatalogStore();
 const route = useRoute();
+
+// Until the strings and the catalogue are in, the interface would show raw
+// keys and no data: a loader covers it (for 10 s at most).
+const booting = useBooting();
+let cancelBootTimeout = () => {};
+onMounted(() => { cancelBootTimeout = startBootTimeout(); });
+onBeforeUnmount(() => cancelBootTimeout());
 
 const routeType = computed(() => routeInfo(route).type);
 const routeSlug = computed(() => routeInfo(route).slug);
@@ -66,7 +75,10 @@ const sourceDrawerVisible = computed(() => sourceEnabled
 </script>
 
 <template>
-    <div class="flex h-screen overflow-hidden">
+    <!-- The interface is mounted from the start (its shortcuts, its layout)
+         but covered and inert until the strings and the catalogue are in. -->
+    <BootSplash v-if="booting" />
+    <div class="flex h-screen overflow-hidden" :inert="booting" :aria-hidden="booting ? 'true' : undefined">
         <!-- Backdrop: always mounted (not v-show) below lg so opacity can
              transition instead of snapping between display:none/block --
              pointer-events-none while hidden keeps it inert exactly like the

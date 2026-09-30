@@ -20,6 +20,20 @@ describe('useI18nStore', () => {
         expect(document.documentElement.getAttribute('lang')).toBe('en');
     });
 
+    it('is ready once the first load has finished, also when it fails', async () => {
+        global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+        const ok = useI18nStore();
+        expect(ok.ready).toBe(false);
+        await ok.init();
+        expect(ok.ready).toBe(true);
+
+        setActivePinia(createPinia());
+        global.fetch = vi.fn().mockRejectedValue(new Error('offline'));
+        const failed = useI18nStore();
+        await failed.init();
+        expect(failed.ready).toBe(true);
+    });
+
     it('persists the locale as a PLAIN STRING (not JSON-encoded) under sg-locale', async () => {
         global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
         const i18n = useI18nStore();

@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **No more flash of the interface with raw keys.** Until the interface
+  strings and the catalogue have loaded, a small loader stands in for the
+  interface. The ring fades in after 250 ms, so a fast load shows a blank
+  page and no loader. A failed load ends the wait, and so does a request
+  that never answers, after 10 s. A ⌘K pressed meanwhile opens the palette
+  and focuses it once the interface is up.
+- **The grid's filter chips, the width buttons and the text filter share one
+  height.**
+
 ## [1.29.0] - 2026-09-30
 
 ### Fixed
