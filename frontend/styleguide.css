@@ -136,3 +136,26 @@
         @apply text-zinc-900 decoration-zinc-700 dark:text-zinc-50 dark:decoration-zinc-300;
     }
 }
+
+/* Code panel (SourcePanel.vue): one row per line, numbered with a CSS
+   counter so a selection copies the code without the numbers. The hanging
+   indent keeps a wrapped line clear of the number column. */
+.sg-code {
+    counter-reset: sg-line;
+}
+.sg-code-line {
+    display: block;
+    padding-left: 3.5em;
+    text-indent: -3.5em;
+}
+.sg-code-line::before {
+    counter-increment: sg-line;
+    content: counter(sg-line);
+    display: inline-block;
+    width: 2.5em;
+    margin-right: 1em;
+    text-align: right;
+    text-indent: 0;
+    color: var(--color-zinc-600);
+    user-select: none;
+}

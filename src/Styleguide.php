@@ -69,6 +69,17 @@ final class Styleguide
     /** `pages.group_by`, validated; null when absent */
     private ?string $pagesGroupBy;
 
+    /** `components.group_by`, validated; null when absent */
+    private ?string $componentsGroupBy;
+    /** `highlight_source`, validated; true when absent */
+    private bool $highlightSource;
+
+    /** `source_url`, validated; null when absent */
+    private ?string $sourceUrl;
+
+    /** @var list<string> `source_views`, validated; the default set when absent */
+    private array $sourceViews;
+
     /** `overview.default`, validated; 'foundations' when absent */
     private string $landing;
     private Environment $twig;
@@ -333,6 +344,10 @@ final class Styleguide
             : [];
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
+        $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
+        $this->highlightSource = self::highlightSource($this->yamlConfig['highlight_source'] ?? null);
+        $this->sourceUrl = self::sourceUrl($this->yamlConfig['source_url'] ?? null);
+        $this->sourceViews = self::sourceViews($this->yamlConfig['source_views'] ?? null);
         $this->landing = self::landing($this->yamlConfig['overview'] ?? null);
 
         // `dist_path` override exists for tests only (SpaConfigTest points it at a
@@ -3079,6 +3094,18 @@ final class Styleguide
         // toggle from this flag; the API enforces it on its own.
         if ($this->showSource()) {
             $config['showSource'] = true;
+            // The views the Code panel offers (`source_views`).
+            $config['sourceViews'] = $this->sourceViews;
+            // Highlighting is on by default, so only the opt-out travels.
+            if (!$this->highlightSource) {
+                $config['highlightSource'] = false;
+            }
+            // Where a template file lives in the repository, for the Code
+            // panel's links. Behind the same gate: a public catalogue does
+            // not point at its repository.
+            if ($this->sourceUrl !== null) {
+                $config['sourceUrl'] = $this->sourceUrl;
+            }
         }
         // Same rule: only when configured. The SPA's width menu lists these
         // widths first, as the project's own.
@@ -3089,6 +3116,11 @@ final class Styleguide
         // asked.
         if ($this->pagesGroupBy !== null) {
             $config['pagesGroupBy'] = $this->pagesGroupBy;
+        }
+        // And for the component sections: sorted by `kind` only when asked,
+        // so a catalogue without the key keeps its sections as they were.
+        if ($this->componentsGroupBy !== null) {
+            $config['componentsGroupBy'] = $this->componentsGroupBy;
         }
         // Only for the grid: a catalogue that lands on Foundations (the
         // default, or written out) sends the same payload as before.
@@ -3504,6 +3536,114 @@ final class Styleguide
         return $groupBy;
     }
 
+    /** The Code panel's views, in the order the panel shows them. */
+    public const SOURCE_VIEWS = ['data', 'twig', 'html', 'css', 'js'];
+
+    /** The views a catalogue gets without `source_views`: everything but the template. */
+    public const DEFAULT_SOURCE_VIEWS = ['data', 'html', 'css', 'js'];
+
+    /**
+     * `source_views` in styleguide.yaml: which views the Code panel offers,
+     * and so which of its endpoints answer. `data` is the fixture (the call
+     * with sample data), `twig` the entry's own template, `html` what the
+     * fixture renders, `css` and `js` the entry's own stylesheets and
+     * scripts. Absent: all but `twig`. The template is the implementation,
+     * where the rest is sample data or what a browser receives anyway, so
+     * publishing it is a decision a project writes down. Everything here
+     * takes effect only while `show_source` is on.
+     *
+     * A non-empty list of those names, or it throws at construction. The
+     * panel keeps its own order whatever order the list is written in.
+     *
+     * @return list<string>
+     */
+    private static function sourceViews(mixed $value): array
+    {
+        if ($value === null) {
+            return self::DEFAULT_SOURCE_VIEWS;
+        }
+        if (!is_array($value) || !array_is_list($value) || $value === []
+            || array_diff($value, self::SOURCE_VIEWS) !== []) {
+            throw new \InvalidArgumentException(sprintf(
+                'styleguide.yaml: `source_views` must be a non-empty list of %s',
+                implode(', ', self::SOURCE_VIEWS),
+            ));
+        }
+
+        return array_values(array_intersect(self::SOURCE_VIEWS, $value));
+    }
+
+    /**
+     * `source_url` in styleguide.yaml: the web address of a template file in
+     * the project's repository, with `{path}` where the path relative to
+     * `templates_path` goes, e.g.
+     * `https://github.com/acme/site/blob/main/templates/{path}`. The Code
+     * panel links the fixture and the component template through it. One
+     * line per project covers every file; a deployed copy has no `.git` to
+     * read it from. An http(s) address with `{path}`, or it throws at
+     * construction.
+     */
+    private static function sourceUrl(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (!is_string($value) || preg_match('#^https?://[^\s]+$#', $value) !== 1 || !str_contains($value, '{path}')) {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `source_url` must be an http(s) address containing {path}',
+            );
+        }
+
+        return $value;
+    }
+
+    /**
+     * `highlight_source` in styleguide.yaml: whether the Code panel
+     * highlights the fixture source. On when absent; `false` shows plain
+     * text and the browser never loads the highlighter. Anything other than
+     * a boolean throws at construction, like the other presentation keys.
+     */
+    private static function highlightSource(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+        if (!is_bool($value)) {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `highlight_source` accepts only true or false (or leave it out: on)',
+            );
+        }
+
+        return $value;
+    }
+
+    /**
+     * `components.group_by` in styleguide.yaml: what decides a component's
+     * sidebar section. `kind` sorts by the `kind` metadata key (block,
+     * section, element, part, utility), and `category` becomes the group
+     * inside a section. `null` (absent) keeps the legacy rule, which reads
+     * the section from `category`. Same rules as `pages.group_by`: an
+     * unknown value throws at construction, a `components` that is not a
+     * map is left to the project.
+     */
+    private static function componentsGroupBy(mixed $components): ?string
+    {
+        if (!is_array($components) || array_is_list($components)) {
+            return null;
+        }
+        $groupBy = $components['group_by'] ?? null;
+        if ($groupBy === null) {
+            return null;
+        }
+        if ($groupBy !== 'kind') {
+            throw new \InvalidArgumentException(
+                'styleguide.yaml: `components.group_by` accepts only "kind" (or leave it out for the sections by category)',
+            );
+        }
+
+        return $groupBy;
+    }
+
     /**
      * `overview.default` in styleguide.yaml: what the bare mount
      * (`/styleguide/`) shows. `grid` lands on the overview grid of live
@@ -3555,13 +3695,28 @@ final class Styleguide
      */
     private function dispatchApi(array $route): Http\Result
     {
-        // With `show_source` off the route does not exist: no source reaches
-        // the browser, and the answer does not say that it could.
-        if ($route['endpoint'] === 'source' && $this->showSource()) {
+        // With `show_source` off these routes do not exist: no source reaches
+        // the browser, and the answer does not say that it could. The same
+        // for a view `source_views` leaves out.
+        $views = $this->showSource() ? $this->sourceViews : [];
+        if ($route['endpoint'] === 'source' && in_array('data', $views, true)) {
             return (new Api\SourceEndpoint($this->twig->getLoader()))->handle(
                 (string) ($route['kind'] ?? ''),
                 (string) ($route['slug'] ?? ''),
                 isset($route['variant']) ? (string) $route['variant'] : null,
+            );
+        }
+        if ($route['endpoint'] === 'markup' && in_array('html', $views, true)) {
+            return (new Api\MarkupEndpoint($this->renderer))->handle(
+                (string) ($route['kind'] ?? ''),
+                (string) ($route['slug'] ?? ''),
+                isset($route['variant']) ? (string) $route['variant'] : null,
+            );
+        }
+        if ($route['endpoint'] === 'files' && array_intersect(['twig', 'css', 'js'], $views) !== []) {
+            return (new Api\FilesEndpoint((string) $this->config['templates_path'], $views))->handle(
+                (string) ($route['kind'] ?? ''),
+                (string) ($route['slug'] ?? ''),
             );
         }
 

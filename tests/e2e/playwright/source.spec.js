@@ -4,8 +4,7 @@ import { test, expect } from '@playwright/test';
 // catalogue shows the "Code" toggle. The PHPUnit suite
 // (tests/Api/SourceEndpointTest.php) covers the default-off rule.
 test.describe('fixture source ("Code")', () => {
-    test('a tile toggle shows the source of that tile without its annotation, and copies it', async ({ page, context }) => {
-        await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    test('a tile toggle shows the source of that tile without its annotation, and its HTML', async ({ page }) => {
         await page.goto('/styleguide/component/multi');
         const tile = page.getByTestId('variant-tile').nth(2); // secondary
         await tile.getByTestId('variant-tile-code-toggle').click();
@@ -14,13 +13,12 @@ test.describe('fixture source ("Code")', () => {
         await expect(page).not.toHaveURL(/variant=/);
         const code = tile.getByTestId('source-code');
         await expect(code).toHaveText('<div class="multi multi--secondary">Multi demo (secondary variant)</div>');
-        await expect(tile.getByTestId('source-file')).toHaveText('component/multi/styleguide.secondary.twig');
         await expect(code).not.toContainText('title:');
 
-        await tile.getByTestId('source-copy').click();
-        await expect(tile.getByTestId('source-copy')).toHaveText(/Zkopírováno|Copied/);
-        expect(await page.evaluate(() => navigator.clipboard.readText()))
-            .toBe('<div class="multi multi--secondary">Multi demo (secondary variant)</div>\n');
+        // The HTML view shows what the fixture renders, as text.
+        await tile.getByTestId('source-tab-html').click();
+        await expect(code).toHaveText('<div class="multi multi--secondary">Multi demo (secondary variant)</div>');
+        await expect(tile.getByTestId('source-tab-html')).toHaveAttribute('aria-pressed', 'true');
 
         // Only that tile opened.
         await expect(page.getByTestId('source-panel')).toHaveCount(1);

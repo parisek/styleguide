@@ -95,12 +95,15 @@ final class Router
             return $route;
         }
 
-        // /styleguide/api/source/<kind>/<slug>[?variant=<id>] — the one
-        // endpoint that addresses an entry. `kind`/`slug` are raw here;
-        // SourceEndpoint validates them before any lookup.
-        if ($parts[0] === 'api' && ($parts[1] ?? null) === 'source' && isset($parts[2], $parts[3])) {
+        // /styleguide/api/source/<kind>/<slug>[?variant=<id>],
+        // /styleguide/api/markup/<kind>/<slug>[?variant=<id>] and
+        // /styleguide/api/files/<kind>/<slug> — the endpoints that address
+        // an entry: its fixture source, the HTML that fixture renders, and
+        // the entry's own CSS and JS (no variant). `kind`/`slug` are raw here; the endpoints
+        // validate them before any lookup.
+        if ($parts[0] === 'api' && in_array($parts[1] ?? null, ['source', 'markup', 'files'], true) && isset($parts[2], $parts[3])) {
             parse_str($queryString, $query);
-            $route = ['type' => 'api', 'endpoint' => 'source', 'kind' => $parts[2], 'slug' => $parts[3]];
+            $route = ['type' => 'api', 'endpoint' => $parts[1], 'kind' => $parts[2], 'slug' => $parts[3]];
             $variant = self::whitelistVariant($query['variant'] ?? null);
             if ($variant !== null) {
                 $route['variant'] = $variant;

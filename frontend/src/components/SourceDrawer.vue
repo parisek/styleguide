@@ -30,6 +30,6 @@ watch(() => [props.type, props.slug, props.variant], () => { open.value = false;
             <svg aria-hidden="true" focusable="false" class="w-3 h-3 transition-transform" :class="open && 'rotate-90'" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
             <span class="uppercase tracking-wider font-semibold">{{ i18n.t('source.toggle') }}</span>
         </button>
-        <SourcePanel v-if="open" class="max-h-80" :type="type" :slug="slug" :variant="variant" />
+        <SourcePanel v-if="open" class="max-h-80" gutter="pl-4 pr-2" :type="type" :slug="slug" :variant="variant" />
     </div>
 </template>

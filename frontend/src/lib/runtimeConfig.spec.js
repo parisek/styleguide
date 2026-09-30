@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, compareWidths, landing } from './runtimeConfig.js';
+import { baseUrl, url, assetUrl, resetRuntimeConfig, DEFAULT_BASE_URL, showSource, highlightSource, sourceViews, compareWidths, landing } from './runtimeConfig.js';
 
 function inject(payload) {
     const el = document.createElement('script');
@@ -88,6 +88,30 @@ describe('showSource', () => {
 
     it('is false without a payload', () => {
         expect(showSource()).toBe(false);
+    });
+});
+
+describe('highlightSource', () => {
+    it('is on unless the payload says false', () => {
+        inject({});
+        expect(highlightSource()).toBe(true);
+    });
+
+    it('is off for a literal false', () => {
+        inject({ highlightSource: false });
+        expect(highlightSource()).toBe(false);
+    });
+});
+
+describe('sourceViews', () => {
+    it('keeps the panel order and drops unknown names', () => {
+        inject({ sourceViews: ['js', 'twig', 'nope', 'data'] });
+        expect(sourceViews()).toEqual(['data', 'twig', 'js']);
+    });
+
+    it('falls back to Data and HTML for a server that sends none', () => {
+        inject({});
+        expect(sourceViews()).toEqual(['data', 'html']);
     });
 });
 

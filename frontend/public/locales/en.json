@@ -1,5 +1,8 @@
 {
     "sections": {
+        "sections": "Page sections",
+        "parts": "Parts",
+        "utilities": "Utilities",
         "basic": "Basic elements",
         "blocks": "Blocks",
         "gutenberg": "Gutenberg",
@@ -129,9 +132,10 @@
     },
     "source": {
         "toggle": "Code",
-        "copy": "Copy",
-        "copied": "Copied",
         "loading": "Loading…",
-        "unavailable": "No source for this preview."
+        "unavailable": "No source for this preview.",
+        "view": "Code view",
+        "no_markup": "No HTML for this preview.",
+        "opens_new_tab": "opens in a new tab"
     }
 }
