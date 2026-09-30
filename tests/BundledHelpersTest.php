@@ -668,40 +668,24 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
-    public function typography_alias_keeps_the_source_string_for_a_host_runtime_translator_needing_the_environment(): void
+    public function typography_alias_passes_the_environment_to_a_host_translator_that_asks_for_it(): void
     {
-        // A host `_x` registered as a runtime class-string with `needs_environment`
-        // expects Twig to prepend the environment. The alias holds none, so it
-        // must fall back to the source string, not call it with shifted arguments.
-        $env = new Environment(new ArrayLoader());
-        $env->addRuntimeLoader(new \Twig\RuntimeLoader\FactoryRuntimeLoader([
+        // Twig would prepend the environment for `needs_environment`; the alias
+        // holds it and does the same, for a runtime class-string and a closure.
+        $runtime = new Environment(new ArrayLoader());
+        $runtime->addRuntimeLoader(new \Twig\RuntimeLoader\FactoryRuntimeLoader([
             HostEnvironmentTranslator::class => static fn(): HostEnvironmentTranslator => new HostEnvironmentTranslator(),
         ]));
-        $env->addFunction(new TwigFunction('_x', [HostEnvironmentTranslator::class, 'translate'], ['needs_environment' => true]));
+        $runtime->addFunction(new TwigFunction('_x', [HostEnvironmentTranslator::class, 'translate'], ['needs_environment' => true]));
 
-        $sg = new Styleguide([
-            'templates_path' => __DIR__ . '/fixtures/templates',
-            'static_path' => __DIR__ . '/fixtures',
-            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
-            'twig' => $env,
-        ]);
-        $twig = self::twigOf($sg);
+        $closure = new Environment(new ArrayLoader());
+        $closure->addFunction(new TwigFunction(
+            '_x',
+            static fn(Environment $e, string $t, string $c = '', string $d = 'default'): string => 'HOST:' . $t,
+            ['needs_environment' => true],
+        ));
 
-        self::assertSame('hi', $twig->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render());
-    }
-
-    #[Test]
-    public function typography_alias_keeps_the_source_string_for_any_host_translator_needing_injected_arguments(): void
-    {
-        // The same guard, whatever shape the host callable has and whichever
-        // injected argument it asks for.
-        foreach (['needs_environment', 'needs_context'] as $option) {
-            $env = new Environment(new ArrayLoader());
-            $env->addFunction(new TwigFunction(
-                '_x',
-                static fn(mixed $injected, string $t, string $c = '', string $d = 'default'): string => 'HOST:' . $t,
-                [$option => true],
-            ));
+        foreach (['runtime' => $runtime, 'closure' => $closure] as $shape => $env) {
             $sg = new Styleguide([
                 'templates_path' => __DIR__ . '/fixtures/templates',
                 'static_path' => __DIR__ . '/fixtures',
@@ -709,8 +693,29 @@ final class BundledHelpersTest extends TestCase
                 'twig' => $env,
             ]);
 
-            self::assertSame('hi', self::twigOf($sg)->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render(), $option);
+            self::assertSame('HOST:hi', self::twigOf($sg)->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render(), $shape);
         }
+    }
+
+    #[Test]
+    public function typography_alias_keeps_the_source_string_for_a_host_translator_that_needs_the_context(): void
+    {
+        // The aliases never receive the template context, so a translator that
+        // asks for it cannot be called correctly.
+        $env = new Environment(new ArrayLoader());
+        $env->addFunction(new TwigFunction(
+            '_x',
+            static fn(array $ctx, string $t, string $c = '', string $d = 'default'): string => 'HOST:' . $t,
+            ['needs_context' => true],
+        ));
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+
+        self::assertSame('hi', self::twigOf($sg)->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render());
     }
 
     #[Test]

@@ -1598,11 +1598,14 @@ final class Styleguide
         // loaders, so do the same. Without this every `…t` alias fell back to
         // the source string and never translated, whatever the catalogue held.
         // Twig prepends the environment and the context for these options. The
-        // aliases hold neither, so any callable shape (closure, invokable,
-        // static or runtime method) would be called with shifted arguments.
-        // Keep the source string.
-        if (null !== $function && ($function->needsEnvironment() || $function->needsContext())) {
+        // environment is at hand, so prepend it exactly as Twig would. The
+        // context is not: the aliases never receive it, so a translator that
+        // asks for it cannot be called correctly, and keeps the source string.
+        if (null !== $function && $function->needsContext()) {
             return $fallback;
+        }
+        if (null !== $function && $function->needsEnvironment()) {
+            array_unshift($args, $twig);
         }
 
         if (is_array($callable) && is_string($callable[0] ?? null) && !is_callable($callable)) {
