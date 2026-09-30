@@ -64,6 +64,20 @@ final class StyleguideLocaleTest extends TestCase
     }
 
     #[Test]
+    public function typography_aliases_translate_through_the_bundled_runtime_translators(): void
+    {
+        // `_xt` and friends look their base translator up on the environment. The
+        // bundled translators are runtime callables (`[StyleguideRuntime::class,
+        // 'translateWithContext']`), which `is_callable()` rejects, so the lookup
+        // used to fall back to the source string and the alias never translated.
+        $sg = $this->newStyleguide(['default_locale' => 'cs_CZ']);
+        $twig = (new \ReflectionClass($sg))->getProperty('twig')->getValue($sg);
+
+        self::assertSame('Odeslat', $twig->createTemplate("{{ _x('Submit', 'sloneek') }}")->render());
+        self::assertSame('Odeslat', $twig->createTemplate("{{ _xt('Submit', 'sloneek') }}")->render());
+    }
+
+    #[Test]
     public function absent_locale_query_param_renders_default_locale_unchanged(): void
     {
         $sg = $this->newStyleguide(); // default_locale: en

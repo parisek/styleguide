@@ -668,6 +668,57 @@ final class BundledHelpersTest extends TestCase
     }
 
     #[Test]
+    public function typography_alias_passes_the_environment_to_a_host_translator_that_asks_for_it(): void
+    {
+        // Twig would prepend the environment for `needs_environment`; the alias
+        // holds it and does the same, for a runtime class-string and a closure.
+        $runtime = new Environment(new ArrayLoader());
+        $runtime->addRuntimeLoader(new \Twig\RuntimeLoader\FactoryRuntimeLoader([
+            HostEnvironmentTranslator::class => static fn(): HostEnvironmentTranslator => new HostEnvironmentTranslator(),
+        ]));
+        $runtime->addFunction(new TwigFunction('_x', [HostEnvironmentTranslator::class, 'translate'], ['needs_environment' => true]));
+
+        $closure = new Environment(new ArrayLoader());
+        $closure->addFunction(new TwigFunction(
+            '_x',
+            static fn(Environment $e, string $t, string $c = '', string $d = 'default'): string => 'HOST:' . $t,
+            ['needs_environment' => true],
+        ));
+
+        foreach (['runtime' => $runtime, 'closure' => $closure] as $shape => $env) {
+            $sg = new Styleguide([
+                'templates_path' => __DIR__ . '/fixtures/templates',
+                'static_path' => __DIR__ . '/fixtures',
+                'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+                'twig' => $env,
+            ]);
+
+            self::assertSame('HOST:hi', self::twigOf($sg)->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render(), $shape);
+        }
+    }
+
+    #[Test]
+    public function typography_alias_keeps_the_source_string_for_a_host_translator_that_needs_the_context(): void
+    {
+        // The aliases never receive the template context, so a translator that
+        // asks for it cannot be called correctly.
+        $env = new Environment(new ArrayLoader());
+        $env->addFunction(new TwigFunction(
+            '_x',
+            static fn(array $ctx, string $t, string $c = '', string $d = 'default'): string => 'HOST:' . $t,
+            ['needs_context' => true],
+        ));
+        $sg = new Styleguide([
+            'templates_path' => __DIR__ . '/fixtures/templates',
+            'static_path' => __DIR__ . '/fixtures',
+            'config_yaml' => __DIR__ . '/fixtures/styleguide.yaml',
+            'twig' => $env,
+        ]);
+
+        self::assertSame('hi', self::twigOf($sg)->createTemplate('{{ _xt("hi", "ctx", "d") }}')->render());
+    }
+
+    #[Test]
     public function project_preregistered_helper_wins_without_throwing(): void
     {
         $env = new Environment(new ArrayLoader());
@@ -911,5 +962,14 @@ final class BundledHelpersTest extends TestCase
         $twig = self::twigOf(self::newStyleguide());
         $tpl = $twig->createTemplate('{{ __("Full name") }}');
         self::assertSame('Full name', $tpl->render());
+    }
+}
+
+/** Host translator shaped like a runtime that asks Twig for the environment. */
+final class HostEnvironmentTranslator
+{
+    public function translate(Environment $env, string $text, string $context = '', string $domain = 'default'): string
+    {
+        return 'HOST:' . $text;
     }
 }
