@@ -1589,7 +1589,8 @@ final class Styleguide
      */
     public static function invokeTwigFunction(Environment $twig, string $name, array $args, string $fallback): string
     {
-        $callable = $twig->getFunction($name)?->getCallable();
+        $function = $twig->getFunction($name);
+        $callable = $function?->getCallable();
 
         // The bundled translators are runtime callables, `[Runtime::class,
         // 'method']`: a class-string and a non-static method, which
@@ -1597,6 +1598,13 @@ final class Styleguide
         // loaders, so do the same. Without this every `…t` alias fell back to
         // the source string and never translated, whatever the catalogue held.
         if (is_array($callable) && is_string($callable[0] ?? null) && !is_callable($callable)) {
+            // Twig would prepend the environment and the context for these
+            // options; the aliases hold neither, so calling the runtime with
+            // the bare arguments would shift them. Keep the source string.
+            if (null !== $function && ($function->needsEnvironment() || $function->needsContext())) {
+                return $fallback;
+            }
+
             try {
                 $callable = [$twig->getRuntime($callable[0]), $callable[1] ?? ''];
             } catch (\Twig\Error\RuntimeError) {
