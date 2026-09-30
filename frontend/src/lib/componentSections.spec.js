@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    sectionOf, legacySectionOf, sectionOrder, isAtomicSection, buildCategoryTree, CATEGORY_GROUP_MIN,
+    sectionOf, legacySectionOf, sectionOrder, buildCategoryTree, CATEGORY_GROUP_MIN,
 } from './componentSections.js';
 
 const c = (id, kind, category) => ({ id, name: id, kind, category });
@@ -39,13 +39,6 @@ describe('sectionOrder', () => {
 
     it('reads atomic before composite with group_by kind', () => {
         expect(sectionOrder('kind')).toEqual(['basic', 'parts', 'blocks', 'gutenberg', 'sections', 'utilities']);
-    });
-});
-
-describe('isAtomicSection', () => {
-    it('marks the sections of small entries', () => {
-        expect(['basic', 'parts', 'utilities'].every(isAtomicSection)).toBe(true);
-        expect(['blocks', 'sections', 'gutenberg', 'pages'].some(isAtomicSection)).toBe(false);
     });
 });
 

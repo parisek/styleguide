@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    gridEntries, filterGridEntries, sectionCounts, gridLayout, previewSizeFor, GRID_SECTIONS,
+    gridEntries, filterGridEntries, sectionCounts, gridLayout, gridWidthOptions, resolveGridWidth, gridPreviewSize, GRID_SECTIONS,
 } from './catalogGrid.js';
 
 // The catalog store's rule, reduced to what these fixtures need.
@@ -113,12 +113,30 @@ describe('a custom section order', () => {
     });
 });
 
-describe('previewSizeFor', () => {
-    it('renders basic elements narrower than blocks and pages', () => {
-        expect(previewSizeFor('basic')).toEqual({ width: 480, height: 300 });
-        expect(previewSizeFor('blocks')).toEqual({ width: 1280, height: 800 });
-        expect(previewSizeFor('pages')).toEqual({ width: 1280, height: 800 });
-        expect(previewSizeFor('sections')).toEqual({ width: 1280, height: 800 });
-        expect(previewSizeFor('parts')).toEqual({ width: 480, height: 300 });
+describe('gridWidthOptions', () => {
+    it('takes the project widths, smallest first, without duplicates', () => {
+        expect(gridWidthOptions([1440, 768, 320, 768])).toEqual([320, 768, 1440]);
+    });
+
+    it('falls back to phone, tablet and desktop when the project sets none', () => {
+        expect(gridWidthOptions(null)).toEqual([375, 768, 1280]);
+        expect(gridWidthOptions([])).toEqual([375, 768, 1280]);
+    });
+});
+
+describe('resolveGridWidth', () => {
+    it('keeps a stored width the options offer, else the widest', () => {
+        expect(resolveGridWidth(768, [320, 768, 1440])).toBe(768);
+        expect(resolveGridWidth(null, [320, 768, 1440])).toBe(1440);
+        expect(resolveGridWidth(1000, [320, 768, 1440])).toBe(1440);
+    });
+});
+
+describe('gridPreviewSize', () => {
+    it('is 16:10 from desktop width up and square below', () => {
+        expect(gridPreviewSize(1280)).toEqual({ width: 1280, height: 800 });
+        expect(gridPreviewSize(1440)).toEqual({ width: 1440, height: 900 });
+        expect(gridPreviewSize(768)).toEqual({ width: 768, height: 768 });
+        expect(gridPreviewSize(320)).toEqual({ width: 320, height: 320 });
     });
 });

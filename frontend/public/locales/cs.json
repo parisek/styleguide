@@ -91,6 +91,10 @@
         "filter_placeholder": "Filtrovat…",
         "filter_label": "Filtr náhledů",
         "variants": "Varianty",
+        "width_label": "Šířka náhledů",
+        "width_mobile": "Mobil",
+        "width_tablet": "Tablet",
+        "width_desktop": "Desktop",
         "empty": "Filtru nic neodpovídá."
     },
     "empty_state": "Vyberte komponentu v postranním panelu",

@@ -8,6 +8,20 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **A width toggle in the overview grid.** Buttons in the filter bar set the
+  width every tile renders at: the project's `viewports.compare` widths,
+  smallest first, or 375, 768 and 1280 without them. The choice is kept in
+  the browser (`sg-grid-width`). The widest width is the default.
+
+### Changed
+
+- **Basic elements no longer render in a narrower frame in the grid.**
+  Every tile renders at the chosen width, so a pagination no longer wraps
+  in a 480 px frame at desktop width. A frame narrower than the tile is
+  scaled up to fill it.
+
 ## [1.27.0] - 2026-09-30
 
 ### Added

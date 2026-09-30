@@ -46,12 +46,6 @@ export function sectionOrder(groupBy = null) {
     return groupBy === 'kind' ? KIND_ORDER : LEGACY_ORDER;
 }
 
-// Sections whose entries are small on their own (a button, a menu
-// fragment): the overview grid renders them narrower than a block.
-export function isAtomicSection(section) {
-    return ['basic', 'parts', 'utilities'].includes(section);
-}
-
 // With `group_by: kind`, the entries of one section grouped by `category`.
 // Same node shape as prefixTree.buildTree(), so the sidebar renders both the
 // same way. A category with fewer than CATEGORY_GROUP_MIN entries stays a

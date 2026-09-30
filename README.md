@@ -627,7 +627,7 @@ A page switched off leaves the sidebar, and its URL shows the landing instead. E
 
 `/styleguide/grid` shows every component and page as a tile: a live preview of its fixture, scaled down to the tile, with its name. The sidebar links to it as "Náhledy" / "Previews", next to Overview. A filter bar narrows the tiles by sidebar section (Basic, Blocks, Gutenberg, Pages) and by text; the text filter matches name, id and `aliases`, like the sidebar filter. A tile opens the entry. An entry with variants shows its default tile (or its first variant when it has no `styleguide.twig`) and a badge with the number of variant tiles.
 
-Blocks and pages render at 1280 × 800 before scaling, basic elements at 480 × 300, so a button is still visible in its tile. The previews honour the iframe theme and the content locale.
+**Width toggle.** A row of buttons in the filter bar sets the width every tile renders at before it is scaled to the tile: the project's `viewports.compare` widths, smallest first (default 375, 768 and 1280 when the project sets none). A button is named Mobil / Tablet / Desktop when its width class is unique among the options, and by its pixels otherwise. The choice is remembered in the browser (`sg-grid-width`). Until one is made the widest width applies. At desktop width a frame is 16:10; narrower, it is square, so a phone tile shows the top of the page. The tile scales the frame up as well as down, so a narrow frame fills it. Basic elements render at the same width as blocks, which makes a button small at desktop width: pick a narrower width to see it larger. The previews honour the iframe theme and the content locale.
 
 **Loading.** Every preview is a full render, and a catalogue can hold hundreds. A tile loads its iframe only when it comes within 400 px of the visible area, and at most 6 previews load at once. A tile that scrolls away before its turn drops out of the queue; a loaded tile keeps its preview. Against a synthetic catalogue of 300 entries, the first screen settles with 12 previews loaded, and no more than 6 renders are ever in flight (the Playwright suite measures this).
 
@@ -643,7 +643,7 @@ Without the key the Pages section stays a flat list. Any other value throws at c
 
 `components.group_by: kind` sorts the components into sidebar sections by their `kind` metadata instead of their `category`: `block` → Blocks, `section` → Page sections, `element` → Basic elements, `part` → Parts, `utility` → Utilities. The sections read composite first, the way a page is read: Blocks, Page sections, then Basic elements, Parts and Utilities. `category` is then free for what it names, and becomes the group inside a section: a category with two or more entries is one collapsible group, a category with one entry stays a flat item. Groups keep the server order (weight, then name). A component without a valid `kind` falls back to the rule by category, so a catalogue can move over one component at a time.
 
-The same sections drive the overview grid's filter chips, its tile size (Basic elements, Parts and Utilities render at 480 × 300, the rest at 1280 × 800) and the overview's columns.
+The same sections drive the overview grid's filter chips, and the overview's columns.
 
 Without the key the sections come from `category` as before: `gutenberg` is Gutenberg, `block`, `blocks` and `layout` are Blocks, anything else is Basic elements. Any other value than `kind` throws at construction.
 

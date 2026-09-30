@@ -50,6 +50,9 @@ export const useUiStore = defineStore('ui', {
             previewWidth: usePersistedRef('sg-preview-width', '100%'),
             previewHeight: usePersistedRef('sg-preview-height', null),
             previewRotated: usePersistedRef('sg-preview-rotated', false),
+            // The overview grid's tile width (px); null until chosen, then
+            // the widest option (resolveGridWidth in lib/catalogGrid.js).
+            gridWidth: usePersistedRef('sg-grid-width', null),
             isDragging: false,
             isPreviewLoading: false,
             searchQuery: '',
