@@ -120,7 +120,16 @@ final class StyleguideController
             return $base;
         }
 
-        $directory = rtrim(str_replace('\\', '/', \dirname((string) $request->server->get('SCRIPT_NAME', ''))), '/');
+        // SCRIPT_NAME must name the script that runs, as Symfony's own
+        // prepareBaseUrl() demands. A server that reports the request path there
+        // (some PHP built-in server setups) would give a directory of the URL.
+        $scriptName = (string) $request->server->get('SCRIPT_NAME', '');
+        $scriptFile = (string) $request->server->get('SCRIPT_FILENAME', '');
+        if ($scriptName === '' || basename($scriptName) !== basename($scriptFile)) {
+            return '';
+        }
+
+        $directory = rtrim(str_replace('\\', '/', \dirname($scriptName)), '/');
         if ($directory === '' || $directory === '.') {
             return '';
         }

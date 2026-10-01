@@ -486,6 +486,21 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
+    public function a_script_name_that_is_not_the_script_gives_no_base(): void
+    {
+        // Some servers report the request path as SCRIPT_NAME. Its dirname would
+        // be a directory of the URL, not of the script, so the base stays empty.
+        $render = $this->kernel()->handle(Request::create(
+            '/styleguide/render/component/sample',
+            server: ['SCRIPT_NAME' => '/styleguide/render/component/sample', 'SCRIPT_FILENAME' => '/var/www/html/index.php'],
+        ));
+
+        $html = (string) $render->getContent();
+        self::assertStringContainsString('"/dist/css/style.css"', $html);
+        self::assertStringNotContainsString('/styleguide/render/component/dist/', $html);
+    }
+
+    #[Test]
     public function the_asset_base_is_empty_at_the_domain_root(): void
     {
         // The other half, and the one a regression would hide behind: a host
