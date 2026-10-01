@@ -459,6 +459,48 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
+    public function the_asset_base_survives_a_rewrite_to_a_script_in_a_subdirectory(): void
+    {
+        // `RewriteRule ^styleguide(.*)$ /wp-content/themes/example/static/index.php`.
+        // The request URI does not start with the script path, so Symfony finds
+        // no base path. SCRIPT_NAME is intact and carries the directory. A theme
+        // behind a CMS rewrite got every asset from the domain root (404).
+        $script = '/wp-content/themes/example dir/static/index.php';
+        $render = $this->kernel()->handle(Request::create(
+            '/styleguide/render/component/sample',
+            server: ['SCRIPT_NAME' => $script, 'SCRIPT_FILENAME' => '/var/www/html' . $script],
+        ));
+
+        self::assertSame(200, $render->getStatusCode());
+        $html = (string) $render->getContent();
+        self::assertStringContainsString('/wp-content/themes/example%20dir/static/dist/css/style.css', $html);
+        self::assertStringNotContainsString('"/dist/css/style.css"', $html);
+
+        // Catalogue URLs keep the mount: the rewrite changes where assets live,
+        // not where the browser sees the catalogue.
+        $shell = (string) $this->kernel()->handle(Request::create(
+            '/styleguide/',
+            server: ['SCRIPT_NAME' => $script, 'SCRIPT_FILENAME' => '/var/www/html' . $script],
+        ))->getContent();
+        self::assertStringContainsString('"baseUrl":"/styleguide"', $shell);
+    }
+
+    #[Test]
+    public function a_script_name_that_is_not_the_script_gives_no_base(): void
+    {
+        // Some servers report the request path as SCRIPT_NAME. Its dirname would
+        // be a directory of the URL, not of the script, so the base stays empty.
+        $render = $this->kernel()->handle(Request::create(
+            '/styleguide/render/component/sample',
+            server: ['SCRIPT_NAME' => '/styleguide/render/component/sample', 'SCRIPT_FILENAME' => '/var/www/html/index.php'],
+        ));
+
+        $html = (string) $render->getContent();
+        self::assertStringContainsString('"/dist/css/style.css"', $html);
+        self::assertStringNotContainsString('/styleguide/render/component/dist/', $html);
+    }
+
+    #[Test]
     public function the_asset_base_is_empty_at_the_domain_root(): void
     {
         // The other half, and the one a regression would hide behind: a host
