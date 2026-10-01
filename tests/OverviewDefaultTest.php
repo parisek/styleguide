@@ -64,12 +64,19 @@ final class OverviewDefaultTest extends TestCase
     }
 
     #[Test]
-    public function foundations_or_no_key_keeps_the_payload_as_before(): void
+    public function foundations_stays_the_landing_when_it_is_written(): void
     {
-        self::assertArrayNotHasKey('landing', $this->spaConfig($this->styleguide(['project' => ['name' => 'X']])));
-        self::assertArrayNotHasKey('landing', $this->spaConfig($this->styleguide(['overview' => ['default' => 'foundations']])));
-        self::assertArrayNotHasKey('landing', $this->spaConfig($this->styleguide(['overview' => ['default' => null]])));
-        self::assertArrayNotHasKey('landing', $this->spaConfig($this->styleguide(['overview' => ['other' => 1]])));
+        $config = $this->spaConfig($this->styleguide(['overview' => ['default' => 'foundations']]));
+
+        self::assertSame('foundations', $config['landing']);
+    }
+
+    #[Test]
+    public function no_key_lands_on_the_grid(): void
+    {
+        self::assertSame('grid', $this->spaConfig($this->styleguide(['project' => ['name' => 'X']]))['landing']);
+        self::assertSame('grid', $this->spaConfig($this->styleguide(['overview' => ['default' => null]]))['landing']);
+        self::assertSame('grid', $this->spaConfig($this->styleguide(['overview' => ['other' => 1]]))['landing']);
     }
 
     /**
@@ -96,8 +103,8 @@ final class OverviewDefaultTest extends TestCase
     #[Test]
     public function an_overview_key_that_is_not_a_map_is_left_to_the_project(): void
     {
-        self::assertArrayNotHasKey('landing', $this->spaConfig($this->styleguide(['overview' => 'grid'])));
-        self::assertArrayNotHasKey('landing', $this->spaConfig($this->styleguide(['overview' => ['grid']])));
+        self::assertSame('grid', $this->spaConfig($this->styleguide(['overview' => 'grid']))['landing']);
+        self::assertSame('grid', $this->spaConfig($this->styleguide(['overview' => ['grid']]))['landing']);
     }
 
     #[Test]

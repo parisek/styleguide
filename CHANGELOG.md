@@ -8,6 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **The catalogue opens on the preview grid by default (#182).** Without
+  `overview.default`, `/styleguide/` shows the grid, not Foundations. Write
+  `overview.default: foundations` to keep the old landing. With `grid: false`
+  in `builtin_pages` and no `overview.default`, the landing is Foundations.
+  `#sg-config` now always carries `landing` (`grid` or `foundations`). The SPA
+  already reads both values, so `dist/` is unchanged.
+
 ## [1.29.1] - 2026-09-30
 
 ### Fixed

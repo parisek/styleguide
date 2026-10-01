@@ -80,6 +80,15 @@ final class BuiltinPagesTest extends TestCase
         self::assertSame('grid', $config['landing']);
     }
 
+    #[Test]
+    public function switching_off_the_grid_lands_on_foundations(): void
+    {
+        $config = $this->spaConfig($this->styleguide(['builtin_pages' => ['grid' => false]]));
+
+        self::assertSame(['grid'], $config['disabledPages']);
+        self::assertSame('foundations', $config['landing']);
+    }
+
     /**
      * @return iterable<string, array{mixed}>
      */

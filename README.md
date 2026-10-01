@@ -621,7 +621,7 @@ builtin_pages:
   overview: false   # the index; the grid shows the same entries with previews
 ```
 
-A page switched off leaves the sidebar, and its URL shows the landing instead. Every page is on unless named with `false`, so a catalogue without the key is unchanged. Switching Foundations off makes the grid the landing (and an unknown path shows the grid too). The landing itself cannot be switched off: `overview.default: grid` with `grid: false`, or Foundations and the grid both off, throws at construction, as does an unknown page name or a value that is not `true` or `false`. The per-component Fields drawer under a preview is not a page and stays.
+A page switched off leaves the sidebar, and its URL shows the landing instead. Every page is on unless named with `false`, so a catalogue without the key is unchanged. The landing is the grid. Switching the grid off makes Foundations the landing (and an unknown path shows Foundations too). The landing itself cannot be switched off: `overview.default: grid` with `grid: false`, or Foundations and the grid both off, throws at construction, as does an unknown page name or a value that is not `true` or `false`. The per-component Fields drawer under a preview is not a page and stays.
 
 ### Overview grid
 
@@ -631,7 +631,7 @@ A page switched off leaves the sidebar, and its URL shows the landing instead. E
 
 **Loading.** Every preview is a full render, and a catalogue can hold hundreds. A tile loads its iframe only when it comes within 400 px of the visible area, and at most 6 previews load at once. A tile that scrolls away before its turn drops out of the queue; a loaded tile keeps its preview. Against a synthetic catalogue of 300 entries, the first screen settles with 12 previews loaded, and no more than 6 renders are ever in flight (the Playwright suite measures this).
 
-`overview.default: grid` in `styleguide.yaml` makes the grid the landing: `/styleguide/` shows it, with the address bar left at the mount. Without the key the landing stays Foundations. Any other value than `grid` or `foundations` throws at construction.
+`overview.default: grid` in `styleguide.yaml` makes the grid the landing: `/styleguide/` shows it, with the address bar left at the mount. Without the key the landing is the grid (before 1.30.0 it was Foundations; write `overview.default: foundations` to keep that). Any other value than `grid` or `foundations` throws at construction.
 
 ### Pages grouped by category
 
@@ -678,7 +678,7 @@ Every URL below sits under the catalogue's mount path: `/styleguide` by default,
 
 | URL | Served | Purpose |
 |---|---|---|
-| `/styleguide/` | SPA HTML | Landing: Foundations, or the overview grid with `overview.default: grid` (see *Overview grid*). The URL stays at the mount |
+| `/styleguide/` | SPA HTML | Landing: the overview grid, or Foundations with `overview.default: foundations` (see *Overview grid*). The URL stays at the mount |
 | `/styleguide/component/<slug>` | SPA HTML | Deep link — client-side router resolves the right view. Also accepts `?variant=<id>`* |
 | `/styleguide/page/<slug>` | SPA HTML | Deep link to a page styleguide. Also accepts `?variant=<id>`* |
 | `/styleguide/doc/<slug>` | SPA HTML | Deep link to a doc entry (DOKUMENTACE group). Also accepts `?variant=<id>`* |

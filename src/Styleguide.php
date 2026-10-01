@@ -80,7 +80,7 @@ final class Styleguide
     /** @var list<string> `source_views`, validated; the default set when absent */
     private array $sourceViews;
 
-    /** `overview.default`, validated; 'foundations' when absent */
+    /** `overview.default`, validated; 'grid' when absent */
     private string $landing;
 
     /** @var list<string> `builtin_pages` switched off, validated; empty when absent */
@@ -3155,11 +3155,9 @@ final class Styleguide
         if ($this->componentsGroupBy !== null) {
             $config['componentsGroupBy'] = $this->componentsGroupBy;
         }
-        // Only for the grid: a catalogue that lands on Foundations (the
-        // default, or written out) sends the same payload as before.
-        if ($this->landing === 'grid') {
-            $config['landing'] = 'grid';
-        }
+        // Always sent. An absent key reads as Foundations in the SPA, and the
+        // default landing is the grid, so the page must be named either way.
+        $config['landing'] = $this->landing;
         // The pages a project switched off: gone from the sidebar, and their
         // routes show the landing instead. Absent when none is off.
         if ($this->disabledPages !== []) {
@@ -3692,15 +3690,15 @@ final class Styleguide
     private static function landing(mixed $overview): string
     {
         if (!is_array($overview) || array_is_list($overview)) {
-            return 'foundations';
+            return 'grid';
         }
         $default = $overview['default'] ?? null;
         if ($default === null) {
-            return 'foundations';
+            return 'grid';
         }
         if ($default !== 'grid' && $default !== 'foundations') {
             throw new \InvalidArgumentException(
-                'styleguide.yaml: `overview.default` accepts "grid" or "foundations" (or leave it out for Foundations)',
+                'styleguide.yaml: `overview.default` accepts "grid" or "foundations" (or leave it out for the grid)',
             );
         }
 
@@ -3746,9 +3744,9 @@ final class Styleguide
 
     /**
      * The landing once `builtin_pages` has had its say. A written
-     * `overview.default` must name a page that is on. Without one, a
-     * catalogue that switched Foundations off lands on the grid. When
-     * neither can be the landing there is nothing to show at the mount.
+     * `overview.default` must name a page that is on. Without one, the
+     * landing is the grid, or Foundations when the grid is switched off.
+     * When neither can be the landing there is nothing to show at the mount.
      *
      * @param list<string> $disabled
      */
@@ -3757,8 +3755,12 @@ final class Styleguide
         if (!in_array($landing, $disabled, true)) {
             return $landing;
         }
-        if (!$written && !in_array('grid', $disabled, true)) {
-            return 'grid';
+        if (!$written) {
+            foreach (['grid', 'foundations'] as $page) {
+                if (!in_array($page, $disabled, true)) {
+                    return $page;
+                }
+            }
         }
         throw new \InvalidArgumentException(sprintf(
             'styleguide.yaml: `builtin_pages` switches off "%s", which is the landing; keep it on or set `overview.default` to a page that is on',
