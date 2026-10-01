@@ -39,13 +39,7 @@ final class StyleguideController
 
     public function __invoke(Request $request): Response
     {
-        // getBasePath(), the base WITHOUT the script filename. Not
-        // getBaseUrl(), which keeps it: on `/index.php/styleguide/…` that
-        // would rebase every iframe stylesheet onto `/index.php/dist/…`.
-        // getBasePath() returns exactly what the library front controller
-        // computes as `rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')` — equal
-        // in all four deployment shapes, asserted in BundleTest.
-        $styleguide = $this->factory->forRequest($request->getBasePath());
+        $styleguide = $this->factory->forRequest($this->assetBase($request));
 
         $result = $styleguide->handle(new StyleguideRequest(
             // getPathInfo(), NOT getRequestUri(). The latter includes the base
@@ -102,6 +96,39 @@ final class StyleguideController
     /**
      * The path the package routes on, with its query string.
      */
+    /**
+     * The asset base for this request: the web path of the directory the
+     * script lives in, WITHOUT the script filename.
+     *
+     * getBasePath(), not getBaseUrl(): the latter keeps the script filename, so
+     * on `/index.php/styleguide/…` it would rebase every iframe stylesheet onto
+     * `/index.php/dist/…`. getBasePath() equals the library front controller's
+     * `rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')` for a host at the domain
+     * root, in a subdirectory, and behind `X-Forwarded-Prefix`.
+     *
+     * It does not behind a rewrite that sends `/styleguide/` to a script in a
+     * subdirectory (`RewriteRule ^styleguide(.*)$ /wp-content/themes/x/static/index.php`).
+     * The request URI then does not start with the script path, Symfony finds
+     * no base and returns ''. SCRIPT_NAME is intact, so the library formula
+     * answers there. It is also '' for a script at the domain root, which keeps
+     * that case as it was.
+     */
+    private function assetBase(Request $request): string
+    {
+        $base = $request->getBasePath();
+        if ($base !== '') {
+            return $base;
+        }
+
+        $directory = rtrim(str_replace('\\', '/', \dirname((string) $request->server->get('SCRIPT_NAME', ''))), '/');
+        if ($directory === '' || $directory === '.') {
+            return '';
+        }
+
+        // Each segment encoded, as getBasePath() does for a directory with a space.
+        return implode('/', array_map('rawurlencode', explode('/', $directory)));
+    }
+
     private function uri(Request $request): string
     {
         $query = $request->getQueryString();

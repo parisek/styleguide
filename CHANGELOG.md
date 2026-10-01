@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **The front controller keeps the asset base behind a rewrite to a script in a
+  subdirectory (#184).** `RewriteRule ^styleguide(.*)$ /wp-content/themes/x/static/index.php`
+  leaves `Request::getBasePath()` empty, because the request URI does not start
+  with the script path. Every stylesheet, script and font of the preview then
+  came from the domain root and returned 404. When `getBasePath()` is empty, the
+  controller now uses `rtrim(dirname(SCRIPT_NAME), '/')`, the formula of the
+  library front controller, with each segment URL-encoded. A host at the domain
+  root, in a subdirectory, or behind `X-Forwarded-Prefix` is unchanged.
+
 ## [1.29.1] - 2026-09-30
 
 ### Fixed
