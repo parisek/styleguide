@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.29.2] - 2026-10-01
+
 ### Fixed
 
 - **The front controller keeps the asset base behind a rewrite to a script in a
