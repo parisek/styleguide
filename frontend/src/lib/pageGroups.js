@@ -31,3 +31,27 @@ export function groupPagesByCategory(pages, defaultLabel) {
     return [...named, ...(fallback ? [fallback] : [])]
         .map(({ key, label, items }) => ({ key, label, items }));
 }
+
+// The grid's entries as the board's rows: one group per sidebar section
+// (`sections.<section>` names it), in the order the entries arrive. Pages
+// follow the sidebar's category groups, one row each, when
+// `pages.group_by: category` is on; else they are one row. A section with no
+// entries has no group.
+export function boardGroups(entries, { groupBy = null, sectionLabel = (section) => section, defaultLabel = '' } = {}) {
+    const groups = [];
+    for (const entry of entries) {
+        if (entry.type === 'page' && groupBy === 'category') continue;
+        let group = groups.find((g) => g.key === entry.section);
+        if (!group) {
+            group = { key: entry.section, label: sectionLabel(entry.section), items: [] };
+            groups.push(group);
+        }
+        group.items.push(entry);
+    }
+    if (groupBy !== 'category') return groups;
+    const pages = entries.filter((e) => e.type === 'page');
+    const byId = new Map(pages.map((e) => [e.id, e]));
+    const pageGroups = groupPagesByCategory(pages.map((e) => e.item), defaultLabel)
+        .map((g) => ({ key: `category:${g.key}`, label: g.label, items: g.items.map((item) => byId.get(item.id)) }));
+    return [...groups, ...pageGroups];
+}

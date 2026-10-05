@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
+import { PAGE_PAD, PAGE_PAD_BOTTOM, PAGE_TITLE } from '../lib/pageLayout.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { flattenFieldsTree } from '../lib/fieldsTree.js';
@@ -32,8 +33,8 @@ const groups = computed(() => {
 
 <template>
     <div class="h-full overflow-y-auto">
-        <div class="max-w-5xl mx-auto px-6 py-8">
-            <h1 class="text-lg font-bold text-zinc-900 dark:text-zinc-50">{{ i18n.t('fields.overviewTitle') }}</h1>
+        <div :class="`max-w-5xl mx-auto ${PAGE_PAD} ${PAGE_PAD_BOTTOM}`">
+            <h1 :class="PAGE_TITLE">{{ i18n.t('fields.overviewTitle') }}</h1>
             <input v-model="query" type="search" :placeholder="i18n.t('fields.filterPlaceholder')"
                    class="mt-4 w-full max-w-md px-3.5 py-2 text-sm rounded-lg border border-zinc-300 bg-white text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
                    data-testid="fields-filter">

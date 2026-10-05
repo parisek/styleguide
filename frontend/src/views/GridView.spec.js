@@ -36,9 +36,13 @@ function stubClientWidth(px) {
     };
 }
 
-async function mountGrid({ items, pages } = {}) {
+async function mountGrid({ items, pages, path = '/grid', keepStorage = null } = {}) {
     setActivePinia(createPinia());
     localStorage.clear();
+    if (keepStorage) {
+        localStorage.setItem('sg-grid-section', keepStorage.section);
+        localStorage.setItem('sg-grid-query', keepStorage.query);
+    }
     const catalog = useCatalogStore();
     catalog.items = items ?? [
         { id: 'button', name: 'Button', category: '', has_styleguide: true },
@@ -49,7 +53,8 @@ async function mountGrid({ items, pages } = {}) {
     catalog.pages = pages ?? [{ id: 'home', name: 'Home', has_styleguide: true }];
     catalog.loading = false;
     useI18nStore().strings = {
-        grid: { title: 'All previews', subtitle: 'Sub', filter_all: 'All', filter_placeholder: 'Filter…', filter_label: 'Filter', variants: 'Variants', empty: 'Nothing matches.' },
+        board: { controls: 'Controls', zoom_in: 'In', zoom_out: 'Out', zoom_reset: 'Reset', fit: 'Fit all', active_hint: 'Interactive', label: 'Board' },
+        grid: { view_label: 'View', view_grid: 'Grid', view_board: 'Board', title: 'Previews', subtitle: 'Sub', filter_all: 'All', filter_placeholder: 'Filter…', filter_label: 'Filter', variants: 'Variants', empty: 'Nothing matches.' },
         sections: { basic: 'Basic', blocks: 'Blocks', gutenberg: 'Gutenberg', pages: 'Pages' },
     };
     const router = createRouter({
@@ -60,7 +65,7 @@ async function mountGrid({ items, pages } = {}) {
             { path: '/page/:slug', name: 'page', component: { template: '<div/>' } },
         ],
     });
-    await router.push('/grid');
+    await router.push(path);
     const wrapper = mount(GridView, { global: { plugins: [router] }, attachTo: document.body });
     await flushPromises();
     return { wrapper, router, catalog };
@@ -175,5 +180,64 @@ describe('GridView', () => {
         const badges = wrapper.findAll('[data-testid="grid-tile-variants"]');
         expect(badges).toHaveLength(1);
         expect(badges[0].text()).toBe('2');
+    });
+
+    it('switches to the board, which shows the same filtered entries in the same order', async () => {
+        const { wrapper } = await mountGrid();
+        const toggles = wrapper.findAll('[data-testid="grid-view-toggle"]');
+        expect(toggles.map((t) => t.attributes('aria-pressed'))).toEqual(['true', 'false']);
+        await toggles[1].trigger('click');
+        await flushPromises();
+        expect(wrapper.find('[data-testid="grid-tiles"]').exists()).toBe(false);
+        expect(wrapper.find('[data-testid="grid-board"]').exists()).toBe(true);
+        expect(wrapper.findAll('[data-testid="board-frame-link"]').map((a) => a.text())).toEqual(['Button', 'Hero', 'Quote', 'Home']);
+        await wrapper.findAll('[data-testid="grid-filter-section"]')[0].trigger('click');
+        await wrapper.find('[data-testid="grid-filter-query"]').setValue('hero');
+        await flushPromises();
+        expect(wrapper.findAll('[data-testid="board-frame-link"]').map((a) => a.text())).toEqual(['Hero']);
+    });
+
+    it('opens on the board for ?view=board and remembers the choice', async () => {
+        localStorage.clear();
+        const { wrapper, router } = await mountGrid({ path: '/grid?view=board' });
+        expect(wrapper.find('[data-testid="grid-board"]').exists()).toBe(true);
+        await wrapper.findAll('[data-testid="grid-view-toggle"]')[0].trigger('click');
+        await flushPromises();
+        expect(router.currentRoute.value.query.view).toBe('grid');
+        expect(wrapper.find('[data-testid="grid-tiles"]').exists()).toBe(true);
+        expect(useUiStore().gridView).toBe('grid');
+    });
+
+    it('remembers the section and the text for the next visit', async () => {
+        const { wrapper } = await mountGrid();
+        await wrapper.findAll('[data-testid="grid-filter-section"]')[2].trigger('click');
+        await wrapper.find('[data-testid="grid-filter-query"]').setValue('he');
+        await flushPromises();
+        expect(JSON.parse(localStorage.getItem('sg-grid-section'))).toBe('blocks');
+        expect(JSON.parse(localStorage.getItem('sg-grid-query'))).toBe('he');
+        wrapper.unmount();
+        const stored = { section: localStorage.getItem('sg-grid-section'), query: localStorage.getItem('sg-grid-query') };
+        const again = await mountGrid({ keepStorage: stored });
+        expect(tileNames(again.wrapper)).toEqual(['Hero']);
+        expect(again.wrapper.find('[data-testid="grid-filter-query"]').element.value).toBe('he');
+    });
+
+    it('ignores a stored section the catalogue does not have', async () => {
+        const { wrapper } = await mountGrid({ keepStorage: { section: JSON.stringify('gone'), query: JSON.stringify('') } });
+        expect(tileNames(wrapper)).toEqual(['Button', 'Hero', 'Quote', 'Home']);
+    });
+
+    it('drops the board\'s view from the address when the view or the filter changes', async () => {
+        const { wrapper, router } = await mountGrid({ path: '/grid?view=board&zoom=50&at=100,100&sel=page:home' });
+        expect(router.currentRoute.value.query.zoom).toBe('50');
+        await wrapper.find('[data-testid="grid-filter-query"]').setValue('he');
+        await flushPromises();
+        expect(router.currentRoute.value.query.zoom).toBeUndefined();
+        expect(router.currentRoute.value.query.sel).toBeUndefined();
+        expect(router.currentRoute.value.query.view).toBe('board');
+        await router.replace({ query: { view: 'board', zoom: '40', at: '1,1' } });
+        await wrapper.findAll('[data-testid="grid-view-toggle"]')[0].trigger('click');
+        await flushPromises();
+        expect(router.currentRoute.value.query).toEqual({ view: 'grid' });
     });
 });

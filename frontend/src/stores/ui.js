@@ -53,6 +53,13 @@ export const useUiStore = defineStore('ui', {
             // The overview grid's tile width (px); null until chosen, then
             // the widest option (resolveGridWidth in lib/catalogGrid.js).
             gridWidth: usePersistedRef('sg-grid-width', null),
+            // The overview grid's view: 'grid' (tiles) or 'board' (one
+            // zoomable surface, BoardSurface.vue).
+            gridView: usePersistedRef('sg-grid-view', 'grid'),
+            // The overview grid's filter, kept for the next visit: the
+            // section chip (null = all) and the text.
+            gridSection: usePersistedRef('sg-grid-section', null),
+            gridQuery: usePersistedRef('sg-grid-query', ''),
             isDragging: false,
             isPreviewLoading: false,
             searchQuery: '',

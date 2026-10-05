@@ -85,7 +85,7 @@
         "used_in": "Použito v"
     },
     "grid": {
-        "title": "Všechny náhledy",
+        "title": "Náhledy",
         "subtitle": "Živý náhled každé komponenty a stránky. Kliknutím otevřete detail.",
         "filter_all": "Vše",
         "filter_placeholder": "Filtrovat…",
@@ -95,7 +95,22 @@
         "width_mobile": "Mobil",
         "width_tablet": "Tablet",
         "width_desktop": "Desktop",
+        "view_label": "Zobrazení",
+        "view_grid": "Mřížka",
+        "view_board": "Plátno",
         "empty": "Filtru nic neodpovídá."
+    },
+    "board": {
+        "controls": "Ovládání plátna",
+        "zoom_in": "Přiblížit (+)",
+        "zoom_out": "Oddálit (-)",
+        "zoom_reset": "Zoom na 100 % (1)",
+        "fit": "Vměstnat vše",
+        "active_hint": "Interaktivní stránka · Esc ukončí",
+        "zoom_selection": "Přiblížit výběr",
+        "zoom_selection_title": "Přiblížit vybranou stránku (F)",
+        "selected_hint": "Enter: ovládat stránku · F: přiblížit · šipky: další · Esc: zrušit",
+        "label": "Plátno všech položek"
     },
     "empty_state": "Vyberte komponentu v postranním panelu",
     "loading": "Načítám…",

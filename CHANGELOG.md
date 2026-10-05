@@ -8,6 +8,25 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **A board view in the overview grid (#186).** The grid page (`/styleguide/grid`)
+  has a switch, "Mřížka" / "Plátno" ("Grid" / "Board"). The board shows the
+  same filtered entries on one large surface, one row per sidebar section
+  (one per category for pages with `pages.group_by: category`), each entry a
+  live iframe at the grid's width. The section chips, the text filter and the width
+  buttons act on both views. Scroll pans the board. Ctrl or Cmd with the wheel,
+  a trackpad pinch, the `+` and `-` keys and the buttons zoom around the
+  cursor; "Fit all" (`0`) fits the width and `1` is 100 %. A click on a page makes it interactive (menus, accordions, links
+  work; Ctrl+wheel and Esc still reach the board). A drag pans, as with a hand
+  tool. A click selects a frame; the arrows walk between frames, `F` zooms to
+  the selection, Enter or a second click makes the page interactive, Ctrl+Enter
+  opens it, and Esc steps back. Each name shows the measured size, "1440 × 2806".
+  The address carries the view (`?view=board&zoom=35&at=1200,300&sel=page:homepage`),
+  so a link opens the board where you were. A click on a page name opens the page,
+  and the choice of view, section and text is remembered. A prototype: the measured limits are
+  in the review request.
+
 ## [1.29.2] - 2026-10-01
 
 ### Fixed
