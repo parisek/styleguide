@@ -25,8 +25,8 @@ function mountSurface(extra = {}) {
     return mount(BoardSurface, {
         props: {
             groups: [
-                { key: 'pages', label: 'Pages', items: entries.slice(0, 2) },
-                { key: 'basic', label: 'Basic', items: entries.slice(2) },
+                { key: 'pages', label: 'Pages', level: 1, items: entries.slice(0, 2) },
+                { key: 'basic', label: 'Basic', level: 1, items: entries.slice(2) },
             ],
             previewWidth: 1440,
             queue: createLoadQueue(),
@@ -52,10 +52,23 @@ describe('BoardSurface', () => {
         expect(wrapper.findAll('[data-testid="board-frame-link"]').map((a) => a.text())).toEqual(['Home', 'About', 'Hero']);
     });
 
+    it('shows a group inside a section as a smaller heading', async () => {
+        const wrapper = mountSurface({
+            groups: [
+                { key: 'pages', label: 'Pages', level: 1, items: [] },
+                { key: 'category:home', label: 'Home', level: 2, items: entries.slice(0, 2) },
+            ],
+        });
+        await flushPromises();
+        expect(wrapper.findAll('[data-testid="board-group"]').map((h) => h.text())).toEqual(['Pages']);
+        expect(wrapper.findAll('[data-testid="board-subgroup"]').map((h) => h.text())).toEqual(['Home2']);
+    });
+
     it('has one heading per group', async () => {
         const wrapper = mountSurface();
         await flushPromises();
-        expect(wrapper.findAll('[data-testid="board-group"]').map((h) => h.text())).toEqual(['Pages', 'Basic']);
+        expect(wrapper.findAll('[data-testid="board-group"]').map((h) => h.text())).toEqual(['Pages2', 'Basic1']);
+        expect(wrapper.findAll('[data-testid="board-rule"]')).toHaveLength(1);
     });
 
     it('zooms with the buttons and resets to 100 %', async () => {

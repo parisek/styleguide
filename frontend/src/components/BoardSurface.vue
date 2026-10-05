@@ -22,7 +22,7 @@ import { computed, ref, reactive, watch, nextTick, onMounted, onBeforeUnmount } 
 import { useI18nStore } from '../stores/i18n.js';
 import { gridPreviewSize } from '../lib/catalogGrid.js';
 import {
-    boardLayout, BOARD_FIT_HEIGHT_SLACK, BOARD_GROUP_BAND_PX, BOARD_NAME_BAND_PX,
+    boardLayout, BOARD_FIT_HEIGHT_SLACK, BOARD_HEAD_HEIGHT_PX, BOARD_NAME_BAND_PX,
 } from '../lib/boardLayout.js';
 import { clampZoom, wheelZoom, stepZoom, fitAllZoom, zoomAround } from '../lib/boardZoom.js';
 import {
@@ -359,8 +359,13 @@ onBeforeUnmount(() => scroller.value?.removeEventListener('wheel', onWheel));
 // above its frame, and is cut at the frame's width.
 const nameSize = computed(() => Math.min(BOARD_NAME_BAND_PX * 0.5, 12 / zoom.value));
 const nameGap = computed(() => Math.min(BOARD_NAME_BAND_PX * 0.2, 6 / zoom.value));
-// A heading is 16 screen pixels, within its band.
-const headSize = computed(() => Math.min(BOARD_GROUP_BAND_PX * 0.55, 16 / zoom.value));
+// A section heading is 16 screen pixels and a group heading inside it 13, each
+// within its line. A rule is one screen pixel.
+const HEAD_SCREEN_PX = { 1: 16, 2: 13 };
+function headSize(level) {
+    return Math.min(BOARD_HEAD_HEIGHT_PX[level] / 1.2, HEAD_SCREEN_PX[level] / zoom.value);
+}
+const ruleWidth = computed(() => 1 / zoom.value);
 // A selection mark is 3 screen pixels wide at any zoom.
 const ringWidth = computed(() => 3 / zoom.value);
 // Below this frame width on screen a name would only overlap its neighbours.
@@ -398,13 +403,24 @@ const buttonClass = PILL_BUTTON;
                     class="relative origin-top-left"
                     :style="{ width: `${layout.width}px`, height: `${layout.height}px`, transform: `scale(${zoom})` }"
                 >
+                    <div
+                        v-for="rule in layout.rules"
+                        :key="rule.key"
+                        data-testid="board-rule"
+                        class="absolute left-0 bg-zinc-300 dark:bg-zinc-700"
+                        :style="{ top: `${rule.y}px`, width: `${layout.width}px`, height: `${ruleWidth}px` }"
+                    ></div>
                     <h2
                         v-for="head in layout.heads"
                         :key="`head-${head.key}`"
-                        data-testid="board-group"
-                        class="absolute m-0 truncate font-semibold text-zinc-900 dark:text-zinc-100"
-                        :style="{ left: `${head.x}px`, top: `${head.y}px`, width: `${layout.width}px`, fontSize: `${headSize}px`, lineHeight: 1.2 }"
-                    >{{ head.label }}</h2>
+                        :data-testid="head.level === 1 ? 'board-group' : 'board-subgroup'"
+                        class="absolute m-0 flex items-baseline gap-[0.6em] whitespace-nowrap"
+                        :class="head.level === 1 ? 'font-semibold text-zinc-900 dark:text-zinc-100' : 'font-medium text-zinc-600 dark:text-zinc-400'"
+                        :style="{ left: `${head.x}px`, top: `${head.y}px`, width: `${layout.width}px`, fontSize: `${headSize(head.level)}px`, lineHeight: 1.2 }"
+                    >
+                        <span class="truncate">{{ head.label }}</span>
+                        <span v-if="head.count > 0" class="shrink-0 font-normal tabular-nums text-zinc-500" style="font-size: 0.8em">{{ head.count }}</span>
+                    </h2>
                     <BoardFrame
                         v-for="frame in layout.frames"
                         :key="frame.key"

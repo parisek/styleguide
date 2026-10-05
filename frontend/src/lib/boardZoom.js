@@ -1,7 +1,7 @@
 // Pure zoom maths of the board view (BoardView.vue). The surface scrolls
 // natively and scales with one CSS transform, so every function here turns
 // numbers into numbers: a zoom level and a scroll position.
-export const ZOOM_MIN = 0.05;
+export const ZOOM_MIN = 0.02;
 export const ZOOM_MAX = 2;
 export const ZOOM_STEP = 1.25;
 
