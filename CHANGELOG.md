@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.30.1] - 2026-10-05
+
 ### Changed
 
 - **The board tells a section from a group inside it.** A section heading is
