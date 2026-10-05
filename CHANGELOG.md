@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.30.0] - 2026-10-05
+
 ### Added
 
 - **A board view in the overview grid (#186).** The grid page (`/styleguide/grid`)
