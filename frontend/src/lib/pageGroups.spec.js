@@ -79,13 +79,19 @@ describe('boardGroups', () => {
         ]);
     });
 
+    it('has no Pages heading when there are no pages', () => {
+        const out = boardGroups([entry('btn', 'component', 'basic')], { groupBy: 'category', sectionLabel: label });
+        expect(out.map((g) => g.key)).toEqual(['basic']);
+    });
+
     it('splits the pages by category, after the components, with group_by category', () => {
         const entries = [entry('btn', 'component', 'basic'), entry('p1', 'page', 'pages', 'Site'), entry('p2', 'page', 'pages', 'Help'), entry('p3', 'page', 'pages', 'Site')];
         const out = boardGroups(entries, { groupBy: 'category', sectionLabel: label, defaultLabel: 'Other' });
-        expect(out.map((g) => [g.label, g.items.map((e) => e.id)])).toEqual([
-            ['L:basic', ['btn']],
-            ['Help', ['p2']],
-            ['Site', ['p1', 'p3']],
+        expect(out.map((g) => [g.level, g.label, g.items.map((e) => e.id)])).toEqual([
+            [1, 'L:basic', ['btn']],
+            [1, 'L:pages', []],
+            [2, 'Help', ['p2']],
+            [2, 'Site', ['p1', 'p3']],
         ]);
     });
 });

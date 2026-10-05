@@ -33,17 +33,18 @@ export function groupPagesByCategory(pages, defaultLabel) {
 }
 
 // The grid's entries as the board's rows: one group per sidebar section
-// (`sections.<section>` names it), in the order the entries arrive. Pages
-// follow the sidebar's category groups, one row each, when
-// `pages.group_by: category` is on; else they are one row. A section with no
-// entries has no group.
+// (`sections.<section>` names it), in the order the entries arrive. With
+// `pages.group_by: category` the pages follow the sidebar's category groups,
+// one row each: the Pages section is then a heading (level 1, no entries of its
+// own) and each category a group inside it (level 2). A section with no entries
+// has no group.
 export function boardGroups(entries, { groupBy = null, sectionLabel = (section) => section, defaultLabel = '' } = {}) {
     const groups = [];
     for (const entry of entries) {
         if (entry.type === 'page' && groupBy === 'category') continue;
         let group = groups.find((g) => g.key === entry.section);
         if (!group) {
-            group = { key: entry.section, label: sectionLabel(entry.section), items: [] };
+            group = { key: entry.section, label: sectionLabel(entry.section), level: 1, items: [] };
             groups.push(group);
         }
         group.items.push(entry);
@@ -51,7 +52,8 @@ export function boardGroups(entries, { groupBy = null, sectionLabel = (section) 
     if (groupBy !== 'category') return groups;
     const pages = entries.filter((e) => e.type === 'page');
     const byId = new Map(pages.map((e) => [e.id, e]));
+    if (pages.length === 0) return groups;
     const pageGroups = groupPagesByCategory(pages.map((e) => e.item), defaultLabel)
-        .map((g) => ({ key: `category:${g.key}`, label: g.label, items: g.items.map((item) => byId.get(item.id)) }));
-    return [...groups, ...pageGroups];
+        .map((g) => ({ key: `category:${g.key}`, label: g.label, level: 2, items: g.items.map((item) => byId.get(item.id)) }));
+    return [...groups, { key: 'pages', label: sectionLabel('pages'), level: 1, items: [] }, ...pageGroups];
 }

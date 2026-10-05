@@ -14,7 +14,7 @@ describe('the link to a view', () => {
 
     it('drops what does not read back, and says nothing when nothing does', () => {
         expect(decodeView({ zoom: '9999', at: 'x,y', sel: '<script>' })).toBeNull();
-        expect(decodeView({ zoom: '2', sel: 'page:ok' })).toEqual({ zoom: null, at: null, sel: 'page:ok' });
+        expect(decodeView({ zoom: '1', sel: 'page:ok' })).toEqual({ zoom: null, at: null, sel: 'page:ok' });
         expect(decodeView({})).toBeNull();
         expect(decodeView(undefined)).toBeNull();
     });

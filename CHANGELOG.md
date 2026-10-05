@@ -8,6 +8,22 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **The board tells a section from a group inside it.** A section heading is
+  larger and has a rule above it; a page category under `pages.group_by:
+  category` has a smaller, muted heading beneath the Pages heading. Both show the
+  number of entries. The space above a heading is now larger than the space
+  below it, so a heading no longer sits against the row above. "Fit all" lets the
+  height run four windows tall (it was two), because a catalogue with many
+  categories stacks many rows.
+
+### Fixed
+
+- **A wide row fits.** The lowest zoom is 2 % (it was 5 %), so "Fit all" fits a
+  row of 29 frames, such as the Blocks of a large kit, instead of cutting it off at
+  the right edge.
+
 ## [1.30.0] - 2026-10-05
 
 ### Added
