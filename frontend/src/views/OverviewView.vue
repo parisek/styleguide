@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { PAGE_PAD, PAGE_PAD_BOTTOM, PAGE_TITLE } from '../lib/pageLayout.js';
 import { useRouter } from 'vue-router';
 import { useCatalogStore } from '../stores/catalog.js';
 import { useI18nStore } from '../stores/i18n.js';
@@ -90,12 +91,12 @@ function reverseUsage(id) {
 
 <template>
     <div class="flex-1 overflow-y-auto bg-zinc-50 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
-        <div class="px-6 py-10 lg:px-10 lg:py-14">
+        <div :class="`${PAGE_PAD} ${PAGE_PAD_BOTTOM}`">
 
             <!-- Header: title + subtitle + switch toggle -->
             <header class="mb-10 pb-6 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap items-end gap-4 justify-between">
                 <div class="min-w-0">
-                    <h1 class="font-bold text-2xl sm:text-3xl tracking-tight text-zinc-900 dark:text-zinc-100">{{ i18n.t('overview.title') }}</h1>
+                    <h1 :class="PAGE_TITLE">{{ i18n.t('overview.title') }}</h1>
                     <p class="mt-2 max-w-2xl text-sm text-zinc-500 leading-relaxed">{{ i18n.t('overview.subtitle') }}</p>
                 </div>
                 <label class="inline-flex items-center gap-3 cursor-pointer select-none group shrink-0">

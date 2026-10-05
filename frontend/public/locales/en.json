@@ -85,7 +85,7 @@
         "used_in": "Used in"
     },
     "grid": {
-        "title": "All previews",
+        "title": "Previews",
         "subtitle": "A live preview of every component and page. Click one to open it.",
         "filter_all": "All",
         "filter_placeholder": "Filter…",
@@ -95,7 +95,22 @@
         "width_mobile": "Mobile",
         "width_tablet": "Tablet",
         "width_desktop": "Desktop",
+        "view_label": "View",
+        "view_grid": "Grid",
+        "view_board": "Board",
         "empty": "Nothing matches the filter."
+    },
+    "board": {
+        "controls": "Board controls",
+        "zoom_in": "Zoom in (+)",
+        "zoom_out": "Zoom out (-)",
+        "zoom_reset": "Zoom to 100 % (1)",
+        "fit": "Fit all",
+        "active_hint": "Interactive page · Esc to leave",
+        "zoom_selection": "Zoom to selection",
+        "zoom_selection_title": "Zoom to the selected page (F)",
+        "selected_hint": "Enter: use the page · F: zoom · arrows: next · Esc: clear",
+        "label": "Board of all entries"
     },
     "empty_state": "Select a component in the sidebar",
     "loading": "Loading…",
