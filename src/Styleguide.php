@@ -89,6 +89,8 @@ final class Styleguide
     /** The package's own pages `builtin_pages` can switch off. */
     private const BUILTIN_PAGES = ['foundations', 'icons', 'fields', 'overview', 'grid'];
     private Environment $twig;
+    private TemplateRoots $roots;
+
     private ComponentParser $parser;
     private Renderer $renderer;
     private AssetServer $assetServer;
@@ -216,7 +218,7 @@ final class Styleguide
 
     /**
      * @param array{
-     *   templates_path: string,
+     *   templates_path: string|list<string>,
      *   static_path: string,
      *   config_yaml: string,
      *   default_locale?: string,
@@ -399,9 +401,11 @@ final class Styleguide
         // this to the request's own `?locale=` once the route is parsed.
         $this->requestLocale = (string) $this->config['default_locale'];
 
+        $this->roots = TemplateRoots::from($config['templates_path']);
+
         $this->twig = $this->config['twig'] instanceof Environment
-            ? $this->attachLoaders($this->config['twig'], $config['templates_path'])
-            : $this->buildOwnTwig($config['templates_path']);
+            ? $this->attachLoaders($this->config['twig'], $this->roots)
+            : $this->buildOwnTwig($this->roots);
 
         $this->registerBundledExtensionsOrExplain($this->twig);
 
@@ -443,11 +447,11 @@ final class Styleguide
             self::$registeredEnvironments[$this->twig] = true;
         }
 
-        $this->parser = new ComponentParser($config['templates_path']);
+        $this->parser = new ComponentParser($this->roots);
         $this->renderer = new Renderer(
             $this->twig,
             $this->config['twig_context'],
-            $config['templates_path'],
+            $this->roots,
             $this->twigRuntime,
         );
         $this->assetServer = new AssetServer($this->distRoot);
@@ -587,11 +591,29 @@ final class Styleguide
         }
 
         foreach (['templates_path', 'static_path'] as $key) {
+            $isList = $key === 'templates_path' && is_array($bootstrap[$key] ?? null)
+                && $bootstrap[$key] !== [] && array_is_list($bootstrap[$key]);
+            if ($isList) {
+                // A list of roots, strongest first (see TemplateRoots).
+                foreach ($bootstrap[$key] as $index => $entry) {
+                    if (!is_string($entry) || $entry === '') {
+                        throw new \InvalidArgumentException(sprintf(
+                            "Styleguide::fromYaml(): '%s' key 'bootstrap.%s[%d]' must be a non-empty string, got %s",
+                            $path,
+                            $key,
+                            $index,
+                            get_debug_type($entry),
+                        ));
+                    }
+                }
+                continue;
+            }
             if (empty($bootstrap[$key]) || !is_string($bootstrap[$key])) {
                 throw new \InvalidArgumentException(sprintf(
-                    "Styleguide::fromYaml(): '%s' is missing required 'bootstrap.%s' (non-empty string)",
+                    "Styleguide::fromYaml(): '%s' is missing required 'bootstrap.%s' (non-empty string%s)",
                     $path,
                     $key,
+                    $key === 'templates_path' ? ' or list of strings' : '',
                 ));
             }
         }
@@ -617,7 +639,12 @@ final class Styleguide
         }
 
         $config = [
-            'templates_path' => self::resolveYamlPath((string) $bootstrap['templates_path'], $baseDir),
+            'templates_path' => is_array($bootstrap['templates_path'])
+                ? array_map(
+                    static fn(string $entry): string => self::resolveYamlPath($entry, $baseDir),
+                    $bootstrap['templates_path'],
+                )
+                : self::resolveYamlPath((string) $bootstrap['templates_path'], $baseDir),
             'static_path' => self::resolveYamlPath((string) $bootstrap['static_path'], $baseDir),
         ];
 
@@ -830,12 +857,16 @@ final class Styleguide
             || preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1;
     }
 
-    private function buildOwnTwig(string $templatesPath): Environment
+    private function buildOwnTwig(TemplateRoots $roots): Environment
     {
         $loader = new FilesystemLoader();
-        $loader->addPath($templatesPath, 'project');
+        // Every root under `@project`, strongest first: Twig searches the
+        // paths of a namespace in the order they were added.
+        foreach ($roots->all() as $root) {
+            $loader->addPath($root, 'project');
+        }
         $loader->addPath(__DIR__ . '/../templates');
-        $this->registerConventionalNamespaces($loader, $templatesPath);
+        $this->registerConventionalNamespaces($loader, $roots);
 
         // Right-hand merge so a consumer who only sets one key (e.g. cache)
         // keeps the other two package defaults.
@@ -872,25 +903,27 @@ final class Styleguide
      * own env before passing it in) doesn't end up with duplicate paths
      * slowing down template resolution.
      */
-    private function registerConventionalNamespaces(FilesystemLoader $loader, string $templatesPath): void
+    private function registerConventionalNamespaces(FilesystemLoader $loader, TemplateRoots $roots): void
     {
         $staticPath = (string) ($this->config['static_path'] ?? '');
 
-        $candidates = [
-            'component' => $templatesPath . '/component',
-            'macro' => $templatesPath . '/macro',
-            'page' => $templatesPath . '/page',
-            'doc' => $templatesPath . '/doc',
-            'static' => $templatesPath,
-        ];
+        // Namespace => paths, strongest root first. A namespace with several
+        // paths is the overlay: a template missing in the project is found in
+        // the kit.
+        $candidates = [];
+        foreach (['component' => '/component', 'macro' => '/macro', 'page' => '/page', 'doc' => '/doc', 'static' => ''] as $namespace => $suffix) {
+            foreach ($roots->all() as $root) {
+                $candidates[$namespace][] = $root . $suffix;
+            }
+        }
         // `images/` and `images/icons/` live next to `templates/` on every
         // consuming project we've shipped, so detect them off `static_path`
         // and register `@icons` / `@images` without forcing each project to
         // re-declare them in the `namespaces` config. Projects with a non-
         // standard image root can still override via that map (handled below).
         if ($staticPath !== '') {
-            $candidates['icons'] = $staticPath . '/images/icons';
-            $candidates['images'] = $staticPath . '/images';
+            $candidates['icons'] = [$staticPath . '/images/icons'];
+            $candidates['images'] = [$staticPath . '/images'];
         }
 
         $extras = is_array($this->config['namespaces'] ?? null) ? $this->config['namespaces'] : [];
@@ -898,17 +931,27 @@ final class Styleguide
             if (!is_string($name) || $name === '' || !is_string($path) || $path === '') {
                 continue;
             }
-            $candidates[$name] = $path;
+            $candidates[$name] = [$path];
         }
 
-        foreach ($candidates as $namespace => $path) {
-            if (!is_dir($path)) {
-                continue;
+        // One namespace per root, for the entry-level lookup: an entry's
+        // fixtures are read from its owning root only.
+        if (!$roots->isSingle()) {
+            foreach ($roots->all() as $index => $root) {
+                $candidates[TemplateRoots::rootNamespace($index)] = [$root];
             }
-            if ($this->loaderHasPath($loader, $namespace, $path)) {
-                continue;
+        }
+
+        foreach ($candidates as $namespace => $paths) {
+            foreach ($paths as $path) {
+                if (!is_dir($path)) {
+                    continue;
+                }
+                if ($this->loaderHasPath($loader, (string) $namespace, $path)) {
+                    continue;
+                }
+                $loader->addPath($path, (string) $namespace);
             }
-            $loader->addPath($path, $namespace);
         }
     }
 
@@ -2115,26 +2158,30 @@ final class Styleguide
      * exotic setups) we wrap it in a `ChainLoader` with a fresh
      * `FilesystemLoader` carrying the package's paths.
      */
-    private function attachLoaders(Environment $twig, string $templatesPath): Environment
+    private function attachLoaders(Environment $twig, TemplateRoots $roots): Environment
     {
         $existing = $twig->getLoader();
         $packagePath = __DIR__ . '/../templates';
 
         if ($existing instanceof FilesystemLoader) {
             if (!in_array('project', $existing->getNamespaces(), true)) {
-                $existing->addPath($templatesPath, 'project');
+                foreach ($roots->all() as $root) {
+                    $existing->addPath($root, 'project');
+                }
             }
             if (!in_array($packagePath, $existing->getPaths(), true)) {
                 $existing->addPath($packagePath);
             }
-            $this->registerConventionalNamespaces($existing, $templatesPath);
+            $this->registerConventionalNamespaces($existing, $roots);
             return $twig;
         }
 
         $packageLoader = new FilesystemLoader();
-        $packageLoader->addPath($templatesPath, 'project');
+        foreach ($roots->all() as $root) {
+            $packageLoader->addPath($root, 'project');
+        }
         $packageLoader->addPath($packagePath);
-        $this->registerConventionalNamespaces($packageLoader, $templatesPath);
+        $this->registerConventionalNamespaces($packageLoader, $roots);
         $twig->setLoader(new ChainLoader([$existing, $packageLoader]));
         return $twig;
     }
@@ -2645,9 +2692,15 @@ final class Styleguide
     private function resolveIncludeTarget(string $target, string $currentFile): ?string
     {
         if (preg_match('#^@(component|page|doc)/(.+)$#', $target, $m) === 1) {
-            $candidate = rtrim((string) $this->config['templates_path'], '/') . '/' . $m[1] . '/' . $m[2];
+            // Roots in order: the first one holding the file wins, as in Twig.
+            foreach ($this->roots->all() as $root) {
+                $candidate = rtrim($root, '/') . '/' . $m[1] . '/' . $m[2];
+                if (is_file($candidate)) {
+                    return $candidate;
+                }
+            }
 
-            return is_file($candidate) ? $candidate : null;
+            return null;
         }
 
         $candidate = dirname($currentFile) . '/' . $target;
@@ -2666,7 +2719,12 @@ final class Styleguide
      */
     private function resolveFixtureFile(string $kind, string $slug, ?string $variant): ?string
     {
-        $dir = rtrim((string) $this->config['templates_path'], '/') . '/' . $kind . '/' . $slug;
+        // The owning root's folder only: no fixture comes from a second root.
+        $root = $this->roots->isSingle() ? $this->roots->first() : $this->roots->ownerRoot($kind, $slug);
+        if ($root === null) {
+            return null;
+        }
+        $dir = rtrim($root, '/') . '/' . $kind . '/' . $slug;
 
         $candidates = [];
         if ($variant !== null && preg_match('/^[a-z0-9-]+$/', $variant) === 1) {
@@ -2686,7 +2744,10 @@ final class Styleguide
 
     private function relativeTemplatePath(string $absolutePath): string
     {
-        $base = rtrim((string) $this->config['templates_path'], '/') . '/';
+        if (!$this->roots->isSingle()) {
+            return $this->roots->relative($absolutePath);
+        }
+        $base = rtrim($this->roots->first(), '/') . '/';
 
         return str_starts_with($absolutePath, $base) ? substr($absolutePath, strlen($base)) : $absolutePath;
     }
@@ -2722,6 +2783,12 @@ final class Styleguide
             $value = $this->config[$key] ?? null;
             if (is_string($value) && $value !== '') {
                 $paths[$key] = $value;
+            } elseif ($key === 'templates_path' && is_array($value)) {
+                foreach ($value as $index => $root) {
+                    if (is_string($root) && $root !== '') {
+                        $paths['templates_path[' . $index . ']'] = $root;
+                    }
+                }
             }
         }
         $namespaces = is_array($this->config['namespaces'] ?? null) ? $this->config['namespaces'] : [];
@@ -3811,7 +3878,7 @@ final class Styleguide
             );
         }
         if ($route['endpoint'] === 'files' && array_intersect(['twig', 'css', 'js'], $views) !== []) {
-            return (new Api\FilesEndpoint((string) $this->config['templates_path'], $views))->handle(
+            return (new Api\FilesEndpoint($this->roots, $views))->handle(
                 (string) ($route['kind'] ?? ''),
                 (string) ($route['slug'] ?? ''),
             );

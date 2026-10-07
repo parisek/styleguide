@@ -8,6 +8,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`templates_path` takes a list of roots.** The first root is the strongest, for
+  example a project over a shared kit. The catalogue lists the union of the roots.
+  The first root that holds `<kind>/<id>/<id>.twig` owns that whole folder: its
+  `<id>.yaml`, fixtures, data files, `css/` and `js/` come from that root only.
+  Twig finds a template the owner does not have in the next root, so a project
+  override of one component is used by every kit component that calls it. A path
+  from one root must stay inside that root, so a symlink from root 1 into root 2
+  is refused. In `ComponentParser::getWarnings()` and `GET /api/health`, a warning
+  carries an extra `root` key (`templates_path[N]`) when the catalogue has a list
+  of roots, also for a list of one root. A string `templates_path` behaves
+  exactly as before, down to the shape of a warning. `vendor/bin/styleguide maintenance:render` refuses a list
+  with exit code 2 instead of writing into a folder nobody named.
+
 ## [1.30.1] - 2026-10-05
 
 ### Changed

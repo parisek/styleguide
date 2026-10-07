@@ -130,7 +130,7 @@ the YAML throws rather than being silently honoured. Full rules:
 
 | Key | Required | Default | Purpose |
 |---|---|---|---|
-| `templates_path` | yes | — | Absolute path to the project's Twig templates root. Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). |
+| `templates_path` | yes | — | Absolute path to the project's Twig templates root, or a list of roots, strongest first. Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). With a list, the first root that holds `<kind>/<id>/<id>.twig` owns that whole folder, and a symlink out of a root is refused. `maintenance:render` needs a single string. |
 | `static_path` | yes | — | Absolute path to the project's webroot (where `index.php` sits). Used to auto-register `@icons` (`/images/icons`) and `@images` (`/images`) if those directories exist. |
 | `config_yaml` | yes | — | Absolute path to `styleguide.yaml`. Missing file ≠ error — yaml just resolves to `[]` and the overview screen renders empty sections. |
 | `default_locale` | no | `'en'` | Two-letter code used by the SPA shell and forwarded to `Renderer` as `langcode`. Also drives the bundled `TypographyExtension`'s per-language typesetting (>= `parisek/twig-typography` 1.3) — passed as its locale resolver, so `|typography` applies the resolved language's quote/dash/spacing conventions without any extra config. |

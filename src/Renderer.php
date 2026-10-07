@@ -52,6 +52,10 @@ final class Renderer
      */
     private const DATA_SOURCE_KINDS = ['component', 'page', 'doc'];
 
+    private ?TemplateRoots $roots = null;
+
+    private ?string $templatesPath = null;
+
     /**
      * @param array<string, mixed> $context
      * @param string|null $templatesPath
@@ -80,9 +84,11 @@ final class Renderer
     public function __construct(
         private Environment $twig,
         private array $context = [],
-        private ?string $templatesPath = null,
+        string|TemplateRoots|null $templatesPath = null,
         private ?\Parisek\Styleguide\Twig\StyleguideRuntime $twigRuntime = null,
     ) {
+        $this->roots = $templatesPath === null ? null : TemplateRoots::from($templatesPath);
+        $this->templatesPath = $this->roots?->first();
         if ($twigRuntime === null) {
             $this->registerDataFunction();
         }
@@ -331,7 +337,22 @@ final class Renderer
             ));
         }
 
-        $dir = rtrim($this->templatesPath, '/') . '/' . $kind . '/' . $slug;
+        // The entry's own root: with several roots the sidecar is read from the
+        // owner of `<kind>/<slug>/` and from nowhere else.
+        $ownerIndex = 0;
+        if ($this->roots !== null && !$this->roots->isSingle()) {
+            $ownerIndex = $this->roots->ownerIndex($kind, $slug);
+            if ($ownerIndex === null) {
+                throw new \RuntimeException(sprintf(
+                    'styleguide_data(): no template root holds %s/%s/%s.twig',
+                    $kind,
+                    $slug,
+                    $slug,
+                ));
+            }
+        }
+        $ownerRoot = ($this->roots ?? TemplateRoots::from((string) $this->templatesPath))->all()[$ownerIndex];
+        $dir = rtrim($ownerRoot, '/') . '/' . $kind . '/' . $slug;
 
         // Belt-and-braces containment. The whitelist above already makes a
         // traversal segment inexpressible, so this only fires when the path is
@@ -359,7 +380,7 @@ final class Renderer
         // The reference reaches this method from a project's own Twig template
         // rather than from a request, so this is consistency with how the
         // package resolves every other filesystem read, not a trust boundary.
-        if (PathGuard::pathEscapesRoot($this->templatesPath, $kind . '/' . $slug . '/' . $filename)) {
+        if (PathGuard::pathEscapesRoot($ownerRoot, $kind . '/' . $slug . '/' . $filename)) {
             error_log(sprintf('styleguide_data(): sidecar resolves outside templates_path: %s', $file));
             throw new \RuntimeException(sprintf(
                 'styleguide_data(): %s resolves outside templates_path',
@@ -892,6 +913,18 @@ final class Renderer
     {
         $loader = $this->twig->getLoader();
         $namespace = '@project/' . $kind . '/' . $slug;
+        $ownerRoot = null;
+        if ($this->roots !== null && !$this->roots->isSingle()) {
+            // Entry-level ownership: look in the owning root's namespace only,
+            // so a kit fixture can never stand in for a project entry that has
+            // none. No owner, no entry.
+            $ownerIndex = $this->roots->ownerIndex($kind, $slug);
+            if ($ownerIndex === null) {
+                return null;
+            }
+            $ownerRoot = $this->roots->all()[$ownerIndex];
+            $namespace = '@' . TemplateRoots::rootNamespace($ownerIndex) . '/' . $kind . '/' . $slug;
+        }
 
         $candidates = [];
         if ($variant !== null && preg_match('/^[a-z0-9-]+$/', $variant) === 1) {
@@ -902,6 +935,18 @@ final class Renderer
 
         foreach ($candidates as $path) {
             if ($loader->exists($path)) {
+                // Overlay containment: the file Twig found must still sit
+                // inside the owning root after realpath(), so a symlink from a
+                // project into the kit cannot smuggle a kit file in as its own.
+                if ($ownerRoot !== null) {
+                    $found = $loader->getSourceContext($path)->getPath();
+                    $realRoot = realpath($ownerRoot);
+                    $realFound = $found === '' ? false : realpath($found);
+                    if ($realRoot === false || $realFound === false
+                        || !str_starts_with($realFound, $realRoot . DIRECTORY_SEPARATOR)) {
+                        return null;
+                    }
+                }
                 // Bind the "currently rendering" directory for
                 // styleguide_data() BEFORE calling render() — the Twig
                 // function reads $this->currentKind/$currentSlug at CALL

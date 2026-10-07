@@ -183,6 +183,36 @@ jobs:
       - name: composer.json is normalized
         run: composer normalize --dry-run
 
+  bc-check:
+    name: BC check (Roave, against the latest release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Roave reads the release tags, so it needs the whole history.
+          fetch-depth: 0
+
+      # Roave requires PHP 8.4 or newer, so it cannot be a require-dev of this
+      # package (PHP ^8.3). It is installed here, outside composer.json.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: intl, yaml
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Roave BackwardCompatibilityCheck
+        run: composer global require --no-interaction roave/backward-compatibility-check:^8.23
+
+      # The tags are `vX.Y.Z`; Roave finds `X.Y.Z` tags by itself, so name the
+      # base. The ignored lines are in .roave-backward-compatibility-check.xml.
+      - name: Compare the PR with the latest release
+        run: |
+          latest="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
+          echo "Comparing with ${latest}"
+          "$(composer global config bin-dir --absolute --quiet)/roave-backward-compatibility-check" \
+            --from="${latest}" --format=github-actions
+
   cs:
     name: code style (PER-CS)
     runs-on: ubuntu-latest

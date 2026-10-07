@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<roave-bc-check
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vendor/roave/backward-compatibility-check/Resources/schema.xsd">
+    <baseline>
+        <!--
+            The Symfony bridge (src/Bridge/Symfony/) extends Symfony classes that
+            composer.json lists only under "suggest". Roave installs the package
+            without dev dependencies, cannot load those parents and reports each
+            class as SKIPPED. Roave counts a skip as a break, so even the latest
+            release compared with itself fails. These lines carry no signal. The
+            rest of the public API stays checked.
+        -->
+        <ignored-regex>#^\[BC\] SKIPPED: Roave\\BetterReflection\\Reflection\\ReflectionClass "Symfony\\Component\\[A-Za-z\\]+" could not be found in the located source$#</ignored-regex>
+        <!--
+            A deliberate break of the public API goes here as one more
+            ignored-regex, with a comment that names the CHANGELOG entry and the
+            release that carries it.
+        -->
+    </baseline>
+</roave-bc-check>
