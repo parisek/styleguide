@@ -24,7 +24,9 @@ namespace Parisek\Styleguide;
  * A plain string keeps today's behaviour byte for byte: it is not resolved
  * with realpath() and it is not checked for existence. Only a list is
  * normalised (realpath, existing, deduplicated), and its error messages name
- * the index of the bad entry.
+ * the index of the bad entry. The form decides, not the root count: a list of
+ * one root, or of duplicates that collapse to one, is still a list and still
+ * enforces owner-root containment.
  */
 final class TemplateRoots
 {
@@ -95,9 +97,14 @@ final class TemplateRoots
         return $this->roots[0];
     }
 
+    /**
+     * True only for the legacy scalar form. A list is never single, even
+     * with one element or with duplicates that collapse to one root: it
+     * enforces owner-root containment.
+     */
     public function isSingle(): bool
     {
-        return count($this->roots) === 1;
+        return $this->legacy;
     }
 
     public function isLegacyString(): bool

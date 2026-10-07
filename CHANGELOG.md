@@ -19,8 +19,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   from one root must stay inside that root, so a symlink from root 1 into root 2
   is refused. In `ComponentParser::getWarnings()` and `GET /api/health`, a warning
   carries an extra `root` key (`templates_path[N]`) when the catalogue has a list
-  of roots. A string `templates_path` behaves exactly as before, down to the
-  shape of a warning. `vendor/bin/styleguide maintenance:render` refuses a list
+  of roots, also for a list of one root. A string `templates_path` behaves
+  exactly as before, down to the shape of a warning. `vendor/bin/styleguide maintenance:render` refuses a list
   with exit code 2 instead of writing into a folder nobody named.
 
 ## [1.30.1] - 2026-10-05
