@@ -708,7 +708,7 @@ components:
   include: [button, card, hero]
 ```
 
-The filter hides entries and nothing else. A component outside the list still renders when a listed component calls it, so a gap in your list never breaks a page. The package does not scan what a component calls, so write the full list. Pages and docs are not filtered.
+The filter hides entries and nothing else. A component outside the list still renders when a listed component calls it, so a gap in your list never breaks a page. The package does not scan what a component calls, so write the full list. Pages and docs are not filtered. The `usage` field of every entry names only listed components and pages, so a hidden id never shows in the API, the CLI or the sidebar.
 
 A listed id that is not a component (no `component/<id>/<id>.twig` in `templates_path`) is an error that names the id. It stops at boot, and `doctor` reports it. A value that is not a list of ids is an error too. An empty list (`include: []`) shows no components; it is not the same as leaving the key out. Without the key nothing changes.
 

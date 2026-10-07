@@ -82,26 +82,30 @@ final class Command
         }
 
         $parser = new ComponentParser($templates);
-        if ($type === 'component') {
-            // `components.include` in the styleguide.yaml found by --config or
-            // by convention: list and show see the same components as the
-            // catalogue. No styleguide.yaml, or no key: nothing changes.
-            $configPath = $this->resolveConfigPath($flags['config'] ?? null);
-            if ($configPath !== null) {
-                try {
-                    $data = (array) Yaml::parseFile($configPath);
-                } catch (\Throwable) {
-                    $data = []; // `doctor` reports a broken file; list stays as it was
-                }
-                try {
-                    $filter = ComponentFilter::fromConfig($data['components'] ?? null);
-                    $filter?->assertAllExist($parser->listDirectories('component'));
-                } catch (\InvalidArgumentException $e) {
+        // `components.include` in the styleguide.yaml found by --config or
+        // by convention: list and show see the same components as the
+        // catalogue, and a page's `usage` names only listed components.
+        // No styleguide.yaml, or no key: nothing changes. A bad key is an
+        // error for components only; page and doc output stay as they were.
+        $configPath = $this->resolveConfigPath($flags['config'] ?? null);
+        if ($configPath !== null) {
+            try {
+                $data = (array) Yaml::parseFile($configPath);
+            } catch (\Throwable) {
+                $data = []; // `doctor` reports a broken file; list stays as it was
+            }
+            $filter = null;
+            try {
+                $filter = ComponentFilter::fromConfig($data['components'] ?? null);
+                $filter?->assertAllExist($parser->listDirectories('component'));
+            } catch (\InvalidArgumentException $e) {
+                if ($type === 'component') {
                     fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
                     return 1;
                 }
-                $parser->restrictComponents($filter);
+                $filter = null;
             }
+            $parser->restrictComponents($filter);
         }
         $pretty = isset($flags['pretty']);
 

@@ -156,6 +156,41 @@ class ComponentParser
     public function restrictComponents(?ComponentFilter $filter): void
     {
         $this->componentFilter = $filter;
+        $this->pageIds = null;
+    }
+
+    /** @var array<string, true>|null page ids, read once while a filter is set */
+    private ?array $pageIds = null;
+
+    /**
+     * The `usage` ids the catalogue may name. Without a filter every id stays,
+     * as before. With `components.include`, an id stays when it is a listed
+     * component or a page. A component outside the list and an id that is
+     * nothing at all would otherwise leak through the API, the CLI and the
+     * sidebar, although a direct request for them answers 404.
+     *
+     * @param list<string> $usage
+     * @return list<string>
+     */
+    private function visibleUsage(array $usage): array
+    {
+        if ($this->componentFilter === null || $usage === []) {
+            return $usage;
+        }
+        if ($this->pageIds === null) {
+            $this->pageIds = [];
+            foreach ($this->listDirectories('page') as $directory) {
+                if ($directory['hasTemplate']) {
+                    $this->pageIds[$directory['id']] = true;
+                }
+            }
+        }
+        $filter = $this->componentFilter;
+
+        return array_values(array_filter(
+            $usage,
+            fn(string $id): bool => $filter->allows($id) || isset($this->pageIds[$id]),
+        ));
     }
 
     private function isHidden(string $type, string $id): bool
@@ -902,7 +937,7 @@ class ComponentParser
             'drupal' => $metadata['drupal'] ?? '',
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
-            'usage' => self::normaliseUsage($metadata['usage'] ?? null),
+            'usage' => $this->visibleUsage(self::normaliseUsage($metadata['usage'] ?? null)),
             'aliases' => self::normaliseAliases(
                 $metadata['aliases'] ?? null,
                 array_column($variants, 'id'),

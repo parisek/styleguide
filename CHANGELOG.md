@@ -54,7 +54,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   does not scan dependencies; the host writes the full list. A listed id that is not
   a component is an error that names the id, at boot and in `doctor`. A value that is
   not a list of ids is an error too. An empty list shows no components. Without the
-  key nothing changes. Pages are not filtered.
+  key nothing changes. Pages are not filtered. The `usage` data names only listed
+  components and pages: an id of a hidden component, or an id that is neither,
+  is dropped from the API, the CLI output and the sidebar.
 
 ## [1.30.1] - 2026-10-05
 
