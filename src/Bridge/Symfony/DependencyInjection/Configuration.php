@@ -30,6 +30,10 @@ final class Configuration implements ConfigurationInterface
                     ->cannotBeEmpty()
                     ->info('Absolute path to the project styleguide.yaml, the same file Styleguide::fromYaml() reads.')
                 ->end()
+                ->arrayNode('twig_extensions')
+                    ->scalarPrototype()->cannotBeEmpty()->end()
+                    ->info('Ids of services (Twig extensions) added to the catalogue\'s own Twig, for functions the templates call, such as url().')
+                ->end()
             ->end();
 
         return $tree;

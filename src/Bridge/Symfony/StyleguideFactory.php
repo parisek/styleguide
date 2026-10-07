@@ -32,7 +32,13 @@ use Parisek\Styleguide\Styleguide;
  */
 final class StyleguideFactory
 {
-    public function __construct(private readonly string $configPath) {}
+    /**
+     * @param list<\Twig\Extension\ExtensionInterface> $twigExtensions the host's Twig extensions for the catalogue's own Twig
+     */
+    public function __construct(
+        private readonly string $configPath,
+        private readonly array $twigExtensions = [],
+    ) {}
 
     /**
      * @param string $assetBase The consumer's asset base for this request —
@@ -46,8 +52,11 @@ final class StyleguideFactory
         // Passed through $overrides, the ONLY route run truth may travel by.
         // twig_context merges key by key, so the project's own homeUrl,
         // frontPageUrl and langcode from the YAML survive alongside it.
-        return Styleguide::fromYaml($this->configPath, [
-            'twig_context' => ['templateUrl' => $assetBase],
-        ]);
+        $overrides = ['twig_context' => ['templateUrl' => $assetBase]];
+        if ($this->twigExtensions !== []) {
+            $overrides['twig_extensions'] = $this->twigExtensions;
+        }
+
+        return Styleguide::fromYaml($this->configPath, $overrides);
     }
 }

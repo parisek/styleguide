@@ -8,6 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **A host adds its own Twig functions to the catalogue.** A new run-truth key,
+  `twig_extensions`, takes a list of Twig extension objects. The package adds
+  them to the environment it builds, so a template can call `url()` or read a
+  global such as `build_url`. In the Symfony bundle the config key
+  `styleguide.twig_extensions` takes service ids. A missing id, or a service
+  that is not a Twig extension, stops the boot with a message that names the
+  id. The key cannot be set in the YAML, and it cannot be combined with `twig`.
+  Without it nothing changes.
+
 ## [1.30.1] - 2026-10-05
 
 ### Changed
