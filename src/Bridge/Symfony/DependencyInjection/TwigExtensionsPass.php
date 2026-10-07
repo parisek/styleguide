@@ -28,8 +28,10 @@ final class TwigExtensionsPass implements CompilerPassInterface
             return;
         }
 
+        // By name: the position of the argument changes when the factory gains
+        // a constructor argument in front of it.
         $arguments = $container->getDefinition('styleguide.factory')->getArguments();
-        $references = $arguments[1] ?? [];
+        $references = $arguments['$twigExtensions'] ?? [];
 
         foreach (is_array($references) ? $references : [] as $reference) {
             if (!$reference instanceof Reference) {

@@ -105,7 +105,9 @@ final class StyleguideExtension extends Extension
         // freezes.
         $factory->setArguments([
             $config['config'],
-            array_map(static fn(string $id): Reference => new Reference($id), $config['twig_extensions'] ?? []),
+            // By name, not by position: the pass that checks the ids reads this
+            // argument by name, so a later argument in front of it breaks nothing.
+            '$twigExtensions' => array_map(static fn(string $id): Reference => new Reference($id), $config['twig_extensions'] ?? []),
         ]);
         $factory->setPublic(false);
         $container->setDefinition('styleguide.factory', $factory);

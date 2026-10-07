@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Parisek\Styleguide\Tests\Bridge\Symfony;
 
+use Parisek\Styleguide\Bridge\Symfony\DependencyInjection\TwigExtensionsPass;
 use Parisek\Styleguide\Bridge\Symfony\StyleguideBundle;
 use Parisek\Styleguide\Tests\Support\NotAnExtension;
 use Parisek\Styleguide\Tests\Support\UrlExtension;
@@ -11,7 +12,10 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Symfony\Bundle\FrameworkBundle\Kernel\MicroKernelTrait;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Definition;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Symfony\Component\DependencyInjection\Reference;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Kernel;
 use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
@@ -188,5 +192,34 @@ final class TwigExtensionsBundleTest extends TestCase
 
         $this->expectExceptionMessage('Twig\Extension\ExtensionInterface');
         $kernel->boot();
+    }
+
+    #[Test]
+    public function the_pass_reads_the_extensions_by_name_whatever_the_position(): void
+    {
+        $container = new ContainerBuilder();
+        $container->register('test.plain', NotAnExtension::class);
+        // Other arguments stand in front of the extensions, as when the
+        // factory gains a config resolver.
+        $container->setDefinition('styleguide.factory', new Definition('stdClass', [
+            '/path/to/styleguide.yaml',
+            new Reference('test.resolver'),
+            '$twigExtensions' => [new Reference('test.plain')],
+        ]));
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('test.plain');
+        (new TwigExtensionsPass())->process($container);
+    }
+
+    #[Test]
+    public function the_pass_ignores_a_factory_without_the_extensions_argument(): void
+    {
+        $container = new ContainerBuilder();
+        $container->setDefinition('styleguide.factory', new Definition('stdClass', ['/path/to/styleguide.yaml']));
+
+        (new TwigExtensionsPass())->process($container);
+
+        $this->addToAssertionCount(1);
     }
 }
