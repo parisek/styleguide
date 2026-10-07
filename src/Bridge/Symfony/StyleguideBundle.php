@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Bridge\Symfony;
 
 use Parisek\Styleguide\Bridge\Symfony\DependencyInjection\StyleguideExtension;
+use Parisek\Styleguide\Bridge\Symfony\DependencyInjection\TwigExtensionsPass;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 
@@ -31,6 +33,13 @@ final class StyleguideBundle extends Bundle
      * `ExtensionInterface|false|null` so that `??=` cannot narrow it.
      */
     private ?StyleguideExtension $styleguideExtension = null;
+
+    public function build(ContainerBuilder $container): void
+    {
+        parent::build($container);
+
+        $container->addCompilerPass(new TwigExtensionsPass());
+    }
 
     public function getContainerExtension(): ExtensionInterface
     {

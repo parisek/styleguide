@@ -212,6 +212,7 @@ final class Styleguide
     private const RUN_TRUTH_KEYS = [
         'twig',
         'twig_options',
+        'twig_extensions',
         'auth',
         'dist_path',
         'config_yaml',
@@ -228,6 +229,7 @@ final class Styleguide
      *   twig_context?: array<string,mixed>,
      *   twig?: Environment,
      *   twig_options?: array<string,mixed>,
+     *   twig_extensions?: list<\Twig\Extension\ExtensionInterface>,
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
      *   dist_path?: string,
@@ -259,6 +261,12 @@ final class Styleguide
      * `autoescape: 'html'` would mangle that markup on render, so the
      * package opts out at the env-construction layer rather than asking
      * every consumer to override it.
+     *
+     * `twig_extensions` is a list of Twig extension objects the package adds to
+     * the environment it builds, for functions and globals the templates call
+     * but the package does not define (`url()`, `build_url`). Run-truth, so
+     * `$overrides` only. It cannot be combined with `twig`: register the
+     * extensions on your own environment instead.
      *
      * Consumers that need different defaults (e.g. `cache: '/tmp/twig'` in
      * production, `autoescape: 'html'` for a project that opts back into
@@ -294,6 +302,15 @@ final class Styleguide
         if (array_key_exists('auth', $config) && $config['auth'] !== null && !is_callable($config['auth'])) {
             throw new \InvalidArgumentException(
                 "Styleguide: config key 'auth' must be null or callable(array<string,mixed>):bool",
+            );
+        }
+
+        // `twig_extensions` extends the environment the package builds. A host
+        // that passes its own `twig` already owns that environment, and the
+        // package never mutates it, so the two keys cannot meet.
+        if (($config['twig'] ?? null) !== null && ($config['twig_extensions'] ?? []) !== []) {
+            throw new \InvalidArgumentException(
+                "Styleguide: config key 'twig_extensions' cannot be combined with 'twig'. Register the extensions on your own environment.",
             );
         }
 
@@ -885,7 +902,44 @@ final class Styleguide
             'autoescape' => false,
         ], $overrides);
 
-        return new Environment($loader, $options);
+        $twig = new Environment($loader, $options);
+
+        // Run-truth hook: the host adds its own functions (`url()`) to the
+        // package's own environment without handing the environment over.
+        // Validated in __construct(), so a bad list never reaches here.
+        foreach ($this->twigExtensions() as $extension) {
+            if (!$twig->hasExtension($extension::class)) {
+                $twig->addExtension($extension);
+            }
+        }
+
+        return $twig;
+    }
+
+    /**
+     * The `twig_extensions` run-truth value, checked: a list of
+     * `Twig\Extension\ExtensionInterface` objects, nothing else. A service id
+     * is a Symfony bridge concept; the bridge resolves it before it gets here.
+     *
+     * @return list<\Twig\Extension\ExtensionInterface>
+     */
+    private function twigExtensions(): array
+    {
+        $extensions = $this->config['twig_extensions'] ?? [];
+        if (!is_array($extensions) || !array_is_list($extensions)) {
+            throw new \InvalidArgumentException(
+                "Styleguide: config key 'twig_extensions' must be a list of Twig\\Extension\\ExtensionInterface objects",
+            );
+        }
+        foreach ($extensions as $extension) {
+            if (!$extension instanceof \Twig\Extension\ExtensionInterface) {
+                throw new \InvalidArgumentException(
+                    "Styleguide: config key 'twig_extensions' must be a list of Twig\\Extension\\ExtensionInterface objects",
+                );
+            }
+        }
+
+        return $extensions;
     }
 
     /**

@@ -50,6 +50,7 @@ Optional keys (with their defaults):
 | `twig_context` | `[]` | Map of variables added to every Twig render — typically `homeUrl`, `templateUrl`, `langcode` |
 | `twig` | `null` | Pre-built `Twig\Environment` to reuse. When null, the package builds a pristine env (autoescape: false, cache: false, debug: true) |
 | `twig_options` | `[]` | Map merged on top of pristine env defaults (ignored if `twig` is provided) |
+| `twig_extensions` | `[]` | List of `Twig\Extension\ExtensionInterface` objects added to the environment the package builds (unreleased). Run-truth: `$overrides` only, refused in `bootstrap:`. `\InvalidArgumentException` at construction when it is not a list of such objects, or when it is set together with `twig`. Symfony bridge: the config key `styleguide.twig_extensions` takes service ids instead, and the container refuses a missing id or a class that is not an extension at compile time |
 | `typography_config` | `null` | Absolute path to a `typography.yml` for the bundled TypographyExtension. The extension is constructed as `new TypographyExtension($typography_config ?: '', fn (): string => $default_locale)` — the second argument is a locale resolver read fresh from `$this->config['default_locale']` on every `\|typography` call |
 | `namespaces` | `[]` | Map of `<namespace> => <absolute path>` Twig namespaces beyond the conventional ones |
 | `auth` | `null` | Optional `callable(array<string,mixed> $route): bool` gate checked once per request in `dispatch()`, before any handler (SPA, render, JSON API, or asset). Returning `false` responds `403 Forbidden` (plain text) and skips dispatch entirely. Returning `true`, or omitting the key (`null`), preserves today's behaviour — no gating. A non-`null`, non-callable value throws `InvalidArgumentException` from the constructor instead of being silently treated as "allow everything". |
@@ -74,7 +75,7 @@ Styleguide::fromYaml(__DIR__ . '/styleguide.yaml', [
 
 Reads the `bootstrap:` top-level key of the YAML at `$path` (see § YAML schemas → `bootstrap:` below) and constructs a `Styleguide` from it. `config_yaml` is never read from `$overrides` — it is always set to `$path`, since `$path` names the very config being loaded.
 
-**Project-truth vs. run-truth — the line `$overrides` draws, enforced, not just documented.** What is true about the *project*, regardless of who renders it — `templates_path`, `static_path`, `default_locale`, `base_url`, `typography_config`, `namespaces`, and the project-shaped part of `twig_context` (`homeUrl`, `frontPageUrl`, `langcode`, …) — belongs in the YAML's `bootstrap:` section. What is true only about *this run* — `templateUrl` (computed from `$_SERVER['SCRIPT_NAME']`, correct for exactly one HTTP request and quietly wrong on a CLI process/another machine), a pre-built `twig` environment, `twig_options`, `auth`, `dist_path` — can only arrive via `$overrides`. Writing any of these run-truth keys into the YAML — including `twig_context.templateUrl` specifically — is a hard error: `fromYaml()` throws `\InvalidArgumentException` naming the offending key rather than silently dropping it or silently honouring it (`twig_context.templateUrl`, which — being a plain array key — would otherwise ride along with the rest of `twig_context` unnoticed). A genuinely unrecognised key (forward-compat with a newer schema) is not an error and is ignored — only this fixed, known-forbidden set fails. The exhaustive list of forbidden keys is not repeated here — it lives in exactly one place in this document, § YAML schemas → `bootstrap:` below (**Forbidden keys** paragraph); this paragraph and the `Throws` line right below only describe the *behaviour*, not a second copy of the *list*.
+**Project-truth vs. run-truth — the line `$overrides` draws, enforced, not just documented.** What is true about the *project*, regardless of who renders it — `templates_path`, `static_path`, `default_locale`, `base_url`, `typography_config`, `namespaces`, and the project-shaped part of `twig_context` (`homeUrl`, `frontPageUrl`, `langcode`, …) — belongs in the YAML's `bootstrap:` section. What is true only about *this run* — `templateUrl` (computed from `$_SERVER['SCRIPT_NAME']`, correct for exactly one HTTP request and quietly wrong on a CLI process/another machine), a pre-built `twig` environment, `twig_options`, `twig_extensions`, `auth`, `dist_path` — can only arrive via `$overrides`. Writing any of these run-truth keys into the YAML — including `twig_context.templateUrl` specifically — is a hard error: `fromYaml()` throws `\InvalidArgumentException` naming the offending key rather than silently dropping it or silently honouring it (`twig_context.templateUrl`, which — being a plain array key — would otherwise ride along with the rest of `twig_context` unnoticed). A genuinely unrecognised key (forward-compat with a newer schema) is not an error and is ignored — only this fixed, known-forbidden set fails. The exhaustive list of forbidden keys is not repeated here — it lives in exactly one place in this document, § YAML schemas → `bootstrap:` below (**Forbidden keys** paragraph); this paragraph and the `Throws` line right below only describe the *behaviour*, not a second copy of the *list*.
 
 `twig_context` is the one key `$overrides` merges into rather than replacing wholesale: an override supplying only `templateUrl` is layered on top of the YAML's own `twig_context`, so a CLI caller doesn't have to restate `homeUrl`/`frontPageUrl`/`langcode` just to add the one key that's actually theirs to supply. Every other key is a plain override — whatever `$overrides` sets wins outright.
 
@@ -171,6 +172,34 @@ True only under PHP's built-in server, for an existing file inside `$staticDir`.
 A fourth hook, `cacheVersion(): string` (default `''`), goes into the cache key. The key already follows the kernel's own file and Composer's `installed.php`; a hook that imports other project files returns a fingerprint of them, or production keeps the container compiled from their previous version.
 
 Overriding any other method works and is outside the contract. The kernel reads the catalogue's mount path from the container parameter `styleguide.base_url` (set by the bundle's extension, `/styleguide` until the mount becomes configurable); the parameter name is internal. `getStaticDir()` and `getProjectDir()` (the parent of the static directory) are public. The cache directory is under `sys_get_temp_dir()`; its path is not part of the contract.
+
+### Bundle key `styleguide.config_resolver` and `StyleguideConfigResolverInterface` (`@api`, unreleased)
+
+`styleguide.config_resolver: <service id>` replaces `styleguide.config` and picks the `styleguide.yaml` per request. The two keys are mutually exclusive: both set, or neither set, fails when the container compiles with a message that names both keys. Without the key, nothing changes.
+
+```php
+namespace Parisek\Styleguide\Bridge\Symfony;
+
+interface StyleguideConfigResolverInterface
+{
+    /**
+     * @return string absolute path of the styleguide.yaml for this request
+     * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException when no catalogue answers this request
+     */
+    public function resolve(Request $request): string;
+}
+```
+
+| Case | Result |
+|---|---|
+| Known request | The bundle builds a new `Styleguide` from the returned file. Nothing is cached across requests. |
+| Resolver throws `NotFoundHttpException` | 404 with the fixed message `No catalogue answers this request.` The resolver's own message is dropped, so a host name or path cannot leak. |
+| Resolver returns an empty string, a missing file or an unreadable file | `\RuntimeException` (500) that names the resolver class and the path. |
+| `StyleguideFactory::forRequest()` with a resolver and no `Request` | `\LogicException`. |
+
+The resolver must map a request value through an allowlist and never build a path from it. The bundle does not pass the host's Twig `Environment` to the catalogue. Every resolved file must keep the default mount `/styleguide`; the routes are fixed when the container compiles.
+
+SemVer: new optional key and a new interface, so a **minor** release. `StyleguideFactory` is internal; its constructor keeps the positional order of the previous release, `?string $configPath, array $twigExtensions = []`, and appends the optional resolver as the last parameter.
 
 ### `Parisek\Styleguide\ComponentParser::RENDER_MODES` (`@api`)
 
@@ -280,7 +309,7 @@ Consumed only by `Styleguide::fromYaml()`. Every key mirrors a same-named `Style
 
 None of these keys are read by the array constructor (`Styleguide::__construct()`) or by `run()` directly — only `fromYaml()` reads `bootstrap:`. A project that hasn't adopted `fromYaml()` yet can ignore this section entirely; its `static/index.php` keeps working unchanged.
 
-**Forbidden keys — refused, not silently dropped. This is the single authoritative list** — the narrative mentions of this same set earlier in this document (`fromYaml()` § Project-truth vs. run-truth, and its `Throws` line) point back here rather than re-enumerating it; nothing else in this repository maintains a second copy except `Styleguide::RUN_TRUTH_KEYS` itself, which *enforces* the set (see that constant's docblock for what changes when a key is added). `bootstrap:` must never contain a top-level `twig`, `twig_options`, `auth`, `dist_path`, or `config_yaml`, or a nested `twig_context.templateUrl` — each is a run-truth key documented as `$overrides`-only, and `fromYaml()` throws `\InvalidArgumentException` naming the key if it's present, rather than silently ignoring it. This matters because silently ignoring a key someone deliberately wrote (e.g. `auth: {...}` expecting it to gate the styleguide) produces an unauthenticated deployment with no indication anything was wrong. An **unknown** key (not on this forbidden list, and not one of the recognised optional keys above) is not an error — it round-trips as forward-compat headroom for a future schema version, the same tolerance `sync-styleguide` already relies on for `project:`/`labels:`. Only the fixed, known-forbidden set fails the load.
+**Forbidden keys — refused, not silently dropped. This is the single authoritative list** — the narrative mentions of this same set earlier in this document (`fromYaml()` § Project-truth vs. run-truth, and its `Throws` line) point back here rather than re-enumerating it; nothing else in this repository maintains a second copy except `Styleguide::RUN_TRUTH_KEYS` itself, which *enforces* the set (see that constant's docblock for what changes when a key is added). `bootstrap:` must never contain a top-level `twig`, `twig_options`, `twig_extensions`, `auth`, `dist_path`, or `config_yaml`, or a nested `twig_context.templateUrl` — each is a run-truth key documented as `$overrides`-only, and `fromYaml()` throws `\InvalidArgumentException` naming the key if it's present, rather than silently ignoring it. This matters because silently ignoring a key someone deliberately wrote (e.g. `auth: {...}` expecting it to gate the styleguide) produces an unauthenticated deployment with no indication anything was wrong. An **unknown** key (not on this forbidden list, and not one of the recognised optional keys above) is not an error — it round-trips as forward-compat headroom for a future schema version, the same tolerance `sync-styleguide` already relies on for `project:`/`labels:`. Only the fixed, known-forbidden set fails the load.
 
 **Type errors on optional keys also fail loudly.** A present `bootstrap.base_url`/`bootstrap.typography_config` that isn't a string, a present `bootstrap.namespaces` that isn't a `{name: path}` mapping (or whose `name`/`path` isn't a non-empty string), or a present `bootstrap.twig_context` that isn't a mapping — each throws `\InvalidArgumentException` naming the exact key, instead of the value being coerced or the key being quietly skipped in favour of `__construct()`'s own default.
 
