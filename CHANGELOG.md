@@ -16,7 +16,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   global such as `build_url`. In the Symfony bundle the config key
   `styleguide.twig_extensions` takes service ids. A missing id, or a service
   that is not a Twig extension, stops the boot with a message that names the
-  id. The key cannot be set in the YAML, and it cannot be combined with `twig`.
+  id. A map instead of a list stops the container build, with a message that
+  names `styleguide.twig_extensions`. The key cannot be set in the YAML, and it cannot be combined with `twig`.
   Without it nothing changes.
 - **`templates_path` takes a list of roots.** The first root is the strongest, for
   example a project over a shared kit. The catalogue lists the union of the roots.
