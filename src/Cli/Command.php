@@ -291,6 +291,13 @@ final class Command
             return 2;
         }
 
+        // The outage document is written into ONE templates folder. A list of
+        // roots has no single answer, so it is refused: falling back to
+        // `<config dir>/templates` would write the file into a folder nobody named.
+        if (is_array($bootstrap['templates_path'] ?? null)) {
+            fwrite($stderr, "maintenance:render needs a single bootstrap.templates_path string, not a list of roots.\n");
+            return 2;
+        }
         $outTemplates = isset($bootstrap['templates_path']) && is_string($bootstrap['templates_path'])
             ? $this->resolvePath((string) $bootstrap['templates_path'], $baseDir)
             : $baseDir . '/templates';
