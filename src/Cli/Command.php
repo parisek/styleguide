@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Cli;
 
 use Parisek\Styleguide\Bridge\Symfony\FrontController;
+use Parisek\Styleguide\ComponentFilter;
 use Parisek\Styleguide\ComponentParser;
 use Parisek\Styleguide\MaintenanceRenderer;
 use Parisek\Styleguide\Renderer;
@@ -81,6 +82,33 @@ final class Command
         }
 
         $parser = new ComponentParser($templates);
+        // `components.include` and `pages.include` in the styleguide.yaml found
+        // by --config or by convention: list and show see the same entries as
+        // the catalogue, and every `usage` names only listed entries. No
+        // styleguide.yaml, or no key: nothing changes. A bad key is an error
+        // for the type that is listed; for another type it is ignored.
+        $configPath = $this->resolveConfigPath($flags['config'] ?? null);
+        if ($configPath !== null) {
+            try {
+                $data = (array) Yaml::parseFile($configPath);
+            } catch (\Throwable) {
+                $data = []; // `doctor` reports a broken file; list stays as it was
+            }
+            foreach (['component', 'page'] as $kind) {
+                $filter = null;
+                try {
+                    $filter = ComponentFilter::fromConfig($data[$kind . 's'] ?? null, $kind);
+                    $filter?->assertAllExist($parser->listDirectories($kind));
+                } catch (\InvalidArgumentException $e) {
+                    if ($type === $kind) {
+                        fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
+                        return 1;
+                    }
+                    $filter = null;
+                }
+                $kind === 'component' ? $parser->restrictComponents($filter) : $parser->restrictPages($filter);
+            }
+        }
         $pretty = isset($flags['pretty']);
 
         if ($command === 'list') {

@@ -145,6 +145,100 @@ class ComponentParser
         $this->templatesPath = rtrim($this->roots->first(), '/');
     }
 
+    private ?ComponentFilter $componentFilter = null;
+    private ?ComponentFilter $pageFilter = null;
+
+    /**
+     * Lists only the components `$filter` allows (`components.include`), from now
+     * on. `parseAll()`, `parse()` and `listDirectories()` skip a hidden
+     * component. Pages and docs are not filtered. Twig resolution is not
+     * touched: a hidden component still renders when a listed one calls it.
+     */
+    public function restrictComponents(?ComponentFilter $filter): void
+    {
+        $this->componentFilter = $filter;
+        $this->visibleIds = null;
+    }
+
+    /** @var array<string, true>|null the ids a catalogue may name, read once while a filter is set */
+    private ?array $visibleIds = null;
+
+    /**
+     * The `usage` ids the catalogue may name. Without a filter every id stays,
+     * as before. With `components.include` or `pages.include`, an id stays
+     * when it is a component or a page that the catalogue lists. A hidden
+     * entry and an id that is nothing at all would otherwise leak through the
+     * API, the CLI and the sidebar, although a direct request for them
+     * answers 404. Both filters apply together when both keys are set.
+     *
+     * @param list<string> $usage
+     * @return list<string>
+     */
+    private function visibleUsage(array $usage): array
+    {
+        if (($this->componentFilter === null && $this->pageFilter === null) || $usage === []) {
+            return $usage;
+        }
+        if ($this->visibleIds === null) {
+            // listDirectories() already skips what a filter hides.
+            $this->visibleIds = [];
+            foreach (['component', 'page'] as $type) {
+                foreach ($this->listDirectories($type) as $directory) {
+                    if ($directory['hasTemplate']) {
+                        $this->visibleIds[$directory['id']] = true;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_filter($usage, fn(string $id): bool => isset($this->visibleIds[$id])));
+    }
+
+    /**
+     * Lists only the pages `$filter` allows (`pages.include`), from now on, in
+     * the same three methods. A listed page that carries no metadata is listed
+     * too, with a title taken from its id; see `defaultMetadata()`.
+     */
+    public function restrictPages(?ComponentFilter $filter): void
+    {
+        $this->pageFilter = $filter;
+        $this->visibleIds = null;
+    }
+
+    private function isHidden(string $type, string $id): bool
+    {
+        return match ($type) {
+            'component' => $this->componentFilter !== null && !$this->componentFilter->allows($id),
+            'page' => $this->pageFilter !== null && !$this->pageFilter->allows($id),
+            default => false,
+        };
+    }
+
+    /**
+     * The metadata of a page that `pages.include` lists but that has none: no
+     * `name`, because it has no front comment and no `<id>.yaml`. Its title is
+     * the id with the separators turned into spaces (`boat-rental` becomes
+     * `Boat rental`). Nothing else is invented. An unlisted page, a component
+     * and a doc never get this: without `pages.include` a page with no
+     * metadata stays out of the catalogue, as before.
+     *
+     * @param array<string,mixed>|false $metadata
+     * @return array<string,mixed>|false
+     */
+    private function withDefaultTitle(string $type, string $id, array|false $metadata): array|false
+    {
+        if ($type !== 'page' || $this->pageFilter === null || !$this->pageFilter->allows($id)) {
+            return $metadata;
+        }
+        if (is_array($metadata) && isset($metadata['name'])) {
+            return $metadata;
+        }
+        $words = trim(str_replace(['-', '_'], ' ', $id));
+        $title = mb_strtoupper(mb_substr($words, 0, 1)) . mb_substr($words, 1);
+
+        return [...(is_array($metadata) ? $metadata : []), 'name' => $title];
+    }
+
     /** The folder of `<type>/<id>`: the owning root's, or null when no root owns it. */
     private function entryDir(string $type, string $id): ?string
     {
@@ -299,7 +393,7 @@ class ComponentParser
      */
     public function parse(string $type, string $id): ?array
     {
-        $dir = $this->entryDir($type, $id);
+        $dir = $this->isHidden($type, $id) ? null : $this->entryDir($type, $id);
         if ($dir === null) {
             return null;
         }
@@ -315,6 +409,7 @@ class ComponentParser
             }
             $content = (string) file_get_contents($file);
             [$metadata, $sourceFile] = $this->readComponentMetadata($dir, $id, $file, $content);
+            $metadata = $this->withDefaultTitle($type, $id, $metadata);
 
             if (!$metadata || !isset($metadata['name'])) {
                 return null;
@@ -398,6 +493,9 @@ class ComponentParser
                     continue;
                 }
                 $claimedHere[$id] = true;
+                if ($this->isHidden($type, $id)) {
+                    continue;
+                }
                 $content = (string) file_get_contents($file->getPathname());
 
                 try {
@@ -407,6 +505,7 @@ class ComponentParser
                         $file->getPathname(),
                         $content,
                     );
+                    $metadata = $this->withDefaultTitle($type, $id, $metadata);
 
                     if (!$metadata || !isset($metadata['name'])) {
                         continue;
@@ -524,6 +623,9 @@ class ComponentParser
                 // read metadata from this directory at all — reusing it here
                 // keeps "has a template" a single definition, not a second one
                 // that could silently drift from the catalogue's own.
+                if ($this->isHidden($type, $name)) {
+                    continue;
+                }
                 $found[$name] = ($found[$name] ?? false)
                     || file_exists($dir . '/' . $name . '/' . $name . '.twig');
             }
@@ -878,7 +980,7 @@ class ComponentParser
             'drupal' => $metadata['drupal'] ?? '',
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
-            'usage' => self::normaliseUsage($metadata['usage'] ?? null),
+            'usage' => $this->visibleUsage(self::normaliseUsage($metadata['usage'] ?? null)),
             'aliases' => self::normaliseAliases(
                 $metadata['aliases'] ?? null,
                 array_column($variants, 'id'),

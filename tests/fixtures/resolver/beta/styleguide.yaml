@@ -1,0 +1,10 @@
+bootstrap:
+  templates_path: templates
+  static_path: .
+  default_locale: en
+project:
+  name: Resolver beta
+  slug: resolver-beta
+iframe:
+  css: ""
+  js: ""

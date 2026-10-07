@@ -71,6 +71,10 @@ final class Styleguide
 
     /** `components.group_by`, validated; null when absent */
     private ?string $componentsGroupBy;
+    /** `components.include`, validated; null when absent */
+    private ?ComponentFilter $componentFilter = null;
+    /** `pages.include`, validated; null when absent */
+    private ?ComponentFilter $pageFilter = null;
     /** `highlight_source`, validated; true when absent */
     private bool $highlightSource;
 
@@ -210,6 +214,7 @@ final class Styleguide
     private const RUN_TRUTH_KEYS = [
         'twig',
         'twig_options',
+        'twig_extensions',
         'auth',
         'dist_path',
         'config_yaml',
@@ -226,6 +231,7 @@ final class Styleguide
      *   twig_context?: array<string,mixed>,
      *   twig?: Environment,
      *   twig_options?: array<string,mixed>,
+     *   twig_extensions?: list<\Twig\Extension\ExtensionInterface>,
      *   typography_config?: string|null,
      *   namespaces?: array<string,string>,
      *   dist_path?: string,
@@ -257,6 +263,12 @@ final class Styleguide
      * `autoescape: 'html'` would mangle that markup on render, so the
      * package opts out at the env-construction layer rather than asking
      * every consumer to override it.
+     *
+     * `twig_extensions` is a list of Twig extension objects the package adds to
+     * the environment it builds, for functions and globals the templates call
+     * but the package does not define (`url()`, `build_url`). Run-truth, so
+     * `$overrides` only. It cannot be combined with `twig`: register the
+     * extensions on your own environment instead.
      *
      * Consumers that need different defaults (e.g. `cache: '/tmp/twig'` in
      * production, `autoescape: 'html'` for a project that opts back into
@@ -292,6 +304,15 @@ final class Styleguide
         if (array_key_exists('auth', $config) && $config['auth'] !== null && !is_callable($config['auth'])) {
             throw new \InvalidArgumentException(
                 "Styleguide: config key 'auth' must be null or callable(array<string,mixed>):bool",
+            );
+        }
+
+        // `twig_extensions` extends the environment the package builds. A host
+        // that passes its own `twig` already owns that environment, and the
+        // package never mutates it, so the two keys cannot meet.
+        if (($config['twig'] ?? null) !== null && ($config['twig_extensions'] ?? []) !== []) {
+            throw new \InvalidArgumentException(
+                "Styleguide: config key 'twig_extensions' cannot be combined with 'twig'. Register the extensions on your own environment.",
             );
         }
 
@@ -353,6 +374,8 @@ final class Styleguide
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
         $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
+        $this->componentFilter = ComponentFilter::fromConfig($this->yamlConfig['components'] ?? null);
+        $this->pageFilter = ComponentFilter::fromConfig($this->yamlConfig['pages'] ?? null, 'page');
         $this->highlightSource = self::highlightSource($this->yamlConfig['highlight_source'] ?? null);
         $this->sourceUrl = self::sourceUrl($this->yamlConfig['source_url'] ?? null);
         $this->sourceViews = self::sourceViews($this->yamlConfig['source_views'] ?? null);
@@ -448,6 +471,15 @@ final class Styleguide
         }
 
         $this->parser = new ComponentParser($this->roots);
+        if ($this->componentFilter !== null) {
+            // Checked before the filter is set, against every component on disk.
+            $this->componentFilter->assertAllExist($this->parser->listDirectories('component'));
+            $this->parser->restrictComponents($this->componentFilter);
+        }
+        if ($this->pageFilter !== null) {
+            $this->pageFilter->assertAllExist($this->parser->listDirectories('page'));
+            $this->parser->restrictPages($this->pageFilter);
+        }
         $this->renderer = new Renderer(
             $this->twig,
             $this->config['twig_context'],
@@ -877,7 +909,44 @@ final class Styleguide
             'autoescape' => false,
         ], $overrides);
 
-        return new Environment($loader, $options);
+        $twig = new Environment($loader, $options);
+
+        // Run-truth hook: the host adds its own functions (`url()`) to the
+        // package's own environment without handing the environment over.
+        // Validated in __construct(), so a bad list never reaches here.
+        foreach ($this->twigExtensions() as $extension) {
+            if (!$twig->hasExtension($extension::class)) {
+                $twig->addExtension($extension);
+            }
+        }
+
+        return $twig;
+    }
+
+    /**
+     * The `twig_extensions` run-truth value, checked: a list of
+     * `Twig\Extension\ExtensionInterface` objects, nothing else. A service id
+     * is a Symfony bridge concept; the bridge resolves it before it gets here.
+     *
+     * @return list<\Twig\Extension\ExtensionInterface>
+     */
+    private function twigExtensions(): array
+    {
+        $extensions = $this->config['twig_extensions'] ?? [];
+        if (!is_array($extensions) || !array_is_list($extensions)) {
+            throw new \InvalidArgumentException(
+                "Styleguide: config key 'twig_extensions' must be a list of Twig\\Extension\\ExtensionInterface objects",
+            );
+        }
+        foreach ($extensions as $extension) {
+            if (!$extension instanceof \Twig\Extension\ExtensionInterface) {
+                throw new \InvalidArgumentException(
+                    "Styleguide: config key 'twig_extensions' must be a list of Twig\\Extension\\ExtensionInterface objects",
+                );
+            }
+        }
+
+        return $extensions;
     }
 
     /**
@@ -3094,12 +3163,53 @@ final class Styleguide
             return Http\Result::text('403 Forbidden', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
 
+        if ($this->isHiddenEntryRoute($route)) {
+            // `components.include` and `pages.include`: an entry outside the list
+            // is not in this catalogue. The check is on the request only; a
+            // listed component that calls a hidden one still renders it.
+            return $route['type'] === 'api'
+                ? Http\Result::text(
+                    (string) json_encode(['error' => 'Not in this catalogue']),
+                    404,
+                    ['Content-Type' => 'application/json; charset=utf-8'],
+                )
+                : Http\Result::text('Not in this catalogue', 404, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
+
         return match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path'] ?? '', $request->ifNoneMatch),
             'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
         };
+    }
+
+    /**
+     * True when a request names a component or a page that `components.include`
+     * or `pages.include` leaves out: the render route, the SPA deep link and the
+     * per-entry API routes.
+     *
+     * @param array<string, mixed> $route
+     */
+    private function isHiddenEntryRoute(array $route): bool
+    {
+        if ($this->componentFilter === null && $this->pageFilter === null) {
+            return false;
+        }
+        $type = (string) $route['type'];
+        $slug = (string) ($route['slug'] ?? '');
+        $kind = match ($type) {
+            'render', 'api' => (string) ($route['kind'] ?? ''),
+            'component', 'page' => $type,
+            default => '',
+        };
+        $filter = match ($kind) {
+            'component' => $this->componentFilter,
+            'page' => $this->pageFilter,
+            default => null,
+        };
+
+        return $filter !== null && $slug !== '' && !$filter->allows($slug);
     }
 
     /**
