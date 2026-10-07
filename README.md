@@ -668,9 +668,22 @@ components:
   include: [button, card, hero]
 ```
 
-The filter hides entries and nothing else. A component outside the list still renders when a listed component calls it, so a gap in your list never breaks a page. The package does not scan what a component calls, so write the full list. Pages and docs are not filtered.
+The filter hides entries and nothing else. A component outside the list still renders when a listed component calls it, so a gap in your list never breaks a page. The package does not scan what a component calls, so write the full list. Docs are not filtered. Pages have their own key, `pages.include`.
 
 A listed id that is not a component (no `component/<id>/<id>.twig` in `templates_path`) is an error that names the id. It stops at boot, and `doctor` reports it. A value that is not a list of ids is an error too. An empty list (`include: []`) shows no components; it is not the same as leaving the key out. Without the key nothing changes.
+
+### Pages limited to a list (unreleased)
+
+`pages.include` is the same filter for pages. It is a list of page ids next to `pages.group_by`. The catalogue then lists only these pages: the sidebar, the search, the overview, `GET /styleguide/api/pages` and `vendor/bin/styleguide list --type=page`. A direct request for a page outside the list answers 404 on every route that takes a page id.
+
+```yaml
+pages:
+  include: [home, boat-rental]
+```
+
+A listed page that has no metadata (no front comment and no `<id>.yaml`) is listed too. Its title comes from its id: `boat-rental` becomes `Boat rental`. It has no other metadata. This holds only for a page named in `pages.include`; without the key, or for an unlisted page, a page without metadata stays out of the catalogue as before. A page that has some metadata but no `name` gets the same title and keeps the rest.
+
+The id rules are those of `components.include`: an id that is not a page, a value that is not a list of ids and `null` are errors that name the problem, an empty list shows no pages, and without the key nothing changes. `components.include` does not touch pages, and `pages.include` does not touch components.
 
 ### The component list
 

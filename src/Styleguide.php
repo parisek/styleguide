@@ -73,6 +73,8 @@ final class Styleguide
     private ?string $componentsGroupBy;
     /** `components.include`, validated; null when absent */
     private ?ComponentFilter $componentFilter = null;
+    /** `pages.include`, validated; null when absent */
+    private ?ComponentFilter $pageFilter = null;
     /** `highlight_source`, validated; true when absent */
     private bool $highlightSource;
 
@@ -356,6 +358,7 @@ final class Styleguide
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
         $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
         $this->componentFilter = ComponentFilter::fromConfig($this->yamlConfig['components'] ?? null);
+        $this->pageFilter = ComponentFilter::fromConfig($this->yamlConfig['pages'] ?? null, 'page');
         $this->highlightSource = self::highlightSource($this->yamlConfig['highlight_source'] ?? null);
         $this->sourceUrl = self::sourceUrl($this->yamlConfig['source_url'] ?? null);
         $this->sourceViews = self::sourceViews($this->yamlConfig['source_views'] ?? null);
@@ -455,6 +458,10 @@ final class Styleguide
             // Checked before the filter is set, against every component on disk.
             $this->componentFilter->assertAllExist($this->parser->listDirectories('component'));
             $this->parser->restrictComponents($this->componentFilter);
+        }
+        if ($this->pageFilter !== null) {
+            $this->pageFilter->assertAllExist($this->parser->listDirectories('page'));
+            $this->parser->restrictPages($this->pageFilter);
         }
         $this->renderer = new Renderer(
             $this->twig,
@@ -3102,10 +3109,10 @@ final class Styleguide
             return Http\Result::text('403 Forbidden', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
 
-        if ($this->isHiddenComponentRoute($route)) {
-            // `components.include`: a component outside the list is not in this
-            // catalogue. The check is on the request only; a listed component
-            // that calls a hidden one still renders it.
+        if ($this->isHiddenEntryRoute($route)) {
+            // `components.include` and `pages.include`: an entry outside the list
+            // is not in this catalogue. The check is on the request only; a
+            // listed component that calls a hidden one still renders it.
             return $route['type'] === 'api'
                 ? Http\Result::text(
                     (string) json_encode(['error' => 'Not in this catalogue']),
@@ -3124,25 +3131,31 @@ final class Styleguide
     }
 
     /**
-     * True when a request names a component that `components.include` leaves
-     * out: the render route, the SPA deep link and the per-entry API routes.
+     * True when a request names a component or a page that `components.include`
+     * or `pages.include` leaves out: the render route, the SPA deep link and the
+     * per-entry API routes.
      *
      * @param array<string, mixed> $route
      */
-    private function isHiddenComponentRoute(array $route): bool
+    private function isHiddenEntryRoute(array $route): bool
     {
-        if ($this->componentFilter === null) {
+        if ($this->componentFilter === null && $this->pageFilter === null) {
             return false;
         }
         $type = (string) $route['type'];
         $slug = (string) ($route['slug'] ?? '');
-        $isComponent = match ($type) {
-            'render', 'api' => ($route['kind'] ?? '') === 'component',
-            'component' => true,
-            default => false,
+        $kind = match ($type) {
+            'render', 'api' => (string) ($route['kind'] ?? ''),
+            'component', 'page' => $type,
+            default => '',
+        };
+        $filter = match ($kind) {
+            'component' => $this->componentFilter,
+            'page' => $this->pageFilter,
+            default => null,
         };
 
-        return $isComponent && $slug !== '' && !$this->componentFilter->allows($slug);
+        return $filter !== null && $slug !== '' && !$filter->allows($slug);
     }
 
     /**

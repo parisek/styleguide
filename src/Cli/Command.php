@@ -82,10 +82,10 @@ final class Command
         }
 
         $parser = new ComponentParser($templates);
-        if ($type === 'component') {
-            // `components.include` in the styleguide.yaml found by --config or
-            // by convention: list and show see the same components as the
-            // catalogue. No styleguide.yaml, or no key: nothing changes.
+        if ($type === 'component' || $type === 'page') {
+            // `components.include` / `pages.include` in the styleguide.yaml found
+            // by --config or by convention: list and show see the same entries as
+            // the catalogue. No styleguide.yaml, or no key: nothing changes.
             $configPath = $this->resolveConfigPath($flags['config'] ?? null);
             if ($configPath !== null) {
                 try {
@@ -94,13 +94,17 @@ final class Command
                     $data = []; // `doctor` reports a broken file; list stays as it was
                 }
                 try {
-                    $filter = ComponentFilter::fromConfig($data['components'] ?? null);
-                    $filter?->assertAllExist($parser->listDirectories('component'));
+                    $filter = ComponentFilter::fromConfig($data[$type . 's'] ?? null, $type);
+                    $filter?->assertAllExist($parser->listDirectories($type));
                 } catch (\InvalidArgumentException $e) {
                     fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
                     return 1;
                 }
-                $parser->restrictComponents($filter);
+                if ($type === 'component') {
+                    $parser->restrictComponents($filter);
+                } else {
+                    $parser->restrictPages($filter);
+                }
             }
         }
         $pretty = isset($flags['pretty']);

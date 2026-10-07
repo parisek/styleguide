@@ -146,6 +146,7 @@ class ComponentParser
     }
 
     private ?ComponentFilter $componentFilter = null;
+    private ?ComponentFilter $pageFilter = null;
 
     /**
      * Lists only the components `$filter` allows (`components.include`), from now
@@ -158,9 +159,48 @@ class ComponentParser
         $this->componentFilter = $filter;
     }
 
+    /**
+     * Lists only the pages `$filter` allows (`pages.include`), from now on, in
+     * the same three methods. A listed page that carries no metadata is listed
+     * too, with a title taken from its id; see `defaultMetadata()`.
+     */
+    public function restrictPages(?ComponentFilter $filter): void
+    {
+        $this->pageFilter = $filter;
+    }
+
     private function isHidden(string $type, string $id): bool
     {
-        return $type === 'component' && $this->componentFilter !== null && !$this->componentFilter->allows($id);
+        return match ($type) {
+            'component' => $this->componentFilter !== null && !$this->componentFilter->allows($id),
+            'page' => $this->pageFilter !== null && !$this->pageFilter->allows($id),
+            default => false,
+        };
+    }
+
+    /**
+     * The metadata of a page that `pages.include` lists but that has none: no
+     * `name`, because it has no front comment and no `<id>.yaml`. Its title is
+     * the id with the separators turned into spaces (`boat-rental` becomes
+     * `Boat rental`). Nothing else is invented. An unlisted page, a component
+     * and a doc never get this: without `pages.include` a page with no
+     * metadata stays out of the catalogue, as before.
+     *
+     * @param array<string,mixed>|false $metadata
+     * @return array<string,mixed>|false
+     */
+    private function withDefaultTitle(string $type, string $id, array|false $metadata): array|false
+    {
+        if ($type !== 'page' || $this->pageFilter === null || !$this->pageFilter->allows($id)) {
+            return $metadata;
+        }
+        if (is_array($metadata) && isset($metadata['name'])) {
+            return $metadata;
+        }
+        $words = trim(str_replace(['-', '_'], ' ', $id));
+        $title = mb_strtoupper(mb_substr($words, 0, 1)) . mb_substr($words, 1);
+
+        return [...(is_array($metadata) ? $metadata : []), 'name' => $title];
     }
 
     /** The folder of `<type>/<id>`: the owning root's, or null when no root owns it. */
@@ -333,6 +373,7 @@ class ComponentParser
             }
             $content = (string) file_get_contents($file);
             [$metadata, $sourceFile] = $this->readComponentMetadata($dir, $id, $file, $content);
+            $metadata = $this->withDefaultTitle($type, $id, $metadata);
 
             if (!$metadata || !isset($metadata['name'])) {
                 return null;
@@ -428,6 +469,7 @@ class ComponentParser
                         $file->getPathname(),
                         $content,
                     );
+                    $metadata = $this->withDefaultTitle($type, $id, $metadata);
 
                     if (!$metadata || !isset($metadata['name'])) {
                         continue;

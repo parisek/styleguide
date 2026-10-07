@@ -33,6 +33,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   a component is an error that names the id, at boot and in `doctor`. A value that is
   not a list of ids is an error too. An empty list shows no components. Without the
   key nothing changes. Pages are not filtered.
+- **`pages.include` limits the catalogue to a list of pages.** The key is a list of
+  page ids next to `pages.group_by`. The sidebar, `GET /api/pages`, the search data,
+  the overview and `vendor/bin/styleguide list --type=page` show only these pages.
+  A request for a page outside the list answers 404 on the render route,
+  `/api/source`, `/api/markup`, `/api/files` and the deep link `/page/<id>`. An id
+  that is not a page is an error that names the id, at boot and in `doctor`. A value
+  that is not a list of ids is an error too. An empty list shows no pages. A listed
+  page that has no metadata appears with a title taken from its id (`boat-rental`
+  becomes `Boat rental`); an unlisted page without metadata stays out, as before.
+  Without the key nothing changes. Components are not filtered by this key.
 
 ## [1.30.1] - 2026-10-05
 
