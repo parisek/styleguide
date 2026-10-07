@@ -157,6 +157,41 @@ class ComponentParser
     public function restrictComponents(?ComponentFilter $filter): void
     {
         $this->componentFilter = $filter;
+        $this->visibleIds = null;
+    }
+
+    /** @var array<string, true>|null the ids a catalogue may name, read once while a filter is set */
+    private ?array $visibleIds = null;
+
+    /**
+     * The `usage` ids the catalogue may name. Without a filter every id stays,
+     * as before. With `components.include` or `pages.include`, an id stays
+     * when it is a component or a page that the catalogue lists. A hidden
+     * entry and an id that is nothing at all would otherwise leak through the
+     * API, the CLI and the sidebar, although a direct request for them
+     * answers 404. Both filters apply together when both keys are set.
+     *
+     * @param list<string> $usage
+     * @return list<string>
+     */
+    private function visibleUsage(array $usage): array
+    {
+        if (($this->componentFilter === null && $this->pageFilter === null) || $usage === []) {
+            return $usage;
+        }
+        if ($this->visibleIds === null) {
+            // listDirectories() already skips what a filter hides.
+            $this->visibleIds = [];
+            foreach (['component', 'page'] as $type) {
+                foreach ($this->listDirectories($type) as $directory) {
+                    if ($directory['hasTemplate']) {
+                        $this->visibleIds[$directory['id']] = true;
+                    }
+                }
+            }
+        }
+
+        return array_values(array_filter($usage, fn(string $id): bool => isset($this->visibleIds[$id])));
     }
 
     /**
@@ -167,6 +202,7 @@ class ComponentParser
     public function restrictPages(?ComponentFilter $filter): void
     {
         $this->pageFilter = $filter;
+        $this->visibleIds = null;
     }
 
     private function isHidden(string $type, string $id): bool
@@ -944,7 +980,7 @@ class ComponentParser
             'drupal' => $metadata['drupal'] ?? '',
             'web' => $metadata['web'] ?? '',
             'weight' => isset($metadata['weight']) ? (int) $metadata['weight'] : 50,
-            'usage' => self::normaliseUsage($metadata['usage'] ?? null),
+            'usage' => $this->visibleUsage(self::normaliseUsage($metadata['usage'] ?? null)),
             'aliases' => self::normaliseAliases(
                 $metadata['aliases'] ?? null,
                 array_column($variants, 'id'),

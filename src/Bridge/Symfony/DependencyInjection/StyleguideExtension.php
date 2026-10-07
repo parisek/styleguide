@@ -78,16 +78,20 @@ final class StyleguideExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        /** @var array{config: string} $config */
+        /** @var array{config?: string, config_resolver?: string, twig_extensions?: list<string>} $config */
         $config = $this->processConfiguration(new Configuration(), $configs);
 
         // The catalogue's own YAML decides the mount, as it does in library
         // mode: one source, so the router, the Symfony routes and the browser
         // never disagree. It is the path inside the host application; the
         // host's base path (`/subdir`, `/index.php`) comes from the request.
-        $mount = self::yamlMount($config['config']) ?? MountPath::DEFAULT;
+        // With a resolver there is no single file at compile time, so the mount
+        // is the default and each resolved file must keep it.
+        $mount = isset($config['config'])
+            ? (self::yamlMount($config['config']) ?? MountPath::DEFAULT)
+            : MountPath::DEFAULT;
 
-        if (is_file($config['config'])) {
+        if (isset($config['config']) && is_file($config['config'])) {
             $container->addResource(new FileResource($config['config']));
         }
 
@@ -99,7 +103,18 @@ final class StyleguideExtension extends Extension
         // wrong for one serving a theme through a rewrite or from a
         // subdirectory, with no key to correct it. See StyleguideFactory.
         $factory = new Definition(StyleguideFactory::class);
-        $factory->setArguments([$config['config']]);
+        // Ids, not objects, until the container compiles: the other bundles'
+        // services do not exist yet while this extension loads. The compiler
+        // pass StyleguideBundle registers checks each id before the container
+        // freezes.
+        $factory->setArguments([
+            $config['config'] ?? null,
+            // By name, not by position: the pass that checks the ids reads
+            // `$twigExtensions` by name, so the order of the constructor
+            // parameters never matters here.
+            '$twigExtensions' => array_map(static fn(string $id): Reference => new Reference($id), $config['twig_extensions'] ?? []),
+            '$resolver' => isset($config['config_resolver']) ? new Reference($config['config_resolver']) : null,
+        ]);
         $factory->setPublic(false);
         $container->setDefinition('styleguide.factory', $factory);
 

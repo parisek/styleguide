@@ -39,7 +39,7 @@ final class StyleguideController
 
     public function __invoke(Request $request): Response
     {
-        $styleguide = $this->factory->forRequest($this->assetBase($request));
+        $styleguide = $this->factory->forRequest($this->assetBase($request), $request);
 
         $result = $styleguide->handle(new StyleguideRequest(
             // getPathInfo(), NOT getRequestUri(). The latter includes the base

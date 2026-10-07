@@ -82,29 +82,31 @@ final class Command
         }
 
         $parser = new ComponentParser($templates);
-        if ($type === 'component' || $type === 'page') {
-            // `components.include` / `pages.include` in the styleguide.yaml found
-            // by --config or by convention: list and show see the same entries as
-            // the catalogue. No styleguide.yaml, or no key: nothing changes.
-            $configPath = $this->resolveConfigPath($flags['config'] ?? null);
-            if ($configPath !== null) {
+        // `components.include` and `pages.include` in the styleguide.yaml found
+        // by --config or by convention: list and show see the same entries as
+        // the catalogue, and every `usage` names only listed entries. No
+        // styleguide.yaml, or no key: nothing changes. A bad key is an error
+        // for the type that is listed; for another type it is ignored.
+        $configPath = $this->resolveConfigPath($flags['config'] ?? null);
+        if ($configPath !== null) {
+            try {
+                $data = (array) Yaml::parseFile($configPath);
+            } catch (\Throwable) {
+                $data = []; // `doctor` reports a broken file; list stays as it was
+            }
+            foreach (['component', 'page'] as $kind) {
+                $filter = null;
                 try {
-                    $data = (array) Yaml::parseFile($configPath);
-                } catch (\Throwable) {
-                    $data = []; // `doctor` reports a broken file; list stays as it was
-                }
-                try {
-                    $filter = ComponentFilter::fromConfig($data[$type . 's'] ?? null, $type);
-                    $filter?->assertAllExist($parser->listDirectories($type));
+                    $filter = ComponentFilter::fromConfig($data[$kind . 's'] ?? null, $kind);
+                    $filter?->assertAllExist($parser->listDirectories($kind));
                 } catch (\InvalidArgumentException $e) {
-                    fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
-                    return 1;
+                    if ($type === $kind) {
+                        fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
+                        return 1;
+                    }
+                    $filter = null;
                 }
-                if ($type === 'component') {
-                    $parser->restrictComponents($filter);
-                } else {
-                    $parser->restrictPages($filter);
-                }
+                $kind === 'component' ? $parser->restrictComponents($filter) : $parser->restrictPages($filter);
             }
         }
         $pretty = isset($flags['pretty']);

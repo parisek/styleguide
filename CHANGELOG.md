@@ -10,6 +10,28 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **`styleguide.config_resolver` picks the catalogue per request (Symfony bundle).**
+  The key is the id of a service that implements
+  `StyleguideConfigResolverInterface::resolve(Request): string`. The service
+  returns the path of a `styleguide.yaml`. One kernel can then serve one
+  catalogue per host, for example one per project subdomain. The bundle calls the
+  resolver on every request and builds a new `Styleguide` for each one. It keeps
+  nothing between requests. The key excludes `config`: setting both, or neither,
+  fails when the container compiles, and the message names both keys. For an
+  unknown host the resolver throws `NotFoundHttpException`. The catalogue then
+  answers 404 with a fixed message that carries no host and no path. A resolved
+  path that is not a readable file fails with a clear error. A host that sets
+  `config` works as before. Every resolved file must keep the default mount
+  `/styleguide`.
+- **A host adds its own Twig functions to the catalogue.** A new run-truth key,
+  `twig_extensions`, takes a list of Twig extension objects. The package adds
+  them to the environment it builds, so a template can call `url()` or read a
+  global such as `build_url`. In the Symfony bundle the config key
+  `styleguide.twig_extensions` takes service ids. A missing id, or a service
+  that is not a Twig extension, stops the boot with a message that names the
+  id. A map instead of a list stops the container build, with a message that
+  names `styleguide.twig_extensions`. The key cannot be set in the YAML, and it cannot be combined with `twig`.
+  Without it nothing changes.
 - **`templates_path` takes a list of roots.** The first root is the strongest, for
   example a project over a shared kit. The catalogue lists the union of the roots.
   The first root that holds `<kind>/<id>/<id>.twig` owns that whole folder: its
@@ -19,8 +41,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   from one root must stay inside that root, so a symlink from root 1 into root 2
   is refused. In `ComponentParser::getWarnings()` and `GET /api/health`, a warning
   carries an extra `root` key (`templates_path[N]`) when the catalogue has a list
-  of roots. A string `templates_path` behaves exactly as before, down to the
-  shape of a warning. `vendor/bin/styleguide maintenance:render` refuses a list
+  of roots, also for a list of one root. A string `templates_path` behaves
+  exactly as before, down to the shape of a warning. `vendor/bin/styleguide maintenance:render` refuses a list
   with exit code 2 instead of writing into a folder nobody named.
 - **`components.include` limits the catalogue to a list of components.** The key is
   a list of component ids next to `components.group_by`. The sidebar, `GET
@@ -32,7 +54,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   does not scan dependencies; the host writes the full list. A listed id that is not
   a component is an error that names the id, at boot and in `doctor`. A value that is
   not a list of ids is an error too. An empty list shows no components. Without the
-  key nothing changes. Pages are not filtered.
+  key nothing changes. Pages are not filtered by this key. The `usage` data names
+  only listed components and pages: an id of a hidden component, or an id that is
+  neither, is dropped from the API, the CLI output and the sidebar.
 - **`pages.include` limits the catalogue to a list of pages.** The key is a list of
   page ids next to `pages.group_by`. The sidebar, `GET /api/pages`, the search data,
   the overview and `vendor/bin/styleguide list --type=page` show only these pages.
@@ -42,7 +66,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   that is not a list of ids is an error too. An empty list shows no pages. A listed
   page that has no metadata appears with a title taken from its id (`boat-rental`
   becomes `Boat rental`); an unlisted page without metadata stays out, as before.
-  Without the key nothing changes. Components are not filtered by this key.
+  Without the key nothing changes. Components are not filtered by this key. The
+  `usage` data names only listed pages as well: with both keys set, both filters
+  apply, and an id that is not listed is dropped.
 
 ## [1.30.1] - 2026-10-05
 

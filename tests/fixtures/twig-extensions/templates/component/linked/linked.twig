@@ -1,0 +1,6 @@
+{#
+name: "Linked"
+description: "Calls url() and reads a global, both from a host extension"
+category: "Block"
+#}
+<a href="{{ url('about') }}" data-build="{{ build_url|default('none') }}">{{ content.title|default('Linked') }}</a>
