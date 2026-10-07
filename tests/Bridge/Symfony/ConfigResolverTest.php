@@ -220,7 +220,7 @@ final class ConfigResolverTest extends TestCase
     #[Test]
     public function the_factory_builds_a_new_catalogue_for_every_request(): void
     {
-        $factory = new StyleguideFactory(null, new AllowlistResolver());
+        $factory = new StyleguideFactory(null, [], new AllowlistResolver());
 
         $first = $factory->forRequest('', Request::create('http://alpha.ux.test/styleguide'));
         $second = $factory->forRequest('', Request::create('http://alpha.ux.test/styleguide'));
@@ -233,7 +233,7 @@ final class ConfigResolverTest extends TestCase
     #[Test]
     public function a_resolver_needs_the_request(): void
     {
-        $factory = new StyleguideFactory(null, new AllowlistResolver());
+        $factory = new StyleguideFactory(null, [], new AllowlistResolver());
 
         $this->expectException(\LogicException::class);
         $this->expectExceptionMessage('request');
@@ -283,7 +283,7 @@ final class ConfigResolverTest extends TestCase
     #[Test]
     public function a_resolver_that_returns_a_missing_file_fails_with_a_clear_message(): void
     {
-        $factory = new StyleguideFactory(null, new MissingFileResolver());
+        $factory = new StyleguideFactory(null, [], new MissingFileResolver());
 
         try {
             $factory->forRequest('', Request::create('http://alpha.ux.test/styleguide'));

@@ -109,10 +109,11 @@ final class StyleguideExtension extends Extension
         // freezes.
         $factory->setArguments([
             $config['config'] ?? null,
-            isset($config['config_resolver']) ? new Reference($config['config_resolver']) : null,
-            // By name, not by position: the pass that checks the ids reads this
-            // argument by name, so a later argument in front of it breaks nothing.
+            // By name, not by position: the pass that checks the ids reads
+            // `$twigExtensions` by name, so the order of the constructor
+            // parameters never matters here.
             '$twigExtensions' => array_map(static fn(string $id): Reference => new Reference($id), $config['twig_extensions'] ?? []),
+            '$resolver' => isset($config['config_resolver']) ? new Reference($config['config_resolver']) : null,
         ]);
         $factory->setPublic(false);
         $container->setDefinition('styleguide.factory', $factory);

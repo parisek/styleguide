@@ -37,11 +37,12 @@ final class StyleguideFactory
     /**
      * @param string|null $configPath one fixed `styleguide.yaml`, or null when a resolver picks it per request
      * @param list<\Twig\Extension\ExtensionInterface> $twigExtensions the host's Twig extensions for the catalogue's own Twig
+     * @param StyleguideConfigResolverInterface|null $resolver picks the config file per request; always the LAST parameter, so the positional order of earlier releases holds
      */
     public function __construct(
         private readonly ?string $configPath,
-        private readonly ?StyleguideConfigResolverInterface $resolver = null,
         private readonly array $twigExtensions = [],
+        private readonly ?StyleguideConfigResolverInterface $resolver = null,
     ) {
         if (($configPath === null) === ($resolver === null)) {
             throw new \LogicException('StyleguideFactory needs exactly one of a config path and a config resolver.');

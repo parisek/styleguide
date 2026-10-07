@@ -199,7 +199,7 @@ interface StyleguideConfigResolverInterface
 
 The resolver must map a request value through an allowlist and never build a path from it. The bundle does not pass the host's Twig `Environment` to the catalogue. Every resolved file must keep the default mount `/styleguide`; the routes are fixed when the container compiles.
 
-SemVer: new optional key and a new interface, so a **minor** release. `StyleguideFactory` is internal; its constructor now takes `?string $configPath` and an optional resolver.
+SemVer: new optional key and a new interface, so a **minor** release. `StyleguideFactory` is internal; its constructor keeps the positional order of the previous release, `?string $configPath, array $twigExtensions = []`, and appends the optional resolver as the last parameter.
 
 ### `Parisek\Styleguide\ComponentParser::RENDER_MODES` (`@api`)
 
