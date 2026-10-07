@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.31.0] - 2026-10-07
+
 ### Added
 
 - **`styleguide.config_resolver` picks the catalogue per request (Symfony bundle).**
