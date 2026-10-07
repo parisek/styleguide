@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Bridge\Symfony;
 
 use Parisek\Styleguide\Styleguide;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Builds one `Styleguide` per request, carrying that request's asset base.
@@ -32,7 +34,17 @@ use Parisek\Styleguide\Styleguide;
  */
 final class StyleguideFactory
 {
-    public function __construct(private readonly string $configPath) {}
+    /**
+     * @param string|null $configPath one fixed `styleguide.yaml`, or null when a resolver picks it per request
+     */
+    public function __construct(
+        private readonly ?string $configPath,
+        private readonly ?StyleguideConfigResolverInterface $resolver = null,
+    ) {
+        if (($configPath === null) === ($resolver === null)) {
+            throw new \LogicException('StyleguideFactory needs exactly one of a config path and a config resolver.');
+        }
+    }
 
     /**
      * @param string $assetBase The consumer's asset base for this request —
@@ -40,14 +52,46 @@ final class StyleguideFactory
      *        equivalent of the front controller's
      *        `rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')`. Verified equal
      *        across four deployment shapes in `BundleTest`.
+     * @param Request|null $request the request the resolver reads; required when a resolver is set
      */
-    public function forRequest(string $assetBase): Styleguide
+    public function forRequest(string $assetBase, ?Request $request = null): Styleguide
     {
+        $configPath = $this->configPath ?? $this->resolve($request);
+
         // Passed through $overrides, the ONLY route run truth may travel by.
         // twig_context merges key by key, so the project's own homeUrl,
         // frontPageUrl and langcode from the YAML survive alongside it.
-        return Styleguide::fromYaml($this->configPath, [
+        return Styleguide::fromYaml($configPath, [
             'twig_context' => ['templateUrl' => $assetBase],
         ]);
+    }
+
+    /**
+     * Asks the resolver, every time: the next request may be another catalogue,
+     * so nothing is kept.
+     */
+    private function resolve(?Request $request): string
+    {
+        if ($this->resolver === null || $request === null) {
+            throw new \LogicException('A config resolver needs the request.');
+        }
+
+        try {
+            $path = $this->resolver->resolve($request);
+        } catch (NotFoundHttpException) {
+            // A fixed message: the resolver's own may carry the host or a path,
+            // and neither belongs in a response.
+            throw new NotFoundHttpException('No catalogue answers this request.');
+        }
+
+        if ($path === '' || !is_file($path) || !is_readable($path)) {
+            throw new \RuntimeException(sprintf(
+                'styleguide.config_resolver: %s returned "%s", which is not a readable file.',
+                $this->resolver::class,
+                $path,
+            ));
+        }
+
+        return $path;
     }
 }

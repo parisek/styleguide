@@ -10,6 +10,19 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
+- **`styleguide.config_resolver` picks the catalogue per request (Symfony bundle).**
+  The key is the id of a service that implements
+  `StyleguideConfigResolverInterface::resolve(Request): string`. The service
+  returns the path of a `styleguide.yaml`. One kernel can then serve one
+  catalogue per host, for example one per project subdomain. The bundle calls the
+  resolver on every request and builds a new `Styleguide` for each one. It keeps
+  nothing between requests. The key excludes `config`: setting both, or neither,
+  fails when the container compiles, and the message names both keys. For an
+  unknown host the resolver throws `NotFoundHttpException`. The catalogue then
+  answers 404 with a fixed message that carries no host and no path. A resolved
+  path that is not a readable file fails with a clear error. A host that sets
+  `config` works as before. Every resolved file must keep the default mount
+  `/styleguide`.
 - **`templates_path` takes a list of roots.** The first root is the strongest, for
   example a project over a shared kit. The catalogue lists the union of the roots.
   The first root that holds `<kind>/<id>/<id>.twig` owns that whole folder: its

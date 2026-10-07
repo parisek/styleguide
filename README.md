@@ -263,6 +263,35 @@ styleguide:
 
 Two routes: `/styleguide` and a catch-all `/styleguide/{path}`. Both are needed. The bare prefix is a real URL the catalogue answers, and the catch-all is what lets the SPA's history-API deep links survive a direct refresh — `/styleguide/component/card` pasted into a browser has to reach the controller and come back as the shell.
 
+#### One catalogue per host: `config_resolver` (unreleased)
+
+A host that serves several catalogues from one kernel, for example one per project subdomain, sets `config_resolver` in place of `config`:
+
+```yaml
+styleguide:
+    config_resolver: App\Styleguide\ProjectConfigResolver   # a service id
+```
+
+The service implements `Parisek\Styleguide\Bridge\Symfony\StyleguideConfigResolverInterface` and returns the absolute path of a `styleguide.yaml` for the request:
+
+```php
+public function resolve(Request $request): string
+{
+    $folder = self::PROJECTS[$request->getHost()] ?? null;   // an allowlist, never a path built from the host
+    if ($folder === null) {
+        throw new NotFoundHttpException();                   // the catalogue answers 404
+    }
+
+    return $this->projectsDir . '/' . $folder . '/styleguide.yaml';
+}
+```
+
+- `config` and `config_resolver` exclude each other. Setting both, or neither, fails when the container compiles.
+- The bundle asks the resolver on every request and builds a new `Styleguide` for each one. It keeps no object and no path between requests.
+- An unknown host: throw `NotFoundHttpException`. The bundle answers 404 with a fixed message and drops yours, so no host name or path reaches the response.
+- Never build a path from a request value by string work. Look the value up in an allowlist.
+- Every resolved file keeps the default mount `/styleguide`, because the routes are fixed when the container compiles.
+
 #### The mount point comes from `styleguide.yaml`
 
 `bootstrap.base_url` sets it, as in library mode; `/styleguide` by default. The bundle's routes read it through the `styleguide.base_url` container parameter, so the route import above stays the same whatever the mount is:

@@ -172,6 +172,34 @@ A fourth hook, `cacheVersion(): string` (default `''`), goes into the cache key.
 
 Overriding any other method works and is outside the contract. The kernel reads the catalogue's mount path from the container parameter `styleguide.base_url` (set by the bundle's extension, `/styleguide` until the mount becomes configurable); the parameter name is internal. `getStaticDir()` and `getProjectDir()` (the parent of the static directory) are public. The cache directory is under `sys_get_temp_dir()`; its path is not part of the contract.
 
+### Bundle key `styleguide.config_resolver` and `StyleguideConfigResolverInterface` (`@api`, unreleased)
+
+`styleguide.config_resolver: <service id>` replaces `styleguide.config` and picks the `styleguide.yaml` per request. The two keys are mutually exclusive: both set, or neither set, fails when the container compiles with a message that names both keys. Without the key, nothing changes.
+
+```php
+namespace Parisek\Styleguide\Bridge\Symfony;
+
+interface StyleguideConfigResolverInterface
+{
+    /**
+     * @return string absolute path of the styleguide.yaml for this request
+     * @throws \Symfony\Component\HttpKernel\Exception\NotFoundHttpException when no catalogue answers this request
+     */
+    public function resolve(Request $request): string;
+}
+```
+
+| Case | Result |
+|---|---|
+| Known request | The bundle builds a new `Styleguide` from the returned file. Nothing is cached across requests. |
+| Resolver throws `NotFoundHttpException` | 404 with the fixed message `No catalogue answers this request.` The resolver's own message is dropped, so a host name or path cannot leak. |
+| Resolver returns an empty string, a missing file or an unreadable file | `\RuntimeException` (500) that names the resolver class and the path. |
+| `StyleguideFactory::forRequest()` with a resolver and no `Request` | `\LogicException`. |
+
+The resolver must map a request value through an allowlist and never build a path from it. The bundle does not pass the host's Twig `Environment` to the catalogue. Every resolved file must keep the default mount `/styleguide`; the routes are fixed when the container compiles.
+
+SemVer: new optional key and a new interface, so a **minor** release. `StyleguideFactory` is internal; its constructor now takes `?string $configPath` and an optional resolver.
+
 ### `Parisek\Styleguide\ComponentParser::RENDER_MODES` (`@api`)
 
 ```php
