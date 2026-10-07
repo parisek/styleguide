@@ -1,0 +1,9 @@
+# A project whose component calls `url()`, a function the package does not
+# define. The host supplies it through the `twig_extensions` run-truth key.
+bootstrap:
+  templates_path: templates
+  static_path: static
+  default_locale: en
+project:
+  name: Twig Extensions Fixture
+  slug: twig-extensions-fixture

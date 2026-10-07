@@ -78,7 +78,7 @@ final class StyleguideExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
-        /** @var array{config?: string, config_resolver?: string} $config */
+        /** @var array{config?: string, config_resolver?: string, twig_extensions?: list<string>} $config */
         $config = $this->processConfiguration(new Configuration(), $configs);
 
         // The catalogue's own YAML decides the mount, as it does in library
@@ -103,9 +103,16 @@ final class StyleguideExtension extends Extension
         // wrong for one serving a theme through a rewrite or from a
         // subdirectory, with no key to correct it. See StyleguideFactory.
         $factory = new Definition(StyleguideFactory::class);
+        // Ids, not objects, until the container compiles: the other bundles'
+        // services do not exist yet while this extension loads. The compiler
+        // pass StyleguideBundle registers checks each id before the container
+        // freezes.
         $factory->setArguments([
             $config['config'] ?? null,
             isset($config['config_resolver']) ? new Reference($config['config_resolver']) : null,
+            // By name, not by position: the pass that checks the ids reads this
+            // argument by name, so a later argument in front of it breaks nothing.
+            '$twigExtensions' => array_map(static fn(string $id): Reference => new Reference($id), $config['twig_extensions'] ?? []),
         ]);
         $factory->setPublic(false);
         $container->setDefinition('styleguide.factory', $factory);

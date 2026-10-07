@@ -52,10 +52,10 @@ final class RootReportingTest extends OverlayTestCase
         self::assertCount(1, $warnings);
         self::assertSame(['file', 'error'], array_keys($warnings[0]));
 
-        // A one-entry list is one root too: the shape stays the same.
+        // A one-entry list is a list: its warnings name the root.
         $viaList = new ComponentParser([$dir]);
         $viaList->parseAll('component');
-        self::assertSame(['file', 'error'], array_keys($viaList->getWarnings()[0]));
+        self::assertSame(['file', 'error', 'root'], array_keys($viaList->getWarnings()[0]));
     }
 
     #[Test]

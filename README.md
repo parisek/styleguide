@@ -122,7 +122,7 @@ What belongs where is enforced, not merely documented. Project truth
 (`templates_path`, `static_path`, `default_locale`, `base_url`,
 `typography_config`, `namespaces`) goes in the YAML. Run truth — `templateUrl`,
 computed from `$_SERVER` and quietly wrong on a CLI process, plus `twig`,
-`twig_options`, `auth` — can only arrive through `$overrides`; putting one in
+`twig_options`, `twig_extensions`, `auth` — can only arrive through `$overrides`; putting one in
 the YAML throws rather than being silently honoured. Full rules:
 [`docs/API.md`](docs/API.md) § `bootstrap:`.
 
@@ -138,6 +138,7 @@ the YAML throws rather than being silently honoured. Full rules:
 | `twig` | no | `null` | Pre-built `Twig\Environment`. Pass when component templates need project-specific extensions / filters / functions (`component_*`, `_x()`, `placeholder()`, `|resizer`, …). If omitted, the package builds a pristine environment with sensible defaults (`cache: false`, `debug: true`, `autoescape: false`). See *`twig` config — when to pass it* below. |
 | `twig_context` | no | `[]` | Globals merged into every `component_*()` / `page_*()` render. Typical keys: `homeUrl`, `templateUrl`, `langcode`. |
 | `twig_options` | no | `[]` | Options merged onto the package defaults when building the pristine env. Ignored when `twig` is provided (the package never mutates a consumer-owned env). |
+| `twig_extensions` | no | `[]` | List of `Twig\Extension\ExtensionInterface` objects the package adds to the environment it builds. Use it for functions and globals your templates call and the package does not define (`url()`, `build_url`). Run truth: `$overrides` only. Throws `\InvalidArgumentException` for a value that is not such a list, and when combined with `twig`. Without it nothing changes. |
 | `typography_config` | no | `null` | Path to a typography settings yaml consumed by `\Parisek\Twig\TypographyExtension`. Only matters if your templates use `|typography` and you want non-default behavior. Note: a project that pre-registers its own `TypographyExtension` on the `twig` env it passes in (see `hasExtension()` below) wins over the package's own — including its `default_locale`-driven resolver — so a hand-registered single-argument instance silently gets no per-language typesetting. Pass a resolver of your own (`new TypographyExtension($path, fn () => $locale)`) if you pre-register it. |
 | `namespaces` | no | `[]` | Extra Twig namespaces (`<name> => <absolute path>`) for paths that live outside `templates_path` and aren't covered by the auto-registered conventional namespaces. |
 | `auth` | no | `null` | Optional `callable(array $route): bool` gate checked once per request, before any dispatch (SPA, render, JSON API, or asset). Return `false` to reject with a plain-text `403 Forbidden`; return `true` (or omit the key entirely) to allow. Receives the parsed route array (`type`, plus `slug`/`kind`/`endpoint`/`path`/`theme` depending on route type). Requests loaded inside the styleguide's own iframe (`Sec-Fetch-Dest: iframe`) are re-typed to `type: 'render'` (carrying `kind: 'component'`/`'page'`/`'doc'`/`'foundations'`) before the callable ever sees them — don't gate solely on `type === 'component'`, or every iframe-embedded component render will fall through as `'render'` and bypass that branch. A non-`null`, non-callable value throws `InvalidArgumentException` at construction time (fail loudly at boot) rather than silently allowing every request; a callable that throws is treated as a denial (fail closed) and logged via `error_log()`, never surfaced to the caller. For publicly reachable deployments, HTTP Basic Auth at the web-server level is usually simpler and more robust than an in-PHP callable — reach for `auth` when the check needs request context only PHP has access to (e.g. a signed query token, a session check your framework already performs). |
@@ -251,7 +252,17 @@ styleguide:
     config: '%kernel.project_dir%/static/styleguide.yaml'
 ```
 
-That is the whole configuration. The catalogue's own settings stay in the project's `styleguide.yaml`, which the bundle reads through `Styleguide::fromYaml()` — the bundle deliberately adds no second place to say the same things.
+That is the whole required configuration. One optional key, `twig_extensions`, lists the ids of services that are Twig extensions. The bundle adds them to the catalogue's own Twig, for functions the templates call and the package does not define:
+
+```yaml
+styleguide:
+    config: '%kernel.project_dir%/static/styleguide.yaml'
+    twig_extensions: ['app.twig.url']
+```
+
+A service id that does not exist, or whose class is not a `Twig\Extension\ExtensionInterface`, stops the boot with a message that names the id. An extension that implements `GlobalsInterface` supplies its globals too. The bundle never passes the host's own Twig environment.
+
+The catalogue's own settings stay in the project's `styleguide.yaml`, which the bundle reads through `Styleguide::fromYaml()` — the bundle deliberately adds no second place to say the same things.
 
 **`config/routes.yaml`**
 

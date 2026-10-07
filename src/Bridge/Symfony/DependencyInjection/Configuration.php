@@ -41,6 +41,14 @@ final class Configuration implements ConfigurationInterface
                     ->cannotBeEmpty()
                     ->info('Id of a service that implements StyleguideConfigResolverInterface. It picks the styleguide.yaml per request. Exclusive with "config".')
                 ->end()
+                ->arrayNode('twig_extensions')
+                    ->validate()
+                        ->ifTrue(static fn(mixed $value): bool => is_array($value) && !array_is_list($value))
+                        ->thenInvalid('"styleguide.twig_extensions" must be a list of service ids, not a map. Write "- app.url_extension", one id per line.')
+                    ->end()
+                    ->scalarPrototype()->cannotBeEmpty()->end()
+                    ->info('Ids of services (Twig extensions) added to the catalogue\'s own Twig, for functions the templates call, such as url().')
+                ->end()
             ->end();
 
         return $tree;

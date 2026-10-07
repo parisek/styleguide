@@ -36,10 +36,12 @@ final class StyleguideFactory
 {
     /**
      * @param string|null $configPath one fixed `styleguide.yaml`, or null when a resolver picks it per request
+     * @param list<\Twig\Extension\ExtensionInterface> $twigExtensions the host's Twig extensions for the catalogue's own Twig
      */
     public function __construct(
         private readonly ?string $configPath,
         private readonly ?StyleguideConfigResolverInterface $resolver = null,
+        private readonly array $twigExtensions = [],
     ) {
         if (($configPath === null) === ($resolver === null)) {
             throw new \LogicException('StyleguideFactory needs exactly one of a config path and a config resolver.');
@@ -61,9 +63,12 @@ final class StyleguideFactory
         // Passed through $overrides, the ONLY route run truth may travel by.
         // twig_context merges key by key, so the project's own homeUrl,
         // frontPageUrl and langcode from the YAML survive alongside it.
-        return Styleguide::fromYaml($configPath, [
-            'twig_context' => ['templateUrl' => $assetBase],
-        ]);
+        $overrides = ['twig_context' => ['templateUrl' => $assetBase]];
+        if ($this->twigExtensions !== []) {
+            $overrides['twig_extensions'] = $this->twigExtensions;
+        }
+
+        return Styleguide::fromYaml($configPath, $overrides);
     }
 
     /**

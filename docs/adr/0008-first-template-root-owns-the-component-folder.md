@@ -47,7 +47,9 @@ Twig templates are different. A template that the owner does not have is found
 in the next root, in the same order. A kit component that calls
 `component_button()` uses the project's `button`.
 
-A string `templates_path` is one root and behaves as before.
+A string `templates_path` is one root and behaves as before. Only the string
+form is legacy. A list is never legacy, even with one element or with
+duplicates that collapse to one root: it enforces the containment rule above.
 
 ## Consequences
 
