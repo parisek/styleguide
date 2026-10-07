@@ -45,6 +45,49 @@ final class PathGuard
     }
 
     /**
+     * Overlay containment, for a template root list. Resolves `$path` inside
+     * root number `$index` only, and requires the real path to stay inside
+     * THAT root. A symlink from a project root into the kit root lands in
+     * another root after realpath() and is refused, which a check against
+     * "any root" would let through.
+     *
+     * Lexical checks come first, before any realpath() call: a `..`
+     * segment, an absolute path, a NUL byte, a backslash or a URL scheme is
+     * refused without touching the disk.
+     *
+     * @param list<string> $roots
+     */
+    public static function resolveInRoot(array $roots, int $index, string $path): ?string
+    {
+        if (!isset($roots[$index]) || self::isLexicallyUnsafe($path)) {
+            return null;
+        }
+
+        return self::resolvePath($roots[$index], $path);
+    }
+
+    /**
+     * True when `$path` is not a plain relative path: it has a `..` or empty
+     * segment, starts with `/`, carries a NUL byte or a backslash, or has a
+     * URL scheme. Pure string work, no disk access.
+     */
+    public static function isLexicallyUnsafe(string $path): bool
+    {
+        if ($path === '' || str_contains($path, "\0") || str_contains($path, '\\')
+            || str_starts_with($path, '/') || self::isExternalUrl($path)
+            || preg_match('#^[A-Za-z]:#', $path) === 1) {
+            return true;
+        }
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '..' || $segment === '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * True for protocol-relative (`//host/...`), absolute-scheme
      * (`https://...`), or bare-scheme (`data:...`, `javascript:...`) URIs —
      * anything carrying a scheme prefix, with or without the `//` authority

@@ -1,0 +1,394 @@
+{
+    "trouble": {
+        "broken-metadata-templates": {
+            "items": [
+                [
+                    "component/healthy",
+                    []
+                ]
+            ],
+            "warnings": [
+                {
+                    "file": "component/glitch/glitch.twig",
+                    "error": "A colon cannot be used in an unquoted mapping value at line 6 (near \"description: mirrors legacy `body.home .thing { padding-top: 0 }`\")."
+                }
+            ]
+        },
+        "broken-fields-templates": {
+            "items": [
+                [
+                    "component/broken-fields",
+                    []
+                ],
+                [
+                    "component/broken-fields-yaml",
+                    []
+                ]
+            ],
+            "warnings": [
+                {
+                    "file": "component/broken-fields/broken-fields.twig",
+                    "error": "field \"bad\": definition is not a map — skipped"
+                },
+                {
+                    "file": "component/broken-fields-yaml/broken-fields-yaml.yaml",
+                    "error": "field \"bad\": definition is not a map — skipped"
+                }
+            ]
+        },
+        "yaml-priority-templates": {
+            "items": [
+                [
+                    "component/with-yaml",
+                    []
+                ],
+                [
+                    "component/twig-only",
+                    []
+                ],
+                [
+                    "component/broken-yaml",
+                    []
+                ]
+            ],
+            "warnings": [
+                {
+                    "file": "component/with-yaml/with-yaml.yaml",
+                    "error": "field \"title\": missing label/title — skipped"
+                }
+            ]
+        },
+        "nested": {
+            "items": [],
+            "warnings": []
+        }
+    },
+    "parsed": {
+        "component": [
+            {
+                "id": "another",
+                "name": "Another",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            },
+            {
+                "id": "sample",
+                "name": "Sample",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            },
+            {
+                "id": "translated-sample",
+                "name": "Translated sample",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            },
+            {
+                "id": "multi",
+                "name": "Multi",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": [
+                    "dark-bg",
+                    "secondary"
+                ]
+            },
+            {
+                "id": "only-variants",
+                "name": "Only Variants",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": [
+                    "first",
+                    "second"
+                ]
+            },
+            {
+                "id": "defkit-card",
+                "name": "Defkit Card",
+                "fields_md5": "8d361c2ac011b28b9737f4d06415f04e",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "with-fields",
+                "name": "With fields",
+                "fields_md5": "b094b4b32d847b197631321a190541fc",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            },
+            {
+                "id": "widget-one",
+                "name": "Widget - one",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "widget-two",
+                "name": "Widget - two",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "widget-three",
+                "name": "Widget - three",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "gizmo",
+                "name": "Gizmo",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "ordered",
+                "name": "Ordered",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": [
+                    "zeta",
+                    "alpha",
+                    "mid"
+                ]
+            },
+            {
+                "id": "broken-sample",
+                "name": "Broken Sample",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            }
+        ],
+        "page": [
+            {
+                "id": "landing",
+                "name": "Landing",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            },
+            {
+                "id": "pricing",
+                "name": "Pricing",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "contact",
+                "name": "Contact",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            }
+        ],
+        "doc": [
+            {
+                "id": "sample-doc",
+                "name": "Sample Doc",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": false,
+                "variants": []
+            }
+        ]
+    },
+    "single_parse": "f7de885a0f1f28b495b27e454a6b7076",
+    "with_fields_files": [],
+    "warnings": [],
+    "directories": [
+        {
+            "id": "another",
+            "hasTemplate": true
+        },
+        {
+            "id": "broken-sample",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-demo",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-demo-2",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-demo-default-reserved",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-custom-tag",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-empty",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-empty-list",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-empty-map",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-null",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-php-object",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-edge-scalar",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-malformed",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-demo-missing",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-demo-only-named",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-demo-ratio-conflict",
+            "hasTemplate": false
+        },
+        {
+            "id": "data-demo-sets",
+            "hasTemplate": true
+        },
+        {
+            "id": "data-nested",
+            "hasTemplate": true
+        },
+        {
+            "id": "defkit-card",
+            "hasTemplate": true
+        },
+        {
+            "id": "gizmo",
+            "hasTemplate": true
+        },
+        {
+            "id": "multi",
+            "hasTemplate": true
+        },
+        {
+            "id": "nested-locale",
+            "hasTemplate": true
+        },
+        {
+            "id": "only-variants",
+            "hasTemplate": true
+        },
+        {
+            "id": "ordered",
+            "hasTemplate": true
+        },
+        {
+            "id": "sample",
+            "hasTemplate": true
+        },
+        {
+            "id": "translated-sample",
+            "hasTemplate": true
+        },
+        {
+            "id": "unique-id",
+            "hasTemplate": true
+        },
+        {
+            "id": "widget-one",
+            "hasTemplate": true
+        },
+        {
+            "id": "widget-three",
+            "hasTemplate": true
+        },
+        {
+            "id": "widget-two",
+            "hasTemplate": true
+        },
+        {
+            "id": "with-fields",
+            "hasTemplate": true
+        }
+    ],
+    "loader_paths": {
+        "project": [
+            "/templates"
+        ],
+        "component": [
+            "/templates/component"
+        ],
+        "macro": [],
+        "page": [
+            "/templates/page"
+        ],
+        "doc": [
+            "/templates/doc"
+        ],
+        "static": [
+            "/templates"
+        ]
+    },
+    "diagnostics_templates_path": "/templates",
+    "api": {
+        "/styleguide/api/components": [
+            200,
+            "acf944525be472c6efd219651e2ab156"
+        ],
+        "/styleguide/api/pages": [
+            200,
+            "051594aa64d084a54992eedce1c86a9e"
+        ],
+        "/styleguide/api/docs": [
+            200,
+            "2364d8fc7b3f20fc54a571038f65cc27"
+        ],
+        "/styleguide/api/source/component/multi": [
+            200,
+            "6e9e200c82e392d51d682e8221fd8ef6"
+        ],
+        "/styleguide/api/files/component/multi": [
+            200,
+            "6e4a74369477127289aa5cf511639e7f"
+        ],
+        "/styleguide/render/component/multi": [
+            200,
+            "b5fc1a2c4835c1926fe0940083e5d5aa"
+        ]
+    }
+}

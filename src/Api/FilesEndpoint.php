@@ -6,6 +6,7 @@ namespace Parisek\Styleguide\Api;
 
 use Parisek\Styleguide\Http\Result;
 use Parisek\Styleguide\PathGuard;
+use Parisek\Styleguide\TemplateRoots;
 
 /**
  * @internal Implementation detail of `Styleguide::run()`. Consumer-facing
@@ -37,7 +38,18 @@ final class FilesEndpoint
      * @param list<string> $views The `source_views` in effect: `twig`, `css`
      *                            and `js` decide which files are read.
      */
-    public function __construct(private string $templatesPath, private array $views = ['css', 'js']) {}
+    private TemplateRoots $roots;
+
+    /**
+     * @param string|list<string>|TemplateRoots $templatesPath One root, or the ordered roots; an
+     *        entry's files come from the root that owns the entry.
+     * @param list<string> $views The `source_views` in effect: `twig`, `css`
+     *                            and `js` decide which files are read.
+     */
+    public function __construct(string|array|TemplateRoots $templatesPath, private array $views = ['css', 'js'])
+    {
+        $this->roots = TemplateRoots::from($templatesPath);
+    }
 
     public function handle(string $kind, string $slug): Result
     {
@@ -46,13 +58,14 @@ final class FilesEndpoint
         }
 
         $base = $kind . '/' . $slug;
-        if (!is_dir(rtrim($this->templatesPath, '/') . '/' . $base)) {
+        $root = $this->roots->isSingle() ? $this->roots->first() : $this->roots->ownerRoot($kind, $slug);
+        if ($root === null || !is_dir(rtrim($root, '/') . '/' . $base)) {
             return self::notFound();
         }
 
         $files = [];
         if (in_array('twig', $this->views, true)) {
-            $template = $this->read($base . '/' . $slug . '.twig');
+            $template = $this->read($root, $base . '/' . $slug . '.twig');
             if ($template !== null) {
                 $files[] = ['path' => $base . '/' . $slug . '.twig', 'language' => 'twig', 'source' => $template];
             }
@@ -61,11 +74,11 @@ final class FilesEndpoint
             if (!in_array($language, $this->views, true)) {
                 continue;
             }
-            foreach (self::walk($this->templatesPath, $base . '/' . $folder, $language) as $path) {
+            foreach (self::walk($root, $base . '/' . $folder, $language) as $path) {
                 if (count($files) >= self::MAX_FILES) {
                     break 2;
                 }
-                $source = $this->read($path);
+                $source = $this->read($root, $path);
                 if ($source !== null) {
                     $files[] = ['path' => $path, 'language' => $language, 'source' => $source];
                 }
@@ -82,9 +95,12 @@ final class FilesEndpoint
      * One file's text, or null. The same containment rule the renderer
      * uses: a symlink out of the templates folder is not a component file.
      */
-    private function read(string $path): ?string
+    private function read(string $root, string $path): ?string
     {
-        $real = PathGuard::resolvePath($this->templatesPath, $path);
+        // One root only: a symlink from the project into the kit is refused.
+        $real = $this->roots->isSingle()
+            ? PathGuard::resolvePath($root, $path)
+            : PathGuard::resolveInRoot([$root], 0, $path);
         if ($real === null || filesize($real) > self::MAX_BYTES) {
             return null;
         }

@@ -37,7 +37,7 @@ Required keys:
 
 | Key | Type | Description |
 |---|---|---|
-| `templates_path` | `string` | Absolute path to the project's `templates/` directory (root of `@project` namespace) |
+| `templates_path` | `string \| list<string>` | Absolute path to the project's `templates/` directory (root of `@project` namespace), or an ordered list of such roots. A string is one root. A list is several roots, strongest first (a project over a shared kit). The first root that holds `<kind>/<id>/<id>.twig` owns that whole folder: its `<id>.yaml`, fixtures, data files, `css/` and `js/` come from that root and never from a second one. Twig finds a template that the owner does not have in the next root. A path from one root must stay inside that root: a symlink from root 1 into root 2 is refused. A string behaves as before. Every entry of a list must be an existing directory |
 | `static_path` | `string` | Absolute path to the project's static-asset root (siblings of `templates/` — usually the dir hosting `static/index.php`) |
 | `config_yaml` | `string` | Absolute path to the project's `styleguide.yaml` (see § YAML schemas) |
 
@@ -80,7 +80,7 @@ Reads the `bootstrap:` top-level key of the YAML at `$path` (see § YAML schemas
 
 Relative `bootstrap.*` paths resolve against **the YAML file's own directory**, not the caller's `__DIR__` and not the process's current working directory — the same `styleguide.yaml` produces the same absolute paths whether read by `static/index.php` over HTTP or by a CLI script invoked from an arbitrary cwd.
 
-Throws `\InvalidArgumentException` when: `$path` doesn't exist; the file isn't valid YAML; the parsed document isn't a top-level mapping; `bootstrap:` exists but isn't a mapping; `bootstrap.templates_path` / `bootstrap.static_path` is missing or not a non-empty string; `bootstrap:` contains a forbidden run-truth key (the list below, § YAML schemas → `bootstrap:`) — top-level or nested (`bootstrap.twig_context.templateUrl`); or a present-but-optional key (`default_locale`, `base_url`, `typography_config`, `translations_path`, `source_locale`, `namespaces`, `namespaces.*`, `twig_context`) carries the wrong type (a `source_locale` outside the render route's own locale syntax is refused too, by `__construct()`). Each message names the file and the specific problem — there is no guessed fallback for a required key and no silent fallback for a malformed optional one, because either is a silent-wrong-config bug in different clothes.
+Throws `\InvalidArgumentException` when: `$path` doesn't exist; the file isn't valid YAML; the parsed document isn't a top-level mapping; `bootstrap:` exists but isn't a mapping; `bootstrap.static_path` is missing or not a non-empty string; `bootstrap.templates_path` is missing, or is neither a non-empty string nor a non-empty list of non-empty strings (the message names the index of a bad entry); `bootstrap:` contains a forbidden run-truth key (the list below, § YAML schemas → `bootstrap:`) — top-level or nested (`bootstrap.twig_context.templateUrl`); or a present-but-optional key (`default_locale`, `base_url`, `typography_config`, `translations_path`, `source_locale`, `namespaces`, `namespaces.*`, `twig_context`) carries the wrong type (a `source_locale` outside the render route's own locale syntax is refused too, by `__construct()`). Each message names the file and the specific problem — there is no guessed fallback for a required key and no silent fallback for a malformed optional one, because either is a silent-wrong-config bug in different clothes.
 
 #### `renderTemplate(string $name, array $context = []): string` (`@api`, added 1.13.0)
 
@@ -268,7 +268,7 @@ Consumed only by `Styleguide::fromYaml()`. Every key mirrors a same-named `Style
 
 | Key | Required | Type | Notes |
 |---|---|---|---|
-| `templates_path` | yes | `string` | Relative to this YAML file's own directory, or absolute |
+| `templates_path` | yes | `string \| list<string>` | Relative to this YAML file's own directory, or absolute. A list gives several roots; see § PHP API, constructor config |
 | `static_path` | yes | `string` | Relative to this YAML file's own directory, or absolute |
 | `default_locale` | no | `string` | Falls through to `__construct()`'s own default (`'en'`) when absent |
 | `base_url` | no | `string` | Falls through to `__construct()`'s own default (`'/styleguide'`) when absent |
@@ -553,7 +553,7 @@ Diagnostics for `ComponentParser`'s per-file resilience (added alongside the `\T
 
 ```ts
 {
-  warnings: Array<{ file: string; error: string }>; // relative to templates_path; empty when nothing was skipped
+  warnings: Array<{ file: string; error: string; root?: string }>; // file is relative to its root; root is `templates_path[N]`, present only with a list of roots; empty when nothing was skipped
   counts: { components: number; pages: number; docs: number };
   checked: 'metadata';                              // scope disclosure — see below (since 1.8.1)
 }

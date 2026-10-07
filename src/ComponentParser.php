@@ -129,12 +129,76 @@ class ComponentParser
 
     private string $templatesPath;
 
-    /** @var list<array{file:string, error:string}> */
+    private TemplateRoots $roots;
+
+    /** @var list<array{file:string, error:string, root?:string}> */
     private array $warnings = [];
 
-    public function __construct(string $templatesPath)
+    /**
+     * @param string|list<string>|TemplateRoots $templatesPath One root (today's
+     *        shape) or an ordered list of roots, strongest first. See
+     *        {@see TemplateRoots} for the ownership rule.
+     */
+    public function __construct(string|array|TemplateRoots $templatesPath)
     {
-        $this->templatesPath = rtrim($templatesPath, '/');
+        $this->roots = TemplateRoots::from($templatesPath);
+        $this->templatesPath = rtrim($this->roots->first(), '/');
+    }
+
+    /** The folder of `<type>/<id>`: the owning root's, or null when no root owns it. */
+    private function entryDir(string $type, string $id): ?string
+    {
+        if ($this->roots->isSingle()) {
+            return $this->templatesPath . '/' . $type . '/' . $id;
+        }
+        $owner = $this->roots->ownerRoot($type, $id);
+
+        return $owner === null ? null : rtrim($owner, '/') . '/' . $type . '/' . $id;
+    }
+
+    /**
+     * The roots to walk for a type, each with its `<root>/<type>` directory.
+     *
+     * @return list<string>
+     */
+    private function typeDirs(string $type): array
+    {
+        return array_map(
+            static fn(string $root): string => rtrim($root, '/') . '/' . $type,
+            $this->roots->isSingle() ? [$this->templatesPath] : $this->roots->all(),
+        );
+    }
+
+    /**
+     * True when several roots are in play and `$file` resolves outside the
+     * root it sits in (a symlink into another root or out of the tree). A
+     * single root keeps today's behaviour and is never refused here.
+     */
+    private function escapesOwnRoot(string $file): bool
+    {
+        if ($this->roots->isSingle()) {
+            return false;
+        }
+        $index = $this->roots->indexOfPath($file);
+        if ($index === null) {
+            return false;
+        }
+        $realRoot = realpath($this->roots->all()[$index]);
+        $real = realpath($file);
+
+        return $realRoot === false || $real === false
+            || !str_starts_with($real, rtrim($realRoot, '/') . '/');
+    }
+
+    /** The `templates_path[N]` label of the root that holds `$absolute`; null with a single root. */
+    private function rootLabel(string $absolute): ?string
+    {
+        if ($this->roots->isSingle()) {
+            return null;
+        }
+        $index = $this->roots->indexOfPath($absolute);
+
+        return $index === null ? null : TemplateRoots::label($index);
     }
 
     /**
@@ -144,7 +208,10 @@ class ComponentParser
      * Files `parse()`/`parseAll()` had to skip because parsing their front
      * comment threw, accumulated across every call made on this instance.
      *
-     * @return list<array{file:string, error:string}>
+     * With several template roots each warning also names its `root`
+     * (`templates_path[N]`), because the same relative `file` can exist in two roots.
+     *
+     * @return list<array{file:string, error:string, root?:string}>
      */
     public function getWarnings(): array
     {
@@ -232,7 +299,10 @@ class ComponentParser
      */
     public function parse(string $type, string $id): ?array
     {
-        $dir = $this->templatesPath . '/' . $type . '/' . $id;
+        $dir = $this->entryDir($type, $id);
+        if ($dir === null) {
+            return null;
+        }
         $file = $dir . '/' . $id . '.twig';
 
         if (!file_exists($file)) {
@@ -240,6 +310,9 @@ class ComponentParser
         }
 
         try {
+            if ($this->escapesOwnRoot($file)) {
+                throw new \RuntimeException('template resolves outside its template root');
+            }
             $content = (string) file_get_contents($file);
             [$metadata, $sourceFile] = $this->readComponentMetadata($dir, $id, $file, $content);
 
@@ -265,6 +338,7 @@ class ComponentParser
                 $variants,
                 $this->relativePath($sourceFile),
                 $this->defaultFixtureTitle($dir),
+                $this->rootLabel($sourceFile),
             );
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
@@ -272,7 +346,7 @@ class ComponentParser
             // — same resilience contract as parseAll(): a broken template
             // degrades this lookup to the pre-existing "no metadata" outcome
             // (null) instead of 500ing the render endpoint itself.
-            $this->recordWarning($this->relativePath($file), $e);
+            $this->recordWarning($this->relativePath($file), $e, $this->rootLabel($file));
             return null;
         }
     }
@@ -284,66 +358,88 @@ class ComponentParser
      */
     public function parseAll(string $type): array
     {
-        $dir = $this->templatesPath . '/' . $type;
-        if (!is_dir($dir)) {
-            return [];
-        }
-
         $items = [];
-        $iterator = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
-        $flattened = new \RecursiveIteratorIterator($iterator);
-        $regex = new \RegexIterator($flattened, '/\.twig$/');
-
-        foreach ($regex as $file) {
-            // A variant sibling carrying a {# name: #} header must never
-            // surface as a phantom catalogue entry — exclude the whole
-            // styleguide.* family, not just the exact default filename, so
-            // even a sibling whose <variant> segment is invalid (and thus
-            // never discovered by discoverVariants()) still can't leak in
-            // here as its own "component".
-            if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
+        // Ids already claimed by a stronger root. The first root that holds an
+        // id's template owns the id, whether or not the entry is catalogued.
+        $claimed = [];
+        foreach ($this->typeDirs($type) as $dir) {
+            if (!is_dir($dir)) {
                 continue;
             }
 
-            $content = (string) file_get_contents($file->getPathname());
-            $id = $file->getBasename('.twig');
+            $iterator = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
+            $flattened = new \RecursiveIteratorIterator($iterator);
+            $regex = new \RegexIterator($flattened, '/\.twig$/');
+            $claimedHere = [];
 
-            try {
-                [$metadata, $sourceFile] = $this->readComponentMetadata(
-                    $file->getPath(),
-                    $id,
-                    $file->getPathname(),
-                    $content,
-                );
-
-                if (!$metadata || !isset($metadata['name'])) {
+            foreach ($regex as $file) {
+                // A variant sibling carrying a {# name: #} header must never
+                // surface as a phantom catalogue entry — exclude the whole
+                // styleguide.* family, not just the exact default filename, so
+                // even a sibling whose <variant> segment is invalid (and thus
+                // never discovered by discoverVariants()) still can't leak in
+                // here as its own "component".
+                if (preg_match(self::STYLEGUIDE_SIBLING_PATTERN, $file->getFilename())) {
                     continue;
                 }
 
-                $hasDefaultFixture = file_exists($file->getPath() . '/styleguide.twig');
-                $variants = $this->discoverVariants($file->getPath(), $metadata);
-                $hasStyleguide = $hasDefaultFixture
-                    || isset($metadata['styleguide'])
-                    || $variants !== [];
+                $id = $file->getBasename('.twig');
+                if (isset($claimed[$id])) {
+                    continue;
+                }
+                if ($this->escapesOwnRoot($file->getPathname())) {
+                    // Refused, and it does not claim the id: a symlink must
+                    // not hide the weaker root's real entry.
+                    $this->recordWarning(
+                        $this->relativePath($file->getPathname()),
+                        new \RuntimeException('template resolves outside its template root'),
+                        $this->rootLabel($file->getPathname()),
+                    );
+                    continue;
+                }
+                $claimedHere[$id] = true;
+                $content = (string) file_get_contents($file->getPathname());
 
-                $items[] = $this->normaliseMetadata(
-                    $id,
-                    $type,
-                    $metadata,
-                    $hasStyleguide,
-                    $hasDefaultFixture,
-                    $variants,
-                    $this->relativePath($sourceFile),
-                    $this->defaultFixtureTitle($file->getPath()),
-                );
-            } catch (\Throwable $e) {
-                // One pathological template must not 500 the whole catalogue for
-                // every sibling component. Record it and keep walking; surfaced
-                // via GET /styleguide/api/health, invisible to the normal
-                // component list the SPA renders.
-                $this->recordWarning($this->relativePath($file->getPathname()), $e);
-                continue;
+                try {
+                    [$metadata, $sourceFile] = $this->readComponentMetadata(
+                        $file->getPath(),
+                        $id,
+                        $file->getPathname(),
+                        $content,
+                    );
+
+                    if (!$metadata || !isset($metadata['name'])) {
+                        continue;
+                    }
+
+                    $hasDefaultFixture = file_exists($file->getPath() . '/styleguide.twig');
+                    $variants = $this->discoverVariants($file->getPath(), $metadata);
+                    $hasStyleguide = $hasDefaultFixture
+                        || isset($metadata['styleguide'])
+                        || $variants !== [];
+
+                    $items[] = $this->normaliseMetadata(
+                        $id,
+                        $type,
+                        $metadata,
+                        $hasStyleguide,
+                        $hasDefaultFixture,
+                        $variants,
+                        $this->relativePath($sourceFile),
+                        $this->defaultFixtureTitle($file->getPath()),
+                        $this->rootLabel($sourceFile),
+                    );
+                } catch (\Throwable $e) {
+                    // One pathological template must not 500 the whole catalogue for
+                    // every sibling component. Record it and keep walking; surfaced
+                    // via GET /styleguide/api/health, invisible to the normal
+                    // component list the SPA renders.
+                    $this->recordWarning($this->relativePath($file->getPathname()), $e, $this->rootLabel($file->getPathname()));
+                    continue;
+                }
             }
+
+            $claimed += $claimedHere;
         }
 
         // Three-level sort: weight, then name (locale-aware via Collator
@@ -415,21 +511,27 @@ class ComponentParser
      */
     public function listDirectories(string $type): array
     {
-        $dir = $this->templatesPath . '/' . $type;
-        if (!is_dir($dir)) {
-            return [];
+        $found = [];
+        foreach ($this->typeDirs($type) as $dir) {
+            if (!is_dir($dir)) {
+                continue;
+            }
+            foreach (scandir($dir) ?: [] as $name) {
+                if ($name === '.' || $name === '..' || !is_dir($dir . '/' . $name)) {
+                    continue;
+                }
+                // Same existence check `parse()`/`parseAll()` make before they'll
+                // read metadata from this directory at all — reusing it here
+                // keeps "has a template" a single definition, not a second one
+                // that could silently drift from the catalogue's own.
+                $found[$name] = ($found[$name] ?? false)
+                    || file_exists($dir . '/' . $name . '/' . $name . '.twig');
+            }
         }
 
         $entries = [];
-        foreach (scandir($dir) ?: [] as $name) {
-            if ($name === '.' || $name === '..' || !is_dir($dir . '/' . $name)) {
-                continue;
-            }
-            // Same existence check `parse()`/`parseAll()` make before they'll
-            // read metadata from this directory at all — reusing it here
-            // keeps "has a template" a single definition, not a second one
-            // that could silently drift from the catalogue's own.
-            $entries[] = ['id' => $name, 'hasTemplate' => file_exists($dir . '/' . $name . '/' . $name . '.twig')];
+        foreach ($found as $name => $hasTemplate) {
+            $entries[] = ['id' => (string) $name, 'hasTemplate' => $hasTemplate];
         }
 
         usort($entries, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
@@ -515,6 +617,9 @@ class ComponentParser
         $yamlFile = $dir . '/' . $id . '.yaml';
 
         if (file_exists($yamlFile)) {
+            if ($this->escapesOwnRoot($yamlFile)) {
+                throw new \RuntimeException($id . '.yaml resolves outside its template root');
+            }
             try {
                 $parsed = Yaml::parseFile($yamlFile);
                 if (is_array($parsed)) {
@@ -593,6 +698,9 @@ class ComponentParser
             if (!preg_match(self::VARIANT_FILE_PATTERN, basename($file), $m)) {
                 continue; // not a canonical variant filename (e.g. a stray .bak) — skip, don't error
             }
+            if ($this->escapesOwnRoot($file)) {
+                continue; // a symlink into another root is not this entry's variant
+            }
             $id = $m[1];
             [$mapTitle, $mapDescription] = self::normaliseVariantEntry($id, $entries[$id] ?? null);
             try {
@@ -666,7 +774,7 @@ class ComponentParser
     private function defaultFixtureTitle(string $dir): string
     {
         $file = $dir . '/styleguide.twig';
-        if (!is_file($file)) {
+        if (!is_file($file) || $this->escapesOwnRoot($file)) {
             return '';
         }
         try {
@@ -758,6 +866,7 @@ class ComponentParser
         array $variants,
         string $sourceFile,
         string $defaultVariantTitle = '',
+        ?string $root = null,
     ): array {
         return [
             'id' => $id,
@@ -774,7 +883,7 @@ class ComponentParser
                 $metadata['aliases'] ?? null,
                 array_column($variants, 'id'),
             ),
-            'fields' => $this->normaliseFields($sourceFile, $metadata['fields'] ?? null),
+            'fields' => $this->normaliseFields($sourceFile, $metadata['fields'] ?? null, $root),
             // Canonical render mode for the iframe wrapper — drives the
             // padding wrapper, --header-height reset, and body min-height
             // in render-cell.twig.
@@ -854,11 +963,14 @@ class ComponentParser
      *
      * @return list<array<string,mixed>>
      */
-    private function normaliseFields(string $relativeSourceFile, mixed $fields): array
+    private function normaliseFields(string $relativeSourceFile, mixed $fields, ?string $root = null): array
     {
         $result = FieldsNormalizer::normalize($fields);
         foreach ($result['warnings'] as $warning) {
             $entry = ['file' => $relativeSourceFile, 'error' => $warning];
+            if ($root !== null) {
+                $entry['root'] = $root;
+            }
             // Idempotent within one request/instance, same rationale as
             // recordWarning() — a caller that parses the same file twice
             // (e.g. parse() then parseAll()) must not accumulate duplicate
@@ -874,21 +986,31 @@ class ComponentParser
         return $result['fields'];
     }
 
-    private function recordWarning(string $relativeFile, \Throwable $e): void
+    private function recordWarning(string $relativeFile, \Throwable $e, ?string $root = null): void
     {
         foreach ($this->warnings as $warning) {
-            if ($warning['file'] === $relativeFile) {
+            if ($warning['file'] === $relativeFile && ($warning['root'] ?? null) === $root) {
                 // Idempotent within one request/instance — a caller that
                 // queries the same type twice shouldn't accumulate
                 // duplicate entries for the same broken file.
                 return;
             }
         }
-        $this->warnings[] = ['file' => $relativeFile, 'error' => $e->getMessage()];
+        $entry = ['file' => $relativeFile, 'error' => $e->getMessage()];
+        if ($root !== null) {
+            $entry['root'] = $root;
+        }
+        $this->warnings[] = $entry;
     }
 
     private function relativePath(string $absolutePath): string
     {
+        if (!$this->roots->isSingle()) {
+            // Relative to the root that owns the file, so a project override
+            // reports `component/header/header.twig`, not a path into the kit.
+            return $this->roots->relative($absolutePath);
+        }
+
         return ltrim(substr($absolutePath, strlen($this->templatesPath)), '/');
     }
 }
