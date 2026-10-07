@@ -71,6 +71,8 @@ final class Styleguide
 
     /** `components.group_by`, validated; null when absent */
     private ?string $componentsGroupBy;
+    /** `components.include`, validated; null when absent */
+    private ?ComponentFilter $componentFilter = null;
     /** `highlight_source`, validated; true when absent */
     private bool $highlightSource;
 
@@ -353,6 +355,7 @@ final class Styleguide
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
         $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
+        $this->componentFilter = ComponentFilter::fromConfig($this->yamlConfig['components'] ?? null);
         $this->highlightSource = self::highlightSource($this->yamlConfig['highlight_source'] ?? null);
         $this->sourceUrl = self::sourceUrl($this->yamlConfig['source_url'] ?? null);
         $this->sourceViews = self::sourceViews($this->yamlConfig['source_views'] ?? null);
@@ -448,6 +451,11 @@ final class Styleguide
         }
 
         $this->parser = new ComponentParser($this->roots);
+        if ($this->componentFilter !== null) {
+            // Checked before the filter is set, against every component on disk.
+            $this->componentFilter->assertAllExist($this->parser->listDirectories('component'));
+            $this->parser->restrictComponents($this->componentFilter);
+        }
         $this->renderer = new Renderer(
             $this->twig,
             $this->config['twig_context'],
@@ -3094,12 +3102,47 @@ final class Styleguide
             return Http\Result::text('403 Forbidden', 403, ['Content-Type' => 'text/plain; charset=utf-8']);
         }
 
+        if ($this->isHiddenComponentRoute($route)) {
+            // `components.include`: a component outside the list is not in this
+            // catalogue. The check is on the request only; a listed component
+            // that calls a hidden one still renders it.
+            return $route['type'] === 'api'
+                ? Http\Result::text(
+                    (string) json_encode(['error' => 'Not in this catalogue']),
+                    404,
+                    ['Content-Type' => 'application/json; charset=utf-8'],
+                )
+                : Http\Result::text('Not in this catalogue', 404, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
+
         return match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path'] ?? '', $request->ifNoneMatch),
             'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
         };
+    }
+
+    /**
+     * True when a request names a component that `components.include` leaves
+     * out: the render route, the SPA deep link and the per-entry API routes.
+     *
+     * @param array<string, mixed> $route
+     */
+    private function isHiddenComponentRoute(array $route): bool
+    {
+        if ($this->componentFilter === null) {
+            return false;
+        }
+        $type = (string) $route['type'];
+        $slug = (string) ($route['slug'] ?? '');
+        $isComponent = match ($type) {
+            'render', 'api' => ($route['kind'] ?? '') === 'component',
+            'component' => true,
+            default => false,
+        };
+
+        return $isComponent && $slug !== '' && !$this->componentFilter->allows($slug);
     }
 
     /**

@@ -145,6 +145,24 @@ class ComponentParser
         $this->templatesPath = rtrim($this->roots->first(), '/');
     }
 
+    private ?ComponentFilter $componentFilter = null;
+
+    /**
+     * Lists only the components `$filter` allows (`components.include`), from now
+     * on. `parseAll()`, `parse()` and `listDirectories()` skip a hidden
+     * component. Pages and docs are not filtered. Twig resolution is not
+     * touched: a hidden component still renders when a listed one calls it.
+     */
+    public function restrictComponents(?ComponentFilter $filter): void
+    {
+        $this->componentFilter = $filter;
+    }
+
+    private function isHidden(string $type, string $id): bool
+    {
+        return $type === 'component' && $this->componentFilter !== null && !$this->componentFilter->allows($id);
+    }
+
     /** The folder of `<type>/<id>`: the owning root's, or null when no root owns it. */
     private function entryDir(string $type, string $id): ?string
     {
@@ -299,7 +317,7 @@ class ComponentParser
      */
     public function parse(string $type, string $id): ?array
     {
-        $dir = $this->entryDir($type, $id);
+        $dir = $this->isHidden($type, $id) ? null : $this->entryDir($type, $id);
         if ($dir === null) {
             return null;
         }
@@ -398,6 +416,9 @@ class ComponentParser
                     continue;
                 }
                 $claimedHere[$id] = true;
+                if ($this->isHidden($type, $id)) {
+                    continue;
+                }
                 $content = (string) file_get_contents($file->getPathname());
 
                 try {
@@ -524,6 +545,9 @@ class ComponentParser
                 // read metadata from this directory at all — reusing it here
                 // keeps "has a template" a single definition, not a second one
                 // that could silently drift from the catalogue's own.
+                if ($this->isHidden($type, $name)) {
+                    continue;
+                }
                 $found[$name] = ($found[$name] ?? false)
                     || file_exists($dir . '/' . $name . '/' . $name . '.twig');
             }

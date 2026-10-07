@@ -22,6 +22,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
   of roots. A string `templates_path` behaves exactly as before, down to the
   shape of a warning. `vendor/bin/styleguide maintenance:render` refuses a list
   with exit code 2 instead of writing into a folder nobody named.
+- **`components.include` limits the catalogue to a list of components.** The key is
+  a list of component ids next to `components.group_by`. The sidebar, `GET
+  /api/components`, the search data, the overview, the grid and `vendor/bin/styleguide
+  list` show only these components. A request for a component outside the list
+  answers 404: the render route, `/api/source`, `/api/markup`, `/api/files` and
+  the deep link `/component/<id>`. A component outside the list still renders when
+  a listed component calls it, so a gap in the list never breaks a page. The package
+  does not scan dependencies; the host writes the full list. A listed id that is not
+  a component is an error that names the id, at boot and in `doctor`. A value that is
+  not a list of ids is an error too. An empty list shows no components. Without the
+  key nothing changes. Pages are not filtered.
 
 ## [1.30.1] - 2026-10-05
 

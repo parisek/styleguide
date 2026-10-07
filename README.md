@@ -521,6 +521,7 @@ pages:
 # sections by kind" below.
 components:
   group_by: kind
+  # include: [button, card]   # optional: list only these components (unreleased)
 
 # Fixture source ("Code" toggle on each variant tile). Absent: on only when
 # the `auth` constructor callable is set. A catalogue guarded some other way
@@ -657,6 +658,19 @@ Without the key the Pages section stays a flat list. Any other value throws at c
 The same sections drive the overview grid's filter chips, and the overview's columns.
 
 Without the key the sections come from `category` as before: `gutenberg` is Gutenberg, `block`, `blocks` and `layout` are Blocks, anything else is Basic elements. Any other value than `kind` throws at construction.
+
+### Components limited to a list (unreleased)
+
+`components.include` is a list of component ids. The catalogue then lists only these components: the sidebar, the search, the overview, the grid, `GET /styleguide/api/components` and `vendor/bin/styleguide list`. A direct request for a component outside the list answers 404: the render route, the source, markup and files endpoints, and the deep link `/styleguide/component/<id>`.
+
+```yaml
+components:
+  include: [button, card, hero]
+```
+
+The filter hides entries and nothing else. A component outside the list still renders when a listed component calls it, so a gap in your list never breaks a page. The package does not scan what a component calls, so write the full list. Pages and docs are not filtered.
+
+A listed id that is not a component (no `component/<id>/<id>.twig` in `templates_path`) is an error that names the id. It stops at boot, and `doctor` reports it. A value that is not a list of ids is an error too. An empty list (`include: []`) shows no components; it is not the same as leaving the key out. Without the key nothing changes.
 
 ### The component list
 
