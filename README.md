@@ -130,7 +130,7 @@ the YAML throws rather than being silently honoured. Full rules:
 
 | Key | Required | Default | Purpose |
 |---|---|---|---|
-| `templates_path` | yes | — | Absolute path to the project's Twig templates root, or a list of roots, strongest first. Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). With a list, the first root that holds `<kind>/<id>/<id>.twig` owns that whole folder, and a symlink out of a root is refused. `maintenance:render` needs a single string. |
+| `templates_path` | yes | — | Absolute path to the project's Twig templates root, or a list of roots, strongest first (a list since 1.31.0). Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). With a list, the first root that holds `<kind>/<id>/<id>.twig` owns that whole folder, and a symlink out of a root is refused. `maintenance:render` needs a single string. |
 | `static_path` | yes | — | Absolute path to the project's webroot (where `index.php` sits). Used to auto-register `@icons` (`/images/icons`) and `@images` (`/images`) if those directories exist. |
 | `config_yaml` | yes | — | Absolute path to `styleguide.yaml`. Missing file ≠ error — yaml just resolves to `[]` and the overview screen renders empty sections. |
 | `default_locale` | no | `'en'` | Two-letter code used by the SPA shell and forwarded to `Renderer` as `langcode`. Also drives the bundled `TypographyExtension`'s per-language typesetting (>= `parisek/twig-typography` 1.3) — passed as its locale resolver, so `|typography` applies the resolved language's quote/dash/spacing conventions without any extra config. |
@@ -274,7 +274,7 @@ styleguide:
 
 Two routes: `/styleguide` and a catch-all `/styleguide/{path}`. Both are needed. The bare prefix is a real URL the catalogue answers, and the catch-all is what lets the SPA's history-API deep links survive a direct refresh — `/styleguide/component/card` pasted into a browser has to reach the controller and come back as the shell.
 
-#### One catalogue per host: `config_resolver` (unreleased)
+#### One catalogue per host: `config_resolver` (since 1.31.0)
 
 A host that serves several catalogues from one kernel, for example one per project subdomain, sets `config_resolver` in place of `config`:
 
@@ -561,7 +561,7 @@ pages:
 # sections by kind" below.
 components:
   group_by: kind
-  # include: [button, card]   # optional: list only these components (unreleased)
+  # include: [button, card]   # optional: list only these components (since 1.31.0)
 
 # Fixture source ("Code" toggle on each variant tile). Absent: on only when
 # the `auth` constructor callable is set. A catalogue guarded some other way
@@ -699,7 +699,7 @@ The same sections drive the overview grid's filter chips, and the overview's col
 
 Without the key the sections come from `category` as before: `gutenberg` is Gutenberg, `block`, `blocks` and `layout` are Blocks, anything else is Basic elements. Any other value than `kind` throws at construction.
 
-### Components limited to a list (unreleased)
+### Components limited to a list (since 1.31.0)
 
 `components.include` is a list of component ids. The catalogue then lists only these components: the sidebar, the search, the overview, the grid, `GET /styleguide/api/components` and `vendor/bin/styleguide list`. A direct request for a component outside the list answers 404: the render route, the source, markup and files endpoints, and the deep link `/styleguide/component/<id>`.
 
@@ -712,7 +712,7 @@ The filter hides entries and nothing else. A component outside the list still re
 
 A listed id that is not a component (no `component/<id>/<id>.twig` in `templates_path`) is an error that names the id. It stops at boot, and `doctor` reports it. A value that is not a list of ids is an error too. An empty list (`include: []`) shows no components; it is not the same as leaving the key out. Without the key nothing changes.
 
-### Pages limited to a list (unreleased)
+### Pages limited to a list (since 1.31.0)
 
 `pages.include` is the same filter for pages. It is a list of page ids next to `pages.group_by`. The catalogue then lists only these pages: the sidebar, the search, the overview, `GET /styleguide/api/pages` and `vendor/bin/styleguide list --type=page`. A direct request for a page outside the list answers 404 on every route that takes a page id.
 
