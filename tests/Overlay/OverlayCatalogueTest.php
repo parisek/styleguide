@@ -130,7 +130,8 @@ final class OverlayCatalogueTest extends OverlayTestCase
     public function a_data_sidecar_is_never_taken_from_a_second_root(): void
     {
         // The project owns `panel` and has no sidecar. The kit has one.
-        $render = self::get($this->overlay(), '/styleguide/render/component/panel');
+        // `show_source: true`, so the failed render shows its message.
+        $render = self::get($this->overlay([], "show_source: true\n"), '/styleguide/render/component/panel');
 
         self::assertStringNotContainsString('KIT-PANEL-DATA', (string) $render->body);
         self::assertStringContainsString('sidecar file not found', (string) $render->body);

@@ -595,9 +595,31 @@ as a healthy component while every render of it fails — `warnings: []` plus a
 full component count is not evidence that the catalogue renders.
 
 For that, sweep the render endpoint: since 1.8.0 a broken template returns
-**500** with the real Twig error, so the sweep is a real check and is strictly
-stronger than a compile check (it also catches a missing partial, a runtime
-failure, and the alert fallback). See README § *CI smoke test*.
+**500**, so the sweep is a real check and is strictly stronger than a compile
+check (it also catches a missing partial, a runtime failure, and the alert
+fallback). The body carries the real Twig error only while `show_source` is on;
+off, it says "This entry cannot be shown." (see § Render errors). The status is
+the same. See README § *CI smoke test*.
+
+### Render errors
+
+`GET /styleguide/render/<kind>/<slug>` answers **500** when the entry's render
+throws. What the page says depends on `show_source` (same rule as
+[ADR-0006](adr/0006-show-source-off-unless-gated.md)):
+
+| `show_source` | Body | Log |
+|---|---|---|
+| on | `Render error:` and the exception message | nothing added by the renderer |
+| off | `This entry cannot be shown.` | `error_log('[parisek/styleguide] render of <kind>/<slug> failed: <message>')` |
+
+A Twig loader error lists every directory it searched, and those are absolute
+paths of the server; anyone can request a render URL. The status does not
+depend on `show_source`. A direct `new Renderer($twig, $context)` keeps the
+message (its fifth argument, `$showErrorDetail`, defaults to `true`).
+
+The other fixed answers (404 page, `Not in this catalogue`, the `404` bodies of
+the source, markup and files endpoints, 403) carry no path. `GET /api/health`
+carries relative file names only.
 
 ### `GET /styleguide/api/files/<kind>/<slug>` (added 1.25.0)
 
