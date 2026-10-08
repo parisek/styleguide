@@ -485,6 +485,7 @@ final class Styleguide
             $this->config['twig_context'],
             $this->roots,
             $this->twigRuntime,
+            $this->showSource(),
         );
         $this->assetServer = new AssetServer($this->distRoot);
     }

@@ -920,6 +920,8 @@ The default treats a catalogue without an `auth` callable as public. A public ca
 
 Off, the toggle is not rendered and `/api/source` answers `404` like an unknown endpoint: the source never reaches the browser.
 
+Off, a render that fails also keeps its message to itself. A Twig loader error lists every directory it searched, and those are absolute paths of the server. `/render/<kind>/<slug>` still answers **500**, but the page says only *"This entry cannot be shown."*. The full message goes to `error_log()` as `[parisek/styleguide] render of <kind>/<slug> failed: …`. On, the page shows the message as before.
+
 `source_views` picks the views, per project:
 
 ```yaml
@@ -980,7 +982,7 @@ vendor/bin/styleguide list | jq '.[] | select(.category == "Block")'
 
 `lint` checks metadata; it cannot tell you whether a template compiles or
 renders. Since 1.8.0 that question has a direct answer: a broken template makes
-`/render/component/<id>` return **500** with the real Twig error, so sweeping
+`/render/component/<id>` return **500** (with the real Twig error while `show_source` is on; see *Showing the fixture source*), so sweeping
 the render endpoint is a real check.
 
 ```bash
@@ -1234,7 +1236,7 @@ different reactions from the author:
 | Cause | Result |
 |---|---|
 | The template is **not there** (`LoaderError`) | Renders the project's `@component/alert/alert.twig` saying *"Component template `<name>.twig` not found"*, and the surrounding page keeps rendering. Falls back to a bare inline message if the alert component is missing too. |
-| The template **is there and is broken** — a Twig syntax error, or any throw while rendering | Propagates. `Renderer::render()` catches it, sets **HTTP 500**, and shows the real Twig message. |
+| The template **is there and is broken** — a Twig syntax error, or any throw while rendering | Propagates. `Renderer::render()` catches it, sets **HTTP 500**, and shows the real Twig message. With `show_source` off it shows *"This entry cannot be shown."* instead and logs the message (see *Showing the fixture source*). |
 
 The second row matters for anything automated: before 1.7.3 a broken template
 was reported as a missing one and served `200`, so a smoke test polling

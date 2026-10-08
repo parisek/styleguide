@@ -8,6 +8,21 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **A render error hides the server's template paths when `show_source` is
+  off.** A failed `/render/<kind>/<slug>` still answers 500. The page now says
+  "This entry cannot be shown." instead of the Twig message, because a Twig
+  loader error lists the absolute template directories of the server. The full
+  message goes to `error_log()` as
+  `[parisek/styleguide] render of <kind>/<slug> failed: …`. With `show_source`
+  on, the page shows the message as before. The rule is the one of ADR-0006:
+  `show_source` off is the default for a catalogue without `auth`, so a host
+  that leaves it off, or sets it to a value that is not a boolean, sees less
+  detail on a failed render. Add `show_source: true` to a catalogue behind a
+  login to keep the detail. `Renderer` takes a new last argument,
+  `$showErrorDetail`, which defaults to `true`.
+
 ## [1.31.0] - 2026-10-07
 
 ### Added
