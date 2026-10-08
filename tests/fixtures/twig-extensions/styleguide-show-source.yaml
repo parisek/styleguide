@@ -1,0 +1,10 @@
+# The same project with `show_source: true`: a host whose firewall guards the
+# catalogue. A failed render then shows the exception message (ADR-0006).
+bootstrap:
+  templates_path: templates
+  static_path: static
+  default_locale: en
+show_source: true
+project:
+  name: Twig Extensions Fixture
+  slug: twig-extensions-fixture

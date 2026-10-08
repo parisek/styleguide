@@ -27,6 +27,7 @@ use Symfony\Component\Routing\Loader\Configurator\RoutingConfigurator;
 final class TwigExtensionsBundleTest extends TestCase
 {
     public const CONFIG = __DIR__ . '/../../fixtures/twig-extensions/styleguide.yaml';
+    private const CONFIG_SHOW_SOURCE = __DIR__ . '/../../fixtures/twig-extensions/styleguide-show-source.yaml';
 
     /** @var list<string> */
     private array $projectDirs = [];
@@ -62,12 +63,12 @@ final class TwigExtensionsBundleTest extends TestCase
      * @param list<string> $ids        the `styleguide.twig_extensions` value; null leaves the key out
      * @param array<string, class-string> $services extra services, id => class
      */
-    private function kernel(?array $ids, array $services = []): Kernel
+    private function kernel(?array $ids, array $services = [], string $config = self::CONFIG): Kernel
     {
-        $dir = sys_get_temp_dir() . '/sg-twig-ext-' . md5(serialize([$ids, $services]));
+        $dir = sys_get_temp_dir() . '/sg-twig-ext-' . md5(serialize([$ids, $services, $config]));
         $this->projectDirs[] = $dir;
 
-        return new class ($ids, $services, $dir) extends Kernel {
+        return new class ($ids, $services, $dir, $config) extends Kernel {
             use MicroKernelTrait;
 
             /**
@@ -78,6 +79,7 @@ final class TwigExtensionsBundleTest extends TestCase
                 private readonly ?array $ids,
                 private readonly array $services,
                 private readonly string $dir,
+                private readonly string $config,
             ) {
                 parent::__construct('test', true);
             }
@@ -96,7 +98,7 @@ final class TwigExtensionsBundleTest extends TestCase
                     'router' => ['utf8' => true],
                 ]);
                 $container->extension('styleguide', array_filter([
-                    'config' => TwigExtensionsBundleTest::CONFIG,
+                    'config' => $this->config,
                     'twig_extensions' => $this->ids,
                 ], static fn(mixed $value): bool => $value !== null));
 
@@ -144,9 +146,23 @@ final class TwigExtensionsBundleTest extends TestCase
     }
 
     #[Test]
-    public function without_the_key_the_template_fails_and_the_message_names_the_function(): void
+    public function without_show_source_the_failed_render_hides_the_message(): void
     {
         $kernel = $this->kernel(null);
+
+        $response = $kernel->handle(Request::create('/styleguide/render/component/linked'));
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringContainsString('This entry cannot be shown.', (string) $response->getContent());
+        self::assertStringNotContainsString('Unknown &quot;url&quot; function', (string) $response->getContent());
+    }
+
+    #[Test]
+    public function without_the_key_the_template_fails_and_the_message_names_the_function(): void
+    {
+        // `show_source: true`: the host's firewall guards the catalogue, so
+        // the render error page shows the message (ADR-0006).
+        $kernel = $this->kernel(null, [], self::CONFIG_SHOW_SOURCE);
 
         $response = $kernel->handle(Request::create('/styleguide/render/component/linked'));
 

@@ -52,6 +52,9 @@ final class Renderer
      */
     private const DATA_SOURCE_KINDS = ['component', 'page', 'doc'];
 
+    /** What a reader sees when a render fails and the detail is off. */
+    private const HIDDEN_ERROR_MESSAGE = 'This entry cannot be shown.';
+
     private ?TemplateRoots $roots = null;
 
     private ?string $templatesPath = null;
@@ -80,12 +83,20 @@ final class Renderer
      *   swallowed both a duplicate name AND "extensions already initialized".
      *   On a booted Symfony Twig service the second case meant the function
      *   silently never existed.
+     * @param bool $showErrorDetail
+     *   Whether the error box of a failed render shows the exception message.
+     *   `Styleguide` passes its `show_source` rule (ADR-0006): off, the box
+     *   says "This entry cannot be shown." and the message goes to
+     *   `error_log()` with the entry id, because a Twig loader error lists
+     *   the server's absolute template directories. `true` (the default, for
+     *   direct `new Renderer(...)` callers) keeps the message in the box.
      */
     public function __construct(
         private Environment $twig,
         private array $context = [],
         string|TemplateRoots|null $templatesPath = null,
         private ?\Parisek\Styleguide\Twig\StyleguideRuntime $twigRuntime = null,
+        private bool $showErrorDetail = true,
     ) {
         $this->roots = $templatesPath === null ? null : TemplateRoots::from($templatesPath);
         $this->templatesPath = $this->roots?->first();
@@ -663,9 +674,10 @@ final class Renderer
             // `/render/component/<id>` would see "success" for a broken
             // component. The error markup itself stays visible (still useful for
             // local dev — the whole point of NOT swallowing it into a generic
-            // "something went wrong" page).
+            // "something went wrong" page). Only the exception message is
+            // withheld when the detail is off — see errorMarkup().
             $status = 500;
-            $body = $this->errorMarkup($e);
+            $body = $this->errorMarkup($e, $kind, $slug);
         }
 
         // `iframe.css` / `iframe.fonts` accept a single URL string or a list of
@@ -1002,12 +1014,28 @@ final class Renderer
         ]);
     }
 
-    private function errorMarkup(\Throwable $e): string
+    /**
+     * The error box of a failed render (ADR-0006).
+     *
+     * A Twig loader error lists every directory it searched, and those are
+     * absolute paths of the server. With the detail off the box carries a
+     * fixed sentence only, and the full message goes to the host's log with
+     * the entry id. The status is the caller's and does not change.
+     */
+    private function errorMarkup(\Throwable $e, string $kind, string $slug): string
     {
-        return '<div style="padding:20px;color:#dc2626;font-family:ui-monospace,monospace;border:1px solid #fecaca;background:#fef2f2;border-radius:4px">'
-            . '<strong>Render error:</strong><br>'
-            . htmlspecialchars($e->getMessage())
-            . '</div>';
+        $box = '<div style="padding:20px;color:#dc2626;font-family:ui-monospace,monospace;border:1px solid #fecaca;background:#fef2f2;border-radius:4px">';
+
+        if ($this->showErrorDetail) {
+            return $box
+                . '<strong>Render error:</strong><br>'
+                . htmlspecialchars($e->getMessage())
+                . '</div>';
+        }
+
+        error_log(sprintf('[parisek/styleguide] render of %s/%s failed: %s', $kind, $slug, $e->getMessage()));
+
+        return $box . self::HIDDEN_ERROR_MESSAGE . '</div>';
     }
 
     /**

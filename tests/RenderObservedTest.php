@@ -20,12 +20,12 @@ use PHPUnit\Framework\TestCase;
  */
 final class RenderObservedTest extends TestCase
 {
-    private function styleguide(): Styleguide
+    private function styleguide(?string $configYaml = null): Styleguide
     {
         return new Styleguide([
             'templates_path' => __DIR__ . '/fixtures/trace/templates',
             'static_path' => __DIR__ . '/fixtures',
-            'config_yaml' => __DIR__ . '/fixtures/nonexistent.yaml',
+            'config_yaml' => $configYaml ?? __DIR__ . '/fixtures/nonexistent.yaml',
         ]);
     }
 
@@ -57,6 +57,23 @@ final class RenderObservedTest extends TestCase
         // whatever this process last set, which since parisek/styleguide#144
         // is nothing at all for a render that goes through renderObserved().
         $trace = $this->styleguide()->renderObserved('component', 'broken');
+
+        self::assertSame(500, $trace['status']);
+        // No `show_source`, so the page hides the exception message (ADR-0006).
+        self::assertStringContainsString('This entry cannot be shown.', $trace['html']);
+    }
+
+    #[Test]
+    public function a_failed_render_shows_its_message_when_show_source_is_on(): void
+    {
+        $yaml = (string) tempnam(sys_get_temp_dir(), 'sg-observed-');
+        file_put_contents($yaml, "show_source: true\n");
+
+        try {
+            $trace = $this->styleguide($yaml)->renderObserved('component', 'broken');
+        } finally {
+            @unlink($yaml);
+        }
 
         self::assertSame(500, $trace['status']);
         self::assertStringContainsString('Render error:', $trace['html']);
