@@ -343,7 +343,54 @@ final class Linter
                 $found[$relPath] = $e;
             }
         }
+
+        // Entries with no `<id>.twig`: a folder whose `<id>.yaml` or
+        // `styleguide.twig` makes it an entry (ADR-0009). The key is the
+        // template path the entry would have; findings point at the yaml.
+        foreach ($this->markerOnlyFolders($dir) as $id) {
+            $relPath = $type . '/' . $id . '/' . $id . '.twig';
+            $folder = $dir . '/' . $id;
+            try {
+                [$metadata, $sourceFile] = $this->parser->readComponentMetadata($folder, $id, $folder . '/' . $id . '.twig', '');
+                $found[$relPath] = [
+                    'metadata' => $metadata,
+                    'source' => $this->relativeSource($sourceFile, $type, $dir),
+                    // No yaml that won means no yaml that parses, or none at all.
+                    'sidecar_broken' => is_file($folder . '/' . $id . '.yaml') && $metadata === false,
+                    'twig_metadata_dead' => false,
+                ];
+            } catch (ParseException $e) {
+                $found[$relPath] = $e;
+            }
+        }
+
         return $found;
+    }
+
+    /**
+     * Folders of `$typeDir` that hold `<id>.yaml` or `styleguide.twig` but no
+     * `<id>.twig`. The walk above finds the others by their template. A folder
+     * that starts with `_` is a partial and stays out.
+     *
+     * @return list<string>
+     */
+    private function markerOnlyFolders(string $typeDir): array
+    {
+        $ids = [];
+        foreach (scandir($typeDir) ?: [] as $id) {
+            if ($id[0] === '.' || $id[0] === '_' || !is_dir($typeDir . '/' . $id)) {
+                continue;
+            }
+            $folder = $typeDir . '/' . $id;
+            if (is_file($folder . '/' . $id . '.twig')) {
+                continue;
+            }
+            if (is_file($folder . '/' . $id . '.yaml') || is_file($folder . '/styleguide.twig')) {
+                $ids[] = $id;
+            }
+        }
+
+        return $ids;
     }
 
     /**
@@ -448,11 +495,17 @@ final class Linter
                 return $sourceFindings;
             }
 
+            // An entry with no template has no comment to read: the yaml is
+            // the only source (ADR-0009).
+            $message = is_file($this->templatesPath . '/' . $twigPath)
+                ? 'No parseable `name:` key in the first {# #} comment — dropped from the catalogue.'
+                : 'No parseable `name:` key in `<id>.yaml` — dropped from the catalogue.';
+
             return [...$sourceFindings, new LintFinding(
                 LintSeverity::Warning,
                 $relPath,
                 'unindexed',
-                'No parseable `name:` key in the first {# #} comment — dropped from the catalogue.',
+                $message,
             )];
         }
 

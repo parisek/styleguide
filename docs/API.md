@@ -37,7 +37,7 @@ Required keys:
 
 | Key | Type | Description |
 |---|---|---|
-| `templates_path` | `string \| list<string>` | Absolute path to the project's `templates/` directory (root of `@project` namespace), or an ordered list of such roots (a list since 1.31.0). A string is one root. A list is several roots, strongest first (a project over a shared kit). The first root that holds `<kind>/<id>/<id>.twig` owns that whole folder: its `<id>.yaml`, fixtures, data files, `css/` and `js/` come from that root and never from a second one. Twig finds a template that the owner does not have in the next root. A path from one root must stay inside that root: a symlink from root 1 into root 2 is refused. A string behaves as before. Every entry of a list must be an existing directory |
+| `templates_path` | `string \| list<string>` | Absolute path to the project's `templates/` directory (root of `@project` namespace), or an ordered list of such roots (a list since 1.31.0). A string is one root. A list is several roots, strongest first (a project over a shared kit). The first root that holds an entry marker of `<kind>/<id>/` (`<id>.twig`, `<id>.yaml` or `styleguide.twig`) owns that whole folder: its `<id>.yaml`, fixtures, data files, `css/` and `js/` come from that root and never from a second one. Twig finds a template that the owner does not have in the next root. A path from one root must stay inside that root: a symlink from root 1 into root 2 is refused, and a marker that is such a symlink does not count. A string behaves as before. Every entry of a list must be an existing directory |
 | `static_path` | `string` | Absolute path to the project's static-asset root (siblings of `templates/` — usually the dir hosting `static/index.php`) |
 | `config_yaml` | `string` | Absolute path to the project's `styleguide.yaml` (see § YAML schemas) |
 
@@ -345,7 +345,7 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
 
 ### Component Twig file conventions — `@api`
 
-- `<id>.twig` at `<templates_path>/component/<id>/<id>.twig` — REQUIRED. The component itself.
+- An entry marker — REQUIRED, any one of: `<id>.twig` at `<templates_path>/component/<id>/<id>.twig` (the component itself), `<id>.yaml`, or `styleguide.twig` (ADR-0009; before, only `<id>.twig` counted). A folder with none of them is not an entry. A folder whose name starts with `_` is a partial: only its `<id>.twig` counts. Without `<id>.twig` the entry has no production template: the render endpoint uses `styleguide.twig`, and answers 404 when that is missing too. A folder with `<id>.yaml` and no fixture is listed with its metadata, `has_styleguide` is `false` and it has no tile. A folder with a fixture and no `<id>.yaml` has no `name`, so it is not listed; `pages.include` lists it with a title taken from its id.
 - `<id>/styleguide.twig` — OPTIONAL. If present, the styleguide preview renders THIS file (instead of `<id>.twig`). Used for "demo" variants with prepared context data.
 - `<id>/styleguide.<variant>.twig` — OPTIONAL, zero or more. `<variant>` matches `[a-z0-9-]+`. Auto-discovered (no YAML required); when at least one exists, `?variant=<id>` becomes a valid query param on the SPA deep link and the render endpoint, and the SPA preview area renders a grid of independent tiles — one per variant (default fixture first) — instead of a single preview; see the render endpoint row below for the render endpoint's own (SPA-independent) `?variant=` semantics. Plain `styleguide.twig` remains the implicit default variant. Display metadata (`title`, `description`) is authored directly in the sibling's own first `{# … #}` comment — the same convention every component/page front-comment already uses:
 
@@ -366,7 +366,7 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
 
 ### Doc Twig file conventions — `@api`
 
-- `<id>.twig` at `<templates_path>/doc/<id>/<id>.twig` — REQUIRED. The doc page itself.
+- An entry marker — REQUIRED, as for components: `<id>.twig` at `<templates_path>/doc/<id>/<id>.twig` (the doc page itself), `<id>.yaml` or `styleguide.twig`.
 - `<id>/styleguide.twig` — OPTIONAL. If present, the render endpoint serves THIS file instead of `<id>.twig` (same fallback pattern as components/pages).
 - `templates_path/doc/` missing → `/api/docs` returns `[]`; the DOKUMENTACE sidebar group still appears (foundations + overview items remain). No error.
 

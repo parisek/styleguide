@@ -216,11 +216,11 @@ final class StyleguideTest extends TestCase
     #[Test]
     public function component_directories_lists_a_directory_with_no_template_that_inventory_never_sees(): void
     {
-        // The gap this method exists to close: `yaml-only/` carries a
-        // definition (`<id>.yaml`) but no `<id>.twig`, so it never becomes an
-        // `inventory()`/`parseAll()` entry at all — invisible to both. A
-        // consumer auditing "does every component directory have a real
-        // template" needs exactly this directory-level fact, which
+        // `yaml-only/` carries a definition (`<id>.yaml`) but no `<id>.twig`.
+        // Since ADR-0009 the yaml is an entry marker, so the directory is an
+        // entry; it has no fixture, so `inventory()` still never sees it.
+        // `js-only/` has no marker at all. A consumer auditing "which
+        // directories are entries" needs this directory-level fact, which
         // `inventory()` structurally cannot supply.
         $sg = $this->newStyleguide(['templates_path' => __DIR__ . '/fixtures/directory-listing-templates']);
 
@@ -228,7 +228,7 @@ final class StyleguideTest extends TestCase
             [
                 ['id' => 'js-only', 'hasTemplate' => false],
                 ['id' => 'with-template', 'hasTemplate' => true],
-                ['id' => 'yaml-only', 'hasTemplate' => false],
+                ['id' => 'yaml-only', 'hasTemplate' => true],
             ],
             $sg->componentDirectories(),
         );

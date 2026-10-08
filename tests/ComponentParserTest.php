@@ -860,7 +860,7 @@ final class ComponentParserTest extends TestCase
     }
 
     #[Test]
-    public function list_directories_reports_every_directory_with_its_template_presence(): void
+    public function list_directories_reports_every_directory_with_its_entry_marker(): void
     {
         $parser = new ComponentParser(__DIR__ . '/fixtures/directory-listing-templates');
 
@@ -868,7 +868,7 @@ final class ComponentParserTest extends TestCase
             [
                 ['id' => 'js-only', 'hasTemplate' => false],
                 ['id' => 'with-template', 'hasTemplate' => true],
-                ['id' => 'yaml-only', 'hasTemplate' => false],
+                ['id' => 'yaml-only', 'hasTemplate' => true],
             ],
             $parser->listDirectories('component'),
         );

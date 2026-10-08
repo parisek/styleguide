@@ -130,7 +130,7 @@ the YAML throws rather than being silently honoured. Full rules:
 
 | Key | Required | Default | Purpose |
 |---|---|---|---|
-| `templates_path` | yes | — | Absolute path to the project's Twig templates root, or a list of roots, strongest first (a list since 1.31.0). Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). With a list, the first root that holds `<kind>/<id>/<id>.twig` owns that whole folder, and a symlink out of a root is refused. `maintenance:render` needs a single string. |
+| `templates_path` | yes | — | Absolute path to the project's Twig templates root, or a list of roots, strongest first (a list since 1.31.0). Used for the `@project` namespace and for auto-registered subnamespaces (see *Conventional namespaces* below). With a list, the first root that holds an entry marker of `<kind>/<id>/` (`<id>.twig`, `<id>.yaml` or `styleguide.twig`) owns that whole folder, and a symlink out of a root is refused. `maintenance:render` needs a single string. |
 | `static_path` | yes | — | Absolute path to the project's webroot (where `index.php` sits). Used to auto-register `@icons` (`/images/icons`) and `@images` (`/images`) if those directories exist. |
 | `config_yaml` | yes | — | Absolute path to `styleguide.yaml`. Missing file ≠ error — yaml just resolves to `[]` and the overview screen renders empty sections. |
 | `default_locale` | no | `'en'` | Two-letter code used by the SPA shell and forwarded to `Renderer` as `langcode`. Also drives the bundled `TypographyExtension`'s per-language typesetting (>= `parisek/twig-typography` 1.3) — passed as its locale resolver, so `|typography` applies the resolved language's quote/dash/spacing conventions without any extra config. |
@@ -710,7 +710,7 @@ components:
 
 The filter hides entries and nothing else. A component outside the list still renders when a listed component calls it, so a gap in your list never breaks a page. The package does not scan what a component calls, so write the full list. Docs are not filtered. Pages have their own key, `pages.include`. The `usage` field of every entry names only listed components and pages, so a hidden id never shows in the API, the CLI or the sidebar.
 
-A listed id that is not a component (no `component/<id>/<id>.twig` in `templates_path`) is an error that names the id. It stops at boot, and `doctor` reports it. A value that is not a list of ids is an error too. An empty list (`include: []`) shows no components; it is not the same as leaving the key out. Without the key nothing changes.
+A listed id that is not a component (no `component/<id>/` folder with `<id>.twig`, `<id>.yaml` or `styleguide.twig` in `templates_path`) is an error that names the id. It stops at boot, and `doctor` reports it. A value that is not a list of ids is an error too. An empty list (`include: []`) shows no components; it is not the same as leaving the key out. Without the key nothing changes.
 
 ### Pages limited to a list (since 1.31.0)
 
@@ -789,7 +789,7 @@ The SPA consumes all five (`frontend/src/stores/catalog.js`); external tooling c
 
 ### `GET /styleguide/api/components`
 
-Flat list of every component template under `templates/component/**/<id>.twig` whose first `{# … #}` comment parses as YAML and carries at least a `name:` key. Order: `weight` ascending, then `name` (Czech collation when `intl` is available, otherwise byte-wise `strcmp`).
+Flat list of every component template under `templates/component/**/<id>.twig` whose first `{# … #}` comment parses as YAML and carries at least a `name:` key. A folder `component/<id>/` with no `<id>.twig` is listed too, when its `<id>.yaml` carries a `name:`: an entry needs one of `<id>.twig`, `<id>.yaml` or `styleguide.twig`, and folders that start with `_` stay out (ADR-0009). Such an entry with no `styleguide.twig` has `has_styleguide: false` and shows no tile. Order: `weight` ascending, then `name` (Czech collation when `intl` is available, otherwise byte-wise `strcmp`).
 
 **Response shape** — `array<Component>`:
 

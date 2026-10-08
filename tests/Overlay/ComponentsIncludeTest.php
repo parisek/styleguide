@@ -148,9 +148,9 @@ final class ComponentsIncludeTest extends OverlayTestCase
     }
 
     #[Test]
-    public function a_folder_without_its_template_is_not_a_component(): void
+    public function a_folder_without_an_entry_marker_is_not_a_component(): void
     {
-        self::put($this->kit . '/component/bare/styleguide.twig', 'x');
+        self::put($this->kit . '/component/bare/readme.md', 'x');
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('"bare"');

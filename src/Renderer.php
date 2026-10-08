@@ -355,9 +355,8 @@ final class Renderer
             $ownerIndex = $this->roots->ownerIndex($kind, $slug);
             if ($ownerIndex === null) {
                 throw new \RuntimeException(sprintf(
-                    'styleguide_data(): no template root holds %s/%s/%s.twig',
+                    'styleguide_data(): no template root holds an entry %s/%s',
                     $kind,
-                    $slug,
                     $slug,
                 ));
             }

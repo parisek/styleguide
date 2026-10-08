@@ -80,12 +80,14 @@ final class TemplateRootsTest extends OverlayTestCase
         self::put($kit . '/component/a/a.twig', 'A');
         self::put($kit . '/component/b/b.twig', 'B');
         self::put($kit . '/component/c/styleguide.twig', 'no template');
+        self::put($kit . '/component/d/readme.md', 'no marker');
 
         $roots = TemplateRoots::from([$project, $kit]);
 
         self::assertSame(0, $roots->ownerIndex('component', 'a'));
         self::assertSame(1, $roots->ownerIndex('component', 'b'));
-        self::assertNull($roots->ownerIndex('component', 'c'), 'a folder without its template owns nothing');
+        self::assertSame(1, $roots->ownerIndex('component', 'c'), 'the default fixture is an entry marker (ADR-0009)');
+        self::assertNull($roots->ownerIndex('component', 'd'), 'a folder without a marker owns nothing');
         self::assertNull($roots->ownerIndex('component', '../a'));
         self::assertSame('component/b/b.twig', $roots->relative($kit . '/component/b/b.twig'));
     }

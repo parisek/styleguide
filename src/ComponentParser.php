@@ -387,9 +387,10 @@ class ComponentParser
     }
 
     /**
-     * Parse metadata from a single component/page .twig file.
+     * Parse metadata from a single entry folder: `<id>.twig`, else the other
+     * entry markers (`<id>.yaml`, `styleguide.twig`), see ADR-0009.
      *
-     * @return array<string,mixed>|null  Null when file missing or metadata invalid.
+     * @return array<string,mixed>|null  Null when the entry is missing or metadata invalid.
      */
     public function parse(string $type, string $id): ?array
     {
@@ -398,43 +399,26 @@ class ComponentParser
             return null;
         }
         $file = $dir . '/' . $id . '.twig';
-
-        if (!file_exists($file)) {
+        $hasTemplate = file_exists($file);
+        if (!$hasTemplate && !$this->hasEntryMarker($dir, $id)) {
             return null;
         }
 
         try {
-            if ($this->escapesOwnRoot($file)) {
-                throw new \RuntimeException('template resolves outside its template root');
+            $content = '';
+            if ($hasTemplate) {
+                if ($this->escapesOwnRoot($file)) {
+                    // A marker that leaves its root does not count, but another
+                    // marker of the folder may still make the entry.
+                    if (!$this->hasEntryMarker($dir, $id)) {
+                        throw new \RuntimeException('template resolves outside its template root');
+                    }
+                } else {
+                    $content = (string) file_get_contents($file);
+                }
             }
-            $content = (string) file_get_contents($file);
-            [$metadata, $sourceFile] = $this->readComponentMetadata($dir, $id, $file, $content);
-            $metadata = $this->withDefaultTitle($type, $id, $metadata);
 
-            if (!$metadata || !isset($metadata['name'])) {
-                return null;
-            }
-
-            $hasDefaultFixture = file_exists($dir . '/styleguide.twig');
-            $variants = $this->discoverVariants($dir, $metadata);
-            // additive (v1.1.0): a component that ships ONLY named variant
-            // siblings (no bare styleguide.twig) is still a real, renderable
-            // fixture — see normaliseMetadata()'s has_styleguide doc.
-            $hasStyleguide = $hasDefaultFixture
-                || isset($metadata['styleguide'])
-                || $variants !== [];
-
-            return $this->normaliseMetadata(
-                $id,
-                $type,
-                $metadata,
-                $hasStyleguide,
-                $hasDefaultFixture,
-                $variants,
-                $this->relativePath($sourceFile),
-                $this->defaultFixtureTitle($dir),
-                $this->rootLabel($sourceFile),
-            );
+            return $this->entryFromFolder($type, $id, $dir, $file, $content);
         } catch (\Throwable $e) {
             // Single-file lookup path (used by Styleguide::dispatchRender()
             // for the render endpoint's <title>/body_class/render metadata)
@@ -444,6 +428,62 @@ class ComponentParser
             $this->recordWarning($this->relativePath($file), $e, $this->rootLabel($file));
             return null;
         }
+    }
+
+    /**
+     * The catalogue row of one entry folder, or null when no source gives it a
+     * `name`. `$twigFile` need not exist: an entry without a production
+     * template passes the path it would have and an empty `$content`, so the
+     * metadata comes from `<id>.yaml` alone.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function entryFromFolder(string $type, string $id, string $dir, string $twigFile, string $content): ?array
+    {
+        [$metadata, $sourceFile] = $this->readComponentMetadata($dir, $id, $twigFile, $content);
+        $metadata = $this->withDefaultTitle($type, $id, $metadata);
+
+        if (!$metadata || !isset($metadata['name'])) {
+            return null;
+        }
+
+        $hasDefaultFixture = file_exists($dir . '/styleguide.twig');
+        $variants = $this->discoverVariants($dir, $metadata);
+        // additive (v1.1.0): a component that ships ONLY named variant
+        // siblings (no bare styleguide.twig) is still a real, renderable
+        // fixture — see normaliseMetadata()'s has_styleguide doc.
+        $hasStyleguide = $hasDefaultFixture
+            || isset($metadata['styleguide'])
+            || $variants !== [];
+
+        return $this->normaliseMetadata(
+            $id,
+            $type,
+            $metadata,
+            $hasStyleguide,
+            $hasDefaultFixture,
+            $variants,
+            $this->relativePath($sourceFile),
+            $this->defaultFixtureTitle($dir),
+            $this->rootLabel($sourceFile),
+        );
+    }
+
+    /**
+     * True when `$dir` holds an entry marker (see
+     * {@see TemplateRoots::entryMarkers()}) that stays inside its root. With a
+     * single string root nothing is refused, as before.
+     */
+    private function hasEntryMarker(string $dir, string $id): bool
+    {
+        foreach (TemplateRoots::entryMarkers($id) as $marker) {
+            $file = $dir . '/' . $marker;
+            if (file_exists($file) && !$this->escapesOwnRoot($file)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -499,35 +539,10 @@ class ComponentParser
                 $content = (string) file_get_contents($file->getPathname());
 
                 try {
-                    [$metadata, $sourceFile] = $this->readComponentMetadata(
-                        $file->getPath(),
-                        $id,
-                        $file->getPathname(),
-                        $content,
-                    );
-                    $metadata = $this->withDefaultTitle($type, $id, $metadata);
-
-                    if (!$metadata || !isset($metadata['name'])) {
-                        continue;
+                    $item = $this->entryFromFolder($type, $id, $file->getPath(), $file->getPathname(), $content);
+                    if ($item !== null) {
+                        $items[] = $item;
                     }
-
-                    $hasDefaultFixture = file_exists($file->getPath() . '/styleguide.twig');
-                    $variants = $this->discoverVariants($file->getPath(), $metadata);
-                    $hasStyleguide = $hasDefaultFixture
-                        || isset($metadata['styleguide'])
-                        || $variants !== [];
-
-                    $items[] = $this->normaliseMetadata(
-                        $id,
-                        $type,
-                        $metadata,
-                        $hasStyleguide,
-                        $hasDefaultFixture,
-                        $variants,
-                        $this->relativePath($sourceFile),
-                        $this->defaultFixtureTitle($file->getPath()),
-                        $this->rootLabel($sourceFile),
-                    );
                 } catch (\Throwable $e) {
                     // One pathological template must not 500 the whole catalogue for
                     // every sibling component. Record it and keep walking; surfaced
@@ -535,6 +550,33 @@ class ComponentParser
                     // component list the SPA renders.
                     $this->recordWarning($this->relativePath($file->getPathname()), $e, $this->rootLabel($file->getPathname()));
                     continue;
+                }
+            }
+
+            // Entries with no `<id>.twig` of their own: a folder whose
+            // `<id>.yaml` or `styleguide.twig` makes it an entry (ADR-0009).
+            // The same claim rule as above, so the first root with any marker
+            // owns the folder and a later root's folder is not mixed in.
+            foreach ($this->markerFolders($dir) as $id) {
+                if (isset($claimed[$id]) || isset($claimedHere[$id])) {
+                    continue;
+                }
+                $folder = $dir . '/' . $id;
+                if (!$this->hasEntryMarker($folder, $id)) {
+                    continue;
+                }
+                $claimedHere[$id] = true;
+                if ($this->isHidden($type, $id)) {
+                    continue;
+                }
+                $twigFile = $folder . '/' . $id . '.twig';
+                try {
+                    $item = $this->entryFromFolder($type, $id, $folder, $twigFile, '');
+                    if ($item !== null) {
+                        $items[] = $item;
+                    }
+                } catch (\Throwable $e) {
+                    $this->recordWarning($this->relativePath($folder), $e, $this->rootLabel($folder));
                 }
             }
 
@@ -582,15 +624,36 @@ class ComponentParser
     }
 
     /**
+     * The names of the immediate subfolders of `$typeDir` that may be an entry
+     * by a marker other than `<id>.twig`: no `_` prefix, no hidden folder.
+     *
+     * @return list<string>
+     */
+    private function markerFolders(string $typeDir): array
+    {
+        $names = [];
+        foreach (scandir($typeDir) ?: [] as $name) {
+            if ($name[0] === '.' || $name[0] === '_' || !is_dir($typeDir . '/' . $name)) {
+                continue;
+            }
+            $names[] = $name;
+        }
+
+        return $names;
+    }
+
+    /**
      * @api Public contract. Backs `Styleguide::componentDirectories()` (see
      *      that method's docblock for the full rationale) — exposed here too
      *      so any consumer that already holds a `ComponentParser` instance
      *      doesn't need a `Styleguide` just to enumerate directories.
      *
      * Lists every immediate subdirectory of `templates_path/<type>/`,
-     * reporting whether it carries its OWN `<id>/<id>.twig` template — the
-     * exact file `parse()`/`parseAll()` require before they'll even attempt
-     * to read metadata from it. This is deliberately a WEAKER filter than
+     * reporting whether it is an entry: it holds `<id>.twig`, `<id>.yaml` or
+     * `styleguide.twig` (ADR-0009; a `_` folder only counts by `<id>.twig`).
+     * That is what `parse()`/`parseAll()` require before they'll even attempt
+     * to read metadata from it, so `hasTemplate` means "has an entry marker",
+     * not "has a production template". This is deliberately a WEAKER filter than
      * `parseAll()`'s: it does not require a `name:`-bearing metadata source,
      * so a directory that fails `parseAll()`'s catalogue walk for lacking a
      * template (or for lacking valid metadata) still shows up here — that's
@@ -627,7 +690,8 @@ class ComponentParser
                     continue;
                 }
                 $found[$name] = ($found[$name] ?? false)
-                    || file_exists($dir . '/' . $name . '/' . $name . '.twig');
+                    || file_exists($dir . '/' . $name . '/' . $name . '.twig')
+                    || $this->hasEntryMarker($dir . '/' . $name, (string) $name);
             }
         }
 

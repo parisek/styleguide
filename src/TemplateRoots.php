@@ -14,9 +14,10 @@ namespace Parisek\Styleguide;
  * Two rules decide which root answers:
  *
  *  - Catalogue files follow ENTRY-LEVEL OWNERSHIP. The first root that holds
- *    `<kind>/<id>/<id>.twig` owns the whole `<kind>/<id>/` folder: its metadata
- *    yaml, its fixtures, its data sidecars, its css and js. No file is ever
- *    taken from a second root for the same entry.
+ *    an entry marker of `<kind>/<id>/` (`<id>.twig`, `<id>.yaml` or
+ *    `styleguide.twig`, see {@see self::entryMarkers()}) owns the whole
+ *    folder: its metadata yaml, its fixtures, its data sidecars, its css and
+ *    js. No file is ever taken from a second root for the same entry.
  *  - Twig namespaces (`@component`, `@page`, `@macro`, `@doc`, `@static`,
  *    `@project`) search the roots in order, so a template that is not in the
  *    project is found in the kit.
@@ -113,9 +114,28 @@ final class TemplateRoots
     }
 
     /**
-     * Index of the root that owns `<kind>/<id>/`: the first one holding
-     * `<kind>/<id>/<id>.twig` as a file that stays inside that root. Null
-     * when no root does.
+     * The file names that make `<kind>/<id>/` an entry: the template, the
+     * metadata yaml and the default fixture. One of them is enough (ADR-0009).
+     *
+     * A folder whose name starts with `_` is a partial. Only its template
+     * counts, as before ADR-0009: the two new markers never make a partial an
+     * entry.
+     *
+     * @return list<string>
+     */
+    public static function entryMarkers(string $id): array
+    {
+        if (str_starts_with($id, '_')) {
+            return [$id . '.twig'];
+        }
+
+        return [$id . '.twig', $id . '.yaml', 'styleguide.twig'];
+    }
+
+    /**
+     * Index of the root that owns `<kind>/<id>/`: the first one holding an
+     * entry marker (see {@see self::entryMarkers()}) as a file that stays
+     * inside that root. Null when no root does.
      */
     public function ownerIndex(string $kind, string $id): ?int
     {
@@ -123,10 +143,12 @@ final class TemplateRoots
             return null;
         }
         foreach ($this->roots as $index => $root) {
-            // Containment per root: a template that is a symlink into another
+            // Containment per root: a marker that is a symlink into another
             // root does not make this root the owner. PathGuard refuses it.
-            if (PathGuard::resolveInRoot($this->roots, $index, $kind . '/' . $id . '/' . $id . '.twig') !== null) {
-                return $index;
+            foreach (self::entryMarkers($id) as $marker) {
+                if (PathGuard::resolveInRoot($this->roots, $index, $kind . '/' . $id . '/' . $marker) !== null) {
+                    return $index;
+                }
             }
         }
 
