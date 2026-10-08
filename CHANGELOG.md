@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.32.0] - 2026-10-08
+
 ### Added
 
 - **An entry needs no empty `<id>.twig`.** A folder `<kind>/<id>/` is an entry
