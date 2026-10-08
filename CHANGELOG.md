@@ -8,6 +8,26 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **An entry needs no empty `<id>.twig`.** A folder `<kind>/<id>/` is an entry
+  when it holds any of `<id>.twig`, `<id>.yaml` or `styleguide.twig`. Before,
+  only `<id>.twig` counted. The first root with any marker owns the folder, and
+  a marker that is a symlink out of its root does not count. A folder with
+  `<id>.twig` behaves as before. Without it, the render endpoint uses the
+  default fixture. An entry with `<id>.yaml` and no fixture is listed with its
+  metadata and has no tile (`has_styleguide` is `false`). `components.include`,
+  `pages.include`, `listDirectories()`, `/api/files` and `styleguide lint`
+  follow the rule. A folder whose name starts with `_` stays out. See
+  [ADR-0009](docs/adr/0009-an-entry-needs-one-marker-file.md).
+
+### Changed
+
+- **A folder with `<id>.yaml` or `styleguide.twig` and no `<id>.twig` is now an
+  entry.** `ComponentParser::listDirectories()` reports `hasTemplate: true` for
+  it, and a root that holds only such a folder now owns it. Before, both were
+  false.
+
 ## [1.31.0] - 2026-10-07
 
 ### Added
