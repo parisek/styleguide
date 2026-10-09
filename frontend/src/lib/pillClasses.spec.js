@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { pillState, PILL_BUTTON } from './pillClasses.js';
 
-// A `hover:text-*` without a `dark:hover:text-*` turns the label dark on a dark pill.
-const hasDarkHoverTwin = (classes) => !classes.includes('hover:text-') || classes.includes('dark:hover:text-');
+// Semantic hover tokens switch their values with the shell theme.
+const hasDarkHoverTwin = (classes) => !classes.includes('hover:text-') || classes.includes('hover:text-ui-text') || classes.includes('dark:hover:text-');
 
 describe('pillClasses', () => {
     it('gives every light hover colour a dark twin', () => {
