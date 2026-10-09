@@ -20,12 +20,19 @@ use Twig\Environment;
  * appears to say — and a 440-line registration method is exactly where those
  * two drift apart.
  *
- * Twig core, intl and string contributions are included on purpose. Those are
- * constant, so any difference is the package's own, which makes this catch a
- * dropped EXTENSION as readily as a dropped helper.
+ * Twig core, intl and string contributions are included on purpose, so a
+ * dropped EXTENSION fails this test as readily as a dropped helper.
  *
- * Adding a helper updates these lists deliberately, in the same commit, with a
- * CHANGELOG entry. Losing one silently is the failure this exists to prevent.
+ * The package allows `twig/twig ^3.27` and tracks no lock file, so CI resolves
+ * the newest Twig. A Twig minor release can add a helper of its own
+ * (`include_only` and `format_list` arrived in 3.30). Such a name is not the
+ * package's change, so the test accepts a name that a vendor extension
+ * (`Twig\...`) contributes beyond the lists. It still fails for a missing
+ * name, and for an extra name that no vendor extension provides.
+ *
+ * Adding a helper of the package updates these lists deliberately, in the
+ * same commit, with a CHANGELOG entry. Losing one silently is the failure this
+ * exists to prevent.
  */
 final class RegisteredHelperNamesTest extends TestCase
 {
@@ -143,15 +150,54 @@ final class RegisteredHelperNamesTest extends TestCase
         return (new \ReflectionClass($sg))->getProperty('twig')->getValue($sg);
     }
 
+    /**
+     * Names that the installed Twig (and its `Twig\Extra` packages) registers.
+     *
+     * @param 'functions'|'filters' $kind
+     *
+     * @return list<string>
+     */
+    private static function vendorNames(Environment $twig, string $kind): array
+    {
+        $names = [];
+        foreach ($twig->getExtensions() as $extension) {
+            if (!str_starts_with($extension::class, 'Twig\\')) {
+                continue;
+            }
+            $items = 'functions' === $kind ? $extension->getFunctions() : $extension->getFilters();
+            foreach ($items as $item) {
+                $names[] = $item->getName();
+            }
+        }
+
+        return $names;
+    }
+
     #[Test]
     public function every_expected_function_is_registered(): void
     {
-        self::assertEqualsCanonicalizing(self::FUNCTIONS, array_keys(self::twig()->getFunctions()));
+        $twig = self::twig();
+        $actual = array_keys($twig->getFunctions());
+
+        self::assertSame([], array_values(array_diff(self::FUNCTIONS, $actual)), 'A helper function is no longer registered.');
+        self::assertSame(
+            [],
+            array_values(array_diff($actual, self::FUNCTIONS, self::vendorNames($twig, 'functions'))),
+            'A function is registered that the lists do not know and no Twig extension provides.',
+        );
     }
 
     #[Test]
     public function every_expected_filter_is_registered(): void
     {
-        self::assertEqualsCanonicalizing(self::FILTERS, array_keys(self::twig()->getFilters()));
+        $twig = self::twig();
+        $actual = array_keys($twig->getFilters());
+
+        self::assertSame([], array_values(array_diff(self::FILTERS, $actual)), 'A helper filter is no longer registered.');
+        self::assertSame(
+            [],
+            array_values(array_diff($actual, self::FILTERS, self::vendorNames($twig, 'filters'))),
+            'A filter is registered that the lists do not know and no Twig extension provides.',
+        );
     }
 }
