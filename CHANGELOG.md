@@ -11,6 +11,12 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 ### Changed
 
 - Name the existing pill, toolbar, and preview-frame styles through UI contract 0.1.0. The contract supports explicit synchronization into other tools without a runtime dependency.
+- Update the frontend build tools to Vite 8, the Vue plugin 6, and Vitest 5.
+  Preserve the previous syntax transform target and the flat asset layout.
+  Frontend development needs Node 22.18 or later. Composer consumers still need only PHP.
+- Update Vue to 3.5.43 to address GHSA-g2v6-rqmx-r4w6 in its server-renderer dependency.
+  Rebuild the committed frontend assets. Ship third-party licence notices with them.
+
 
 ## [1.32.0] - 2026-10-08
 

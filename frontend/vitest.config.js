@@ -17,10 +17,7 @@ export default defineConfig({
         // when vitest copies window properties onto globalThis, so bare
         // `localStorage` reads as undefined even with the jsdom url above.
         // Disabling Node's own implementation lets jsdom's win.
-        poolOptions: {
-            threads: { execArgv: ['--no-experimental-webstorage'] },
-            forks: { execArgv: ['--no-experimental-webstorage'] },
-        },
+        execArgv: ['--no-experimental-webstorage'],
         include: ['src/**/*.spec.js'],
         // './src/test/setup.js' pre-exists (matchMedia polyfill, Task 3);
         // './src/testSetup.js' (Task 7) adds the ResizeObserver stub the
