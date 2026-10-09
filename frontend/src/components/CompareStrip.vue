@@ -129,7 +129,7 @@ onBeforeUnmount(() => {
                 <ErrorMark :count="errors.countFor(tile, column.width)" />
             </div>
             <div :ref="(el) => registerCell(column.width, el)" class="min-w-0">
-                <div class="overflow-hidden bg-white ring-1 ring-zinc-200 dark:ring-zinc-800 rounded shadow-sm"
+                <div class="overflow-hidden bg-ui-preview ring-1 ring-ui-border rounded-ui-panel shadow-sm"
                      :style="{ width: column.geometry.wrapperWidth + 'px', height: column.geometry.wrapperHeight + 'px' }">
                     <!-- :key on src: a fresh element per document, as in
                          PreviewPane.vue, so a stale page never shows. -->

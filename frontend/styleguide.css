@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./ui-contract/tokens.css";
 
 /* Tailwind v4 default content-detection skips files outside known patterns.
    Explicitly source the Vite entry + JS modules so utility classes get picked up. */
@@ -23,7 +24,7 @@
 :root { color-scheme: light; }
 .dark { color-scheme: dark; }
 
-/* No @theme block — zinc/slate/indigo palettes are already in Tailwind v4 defaults.
+/* The UI contract maps semantic roles onto Tailwind v4 default palettes.
    No `important` qualifier — the iframe boundary handles isolation.
    No preflight disable — preflight runs for the SPA chrome itself. */
 

@@ -275,7 +275,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
     <!-- min-h-[57px] = the natural height of the busiest configuration
          (h-9 action buttons + py-2.5 + 1px border-b, border-box) — routes with fewer/no controls (overview)
          get the exact same bar height instead of a visibly thinner strip. -->
-    <div class="flex justify-between items-center gap-3 px-4 py-2.5 min-h-[57px] bg-zinc-50 border-b border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800">
+    <div class="flex justify-between items-center gap-3 px-4 py-2.5 min-h-ui-toolbar bg-ui-toolbar border-b border-ui-border">
         <div class="flex items-center gap-3 min-w-0">
             <!-- Deliberately static hamburger (no open-state morph into an X):
                  the icon toggles the sidebar in BOTH directions, and an X

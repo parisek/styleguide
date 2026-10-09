@@ -78,3 +78,4 @@ referenced here rather than duplicated.
 - [ADR-0007](0007-code-panel-views-template-opt-in.md) — The Code panel's views are listed per project, the template only on request
 - [ADR-0008](0008-first-template-root-owns-the-component-folder.md) — The first template root owns the whole component folder
 - [ADR-0009](0009-an-entry-needs-one-marker-file.md) — An entry needs one marker file, not a template
+- [ADR-0010](0010-vendor-the-tools-ui-contract.md) — Vendor the tools UI contract
