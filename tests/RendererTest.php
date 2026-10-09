@@ -991,11 +991,10 @@ final class RendererTest extends TestCase
             ],
         ], 'cs')->body;
 
-        // create_attribute() entity-encodes quotes in this bare test env
-        // (no html_safe marking outside the real boot path — same quirk
-        // asserted by escapes_special_characters_in_page_wrapper_class
-        // above), so the id attribute round-trips as `&quot;`-delimited.
-        self::assertStringContainsString('id=&quot;og-image&quot;', $html);
+        // parisek/twig-attribute before 1.7.0 entity-encoded the quotes in this
+        // bare test env (no html_safe marking outside the real boot path). From
+        // 1.7.0 on the collection prints as HTML. Both forms are valid here.
+        self::assertMatchesRegularExpression('/id=(?:&quot;|")og-image(?:&quot;|")/', $html);
         self::assertStringContainsString(
             'No og_image configured — add one so shared links get a real preview image.',
             $html,

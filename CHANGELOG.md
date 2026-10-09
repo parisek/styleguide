@@ -10,6 +10,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- Document the `without` filter that `parisek/twig-attribute` 1.7.0 registers. The helper-name test and the og-image render test accept both the old and the new behavior of that package: the filter list includes its extension, and the `id` attribute may print with raw or escaped quotes.
 - Schedule weekly frontend dependency updates. Group compatible update candidates.
   Add a full-tree npm audit CI gate and document advisory handling.
 
