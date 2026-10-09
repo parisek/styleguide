@@ -151,7 +151,8 @@ final class RegisteredHelperNamesTest extends TestCase
     }
 
     /**
-     * Names that the installed Twig (and its `Twig\Extra` packages) registers.
+     * Names that the installed Twig (its `Twig\Extra` packages) and `parisek/twig-attribute` register.
+     * The attribute package adds the `without` filter from 1.7.0 on, so the lists must not name it.
      *
      * @param 'functions'|'filters' $kind
      *
@@ -161,7 +162,7 @@ final class RegisteredHelperNamesTest extends TestCase
     {
         $names = [];
         foreach ($twig->getExtensions() as $extension) {
-            if (!str_starts_with($extension::class, 'Twig\\')) {
+            if (!str_starts_with($extension::class, 'Twig\\') && \Parisek\Twig\AttributeExtension::class !== $extension::class) {
                 continue;
             }
             $items = 'functions' === $kind ? $extension->getFunctions() : $extension->getFilters();

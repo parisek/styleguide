@@ -389,6 +389,7 @@ The package registers these on its pristine Twig env (or layers them on top of a
 | `_xt` / `__t` / `_nt` / `_nxt` | function | Typography-aware translation: same signatures as `_x` / `__` / `_n` / `_nx`, but the result is piped through `\|typography`. Opt-in is a one-character edit (`_x` → `_xt`) so long-form copy gets consistent typographic treatment without `\|typography` on every callsite. `is_safe: ['html']` |
 | `typography(text)` | filter | Czech-aware typographic post-processing (nbsp, dashes, etc.) — from `parisek/twig-typography` |
 | `create_attribute(map)` | function | HTML attribute builder — from `parisek/twig-attribute` |
+| `without(names)` | filter | Returns a copy of an attribute collection (or an array) without the named keys, as Drupal's `without` filter does (`{{ attributes\|without('class') }}`). From `parisek/twig-attribute` 1.7.0; absent in older versions |
 | `dump(...)` | function | `symfony/var-dumper` style debug output |
 | `uniqueId()` | function | Per-render unique DOM id |
 | `styleguide_data(ref = null)` | function | Parses and returns a `styleguide.data.yaml` / `styleguide.data-<name>.yaml` sidecar as a nested PHP array. `ref` is a path whose segment count selects the shape: none → own default set, `<name>` → own named set, `<kind>/<slug>` → another fixture's default set, `<kind>/<slug>/<name>` → another fixture's named set. See § `styleguide_data()` below. |
