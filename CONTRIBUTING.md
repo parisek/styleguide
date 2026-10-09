@@ -9,6 +9,8 @@ composer install
 cd frontend && npm install   # only when you change the SPA
 ```
 
+This library does not track `composer.lock`. `composer install` resolves the newest versions that `composer.json` allows. CI does the same, so a break in a dependency shows up early.
+
 ## Run the checks
 
 CI runs these commands. Run them before you open a pull request.

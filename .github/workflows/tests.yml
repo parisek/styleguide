@@ -34,7 +34,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: vendor
-          key: composer-${{ runner.os }}-php-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-php-${{ matrix.php }}-${{ hashFiles('composer.json') }}
           restore-keys: |
             composer-${{ runner.os }}-php-${{ matrix.php }}-
 
@@ -60,7 +60,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: vendor
-          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.json') }}
 
       - run: composer install --no-interaction --prefer-dist
 
@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: vendor
-          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.json') }}
 
       - run: composer install --no-interaction --prefer-dist
 
@@ -161,7 +161,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: vendor
-          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.lock') }}
+          key: composer-${{ runner.os }}-php-8.3-${{ hashFiles('composer.json') }}
 
       - run: composer install --no-interaction --prefer-dist
 

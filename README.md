@@ -1694,7 +1694,7 @@ vendor/parisek/styleguide/
 └── CHANGELOG.md
 ```
 
-Tests, frontend source, and tooling files (`frontend/`, `tests/`, `phpunit.xml`, `composer.lock`) are present in the [GitHub repo](https://github.com/parisek/styleguide) for contributors but excluded from the Composer tarball via `.gitattributes export-ignore`.
+Tests, frontend source, and tooling files (`frontend/`, `tests/`, `phpunit.xml`) are present in the [GitHub repo](https://github.com/parisek/styleguide) for contributors but excluded from the Composer tarball via `.gitattributes export-ignore`.
 
 ---
 
