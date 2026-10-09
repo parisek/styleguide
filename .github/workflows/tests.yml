@@ -20,7 +20,7 @@ jobs:
         php: ['8.3', '8.4']
     name: PHP ${{ matrix.php }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     name: e2e (Layer A — HTTP smoke)
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     name: e2e (Playwright)
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -119,7 +119,7 @@ jobs:
     runs-on: ubuntu-latest
     name: dist/ is reproducible from frontend/
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v4
         with:
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     name: docs/adr/ index is in sync
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Validate the ADR directory against the index
         run: python3 scripts/check-adr-index.py
@@ -147,7 +147,7 @@ jobs:
     runs-on: ubuntu-latest
     name: PHPStan
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -171,7 +171,7 @@ jobs:
     name: composer hygiene
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -187,7 +187,7 @@ jobs:
     name: BC check (Roave, against the latest release)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Roave reads the release tags, so it needs the whole history.
           fetch-depth: 0
@@ -217,7 +217,7 @@ jobs:
     name: code style (PER-CS)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
