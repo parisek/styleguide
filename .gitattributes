@@ -27,3 +27,7 @@
 /AGENTS.md            export-ignore
 /CLAUDE.md            export-ignore
 /CHANGELOG-archive.md export-ignore
+
+# Contribution and security docs are for the repository, not for the dist.
+/CONTRIBUTING.md      export-ignore
+/SECURITY.md          export-ignore
