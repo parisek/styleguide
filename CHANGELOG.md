@@ -10,6 +10,9 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
+- Schedule weekly frontend dependency updates. Group compatible update candidates.
+  Add a full-tree npm audit CI gate and document advisory handling.
+
 - Name the existing pill, toolbar, and preview-frame styles through UI contract 0.1.0. The contract supports explicit synchronization into other tools without a runtime dependency.
 - Update the frontend build tools to Vite 8, the Vue plugin 6, and Vitest 5.
   Preserve the previous syntax transform target and the flat asset layout.
