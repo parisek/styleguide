@@ -3,12 +3,25 @@
     "description": "Twig component styleguide as a self-contained Composer package",
     "license": "MIT",
     "type": "library",
+    "keywords": [
+        "styleguide",
+        "twig",
+        "components",
+        "design-system",
+        "component-library"
+    ],
     "authors": [
         {
             "name": "Petr Parimucha",
             "email": "tools@portadesign.cz"
         }
     ],
+    "homepage": "https://github.com/parisek/styleguide",
+    "support": {
+        "issues": "https://github.com/parisek/styleguide/issues",
+        "source": "https://github.com/parisek/styleguide",
+        "security": "https://github.com/parisek/styleguide/blob/main/SECURITY.md"
+    },
     "require": {
         "php": "^8.3",
         "parisek/twig-attribute": "^1.0",
