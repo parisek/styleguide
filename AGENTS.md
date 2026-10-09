@@ -27,7 +27,7 @@ PACKAGIST_URL: "https://packagist.org/packages/parisek/styleguide"
 
 ## Development Commands
 
-PHP commands run from the repo root, frontend commands from `frontend/`. Node is needed only for the SPA build — runtime in consuming projects requires only PHP.
+PHP commands run from the repo root, frontend commands from `frontend/`. Node 22.18 or later is needed only for frontend development and the SPA build — runtime in consuming projects requires only PHP.
 
 ```bash
 # Tests + static analysis (PHP)
