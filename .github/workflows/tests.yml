@@ -134,6 +134,20 @@ jobs:
       - name: Fail if the rebuild differs from the committed dist/
         run: git diff --exit-code -- dist/
 
+  npm-audit:
+    runs-on: ubuntu-latest
+    name: frontend dependency audit
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend --ignore-scripts
+      - name: Audit the full frontend dependency tree
+        run: npm audit --prefix frontend --audit-level=low
+
   adr-index:
     runs-on: ubuntu-latest
     name: docs/adr/ index is in sync

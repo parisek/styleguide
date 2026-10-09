@@ -1700,6 +1700,9 @@ Tests, frontend source, and tooling files (`frontend/`, `tests/`, `phpunit.xml`)
 
 ## Local development (for package contributors)
 
+See [frontend dependency maintenance](docs/DEPENDENCIES.md) for scheduled updates,
+required checks, and advisory handling.
+
 ```bash
 git clone git@github.com:parisek/styleguide.git
 cd styleguide
