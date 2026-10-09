@@ -1708,7 +1708,7 @@ cd styleguide
 composer install
 vendor/bin/phpunit
 
-# SPA chrome (Vite + Vue 3 + Pinia + Tailwind v4)
+# SPA chrome (Vite + Vue 3 + Pinia + Tailwind v4; Node 22.18 or later)
 cd frontend
 npm install
 npm run watch          # rebuilds dist/ on every edit

@@ -17,6 +17,9 @@ export default defineConfig({
     build: {
         outDir: '../dist',
         emptyOutDir: true,
+        // Keep the syntax transform target used by Vite 5. A toolchain
+        // update must not silently narrow it through a new default.
+        target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
         // Both HTML entries now emit a `<script type="module">` (index.html's
         // SPA bundle, and — as of #79 — foundations.html's vanilla behavior
         // script). With 2+ module-script entries, Vite's default
@@ -29,7 +32,7 @@ export default defineConfig({
         // browsers) already support `<link rel="modulepreload">` natively —
         // opt out rather than carry dead legacy-browser weight.
         modulePreload: { polyfill: false },
-        rollupOptions: {
+        rolldownOptions: {
             // `foundations` is a second entry whose only purpose is to emit
             // `dist/foundations.[hash].css` — a Tailwind build that scans
             // `templates/foundations.twig` so its utility classes are
