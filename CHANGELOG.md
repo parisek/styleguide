@@ -8,19 +8,17 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
-### Changed
-
-- Document the `without` filter that `parisek/twig-attribute` 1.7.0 registers. The helper-name test and the og-image render test accept both the old and the new behavior of that package: the filter list includes its extension, and the `id` attribute may print with raw or escaped quotes.
-- Schedule weekly frontend dependency updates. Group compatible update candidates.
-  Add a full-tree npm audit CI gate and document advisory handling.
+### Added
 
 - Name the existing pill, toolbar, and preview-frame styles through UI contract 0.1.0. The contract supports explicit synchronization into other tools without a runtime dependency.
-- Update the frontend build tools to Vite 8, the Vue plugin 6, and Vitest 5.
-  Preserve the previous syntax transform target and the flat asset layout.
-  Frontend development needs Node 22.18 or later. Composer consumers still need only PHP.
-- Update Vue to 3.5.43 to address GHSA-g2v6-rqmx-r4w6 in its server-renderer dependency.
-  Rebuild the committed frontend assets. Ship third-party licence notices with them.
 
+### Changed
+
+- **The committed `dist/` bundle is rebuilt with new major frontend libraries.** It now ships Vue 3.5.43, Pinia 4, Vue Router 5, Tailwind CSS 4.3 and Vite 8. Composer consumers need no action: they get the rebuilt assets with the package. Frontend development needs Node 22.18 or later. Composer consumers still need only PHP.
+- Update the frontend test tools to Vitest 5, jsdom 30 and Playwright 1.63. The pointer-event tests of the board build their events with an init dictionary, because jsdom 30 makes `MouseEvent` fields read-only.
+- Update Vue to 3.5.43 to address GHSA-g2v6-rqmx-r4w6 in its server-renderer dependency. Ship third-party licence notices with the assets.
+- Schedule weekly frontend dependency updates. Group compatible update candidates. Add a full-tree npm audit CI gate and document advisory handling.
+- Document the `without` filter that `parisek/twig-attribute` 1.7.0 registers. The helper-name test and the og-image render test accept both the old and the new behavior of that package: the filter list includes its extension, and the `id` attribute may print with raw or escaped quotes.
 
 ## [1.32.0] - 2026-10-08
 
@@ -1983,7 +1981,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.32.0...HEAD
 [1.15.0]: https://github.com/parisek/styleguide/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/parisek/styleguide/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/parisek/styleguide/compare/v1.13.0...v1.13.1
