@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.33.0] - 2026-10-10
+
 ### Added
 
 - Name the existing pill, toolbar, and preview-frame styles through UI contract 0.1.0. The contract supports explicit synchronization into other tools without a runtime dependency.
