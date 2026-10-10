@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mount, flushPromises } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { setActivePinia, createPinia } from 'pinia';
 import BoardSurface from './BoardSurface.vue';
 import { createLoadQueue } from '../lib/loadQueue.js';
@@ -16,6 +17,18 @@ const entries = [
     { key: 'page:about', type: 'page', id: 'about', name: 'About', item: {} },
     { key: 'component:hero', type: 'component', id: 'hero', name: 'Hero', item: {} },
 ];
+
+// jsdom 30 ships read-only MouseEvent fields, which breaks the `trigger()`
+// assignment of clientX/button. Build the event with an init dict instead.
+async function pointer(wrapper, type, init = {}) {
+    const { pointerId, ...mouse } = init;
+    const event = new MouseEvent(type, { bubbles: true, cancelable: true, ...mouse });
+    if (pointerId !== undefined) Object.defineProperty(event, 'pointerId', { value: pointerId });
+    wrapper.element.dispatchEvent(event);
+    // A microtask tick only, like trigger(): a macrotask would run the
+    // zero-delay timer that ends the swallowed click after a drag.
+    await nextTick();
+}
 
 function mountSurface(extra = {}) {
     setActivePinia(createPinia());
@@ -120,8 +133,8 @@ describe('BoardSurface', () => {
         const wrapper = mountSurface();
         await flushPromises();
         await wrapper.findAll('[data-testid="board-frame"]')[0].trigger('click');
-        await wrapper.get('[data-testid="board-surface"]').trigger('pointerdown', { button: 0, clientX: 5, clientY: 5 });
-        await wrapper.get('[data-testid="board-surface"]').trigger('pointerup', { button: 0, clientX: 5, clientY: 5 });
+        await pointer(wrapper.get('[data-testid="board-surface"]'), 'pointerdown', { button: 0, clientX: 5, clientY: 5 });
+        await pointer(wrapper.get('[data-testid="board-surface"]'), 'pointerup', { button: 0, clientX: 5, clientY: 5 });
         expect(wrapper.find('[data-testid="board-selected-hint"]').exists()).toBe(false);
     });
 
@@ -171,10 +184,10 @@ describe('BoardSurface', () => {
         const scroller = wrapper.get('[data-testid="board-scroller"]');
         scroller.element.scrollLeft = 300;
         const frame = wrapper.findAll('[data-testid="board-frame"]')[0];
-        await frame.trigger('pointerdown', { button: 0, clientX: 200, clientY: 200, pointerId: 1 });
-        await scroller.trigger('pointermove', { clientX: 150, clientY: 190, pointerId: 1 });
+        await pointer(frame, 'pointerdown', { button: 0, clientX: 200, clientY: 200, pointerId: 1 });
+        await pointer(scroller, 'pointermove', { clientX: 150, clientY: 190, pointerId: 1 });
         expect(scroller.element.scrollLeft).toBe(350);
-        await scroller.trigger('pointerup', { button: 0, clientX: 150, clientY: 190 });
+        await pointer(scroller, 'pointerup', { button: 0, clientX: 150, clientY: 190 });
         await frame.trigger('click');
         expect(wrapper.find('[data-testid="board-selected-hint"]').exists()).toBe(false);
     });
@@ -184,9 +197,9 @@ describe('BoardSurface', () => {
         await flushPromises();
         const scroller = wrapper.get('[data-testid="board-scroller"]');
         const frame = wrapper.findAll('[data-testid="board-frame"]')[0];
-        await frame.trigger('pointerdown', { button: 0, clientX: 200, clientY: 200, pointerId: 1 });
-        await scroller.trigger('pointermove', { clientX: 201, clientY: 201, pointerId: 1 });
-        await scroller.trigger('pointerup', { button: 0, clientX: 201, clientY: 201 });
+        await pointer(frame, 'pointerdown', { button: 0, clientX: 200, clientY: 200, pointerId: 1 });
+        await pointer(scroller, 'pointermove', { clientX: 201, clientY: 201, pointerId: 1 });
+        await pointer(scroller, 'pointerup', { button: 0, clientX: 201, clientY: 201 });
         await frame.trigger('click');
         expect(wrapper.find('[data-testid="board-selected-hint"]').exists()).toBe(true);
     });
