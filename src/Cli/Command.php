@@ -119,7 +119,10 @@ final class Command
             try {
                 $sections = ComponentSections::fromConfig(((array) Yaml::parseFile($configPath))['components'] ?? null);
             } catch (\Throwable $e) {
-                if (isset($flags['sections'])) {
+                // `show` promises the section fields and `--sections` asks for
+                // them: a broken block is an error there. Plain `list` keeps
+                // its shape and leaves the report to `doctor`.
+                if (isset($flags['sections']) || $command === 'show') {
                     fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
                     return 1;
                 }

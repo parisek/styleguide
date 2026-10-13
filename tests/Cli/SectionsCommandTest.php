@@ -201,4 +201,28 @@ final class SectionsCommandTest extends TestCase
         self::assertSame(1, $exit);
         self::assertStringContainsString('components only', $stderr);
     }
+
+    #[Test]
+    public function show_with_an_invalid_sections_block_is_an_error(): void
+    {
+        [$exit, $stdout, $stderr] = $this->runCli([
+            'show',
+            'sample',
+            '--templates=' . __DIR__ . '/../fixtures/templates',
+            '--config=' . $this->config("components:\n  sections:\n    - kind: nope\n"),
+        ]);
+
+        self::assertSame(1, $exit);
+        self::assertSame('', $stdout);
+        self::assertStringContainsString('components.sections[0]', $stderr);
+    }
+
+    #[Test]
+    public function list_without_the_flag_ignores_an_invalid_sections_block(): void
+    {
+        $items = $this->list($this->config("components:\n  sections:\n    - kind: nope\n"));
+
+        self::assertNotEmpty($items);
+        self::assertArrayNotHasKey('section', $items[0]);
+    }
 }
