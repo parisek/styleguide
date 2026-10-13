@@ -233,6 +233,77 @@ final class ComponentSectionsTest extends TestCase
         self::assertSame('other', $payload[1]['id']);
     }
 
+    // ---- diagnose ----------------------------------------------------------
+
+    /**
+     * @return list<array{id: string, kind: string, category: string}>
+     */
+    private static function catalogue(): array
+    {
+        return [
+            ['id' => 'button', 'kind' => 'element', 'category' => 'Basic'],
+            ['id' => 'cart', 'kind' => 'block', 'category' => 'Ecommerce'],
+            ['id' => 'hero', 'kind' => 'block', 'category' => 'Hero'],
+        ];
+    }
+
+    #[Test]
+    public function a_healthy_list_has_no_finding(): void
+    {
+        $sections = self::sections([
+            ['kind' => 'element'],
+            ['id' => 'shop', 'label' => 'Shop', 'category' => 'Ecommerce'],
+            ['kind' => 'block'],
+        ]);
+
+        self::assertSame([], $sections->diagnose(self::catalogue()));
+    }
+
+    #[Test]
+    public function diagnose_finds_a_duplicate_a_shadowed_and_an_unmatched_entry(): void
+    {
+        $sections = self::sections([
+            ['id' => 'shop', 'label' => 'Shop', 'category' => 'Ecommerce'],
+            ['id' => 'shop-again', 'label' => 'Shop again', 'category' => 'ecommerce '],
+            ['id' => 'wide', 'label' => 'Wide', 'component' => ['hero', 'button']],
+            ['id' => 'narrow', 'label' => 'Narrow', 'component' => ['hero']],
+            ['id' => 'ghost', 'label' => 'Ghost', 'category' => 'Nothing'],
+            ['kind' => 'block'],
+        ]);
+
+        $types = [];
+        foreach ($sections->diagnose(self::catalogue()) as $finding) {
+            $types[$finding['entry']] = $finding['type'];
+        }
+
+        // Entry 5 (`kind: block`) matches `cart` and `hero`, but the category entry and the
+        // component entry beat it for both.
+        self::assertSame([1 => 'duplicate', 3 => 'shadowed', 4 => 'unmatched', 5 => 'shadowed'], $types);
+    }
+
+    #[Test]
+    public function a_fallback_nothing_falls_through_to_is_unmatched(): void
+    {
+        $sections = self::sections([
+            ['kind' => 'element'],
+            ['kind' => 'block'],
+            ['id' => 'rest', 'label' => 'Rest', 'fallback' => true],
+        ]);
+
+        $findings = $sections->diagnose(self::catalogue());
+        self::assertSame([['type' => 'unmatched', 'entry' => 2, 'other' => null]], $findings);
+    }
+
+    #[Test]
+    public function describe_names_the_entry_and_what_it_declares(): void
+    {
+        self::assertSame(
+            '`components.sections[2]` (component: [team, job-list])',
+            self::shop()->describe(2),
+        );
+        self::assertSame('`components.sections[4]` (category: Ecommerce)', self::shop()->describe(4));
+    }
+
     // ---- validation --------------------------------------------------------
 
     /**

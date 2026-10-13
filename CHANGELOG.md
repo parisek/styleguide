@@ -8,6 +8,11 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`styleguide list --sections` and `show` name the section of a component.** With `components.sections` in `styleguide.yaml` (`--config`, or found by convention), `--sections` adds `section`, `section_entry`, `section_tier` and `section_hidden` to each component. `show` adds the same four fields without the flag. They come from the resolver the catalogue uses. The flag without the key exits `1`.
+- **`styleguide doctor` checks `components.sections`.** It warns about an exact duplicate entry and about an entry that another one shadows. It gives a notice for an entry that takes no component and for the components in hidden sections. Matching is judged against the components of `templates_path` before `components.include`, so a project that ships no e-shop components gets no finding for a shared base's E-shop entry. A notice does not fail CI.
+
 ## [1.34.0] - 2026-10-13
 
 ### Added

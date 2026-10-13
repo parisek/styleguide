@@ -7,6 +7,7 @@ namespace Parisek\Styleguide\Cli;
 use Parisek\Styleguide\Bridge\Symfony\FrontController;
 use Parisek\Styleguide\ComponentFilter;
 use Parisek\Styleguide\ComponentParser;
+use Parisek\Styleguide\ComponentSections;
 use Parisek\Styleguide\MaintenanceRenderer;
 use Parisek\Styleguide\Renderer;
 use Parisek\Styleguide\Styleguide;
@@ -111,8 +112,34 @@ final class Command
         }
         $pretty = isset($flags['pretty']);
 
+        // `components.sections`: the same resolver as the catalogue, so `list`
+        // and `show` name the section of a component and the entry that took it.
+        $sections = null;
+        if ($type === 'component' && $configPath !== null) {
+            try {
+                $sections = ComponentSections::fromConfig(((array) Yaml::parseFile($configPath))['components'] ?? null);
+            } catch (\Throwable $e) {
+                // `show` promises the section fields and `--sections` asks for
+                // them: a broken block is an error there. Plain `list` keeps
+                // its shape and leaves the report to `doctor`.
+                if (isset($flags['sections']) || $command === 'show') {
+                    fwrite($stderr, sprintf("%s: %s\n", $configPath, $e->getMessage()));
+                    return 1;
+                }
+            }
+        }
+        if (isset($flags['sections']) && $sections === null) {
+            fwrite($stderr, $type !== 'component'
+                ? "--sections applies to components only.\n"
+                : "No `components.sections` in styleguide.yaml. Use --config=<path>.\n");
+            return 1;
+        }
+
         if ($command === 'list') {
             $data = $parser->parseAll($type);
+            if ($sections !== null && isset($flags['sections'])) {
+                $data = array_map(fn(array $item): array => $this->withSection($item, $sections), $data);
+            }
             return $this->writeJson($data, $pretty, $stdout, $stderr);
         }
 
@@ -123,7 +150,27 @@ final class Command
             fwrite($stderr, sprintf("%s \"%s\" not found.\n", $label, $id));
             return 1;
         }
+        if ($sections !== null) {
+            $data = $this->withSection($data, $sections);
+        }
         return $this->writeJson($data, $pretty, $stdout, $stderr);
+    }
+
+    /**
+     * @param array<string,mixed> $item a parsed component
+     * @return array<string,mixed> the component with `section` (the id, as in /api/components),
+     *         `section_entry` (the zero-based index in `components.sections`, null for the
+     *         implicit section), `section_tier` and `section_hidden`
+     */
+    private function withSection(array $item, ComponentSections $sections): array
+    {
+        $resolved = $sections->resolve($item);
+        $item['section'] = $resolved['id'];
+        $item['section_entry'] = $resolved['index'];
+        $item['section_tier'] = $resolved['index'] === null ? 'implicit' : ComponentSections::tierName($resolved['tier']);
+        $item['section_hidden'] = $resolved['hidden'];
+
+        return $item;
     }
 
     /**
@@ -648,10 +695,14 @@ final class Command
           --ignore=<path>        lint only — ignore file. Default:
                                  <templates>/.styleguide-lintignore.yaml when present.
           --pretty               Indent JSON output (use for terminals).
+          --sections             list only, components — add `section`, `section_entry`,
+                                 `section_tier` and `section_hidden` to each item, from
+                                 `components.sections` (`show` adds them without the flag).
           --dir=<path>           front-controller:init only — where to write index.php
                                  (default: the directory of styleguide.yaml).
           --force                front-controller:init only — replace a different index.php.
-          --config=<path>        maintenance:render, doctor and front-controller:init — styleguide.yaml
+          --config=<path>        list, show, maintenance:render, doctor and front-controller:init —
+                                 styleguide.yaml
                                  location.
                                  Default: ./styleguide.yaml, then ./static/styleguide.yaml.
           --locale=<code>        maintenance:render only — catalogue to render
