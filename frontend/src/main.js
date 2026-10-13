@@ -35,6 +35,7 @@ theme.init();
 i18n.init();
 ui.initFromUrl();
 catalog.componentsGroupBy = config.componentsGroupBy === 'kind' ? 'kind' : null;
+catalog.componentsSections = Array.isArray(config.componentsSections) ? config.componentsSections : null;
 catalog.init();
 // The previews' JavaScript errors (templates/render-cell.twig relays them).
 useRenderErrorsStore().listen();

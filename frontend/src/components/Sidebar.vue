@@ -65,8 +65,14 @@ function onFilterEscape() {
     searchInputRef.value?.blur();
 }
 
+// A section the SPA never saw (a custom `components.sections` id) has no
+// stored state: it reads as open, the built-in defaults above stay as they are.
+function isOpen(key) {
+    return sections.value[key] ?? true;
+}
+
 function toggleSection(key) {
-    sections.value[key] = !sections.value[key];
+    sections.value[key] = !isOpen(key);
 }
 
 function groupKey(section, prefix) {
@@ -305,8 +311,8 @@ function categoryGroupKey(group) {
                  wrapper. -->
             <template v-for="section in catalog.componentSectionKeys" :key="section">
             <div v-show="items(section).length > 0">
-                <button @click="toggleSection(section)" :aria-expanded="(sections[section] || !!ui.searchQuery) ? 'true' : 'false'" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
-                    <span>{{ i18n.t(`sections.${section}`) }}</span>
+                <button @click="toggleSection(section)" :aria-expanded="(isOpen(section) || !!ui.searchQuery) ? 'true' : 'false'" class="w-full flex justify-between items-center px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                    <span>{{ catalog.sectionLabel(section) }}<span v-if="catalog.isSectionHidden(section)" data-testid="sidebar-hidden-badge" class="ml-1.5 px-1 rounded bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 normal-case tracking-normal font-semibold">{{ i18n.t('sections.hidden_badge') }}</span></span>
                     <span class="text-zinc-400 dark:text-zinc-600 font-semibold">{{ items(section).length }}</span>
                 </button>
                 <!-- Force-open the section when a search is active so the
@@ -316,7 +322,7 @@ function categoryGroupKey(group) {
                      0fr<->1fr technique (see the docs section comment
                      above) rather than v-show, so opening/closing tweens
                      height instead of snapping. -->
-                <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (sections[section] || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(sections[section] || ui.searchQuery)">
+                <div class="grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out" :style="{ gridTemplateRows: (isOpen(section) || ui.searchQuery) ? '1fr' : '0fr' }" :inert="!(isOpen(section) || ui.searchQuery)">
                 <ul class="mt-1 space-y-0.5 overflow-hidden">
                     <!-- A flat list in the server order (weight, then name); while
                          searching, only the hits, with the alias that made one. Each
@@ -342,6 +348,15 @@ function categoryGroupKey(group) {
                 </div>
             </div>
             </template>
+            <!-- Hidden sections (`components.sections[].hidden`): out of the
+                 list, counted here. The toggle shows them again, with a
+                 badge. Behind the same gate as the Code panel: it names
+                 components a catalogue keeps internal. -->
+            <div v-if="catalog.hiddenCount > 0 && config.showSource" class="px-3 py-1.5">
+                <button type="button" data-testid="sidebar-hidden-toggle" @click="catalog.showHidden = !catalog.showHidden" :aria-pressed="catalog.showHidden ? 'true' : 'false'" class="text-[10px] uppercase tracking-wider font-bold text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                    {{ i18n.t(catalog.showHidden ? 'sections.hidden_hide' : 'sections.hidden_show').replace('{n}', String(catalog.hiddenCount)) }}
+                </button>
+            </div>
 
             <!-- Pages -->
             <div v-show="pageItems.length > 0">

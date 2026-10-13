@@ -137,4 +137,75 @@ describe('useCatalogStore', () => {
             expect.objectContaining({ id: 'ghost-id', type: null, name: 'ghost-id' }),
         ]);
     });
+
+    describe('components.sections', () => {
+        const sections = [
+            { id: 'basic' },
+            { id: 'eshop', label: { cs: 'E-shop komponenty', en: 'E-shop components' } },
+            { id: 'internal', hidden: true, fallback: true },
+        ];
+        const items = [
+            { id: 'button', name: 'Button', section: 'basic' },
+            { id: 'cart', name: 'Cart', section: 'eshop' },
+            { id: 'debug-grid', name: 'Debug grid', section: 'internal' },
+            { id: 'skeleton', name: 'Skeleton', section: 'basic', has_styleguide: false },
+        ];
+
+        function store() {
+            const catalog = useCatalogStore();
+            catalog.componentsSections = sections;
+            catalog.items = items;
+            catalog.pages = [{ id: 'home', name: 'Home', usage: ['cart', 'debug-grid'] }];
+            return catalog;
+        }
+
+        it('takes the order and the section of each item from the payload', () => {
+            const catalog = store();
+            expect(catalog.componentSectionKeys).toEqual(['basic', 'eshop']);
+            expect(catalog.sectionOf(items[1])).toBe('eshop');
+        });
+
+        it('keeps hidden components out of the lists but not out of find()', () => {
+            const catalog = store();
+            expect(catalog.listedItems.map((c) => c.id)).toEqual(['button', 'cart']);
+            expect(catalog.hiddenCount).toBe(1);
+            expect(catalog.bySection('internal')).toEqual([]);
+            expect(catalog.find('component', 'debug-grid')).not.toBeNull();
+        });
+
+        it('showHidden lists them again and keeps their section', () => {
+            const catalog = store();
+            catalog.showHidden = true;
+            expect(catalog.listedItems.map((c) => c.id)).toContain('debug-grid');
+            expect(catalog.componentSectionKeys).toEqual(['basic', 'eshop', 'internal']);
+            expect(catalog.isSectionHidden('internal')).toBe(true);
+        });
+
+        it('a usage chip of a hidden component is a name without a link', () => {
+            const catalog = store();
+            const chips = catalog.forwardUsageFor('home');
+            expect(chips.find((c) => c.id === 'cart').type).toBe('component');
+            expect(chips.find((c) => c.id === 'debug-grid')).toMatchObject({ type: null, name: 'Debug grid' });
+        });
+
+        it('sectionLabel: the configured label first, the SPA locale for a built-in id', async () => {
+            const catalog = store();
+            const { useI18nStore } = await import('./i18n.js');
+            const i18n = useI18nStore();
+            i18n.locale = 'cs';
+            i18n.strings = { sections: { basic: 'Základní prvky' } };
+            expect(catalog.sectionLabel('eshop')).toBe('E-shop komponenty');
+            expect(catalog.sectionLabel('basic')).toBe('Základní prvky');
+            i18n.locale = 'en';
+            expect(catalog.sectionLabel('eshop')).toBe('E-shop components');
+        });
+
+        it('without the key nothing changes', () => {
+            const catalog = useCatalogStore();
+            catalog.items = items;
+            expect(catalog.componentsSections).toBeNull();
+            expect(catalog.isHidden(items[2])).toBe(false);
+            expect(catalog.listedItems.map((c) => c.id)).toEqual(['button', 'cart', 'debug-grid']);
+        });
+    });
 });

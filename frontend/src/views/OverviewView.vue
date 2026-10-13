@@ -19,19 +19,27 @@ const showUsage = usePersistedRef('sg-overview-show-usage', true);
 
 const pages = computed(() => catalog.pages.filter((p) => p.has_styleguide !== false));
 
+// The sections that have a glyph below; any other id gets the generic one.
+const KNOWN_SECTION_ICONS = ['basic', 'blocks', 'gutenberg', 'sections', 'parts', 'utilities'];
+
 const componentSections = computed(() => {
     const buckets = {};
-    for (const item of catalog.items) {
-        if (item.has_styleguide === false) continue;
+    for (const item of catalog.listedItems) {
         const section = catalog.sectionOf(item, 'component');
         if (!buckets[section]) buckets[section] = [];
         buckets[section].push(item);
     }
     // Reading order: Pages (own section, rendered separately above), then
     // Blocks, then every other section. The overview is where a catalogue is
-    // read for its pages and blocks, so they lead in both modes. The rest keep
-    // the order the mode brings: the legacy Gutenberg -> Basic, or the
-    // sidebar's under `components.group_by: kind`.
+    // read for its pages and blocks, so they lead under the legacy rules. The
+    // rest keep the order the mode brings: the legacy Gutenberg -> Basic, or
+    // the sidebar's under `components.group_by: kind`. With
+    // `components.sections` the list is the order: nothing moves.
+    if (catalog.componentsSections) {
+        return catalog.componentSectionKeys
+            .filter((section) => buckets[section]?.length > 0)
+            .map((section) => ({ section, items: buckets[section] }));
+    }
     const rest = catalog.componentsGroupBy === 'kind' ? catalog.componentSectionKeys : ['gutenberg', 'basic'];
     const order = ['blocks', ...rest.filter((section) => section !== 'blocks')];
     return order
@@ -201,12 +209,18 @@ function reverseUsage(id) {
                                 <rect x="3" y="3" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M3 8h18M3 16h18"/>
                             </svg>
                         </div>
+                        <!-- A custom `components.sections` id has no glyph of its own. -->
+                        <div v-if="!KNOWN_SECTION_ICONS.includes(block.section)" class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 flex items-center justify-center">
+                            <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"/>
+                            </svg>
+                        </div>
                         <div v-if="block.section === 'parts' || block.section === 'utilities'" class="shrink-0 w-9 h-9 mr-3 rounded-xl bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300 flex items-center justify-center">
                             <svg aria-hidden="true" focusable="false" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 4h7v7H4zM13 13h7v7h-7z"/>
                             </svg>
                         </div>
-                        <h2 class="text-base font-semibold tracking-tight mr-2">{{ i18n.t(`sections.${block.section}`) }}</h2>
+                        <h2 class="text-base font-semibold tracking-tight mr-2">{{ catalog.sectionLabel(block.section) }}</h2>
                         <span class="inline-flex items-center justify-center px-2 h-6 min-w-6 rounded-full bg-zinc-200 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 text-xs font-mono">{{ block.items.length }}</span>
                     </div>
                     <div class="rounded-2xl border border-zinc-200/80 bg-white dark:border-zinc-700/80 dark:bg-zinc-800">

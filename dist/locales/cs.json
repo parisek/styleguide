@@ -7,7 +7,11 @@
         "blocks": "Bloky",
         "gutenberg": "Gutenberg",
         "pages": "Stránky",
-        "pages_other": "Ostatní"
+        "pages_other": "Ostatní",
+        "other": "Ostatní",
+        "hidden_badge": "skrytá",
+        "hidden_show": "Skryto: {n}, zobrazit",
+        "hidden_hide": "Skryto: {n}, schovat"
     },
     "toolbar": {
         "type_component": "Komponenta",
