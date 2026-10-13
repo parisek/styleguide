@@ -96,8 +96,81 @@ final class Doctor
             ...$this->checkBaseUrl($configPath),
             ...$this->checkFrontController($configPath),
             ...$this->checkRender($styleguide),
+            ...$this->checkSections($styleguide),
             ...$this->reportHelpers($diagnostics['helpers']),
         ];
+    }
+
+    /**
+     * `components.sections`: an entry that never takes a component, an exact
+     * duplicate, an entry another one shadows, and how many components sit in
+     * hidden sections. An entry that matches nothing is a notice, because a
+     * shared base may name components that a project does not ship.
+     *
+     * @return list<DoctorFinding>
+     */
+    private function checkSections(Styleguide $styleguide): array
+    {
+        $report = $styleguide->sectionsReport();
+        if ($report === null) {
+            return [];
+        }
+        $sections = $report['sections'];
+        $findings = [];
+        foreach ($sections->diagnose($report['components']) as $finding) {
+            $entry = $sections->describe($finding['entry']);
+            $other = $finding['other'] === null ? null : $sections->describe($finding['other']);
+            $findings[] = match ($finding['type']) {
+                'duplicate' => new DoctorFinding(
+                    LintSeverity::Warning,
+                    'sections',
+                    sprintf('%s repeats %s and can never take a component.', $entry, (string) $other),
+                    'Remove one of the two entries.',
+                ),
+                'shadowed' => new DoctorFinding(
+                    LintSeverity::Warning,
+                    'sections',
+                    sprintf(
+                        '%s takes no component: every component it matches goes to %s.',
+                        $entry,
+                        $other ?? 'another entry',
+                    ),
+                    'Remove the entry, or move it so that it wins. A component entry beats kind and category; '
+                        . 'the earlier entry wins inside a tier.',
+                ),
+                default => new DoctorFinding(
+                    LintSeverity::Notice,
+                    'sections',
+                    sprintf('%s takes no component in templates_path.', $entry),
+                    'Remove the entry if it is a typo. A shared base may keep an entry for components that '
+                        . 'this project does not ship.',
+                ),
+            };
+        }
+
+        $hidden = [];
+        foreach ($report['components'] as $component) {
+            if ($sections->resolve($component)['hidden']) {
+                $hidden[] = (string) ($component['id'] ?? '');
+            }
+        }
+        if ($hidden !== []) {
+            $findings[] = new DoctorFinding(
+                LintSeverity::Notice,
+                'sections',
+                sprintf(
+                    '%d component%s sit%s in hidden sections: %s',
+                    count($hidden),
+                    count($hidden) === 1 ? '' : 's',
+                    count($hidden) === 1 ? 's' : '',
+                    implode(', ', array_slice($hidden, 0, 10)) . (count($hidden) > 10 ? ', …' : ''),
+                ),
+                'They stay out of the sidebar, the grid, the board and the search, and still render by URL. '
+                    . '`styleguide list --sections` shows each component and its section.',
+            );
+        }
+
+        return $findings;
     }
 
     /**

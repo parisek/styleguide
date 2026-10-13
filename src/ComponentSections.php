@@ -240,13 +240,7 @@ final class ComponentSections
                 $fallback = $index;
                 continue;
             }
-            if ($entry['kind'] !== null && $entry['kind'] !== $kind) {
-                continue;
-            }
-            if ($entry['category'] !== null && mb_strtolower(trim($entry['category'])) !== $category) {
-                continue;
-            }
-            if ($entry['component'] !== null && !in_array($id, $entry['component'], true)) {
+            if (!self::matches($entry, $id, $kind, $category)) {
                 continue;
             }
             $tier = match (true) {
@@ -273,6 +267,136 @@ final class ComponentSections
             'tier' => $best === null ? self::TIER_FALLBACK : $bestTier,
             'hidden' => $this->entries[$index]['hidden'],
         ];
+    }
+
+    /**
+     * Every declared field of the entry matches the component.
+     *
+     * @param array{kind: string|null, category: string|null, component: list<string>|null} $entry
+     * @param string $category already trimmed and lower-cased
+     */
+    private static function matches(array $entry, string $id, string $kind, string $category): bool
+    {
+        if ($entry['kind'] !== null && $entry['kind'] !== $kind) {
+            return false;
+        }
+        if ($entry['category'] !== null && mb_strtolower(trim($entry['category'])) !== $category) {
+            return false;
+        }
+
+        return $entry['component'] === null || in_array($id, $entry['component'], true);
+    }
+
+    /** The name of a tier as `list --sections` prints it. */
+    public static function tierName(int $tier): string
+    {
+        return match ($tier) {
+            self::TIER_COMPONENT => 'component',
+            self::TIER_KIND_CATEGORY => 'kind+category',
+            self::TIER_CATEGORY => 'category',
+            self::TIER_KIND => 'kind',
+            default => 'fallback',
+        };
+    }
+
+    /** `components.sections[3]` for messages, with what the entry declares. */
+    public function describe(int $index): string
+    {
+        $entry = $this->entries[$index] ?? null;
+        $fields = [];
+        if ($entry !== null) {
+            foreach (['kind', 'category'] as $key) {
+                if ($entry[$key] !== null) {
+                    $fields[] = $key . ': ' . $entry[$key];
+                }
+            }
+            if ($entry['component'] !== null) {
+                $fields[] = 'component: [' . implode(', ', $entry['component']) . ']';
+            }
+            if ($entry['fallback']) {
+                $fields[] = 'fallback';
+            }
+        }
+
+        return sprintf('`components.sections[%d]` (%s)', $index, implode(', ', $fields));
+    }
+
+    /**
+     * What is wrong with the list, judged against real components.
+     *
+     * - `duplicate`: an entry declares exactly what an earlier one declares,
+     *   so it can never win a tier.
+     * - `shadowed`: the entry matches components, but every one of them goes
+     *   to another entry (an earlier one in the same tier, or a more
+     *   specific one).
+     * - `unmatched`: no component matches the entry, or nothing falls through
+     *   to the `fallback` entry.
+     *
+     * Give it the components of `templates_path` BEFORE `components.include`
+     * filters them: a project that ships no e-shop components must not get a
+     * finding for the kit's E-shop entry.
+     *
+     * @param list<array{id?: mixed, kind?: mixed, category?: mixed}> $components
+     * @return list<array{type: 'duplicate'|'shadowed'|'unmatched', entry: int, other: int|null}>
+     */
+    public function diagnose(array $components): array
+    {
+        $findings = [];
+        $signatures = [];
+        foreach ($this->entries as $index => $entry) {
+            if ($entry['fallback']) {
+                continue;
+            }
+            $component = $entry['component'];
+            if ($component !== null) {
+                sort($component);
+            }
+            $signature = json_encode([$entry['kind'], $entry['category'] === null ? null : mb_strtolower(trim($entry['category'])), $component]);
+            if (isset($signatures[$signature])) {
+                $findings[] = ['type' => 'duplicate', 'entry' => $index, 'other' => $signatures[$signature]];
+            } else {
+                $signatures[$signature] = $index;
+            }
+        }
+        $duplicates = array_column($findings, 'entry');
+
+        $resolved = [];
+        foreach ($components as $component) {
+            $resolved[] = [
+                'id' => (string) ($component['id'] ?? ''),
+                'kind' => is_string($component['kind'] ?? null) ? $component['kind'] : '',
+                'category' => mb_strtolower(trim(is_string($component['category'] ?? null) ? $component['category'] : '')),
+                'index' => $this->resolve($component)['index'],
+            ];
+        }
+
+        foreach ($this->entries as $index => $entry) {
+            if (in_array($index, $duplicates, true)) {
+                continue;
+            }
+            if ($entry['fallback']) {
+                $takes = array_filter($resolved, static fn(array $c): bool => $c['index'] === $index);
+                if ($takes === []) {
+                    $findings[] = ['type' => 'unmatched', 'entry' => $index, 'other' => null];
+                }
+                continue;
+            }
+            $matching = array_filter(
+                $resolved,
+                static fn(array $c): bool => self::matches($entry, $c['id'], $c['kind'], $c['category']),
+            );
+            if ($matching === []) {
+                $findings[] = ['type' => 'unmatched', 'entry' => $index, 'other' => null];
+                continue;
+            }
+            $winners = array_unique(array_map(static fn(array $c): ?int => $c['index'], $matching), SORT_REGULAR);
+            if (!in_array($index, $winners, true)) {
+                $first = array_values(array_filter($winners, static fn(?int $w): bool => $w !== null))[0] ?? null;
+                $findings[] = ['type' => 'shadowed', 'entry' => $index, 'other' => $first];
+            }
+        }
+
+        return $findings;
     }
 
     /**

@@ -2828,6 +2828,25 @@ final class Styleguide
     }
 
     /**
+     * @internal For `styleguide doctor`. The `components.sections` resolver and
+     *           the components of `templates_path` as they stand BEFORE
+     *           `components.include` filters them; null without the key.
+     *
+     * @return array{sections: ComponentSections, components: list<array<string, mixed>>}|null
+     */
+    public function sectionsReport(): ?array
+    {
+        if ($this->componentSections === null) {
+            return null;
+        }
+
+        return [
+            'sections' => $this->componentSections,
+            'components' => array_values((new ComponentParser($this->roots))->parseAll('component')),
+        ];
+    }
+
+    /**
      * @internal Resolved paths, for `styleguide doctor` only.
      *
      * Doctor has to check that every configured path actually exists, and the

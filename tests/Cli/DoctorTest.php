@@ -514,4 +514,76 @@ final class DoctorTest extends TestCase
 
         self::assertNotContains('front-controller', $checks);
     }
+
+    /**
+     * @param string $sections the lines under `components:` (already indented)
+     * @return list<DoctorFinding> only the `sections` findings
+     */
+    private function sectionFindings(string $sections): array
+    {
+        $path = $this->config();
+        file_put_contents($path, "components:\n  sections:\n" . $sections, FILE_APPEND);
+        $findings = (new Doctor())->run($path);
+
+        return array_values(array_filter($findings, static fn(DoctorFinding $f): bool => $f->check === 'sections'));
+    }
+
+    #[Test]
+    public function an_exact_duplicate_section_entry_is_a_warning(): void
+    {
+        $findings = $this->sectionFindings(
+            "    - id: a\n      label: A\n      component: [sample]\n"
+            . "    - id: b\n      label: B\n      component: [sample]\n",
+        );
+
+        self::assertCount(1, $findings);
+        self::assertSame(LintSeverity::Warning, $findings[0]->severity);
+        self::assertStringContainsString('components.sections[1]', $findings[0]->message);
+        self::assertStringContainsString('repeats', $findings[0]->message);
+    }
+
+    #[Test]
+    public function a_shadowed_section_entry_is_a_warning(): void
+    {
+        $findings = $this->sectionFindings(
+            "    - id: wide\n      label: Wide\n      component: [sample, another]\n"
+            . "    - id: narrow\n      label: Narrow\n      component: [sample]\n"
+            . "    - id: rest\n      fallback: true\n      hidden: true\n",
+        );
+
+        $messages = array_map(static fn(DoctorFinding $f): string => $f->severity->value . ': ' . $f->message, $findings);
+        self::assertNotEmpty(array_filter($messages, static fn(string $m): bool => str_starts_with($m, 'warning:') && str_contains($m, 'components.sections[1]') && str_contains($m, 'takes no component')), implode("\n", $messages));
+    }
+
+    #[Test]
+    public function an_entry_that_matches_nothing_is_a_notice_and_does_not_fail_the_build(): void
+    {
+        $findings = $this->sectionFindings(
+            "    - id: ghost\n      label: Ghost\n      category: NoSuchCategory\n"
+            . "    - id: rest\n      label: Rest\n      fallback: true\n",
+        );
+
+        $ghost = array_values(array_filter($findings, static fn(DoctorFinding $f): bool => str_contains($f->message, 'components.sections[0]')));
+        self::assertCount(1, $ghost);
+        self::assertSame(LintSeverity::Notice, $ghost[0]->severity);
+        self::assertFalse($ghost[0]->severity->failsBuild());
+    }
+
+    #[Test]
+    public function hidden_components_are_counted_in_a_notice(): void
+    {
+        $findings = $this->sectionFindings("    - id: internal\n      fallback: true\n      hidden: true\n");
+
+        self::assertCount(1, $findings);
+        self::assertSame(LintSeverity::Notice, $findings[0]->severity);
+        self::assertStringContainsString('hidden sections', $findings[0]->message);
+    }
+
+    #[Test]
+    public function without_the_key_doctor_reports_no_section_findings(): void
+    {
+        $findings = (new Doctor())->run($this->config());
+
+        self::assertSame([], array_values(array_filter($findings, static fn(DoctorFinding $f): bool => $f->check === 'sections')));
+    }
 }
