@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`components.sections` sets the sidebar sections** (#231). It is an ordered list of entries. Each entry has an `id`, a `label` (a string, or a map of language to string) and what it takes: a `kind`, a `category` or a list of component ids. The most specific entry wins. A `fallback` entry takes the rest, and `hidden` keeps a section out of the sidebar. The key replaces `group_by`; both together throw. The resolved list reaches the SPA as `componentsSections`, and `/api/components` adds `section` to each item. The SPA reads the list in the next change. Without the key, nothing changes.
+
 ## [1.33.0] - 2026-10-10
 
 ### Added

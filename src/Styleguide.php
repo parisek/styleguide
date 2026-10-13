@@ -71,6 +71,8 @@ final class Styleguide
 
     /** `components.group_by`, validated; null when absent */
     private ?string $componentsGroupBy;
+    /** `components.sections`, validated; null when absent */
+    private ?ComponentSections $componentSections = null;
     /** `components.include`, validated; null when absent */
     private ?ComponentFilter $componentFilter = null;
     /** `pages.include`, validated; null when absent */
@@ -374,6 +376,7 @@ final class Styleguide
         $this->compareWidths = self::compareWidths($this->yamlConfig['viewports'] ?? null);
         $this->pagesGroupBy = self::pagesGroupBy($this->yamlConfig['pages'] ?? null);
         $this->componentsGroupBy = self::componentsGroupBy($this->yamlConfig['components'] ?? null);
+        $this->componentSections = ComponentSections::fromConfig($this->yamlConfig['components'] ?? null);
         $this->componentFilter = ComponentFilter::fromConfig($this->yamlConfig['components'] ?? null);
         $this->pageFilter = ComponentFilter::fromConfig($this->yamlConfig['pages'] ?? null, 'page');
         $this->highlightSource = self::highlightSource($this->yamlConfig['highlight_source'] ?? null);
@@ -471,6 +474,8 @@ final class Styleguide
         }
 
         $this->parser = new ComponentParser($this->roots);
+        // Against every component on disk, before the include filter is set.
+        $this->componentSections?->assertAllExist($this->parser->listDirectories('component'));
         if ($this->componentFilter !== null) {
             // Checked before the filter is set, against every component on disk.
             $this->componentFilter->assertAllExist($this->parser->listDirectories('component'));
@@ -3333,6 +3338,11 @@ final class Styleguide
         if ($this->componentsGroupBy !== null) {
             $config['componentsGroupBy'] = $this->componentsGroupBy;
         }
+        // `components.sections` replaces `group_by`: the resolved list, in
+        // sidebar order. Each component names its section in /api/components.
+        if ($this->componentSections !== null) {
+            $config['componentsSections'] = $this->componentSections->payload();
+        }
         // Only for the grid: a catalogue that lands on Foundations (the
         // default, or written out) sends the same payload as before.
         if ($this->landing === 'grid') {
@@ -3996,7 +4006,7 @@ final class Styleguide
         }
 
         $endpoint = match ($route['endpoint']) {
-            'components' => new Api\ComponentsEndpoint($this->parser),
+            'components' => new Api\ComponentsEndpoint($this->parser, $this->componentSections),
             'docs' => new Api\DocsEndpoint($this->parser),
             'fields' => new Api\FieldsEndpoint($this->parser),
             'pages' => new Api\PagesEndpoint($this->parser),
