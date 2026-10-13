@@ -479,4 +479,58 @@ describe('Sidebar — locale switcher', () => {
         expect(useI18nStore().locale).toBe('sk_SK');
         expect(localStorage.getItem('sg-locale')).toBe('sk_SK');
     });
+
+    describe('components.sections', () => {
+        async function mountSections(sgOverrides = {}) {
+            stubSgConfig(sgOverrides);
+            const { wrapper, router } = await mountSidebar();
+            const catalog = useCatalogStore();
+            catalog.componentsSections = [
+                { id: 'eshop', label: { cs: 'E-shop komponenty', en: 'E-shop components' } },
+                { id: 'basic' },
+                { id: 'internal', hidden: true, fallback: true },
+            ];
+            catalog.items = [
+                { id: 'cart', name: 'Cart', section: 'eshop', has_styleguide: true },
+                { id: 'button', name: 'Button', section: 'basic', has_styleguide: true },
+                { id: 'debug-grid', name: 'Debug grid', section: 'internal', has_styleguide: true },
+            ];
+            useI18nStore().locale = 'cs';
+            await wrapper.vm.$nextTick();
+            return { wrapper, router, catalog };
+        }
+
+        it('lists the sections in the configured order with the configured label', async () => {
+            const { wrapper } = await mountSections();
+            const text = wrapper.text();
+            expect(text).toContain('E-shop komponenty');
+            expect(text.indexOf('E-shop komponenty')).toBeLessThan(text.indexOf('Basic'));
+            expect(text).toContain('Cart');
+        });
+
+        it('a section without a stored state reads as open', async () => {
+            const { wrapper } = await mountSections();
+            const head = wrapper.findAll('button[aria-expanded]').find((b) => b.text().includes('E-shop komponenty'));
+            expect(head.attributes('aria-expanded')).toBe('true');
+        });
+
+        it('keeps hidden components out of the list', async () => {
+            const { wrapper } = await mountSections();
+            expect(wrapper.text()).not.toContain('Debug grid');
+        });
+
+        it('shows the hidden toggle only behind show_source, and it lists them with a badge', async () => {
+            const closed = await mountSections();
+            expect(closed.wrapper.find('[data-testid="sidebar-hidden-toggle"]').exists()).toBe(false);
+            closed.wrapper.unmount();
+
+            const { wrapper, catalog } = await mountSections({ showSource: true });
+            const toggle = wrapper.find('[data-testid="sidebar-hidden-toggle"]');
+            expect(toggle.exists()).toBe(true);
+            await toggle.trigger('click');
+            expect(catalog.showHidden).toBe(true);
+            expect(wrapper.text()).toContain('Debug grid');
+            expect(wrapper.find('[data-testid="sidebar-hidden-badge"]').exists()).toBe(true);
+        });
+    });
 });

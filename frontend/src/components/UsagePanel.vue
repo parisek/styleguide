@@ -32,6 +32,8 @@ const items = computed(() => {
         const page = catalog.pages.find((p) => p.id === id);
         if (page) return { id, type: 'page', name: page.name ?? id };
         const comp = catalog.items.find((c) => c.id === id);
+        // A component of a hidden section: named, not linked.
+        if (comp && !catalog.showHidden && catalog.isHidden(comp)) return { id, type: null, name: comp.name ?? id };
         if (comp) return { id, type: 'component', name: comp.name ?? id };
         // Unknown reference — still show as a chip but greyed out + non-clickable.
         return { id, type: null, name: id };

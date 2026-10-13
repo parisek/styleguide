@@ -2,9 +2,11 @@
 import { inject, ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
+import { useCatalogStore } from '../stores/catalog.js';
 import { widthLabel, widthCategory } from '../lib/viewportMath.js';
 
 const i18n = useI18nStore();
+const catalog = useCatalogStore();
 const ui = useUiStore();
 const viewport = inject('viewport');
 
@@ -316,7 +318,7 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                          non-interactive label in that case). -->
                     <nav class="flex items-center gap-1.5 min-w-0 text-sm" aria-label="Breadcrumb">
                         <template v-if="viewport.currentSectionKey.value">
-                            <span class="text-zinc-500 shrink-0">{{ i18n.t(`sections.${viewport.currentSectionKey.value}`) }}</span>
+                            <span class="text-zinc-500 shrink-0">{{ catalog.sectionLabel(viewport.currentSectionKey.value) }}</span>
                             <span class="text-zinc-400 dark:text-zinc-600 shrink-0">/</span>
                         </template>
                         <button v-if="viewport.variant.value" type="button"

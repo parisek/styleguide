@@ -40,7 +40,7 @@ function rank(type, list) {
 // some default listing.
 const groups = computed(() => {
     if (query.value.trim() === '') return [];
-    const componentRows = rank('component', catalog.items.filter((c) => c.has_styleguide !== false));
+    const componentRows = rank('component', catalog.listedItems);
     const pageRows = rank('page', catalog.pages.filter((p) => p.has_styleguide !== false));
     const docRows = rank('doc', catalog.docEntries);
     return [

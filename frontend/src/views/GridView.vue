@@ -89,7 +89,7 @@ function widthLabel(width) {
 
 const order = computed(() => [...catalog.componentSectionKeys, 'pages']);
 const entries = computed(() => gridEntries(
-    { items: catalog.items, pages: catalog.pages },
+    { items: catalog.listedItems, pages: catalog.pages },
     (item, type) => catalog.sectionOf(item, type),
     order.value,
 ));
@@ -103,7 +103,7 @@ const visible = computed(() => filterGridEntries(entries.value, { section: secti
 const pagesGroupBy = (() => { try { return readSpaConfig().pagesGroupBy; } catch { return null; } })();
 const boardRows = computed(() => boardGroups(visible.value, {
     groupBy: pagesGroupBy,
-    sectionLabel: (section) => i18n.t(`sections.${section}`),
+    sectionLabel: (section) => catalog.sectionLabel(section),
     defaultLabel: i18n.t('sections.pages_other'),
 }));
 
@@ -192,7 +192,7 @@ const chipClass = pillState;
                     class="inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors"
                     :class="chipClass(section === chip.section)"
                     @click="section = chip.section"
-                >{{ i18n.t(`sections.${chip.section}`) }} <span class="opacity-60">{{ chip.count }}</span></button>
+                >{{ catalog.sectionLabel(chip.section) }} <span class="opacity-60">{{ chip.count }}</span></button>
                 <div class="ml-auto flex items-center gap-2" role="group" :aria-label="i18n.t('grid.width_label')">
                     <button
                         v-for="width in widthOptions"

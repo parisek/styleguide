@@ -7,7 +7,11 @@
         "blocks": "Blocks",
         "gutenberg": "Gutenberg",
         "pages": "Pages",
-        "pages_other": "Other"
+        "pages_other": "Other",
+        "other": "Other",
+        "hidden_badge": "hidden",
+        "hidden_show": "Hidden: {n}, show",
+        "hidden_hide": "Hidden: {n}, hide"
     },
     "toolbar": {
         "type_component": "Component",
