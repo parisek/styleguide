@@ -31,10 +31,16 @@ const componentSections = computed(() => {
     }
     // Reading order: Pages (own section, rendered separately above), then
     // Blocks, then every other section. The overview is where a catalogue is
-    // read for its pages and blocks, so they lead in both modes. The rest keep
-    // the order the mode brings: the legacy Gutenberg -> Basic, or the
-    // sidebar's under `components.group_by: kind`.
-    const rest = catalog.componentsGroupBy === 'kind' || catalog.componentsSections ? catalog.componentSectionKeys : ['gutenberg', 'basic'];
+    // read for its pages and blocks, so they lead under the legacy rules. The
+    // rest keep the order the mode brings: the legacy Gutenberg -> Basic, or
+    // the sidebar's under `components.group_by: kind`. With
+    // `components.sections` the list is the order: nothing moves.
+    if (catalog.componentsSections) {
+        return catalog.componentSectionKeys
+            .filter((section) => buckets[section]?.length > 0)
+            .map((section) => ({ section, items: buckets[section] }));
+    }
+    const rest = catalog.componentsGroupBy === 'kind' ? catalog.componentSectionKeys : ['gutenberg', 'basic'];
     const order = ['blocks', ...rest.filter((section) => section !== 'blocks')];
     return order
         .filter((section) => buckets[section]?.length > 0)

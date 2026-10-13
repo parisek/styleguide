@@ -58,7 +58,9 @@ export const useCatalogStore = defineStore('catalog', {
         // match FieldsView's own groups filter, or the nav entry can point
         // at a view with nothing to show (only fields-bearing component is
         // itself hidden from the styleguide).
-        hasFields: (state) => state.items.some((c) => Array.isArray(c.fields) && c.fields.length > 0 && c.has_styleguide !== false),
+        hasFields() {
+            return this.listedItems.some((c) => Array.isArray(c.fields) && c.fields.length > 0);
+        },
     },
     actions: {
         async init() {

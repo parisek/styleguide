@@ -48,6 +48,18 @@ describe('OverviewView', () => {
         expect(headings).toEqual(['Pages', 'Blocks', 'Basic', 'Parts', 'Sections']);
     });
 
+    it('with components.sections the configured order is kept, Blocks not moved first', async () => {
+        const { wrapper, catalog } = await mountOverview();
+        catalog.componentsSections = [{ id: 'eshop', label: 'Shop' }, { id: 'basic' }, { id: 'blocks' }, { id: 'other', fallback: true }];
+        catalog.items = [
+            { id: 'btn', name: 'Button', section: 'basic', has_styleguide: true },
+            { id: 'hero', name: 'Hero', section: 'blocks', has_styleguide: true },
+            { id: 'cart', name: 'Cart', section: 'eshop', has_styleguide: true },
+        ];
+        await flushPromises();
+        expect(wrapper.findAll('h2').map((h) => h.text())).toEqual(['Pages', 'Shop', 'Basic', 'Blocks']);
+    });
+
     it('shows a Figma link icon for an item carrying a figma metadata field', async () => {
         const { wrapper } = await mountOverview();
         expect(wrapper.find('a[href="https://figma/hero"]').exists()).toBe(true);

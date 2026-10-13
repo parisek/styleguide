@@ -13,8 +13,8 @@ const query = ref('');
 
 const groups = computed(() => {
     const q = normalizeForSearch(query.value);
-    return catalog.items
-        .filter((c) => Array.isArray(c.fields) && c.fields.length > 0 && c.has_styleguide !== false)
+    return catalog.listedItems
+        .filter((c) => Array.isArray(c.fields) && c.fields.length > 0)
         .map((c) => {
             const rows = flattenFieldsTree(c.fields);
             if (!q) return { id: c.id, name: c.name, rows };

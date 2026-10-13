@@ -100,4 +100,28 @@ describe('FieldsView', () => {
         expect(wrapper.text()).toContain('No fields match the filter.');
         expect(wrapper.text()).not.toContain('Defkit Card');
     });
+
+    it('leaves out a component of a hidden section until the toggle shows it', async () => {
+        const { wrapper, catalog } = await mountFieldsView();
+        catalog.componentsSections = [{ id: 'basic' }, { id: 'internal', hidden: true, fallback: true }];
+        catalog.items = [
+            { id: 'visible', name: 'Visible', section: 'basic', has_styleguide: true, fields: [{ key: 'a', label: 'A', type: 'text' }] },
+            { id: 'secret', name: 'Secret', section: 'internal', has_styleguide: true, fields: [{ key: 'b', label: 'B', type: 'text' }] },
+        ];
+        await wrapper.vm.$nextTick();
+        expect(wrapper.text()).toContain('Visible');
+        expect(wrapper.text()).not.toContain('Secret');
+        catalog.showHidden = true;
+        await wrapper.vm.$nextTick();
+        expect(wrapper.text()).toContain('Secret');
+    });
+
+    it('hasFields ignores fields that only a hidden component declares', async () => {
+        const { catalog } = await mountFieldsView();
+        catalog.componentsSections = [{ id: 'internal', hidden: true, fallback: true }];
+        catalog.items = [{ id: 'secret', name: 'Secret', section: 'internal', has_styleguide: true, fields: [{ key: 'b', label: 'B', type: 'text' }] }];
+        expect(catalog.hasFields).toBe(false);
+        catalog.showHidden = true;
+        expect(catalog.hasFields).toBe(true);
+    });
 });
