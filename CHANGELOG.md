@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.34.0] - 2026-10-13
+
 ### Added
 
 - **`components.sections` sets the sidebar sections** (#231). It is an ordered list of entries. Each entry has an `id`, a `label` (a string, or a map of language to string) and what it takes: a `kind`, a `category` or a list of component ids. The most specific entry wins. A `fallback` entry takes the rest, and `hidden` keeps a section out of the sidebar. The key replaces `group_by`; both together throw. The resolved list reaches the SPA as `componentsSections`, and `/api/components` adds `section` to each item. The sidebar, the grid chips, the board, the overview (which keeps the configured order and does not move Blocks first) and the toolbar breadcrumb read the order and the label from it (a language map follows the chrome language). A section with no listed component is not shown. A hidden section leaves the sidebar, the grid, the board, the overview, the Fields page and the search; its components still render by URL, and a usage chip names them without a link. A "Hidden: N" toggle in the sidebar shows them again, behind the same gate as the Code panel (`show_source`). Without the key, nothing changes.
