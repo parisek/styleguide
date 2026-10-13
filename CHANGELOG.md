@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.35.0] - 2026-10-13
+
 ### Added
 
 - **`styleguide list --sections` and `show` name the section of a component.** With `components.sections` in `styleguide.yaml` (`--config`, or found by convention), `--sections` adds `section`, `section_entry`, `section_tier` and `section_hidden` to each component. `show` adds the same four fields without the flag. They come from the resolver the catalogue uses. The flag without the key exits `1`.
