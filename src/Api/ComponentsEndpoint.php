@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Api;
 
 use Parisek\Styleguide\ComponentParser;
+use Parisek\Styleguide\ComponentSections;
 use Parisek\Styleguide\Http\Result;
 
 /**
@@ -16,7 +17,10 @@ use Parisek\Styleguide\Http\Result;
  */
 final class ComponentsEndpoint
 {
-    public function __construct(private ComponentParser $parser) {}
+    public function __construct(
+        private ComponentParser $parser,
+        private ?ComponentSections $sections = null,
+    ) {}
 
     /**
      * @see \Parisek\Styleguide\Http\Result — describes the response rather
@@ -25,8 +29,18 @@ final class ComponentsEndpoint
      */
     public function handle(): Result
     {
+        $components = $this->parser->parseAll('component');
+        // `components.sections`: each entry names its section, so the SPA and
+        // the CLI never repeat the matching rules. Absent: the payload is
+        // what it was before the key existed.
+        if ($this->sections !== null) {
+            foreach ($components as $index => $component) {
+                $components[$index]['section'] = $this->sections->resolve($component)['id'];
+            }
+        }
+
         return Result::json((string) json_encode(
-            $this->parser->parseAll('component'),
+            $components,
             JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
         ));
     }
