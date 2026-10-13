@@ -216,6 +216,16 @@ final class ComponentSectionsTest extends TestCase
     }
 
     #[Test]
+    public function a_fallback_entry_may_write_the_id_other_and_replaces_the_implicit_section(): void
+    {
+        $sections = self::sections([['kind' => 'block'], ['id' => 'other', 'fallback' => true, 'label' => 'Rest']]);
+
+        self::assertSame(['blocks', 'other'], array_column($sections->payload(), 'id'));
+        self::assertSame('other', $sections->resolve(['id' => 'x', 'kind' => '', 'category' => ''])['id']);
+        self::assertSame(1, $sections->resolve(['id' => 'x', 'kind' => '', 'category' => ''])['index']);
+    }
+
+    #[Test]
     public function a_fallback_entry_without_an_id_is_the_section_other(): void
     {
         $payload = self::sections([['kind' => 'block'], ['fallback' => true]])->payload();
