@@ -247,6 +247,10 @@ final class ComponentSectionsTest extends TestCase
         yield 'category entry without id' => [[['category' => 'Ecommerce', 'label' => 'Shop']], 'needs an `id`'];
         yield 'custom id without label' => [[['id' => 'eshop', 'category' => 'Ecommerce']], 'needs a `label`'];
         yield 'label a list' => [[['kind' => 'block', 'label' => ['a', 'b']]], '`label` must be a string or a map'];
+        yield 'null kind' => [[['kind' => null, 'id' => 'x', 'label' => 'X', 'category' => 'Y']], '`kind` must not be null'];
+        yield 'null hidden' => [[['kind' => 'block', 'hidden' => null]], '`hidden` must not be null'];
+        yield 'null id' => [[['kind' => 'block', 'id' => null]], '`id` must not be null'];
+        yield 'custom id other' => [[['id' => 'other', 'label' => 'Other', 'category' => 'Misc']], 'reserved for the `fallback` entry'];
         yield 'label map with empty text' => [[['kind' => 'block', 'label' => ['cs' => '']]], '`label` must be a string or a map'];
     }
 
@@ -271,11 +275,62 @@ final class ComponentSectionsTest extends TestCase
     }
 
     #[Test]
-    public function a_null_group_by_does_not_conflict(): void
+    public function a_null_group_by_next_to_sections_also_throws(): void
     {
-        $config = $this->spaConfig($this->styleguide(['components' => ['group_by' => null, 'sections' => [['kind' => 'block']]]]));
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('replaces `components.group_by`');
 
-        self::assertArrayHasKey('componentsSections', $config);
+        $this->styleguide(['components' => ['group_by' => null, 'sections' => [['kind' => 'block']]]]);
+    }
+
+    #[Test]
+    public function a_category_compares_case_insensitively_beyond_ascii(): void
+    {
+        $sections = self::sections([['id' => 'live', 'label' => 'Live', 'category' => 'Živé']]);
+
+        self::assertSame('live', $sections->resolve(['id' => 'a', 'kind' => 'block', 'category' => 'ŽIVÉ'])['id']);
+        self::assertSame('live', $sections->resolve(['id' => 'a', 'kind' => 'block', 'category' => ' živé '])['id']);
+    }
+
+    #[Test]
+    public function include_runs_first_and_a_filtered_out_component_may_still_be_named(): void
+    {
+        $all = $this->styleguide(['components' => ['sections' => [['kind' => 'element'], ['kind' => 'block']]]]);
+        $result = $all->handle(new Request('/styleguide/api/components'));
+        self::assertNotNull($result);
+        $ids = array_column((array) json_decode((string) $result->body, true, flags: \JSON_THROW_ON_ERROR), 'id');
+        self::assertGreaterThan(1, count($ids));
+        $listed = $ids[0];
+        $other = $ids[1];
+
+        // `include` lists one id; `sections` names another that exists but is filtered out: no error.
+        $styleguide = $this->styleguide(['components' => [
+            'include' => [$listed],
+            'sections' => [['id' => 'named', 'label' => 'Named', 'component' => [$other]], ['kind' => 'element'], ['kind' => 'block']],
+        ]]);
+        $result = $styleguide->handle(new Request('/styleguide/api/components'));
+        self::assertNotNull($result);
+        $items = (array) json_decode((string) $result->body, true, flags: \JSON_THROW_ON_ERROR);
+
+        self::assertSame([$listed], array_column($items, 'id'));
+        self::assertNotSame('named', $items[0]['section']);
+    }
+
+    #[Test]
+    public function a_hidden_fallback_reaches_the_api_and_the_payload(): void
+    {
+        $styleguide = $this->styleguide(['components' => ['sections' => [
+            ['kind' => 'element'],
+            ['id' => 'internal', 'fallback' => true, 'hidden' => true],
+        ]]]);
+        $result = $styleguide->handle(new Request('/styleguide/api/components'));
+        self::assertNotNull($result);
+        $items = (array) json_decode((string) $result->body, true, flags: \JSON_THROW_ON_ERROR);
+
+        $sections = array_unique(array_column($items, 'section'));
+        self::assertContains('internal', $sections, 'a component that is not an element goes to the hidden fallback');
+        self::assertNotContains('other', $sections);
+        self::assertTrue($this->spaConfig($styleguide)['componentsSections'][1]['hidden']);
     }
 
     #[Test]

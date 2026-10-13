@@ -68,7 +68,7 @@ final class ComponentSections
         if (!is_array($components) || array_is_list($components) || !array_key_exists('sections', $components)) {
             return null;
         }
-        if (($components['group_by'] ?? null) !== null) {
+        if (array_key_exists('group_by', $components)) {
             throw new \InvalidArgumentException(
                 'styleguide.yaml: `components.sections` replaces `components.group_by`; set only one of them',
             );
@@ -121,6 +121,12 @@ final class ComponentSections
                     (string) $field,
                     implode(', ', self::FIELDS),
                 ));
+            }
+        }
+
+        foreach ($raw as $field => $value) {
+            if ($value === null) {
+                throw new \InvalidArgumentException(sprintf('%s: `%s` must not be null (leave the field out)', $where, (string) $field));
             }
         }
 
@@ -193,6 +199,9 @@ final class ComponentSections
         } else {
             throw new \InvalidArgumentException($where . ' needs an `id`: only a bare `kind` entry or a `fallback` entry derives one');
         }
+        if ($id === self::OTHER && !$fallback) {
+            throw new \InvalidArgumentException(sprintf('%s: the id "%s" is reserved for the `fallback` entry', $where, self::OTHER));
+        }
         // A heading comes from the entry, or from the SPA locale for a built-in id.
         // A hidden section shows no heading, so it needs none.
         $builtin = in_array($id, self::BUILTIN_IDS, true) || $id === self::OTHER;
@@ -221,7 +230,7 @@ final class ComponentSections
     {
         $id = (string) ($component['id'] ?? '');
         $kind = is_string($component['kind'] ?? null) ? $component['kind'] : '';
-        $category = strtolower(trim(is_string($component['category'] ?? null) ? $component['category'] : ''));
+        $category = mb_strtolower(trim(is_string($component['category'] ?? null) ? $component['category'] : ''));
 
         $best = null;
         $bestTier = self::TIER_FALLBACK;
@@ -234,7 +243,7 @@ final class ComponentSections
             if ($entry['kind'] !== null && $entry['kind'] !== $kind) {
                 continue;
             }
-            if ($entry['category'] !== null && strtolower(trim($entry['category'])) !== $category) {
+            if ($entry['category'] !== null && mb_strtolower(trim($entry['category'])) !== $category) {
                 continue;
             }
             if ($entry['component'] !== null && !in_array($id, $entry['component'], true)) {
