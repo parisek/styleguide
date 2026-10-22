@@ -30,10 +30,11 @@ final class NullContentTest extends TestCase
 
     protected function tearDown(): void
     {
-        if ($this->previousLog !== false && $this->previousLog !== '') {
-            ini_set('error_log', $this->previousLog);
+        if ($this->log !== '') {
+            ini_set('error_log', $this->previousLog === false ? '' : $this->previousLog);
+            @unlink($this->log);
         }
-        @unlink($this->log);
+        parent::tearDown();
     }
 
     private function twig(): Environment
@@ -107,6 +108,14 @@ final class NullContentTest extends TestCase
     }
 
     #[Test]
+    public function a_repeated_call_site_logs_once(): void
+    {
+        $this->twig()->createTemplate('{% for i in 1..3 %}{{ component_ok(null) }}{% endfor %}')->render([]);
+
+        self::assertSame(1, substr_count($this->logged(), 'called with null content'));
+    }
+
+    #[Test]
     public function an_array_and_a_missing_argument_stay_silent(): void
     {
         $html = $this->twig()->createTemplate('{{ component_ok({label: "x"}) }}{{ component_ok() }}{{ component_ok([]) }}')->render([]);
@@ -126,7 +135,7 @@ final class NullContentTest extends TestCase
         } catch (RuntimeError $e) {
             // Twig wraps the signature violation; the cause is what matters.
             self::assertInstanceOf(\TypeError::class, $e->getPrevious());
-            self::assertStringContainsString('must be of type ?array, string given', $e->getMessage());
+            self::assertStringContainsString('renderComponent()', $e->getPrevious()->getMessage());
         }
     }
 }

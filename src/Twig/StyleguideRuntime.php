@@ -73,6 +73,13 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
     private array $renderers = [];
 
     /**
+     * Null-content warnings already logged, keyed by message.
+     *
+     * @var array<string, true>
+     */
+    private array $reportedNullContent = [];
+
+    /**
      * @param \Closure(): string|null $localeResolver
      *   Returns the locale this render is in, invoked fresh on every
      *   translator call. A resolver rather than a value because the locale is
@@ -214,23 +221,34 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      *
      * The caller is read off the PHP backtrace: Twig compiles the call into
      * the calling template's `doDisplay()`, and `getDebugInfo()` maps the
-     * compiled line back to the template line. `error_log()` rather than a
+     * compiled line back to the template line. `Template` is internal to Twig,
+     * so a change there degrades the message (no line) and never breaks the
+     * render. `error_log()` rather than a
      * throw, like the other render diagnostics.
      */
     private function reportNullContent(string $prefix, string $templateName): void
     {
-        error_log(sprintf(
-            '[parisek/styleguide] %s_%s() called with null content in %s; rendered as []. '
-            . 'Pass [] or guard the call if the sub-object is optional.',
+        $message = sprintf(
+            '[parisek/styleguide] %s_%s() called with null content in %s; rendered as [].',
             $prefix,
             $templateName,
             self::callerLocation(),
-        ));
+        );
+
+        // Once per call site and runtime: a loop over twelve teasers that each
+        // pass an optional sub-object would otherwise write twelve identical
+        // lines on every render.
+        if (isset($this->reportedNullContent[$message])) {
+            return;
+        }
+        $this->reportedNullContent[$message] = true;
+
+        error_log($message);
     }
 
     private static function callerLocation(): string
     {
-        $frames = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 12);
+        $frames = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT | DEBUG_BACKTRACE_IGNORE_ARGS, 12);
         foreach ($frames as $i => $frame) {
             $object = $frame['object'] ?? null;
             if (!$object instanceof Template) {
