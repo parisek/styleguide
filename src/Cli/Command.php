@@ -210,7 +210,18 @@ final class Command
 
         $types = $rawType === null ? null : [$rawType];
         $linter = new Linter($templates, $ignores);
-        $findings = $linter->run($types);
+        $renderFindings = null;
+        if (!isset($flags['no-render'])) {
+            try {
+                $renderFindings = $this->nullContentFindings($flags['config'] ?? null, $types, $stderr);
+            } catch (\LogicException $e) {
+                // The environment cannot record a trace: a run that went on
+                // would report a clean `null-content` it never checked.
+                fwrite($stderr, $e->getMessage() . "\n");
+                return 2;
+            }
+        }
+        $findings = $linter->run($types, $renderFindings);
         $suppressed = $linter->suppressedFindings();
 
         if ($rawFormat === 'json') {
@@ -246,6 +257,40 @@ final class Command
             }
         }
         return 0;
+    }
+
+    /**
+     * The `null-content` rule: renders every fixture of the project in
+     * `styleguide.yaml`.
+     *
+     * Returns `null` when the rule could not run, and says so on STDERR. It
+     * does not fail the run: `lint` worked from `--templates` alone before this
+     * rule existed, and a project with no `styleguide.yaml` in reach, or one
+     * that does not load (`doctor` reports that), must not start exiting
+     * non-zero for it. The skip is announced for the same reason suppressions
+     * are: a check that did not run must not look like one that passed.
+     *
+     * @param list<string>|null $types
+     * @param resource $stderr
+     * @return list<LintFinding>|null
+     * @throws \LogicException When the Twig environment cannot be observed.
+     */
+    private function nullContentFindings(string|bool|null $configOverride, ?array $types, $stderr): ?array
+    {
+        $configPath = $this->resolveConfigPath($configOverride);
+        if ($configPath === null) {
+            fwrite($stderr, "null-content skipped: no styleguide.yaml found. Use --config=<path>, or --no-render to silence this.\n");
+            return null;
+        }
+
+        try {
+            $styleguide = Styleguide::fromYaml($configPath);
+        } catch (\Throwable $e) {
+            fwrite($stderr, sprintf("null-content skipped: %s does not load (%s). Run `styleguide doctor`.\n", $configPath, $e->getMessage()));
+            return null;
+        }
+
+        return (new NullContentCheck())->run($styleguide, $types);
     }
 
     /**
@@ -684,7 +729,8 @@ final class Command
                               different index.php without --force.
           lint                Report metadata quality issues: unindexed templates, dead
                               `styleguide:` content, broken `usage:` refs, unknown `render:`
-                              values, empty descriptions. Non-zero exit for CI.
+                              values, empty descriptions, and `component_*()` calls that get
+                              null content when a fixture is rendered. Non-zero exit for CI.
 
         Options:
           --type=component|page|doc  Select the catalogue type (default: component;
@@ -694,6 +740,9 @@ final class Command
                                  Default: \$STYLEGUIDE_TEMPLATES, then ./templates.
           --ignore=<path>        lint only — ignore file. Default:
                                  <templates>/.styleguide-lintignore.yaml when present.
+          --no-render            lint only — do not render the fixtures. Skips the
+                                 `null-content` rule, which boots styleguide.yaml and
+                                 renders every fixture (about 12 ms each).
           --pretty               Indent JSON output (use for terminals).
           --sections             list only, components — add `section`, `section_entry`,
                                  `section_tier` and `section_hidden` to each item, from
@@ -701,7 +750,7 @@ final class Command
           --dir=<path>           front-controller:init only — where to write index.php
                                  (default: the directory of styleguide.yaml).
           --force                front-controller:init only — replace a different index.php.
-          --config=<path>        list, show, maintenance:render, doctor and front-controller:init —
+          --config=<path>        list, show, lint, maintenance:render, doctor and front-controller:init —
                                  styleguide.yaml
                                  location.
                                  Default: ./styleguide.yaml, then ./static/styleguide.yaml.

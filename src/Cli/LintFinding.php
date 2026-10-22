@@ -15,18 +15,35 @@ final class LintFinding
         public readonly string $file,
         public readonly string $rule,
         public readonly string $message,
+        public readonly ?string $component = null,
+        public readonly ?int $line = null,
+        public readonly ?string $fixture = null,
     ) {}
 
     /**
-     * @return array{severity: string, file: string, rule: string, message: string}
+     * `component`, `line` and `fixture` are present only on a finding that has
+     * them (`null-content`), so every other rule keeps the four-key shape.
+     *
+     * @return array{severity: string, file: string, rule: string, message: string, component?: string, line?: int, fixture?: string}
      */
     public function toArray(): array
     {
-        return [
+        $data = [
             'severity' => $this->severity->value,
             'file' => $this->file,
             'rule' => $this->rule,
             'message' => $this->message,
         ];
+        if ($this->component !== null) {
+            $data['component'] = $this->component;
+        }
+        if ($this->line !== null) {
+            $data['line'] = $this->line;
+        }
+        if ($this->fixture !== null) {
+            $data['fixture'] = $this->fixture;
+        }
+
+        return $data;
     }
 }

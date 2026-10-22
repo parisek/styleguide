@@ -1,0 +1,5 @@
+bootstrap:
+  templates_path: templates
+  static_path: .
+project:
+  name: Null content fixture
