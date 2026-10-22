@@ -1055,7 +1055,7 @@ and each variant.
 
   The JSON finding also has `component`, `line` and `fixture`. A key set to
   `[]` or `{}` is an intentional empty value and is not reported.
-- `render-failed` (warning). A fixture that renders with HTTP 4xx/5xx, or
+- `render-failed` (notice, so it never changes the exit code). A fixture that renders with HTTP 4xx/5xx, or
   throws, is reported on its own. Its trace stops at the failure, so a quiet
   `null-content` for it would claim a check that did not finish. `doctor` renders
   one fixture only; this is the whole-tree check.
@@ -1072,7 +1072,7 @@ includes in `unobservable`). Only fixtures in the catalogue render, so a
 component hidden by `components.include`, or one with no fixture, is not
 checked on its own. Fixtures need nothing beyond what `Styleguide::fromYaml()`
 builds: a project whose fixtures use host Twig extensions renders them as
-`render-failed` here; pass `--no-render` there.
+`render-failed` notices here; the exit code stays `0`. Pass `--no-render` to skip the rendering.
 
 Text output is one line per finding: `SEVERITY  file  message`. JSON output
 is an array of `{ severity, file, rule, message }` objects; `null-content` adds `component`, `line` and `fixture`, `render-failed` adds `fixture`. Exit code: `0`

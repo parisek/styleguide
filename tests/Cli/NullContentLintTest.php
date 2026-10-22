@@ -172,7 +172,7 @@ final class NullContentLintTest extends TestCase
 
         self::assertCount(1, $failed);
         self::assertSame('component/broken', $failed[0]->fixture);
-        self::assertSame(LintSeverity::Warning, $failed[0]->severity);
+        self::assertSame(LintSeverity::Notice, $failed[0]->severity);
     }
 
     #[Test]

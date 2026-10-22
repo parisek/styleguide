@@ -18,7 +18,9 @@ use Parisek\Styleguide\Styleguide;
  * Since a `null` renders as `[]` and writes one log line, a forgotten fixture
  * key no longer fails the render. This rule is what lets CI see it.
  *
- * A fixture that does not render is a finding of its own (`render-failed`).
+ * A fixture that does not render is a finding of its own (`render-failed`, a
+ * notice: it never fails the build, so a project whose fixtures need host Twig
+ * extensions does not go red by upgrading).
  * Its trace stops at the failure, so a green `null-content` for it would
  * claim a check that did not finish.
  */
@@ -54,7 +56,7 @@ final class NullContentCheck
                 throw $e;
             } catch (\Throwable $e) {
                 $findings[] = new LintFinding(
-                    LintSeverity::Warning,
+                    LintSeverity::Notice,
                     $file,
                     self::RENDER_FAILED_RULE,
                     sprintf('Fixture %s threw while rendering: %s. Its `null-content` check did not finish.', $label, $e->getMessage()),
@@ -65,7 +67,7 @@ final class NullContentCheck
 
             if ($trace['status'] >= 400) {
                 $findings[] = new LintFinding(
-                    LintSeverity::Warning,
+                    LintSeverity::Notice,
                     $file,
                     self::RENDER_FAILED_RULE,
                     sprintf('Fixture %s renders with HTTP %d. Its `null-content` check stopped at the failure.', $label, $trace['status']),
