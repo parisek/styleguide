@@ -41,6 +41,7 @@ final class RenderObserver
      *   fixture: array{kind: string, slug: string, variant: string|null},
      *   stack: list<string>,
      *   calls: list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>,
+     *   nullContent: array<string, array{component: string, kind: 'component'|'page', fixture: array{kind: string, slug: string, variant: string|null}, caller: array{template: string|null, line: int|null}}>,
      * }>
      * Last element is the innermost currently-armed observation — the one
      * `enter()`/`exit()` operate on. Empty means "not armed at all".
@@ -58,7 +59,7 @@ final class RenderObserver
      */
     public function arm(array $fixture): void
     {
-        $this->frames[] = ['fixture' => $fixture, 'stack' => [], 'calls' => []];
+        $this->frames[] = ['fixture' => $fixture, 'stack' => [], 'calls' => [], 'nullContent' => []];
     }
 
     /**
@@ -72,9 +73,54 @@ final class RenderObserver
      */
     public function disarm(): array
     {
+        return $this->disarmWithNullContent()['calls'];
+    }
+
+    /**
+     * Like {@see disarm()}, and also returns the calls that received `null`
+     * content. They are a separate list, not a flag on `calls`: a consumer that
+     * reads `calls[].arguments` as an array keeps working, and a null call
+     * still shows there as `[]`, the value it rendered with.
+     *
+     * @return array{
+     *   calls: list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>,
+     *   nullContent: list<array{component: string, kind: 'component'|'page', fixture: array{kind: string, slug: string, variant: string|null}, caller: array{template: string|null, line: int|null}}>,
+     * }
+     */
+    public function disarmWithNullContent(): array
+    {
         $frame = array_pop($this->frames);
 
-        return $frame['calls'] ?? [];
+        return [
+            'calls' => $frame['calls'] ?? [],
+            'nullContent' => array_values($frame['nullContent'] ?? []),
+        ];
+    }
+
+    /**
+     * Records a `component_*()` / `page_*()` call whose content was `null`.
+     *
+     * Called BEFORE the call's own `enter()`, by the Twig runtime, which is the
+     * only place that still sees the `null`: it renders as `[]` from there on.
+     * One entry per fixture, component and call site, so a loop that passes
+     * `null` twelve times is one entry, not twelve. Cheap no-op when unarmed.
+     *
+     * @param 'component'|'page' $kind
+     */
+    public function nullContent(string $kind, string $name, ?string $callerTemplate, ?int $callerLine): void
+    {
+        if ($this->frames === []) {
+            return;
+        }
+
+        $top = array_key_last($this->frames);
+        $key = $kind . '|' . $name . '|' . ($callerTemplate ?? '') . '|' . ($callerLine ?? '');
+        $this->frames[$top]['nullContent'][$key] ??= [
+            'component' => $name,
+            'kind' => $kind,
+            'fixture' => $this->frames[$top]['fixture'],
+            'caller' => ['template' => $callerTemplate, 'line' => $callerLine],
+        ];
     }
 
     /**

@@ -48,6 +48,7 @@ final class LintCommandTest extends TestCase
     {
         [$exit, $stdout, $stderr] = $this->runCli([
             'lint',
+            '--no-render',
             '--templates=' . $this->fixtures,
         ]);
 
@@ -110,6 +111,7 @@ final class LintCommandTest extends TestCase
     {
         [$exit, $stdout, $stderr] = $this->runCli([
             'lint',
+            '--no-render',
             '--templates=' . $this->cleanFixtures,
         ]);
 

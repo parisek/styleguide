@@ -85,9 +85,16 @@ final class Linter
      *        mirroring frontend/components/usage.js, which resolves
      *        `usage:` tokens against both stores regardless of which view
      *        is open.
+     * @param list<LintFinding>|null $renderFindings Findings from rules that
+     *        need a rendered fixture (see {@see NullContentCheck}), computed by
+     *        the caller because this class is static analysis and boots no
+     *        Twig. They pass through the same ignore list and the same
+     *        `stale-ignore` check. `null` means those rules did not run, and an
+     *        ignore entry for one of them is then not judged: it matches
+     *        nothing only because nothing looked.
      * @return list<LintFinding>
      */
-    public function run(?array $types = null): array
+    public function run(?array $types = null, ?array $renderFindings = null): array
     {
         $types = $types ?? self::SCAN_TYPES;
         $knownIds = $this->knownIds();
@@ -101,7 +108,8 @@ final class Linter
             }
         }
 
-        $findings = [...$findings, ...$this->staleIgnoreFindings($findings, $types)];
+        $findings = [...$findings, ...($renderFindings ?? [])];
+        $findings = [...$findings, ...$this->staleIgnoreFindings($findings, $types, $renderFindings !== null)];
 
         $this->suppressed = [];
         $kept = [];
@@ -153,14 +161,27 @@ final class Linter
      * path segment of its file, the same shape scanFiles() builds.
      *
      * @param list<LintFinding> $findings
+     * A rendered rule (`null-content`) is judged only when it ran over every
+     * type. Its finding sits in the CALLING template, and a page fixture
+     * renders component templates, so a `--type=page` run cannot say that a
+     * component caller no longer matches.
+     *
      * @param list<string> $types  The types this run actually walked.
+     * @param bool $rendered  Whether the rendered rules ran.
      * @return list<LintFinding>
      */
-    private function staleIgnoreFindings(array $findings, array $types): array
+    private function staleIgnoreFindings(array $findings, array $types, bool $rendered): array
     {
         $stale = [];
+        $renderFailed = array_filter($findings, static fn(LintFinding $f): bool => $f->rule === NullContentCheck::RENDER_FAILED_RULE) !== [];
         foreach ($this->ignores as $ignore) {
-            if (!$this->ignoreCoversScannedType($ignore->file, $types)) {
+            if (in_array($ignore->rule, NullContentCheck::RULES, true)) {
+                // A failed fixture's trace stops early, so the calls an entry
+                // excuses may never have been recorded: not stale, unchecked.
+                if (!$rendered || array_diff(self::SCAN_TYPES, $types) !== [] || $renderFailed) {
+                    continue;
+                }
+            } elseif (!$this->ignoreCoversScannedType($ignore->file, $types)) {
                 continue;
             }
             foreach ($findings as $finding) {
@@ -173,8 +194,9 @@ final class Linter
                 $ignore->file,
                 'stale-ignore',
                 sprintf(
-                    'Ignore entry for rule `%s` matches nothing — the finding it excused ("%s") is gone. Remove it.',
+                    'Ignore entry for rule `%s`%s matches nothing — the finding it excused ("%s") is gone. Remove it.',
                     $ignore->rule,
+                    $ignore->component === null ? '' : sprintf(' (component `%s`)', $ignore->component),
                     $ignore->reason,
                 ),
             );

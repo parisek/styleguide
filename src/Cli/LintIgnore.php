@@ -38,16 +38,33 @@ final class LintIgnore
      *                     pattern (`page/_partials/*`). Patterns are what make
      *                     a whole fragment directory one entry instead of a
      *                     roster that has to be edited on every new file.
+     * @param string|null $component The called component, for a rule whose
+     *                     finding is a call from one template to another
+     *                     (`null-content`). One template can call several
+     *                     components, so the file alone is too coarse a key:
+     *                     ignoring `component_pagination(content.pagination)`
+     *                     must not also ignore the next optional sub-object
+     *                     someone adds to the same template. Underscores and
+     *                     hyphens are the same name, as in Twig.
      */
     public function __construct(
         public readonly string $file,
         public readonly string $rule,
         public readonly string $reason,
+        public readonly ?string $component = null,
     ) {}
+
+    /**
+     * Rules whose findings carry a `component`, and so need one in the entry.
+     */
+    public const COMPONENT_RULES = ['null-content'];
 
     public function matches(LintFinding $finding): bool
     {
         if ($finding->rule !== $this->rule) {
+            return false;
+        }
+        if ($this->component !== null && str_replace('_', '-', $this->component) !== $finding->component) {
             return false;
         }
 
@@ -68,6 +85,10 @@ final class LintIgnore
      *       - file: page/_partials/*
      *         rule: unindexed
      *         reason: shared page fragments, not catalogue entries
+     *       - file: component/article-list/article-list.twig
+     *         rule: null-content
+     *         component: pagination   # required for null-content, forbidden elsewhere
+     *         reason: pagination is optional on a one-page list
      *
      * @return list<LintIgnore>
      * @throws \RuntimeException on unreadable, unparseable, or malformed input —
@@ -110,7 +131,21 @@ final class LintIgnore
                     throw new \RuntimeException(sprintf('ignore[%s] is missing a non-empty `%s`: %s', (string) $index, $key, $path));
                 }
             }
-            $ignores[] = new self($entry['file'], $entry['rule'], $entry['reason']);
+            $component = $entry['component'] ?? null;
+            if ($component !== null && (!is_string($component) || trim($component) === '')) {
+                throw new \RuntimeException(sprintf('ignore[%s] has an empty `component`: %s', (string) $index, $path));
+            }
+            // Required where the finding has a component, refused where it has
+            // none: an entry with a key that can never match would sit in the
+            // list looking like a working exemption.
+            $needsComponent = in_array($entry['rule'], self::COMPONENT_RULES, true);
+            if ($needsComponent && $component === null) {
+                throw new \RuntimeException(sprintf('ignore[%s] for rule `%s` needs a `component` — the file alone would also hide the next optional call in that template: %s', (string) $index, $entry['rule'], $path));
+            }
+            if (!$needsComponent && $component !== null) {
+                throw new \RuntimeException(sprintf('ignore[%s]: `component` applies only to rule %s, not `%s`: %s', (string) $index, implode(', ', self::COMPONENT_RULES), $entry['rule'], $path));
+            }
+            $ignores[] = new self($entry['file'], $entry['rule'], $entry['reason'], $component === null ? null : str_replace('_', '-', $component));
         }
 
         return $ignores;

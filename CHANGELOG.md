@@ -8,9 +8,15 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Added
+
+- **`styleguide lint` rule `null-content`** (#242). Lint renders every fixture (each `styleguide.twig` and variant) through `renderObserved()` and warns about each `component_*()` / `page_*()` call that got `null` content, with the fixture, the calling template, the Twig line and the called component. A forgotten fixture key no longer fails the render (#240), so this is how CI sees it. The rule is on by default when a `styleguide.yaml` is found (`--config`, or `./styleguide.yaml`, or `./static/styleguide.yaml`). It adds about 12 ms per fixture (almeva, 99 fixtures: 0.09 s to 1.3 s). `--no-render` turns it off. With no loadable `styleguide.yaml` the rule is skipped and STDERR says so. A fixture that renders with HTTP 4xx/5xx or throws is a `render-failed` notice, because the null check for it did not finish. It never changes the exit code, so a project whose fixtures need host Twig extensions does not go red by upgrading.
+- **`.styleguide-lintignore.yaml` entries take `component`.** A `null-content` entry names the calling template (`file`) and the called `component`, and needs both: one template can call several components. `stale-ignore` reports an entry that no longer matches, but only on a run that rendered every type. `component` on any other rule is refused.
+- **`renderObserved()` returns `null_content`.** A list of the calls that got `null`, with `component`, `kind`, `fixture` and `caller` (`template`, `line`). Additive: `html`, `status`, `calls` and `unobservable` are unchanged, and `calls[].arguments` still reads `[]` for a null call.
+
 ### Fixed
 
-- **`component_*()` and `page_*()` accept `null` content** (#240). A template that passes an optional sub-object straight through, such as `{{ component_pagination(content.pagination) }}`, gave the helper `null` when the fixture omitted the key. The signature was `array`, so the render route answered 500. The helpers now take `?array` and render `null` as `[]`, as Drupal does. Each such call writes a warning to the render log (`error_log`) with the helper, the caller template and the line. A string or number as content still throws. `styleguide lint` does not report it: lint reads templates and renders no fixture, so it cannot see a runtime value.
+- **`component_*()` and `page_*()` accept `null` content** (#240). A template that passes an optional sub-object straight through, such as `{{ component_pagination(content.pagination) }}`, gave the helper `null` when the fixture omitted the key. The signature was `array`, so the render route answered 500. The helpers now take `?array` and render `null` as `[]`, as Drupal does. Each such call writes a warning to the render log (`error_log`) with the helper, the caller template and the line. A string or number as content still throws. `styleguide lint` reports it as the `null-content` rule (see Added below).
 
 ## [1.35.0] - 2026-10-13
 
