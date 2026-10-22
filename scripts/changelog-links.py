@@ -31,10 +31,14 @@ from pathlib import Path
 
 Version = tuple[int, int, int]
 
-HEADING = re.compile(r"^## \[(\d+\.\d+\.\d+)\]", re.M)
+HEADING = re.compile(r"^## \[((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))\]", re.M)
 REF_LINE = re.compile(r"^\[([^\]\n]+)\]:[ \t]+(\S+)[ \t]*$", re.M)
 UNRELEASED_URL = re.compile(r"^(https://[^\s]+?)/compare/v(\d+\.\d+\.\d+)\.\.\.HEAD$")
-TAG = re.compile(r"^v(\d+\.\d+\.\d+)$")
+SEMVER = r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)"
+TAG = re.compile(rf"^v({SEMVER})$")
+
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Failure(Exception):
@@ -59,7 +63,7 @@ def read_tags(tags_file: str | None) -> list[Version]:
     else:
         try:
             raw = subprocess.run(
-                ["git", "tag", "--list", "v*"],
+                ["git", "-C", str(REPO_ROOT), "tag", "--list", "v*"],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -107,6 +111,8 @@ def unreleased_ref(text: str) -> tuple[str, Version]:
 
 def headings(text: str) -> list[Version]:
     found = [parse(m.group(1)) for m in HEADING.finditer(text)]
+    if not found:
+        raise Failure("CHANGELOG.md has no `## [X.Y.Z]` heading.")
     if len(set(found)) != len(found):
         raise Failure("CHANGELOG.md has a duplicate `## [X.Y.Z]` heading.")
     return found
@@ -187,7 +193,7 @@ def check(text: str, tags: list[Version]) -> list[str]:
         )
         if compare is not None:
             low, high = parse(compare.group(1)), parse(compare.group(2))
-            if high != version or low not in tags or low >= high:
+            if high != version or low != previous_tag(version, tags):
                 findings.append(f"[{label}]: invalid range {url}")
         elif previous_tag(version, tags) is None and url == release_url(repo, version, tags):
             continue
@@ -204,16 +210,21 @@ def main() -> int:
     parser.add_argument("--version", default=None)
     args = parser.parse_args()
 
-    path = Path(args.changelog) if args.changelog else Path(__file__).resolve().parent.parent / "CHANGELOG.md"
+    path = Path(args.changelog) if args.changelog else REPO_ROOT / "CHANGELOG.md"
     try:
         text = path.read_text(encoding="utf-8")
         tags = read_tags(args.tags_file)
         if args.command == "sync":
             if args.version is not None:
-                if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
+                if not re.fullmatch(SEMVER, args.version):
                     raise Failure(f"--version must be X.Y.Z, got: {args.version}")
                 tags = sorted(set(tags) | {parse(args.version)})
             new = sync(text, tags)
+            if args.version is not None and parse(args.version) not in headings(new):
+                raise Failure(f"no `## [{args.version}]` heading: the stamp step did not run or failed.")
+            findings = check(new, tags)
+            if findings:
+                raise Failure("result fails the check, nothing written:\n  " + "\n  ".join(findings))
             if new != text:
                 path.write_text(new, encoding="utf-8")
             print(f"{path.name}: references in sync with {len(tags)} tag(s).")
@@ -229,7 +240,7 @@ def main() -> int:
         print(f"{path.name} — {len(findings)} finding(s):", file=sys.stderr)
         for finding in findings:
             print(f"  {finding}", file=sys.stderr)
-        print("Fix: python3 scripts/changelog-links.py sync", file=sys.stderr)
+        print("Fix the references, or run: python3 scripts/changelog-links.py sync", file=sys.stderr)
         return 1
     print(f"{path.name} links OK — {len(headings(text))} heading(s), newest tag v{fmt(max(tags))}.")
     return 0

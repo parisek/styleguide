@@ -163,14 +163,15 @@ final class ChangelogLinksTest extends TestCase
     }
 
     #[Test]
-    public function sync_never_rewrites_an_existing_ref(): void
+    public function sync_never_rewrites_an_existing_ref_it_fails_on_a_wrong_one(): void
     {
         $odd = '[1.0.0]: ' . self::REPO . '/compare/v0.5.0...v1.0.0';
         $in = $this->changelog(['1.0.0'], [$odd], '1.0.0');
-        [$code, , , $out] = $this->runScript('sync', $in, ['0.5.0', '0.9.0', '1.0.0']);
+        [$code, , $stderr, $out] = $this->runScript('sync', $in, ['0.5.0', '0.9.0', '1.0.0']);
 
-        self::assertSame(0, $code);
-        self::assertStringContainsString($odd . "\n", $out);
+        self::assertSame(1, $code);
+        self::assertStringContainsString('[1.0.0]: invalid range', $stderr);
+        self::assertSame($in, $out);
     }
 
     #[Test]
@@ -274,15 +275,64 @@ final class ChangelogLinksTest extends TestCase
     }
 
     #[Test]
-    public function the_committed_changelog_passes_the_check_against_the_repository_tags(): void
+    public function sync_with_a_version_fails_when_its_heading_is_missing(): void
     {
-        $root = dirname(__DIR__);
-        exec('git -C ' . escapeshellarg($root) . ' tag --list "v*" 2>&1', $tags, $gitCode);
-        if ($gitCode !== 0 || $tags === []) {
-            self::markTestSkipped('No git tags in this checkout (shallow clone or tarball).');
-        }
+        $in = $this->changelog(['1.3.0'], [$this->ref('1.2.0', '1.3.0')], '1.3.0');
+        [$code, , $stderr, $out] = $this->runScript('sync', $in, ['1.2.0', '1.3.0'], ['--version', '1.4.0']);
 
-        exec('python3 -I ' . escapeshellarg($this->script) . ' check 2>&1', $output, $code);
-        self::assertSame(0, $code, implode("\n", $output));
+        self::assertSame(1, $code);
+        self::assertStringContainsString('no `## [1.4.0]` heading', $stderr);
+        self::assertSame($in, $out);
+    }
+
+    #[Test]
+    public function sync_fails_instead_of_keeping_a_wrong_ref_for_the_new_version(): void
+    {
+        $in = $this->changelog(['1.4.0', '1.3.0'], [$this->ref('0.0.1', '1.4.0'), $this->ref('1.2.0', '1.3.0')], '1.3.0');
+        [$code, , $stderr, $out] = $this->runScript('sync', $in, ['1.2.0', '1.3.0'], ['--version', '1.4.0']);
+
+        self::assertSame(1, $code);
+        self::assertStringContainsString('invalid range', $stderr);
+        self::assertSame($in, $out);
+    }
+
+    #[Test]
+    public function check_requires_the_range_to_start_at_the_previous_tag(): void
+    {
+        $in = $this->changelog(['1.3.0'], [$this->ref('1.0.0', '1.3.0')], '1.3.0');
+        [$code, , $stderr] = $this->runScript('check', $in, ['1.0.0', '1.2.0', '1.3.0']);
+
+        self::assertSame(1, $code);
+        self::assertStringContainsString('[1.3.0]: invalid range', $stderr);
+    }
+
+    #[Test]
+    public function a_changelog_without_version_headings_fails(): void
+    {
+        $in = "# Changelog\n\n## [Unreleased]\n\n## Version 1.0.0\n\n[Unreleased]: " . self::REPO . "/compare/v1.0.0...HEAD\n";
+
+        self::assertSame(1, $this->runScript('check', $in, ['1.0.0'])[0]);
+        self::assertSame(1, $this->runScript('sync', $in, ['1.0.0'])[0]);
+    }
+
+    #[Test]
+    public function a_version_with_a_leading_zero_is_rejected(): void
+    {
+        $in = $this->changelog(['1.0.0'], [], '1.0.0');
+        [$code, , $stderr] = $this->runScript('sync', $in, ['1.0.0'], ['--version', '01.4.0']);
+
+        self::assertSame(1, $code);
+        self::assertStringContainsString('--version must be X.Y.Z', $stderr);
+    }
+
+    #[Test]
+    public function a_ref_below_every_existing_ref_goes_after_the_last_one(): void
+    {
+        $in = $this->changelog(['1.1.0', '1.0.0'], [$this->ref('1.0.0', '1.1.0')], '1.1.0');
+        [$code, , , $out] = $this->runScript('sync', $in, ['0.9.0', '1.0.0', '1.1.0']);
+
+        self::assertSame(0, $code);
+        $expected = $this->changelog(['1.1.0', '1.0.0'], [$this->ref('1.0.0', '1.1.0'), $this->ref('0.9.0', '1.0.0')], '1.1.0');
+        self::assertSame($expected, $out);
     }
 }
