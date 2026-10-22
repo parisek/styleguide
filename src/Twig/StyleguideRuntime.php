@@ -10,6 +10,7 @@ use Parisek\Styleguide\Styleguide;
 use Parisek\Styleguide\Translation\TranslationCatalog;
 use Twig\Environment;
 use Twig\Extension\RuntimeExtensionInterface;
+use Twig\Template;
 
 /**
  * @internal Wiring detail behind the bundled Twig helpers. Not part of the
@@ -70,6 +71,13 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      * @var list<Renderer>
      */
     private array $renderers = [];
+
+    /**
+     * Null-content warnings already logged, keyed by message.
+     *
+     * @var array<string, true>
+     */
+    private array $reportedNullContent = [];
 
     /**
      * @param \Closure(): string|null $localeResolver
@@ -151,14 +159,19 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
 
     /**
      * @param array<string, mixed> $context
-     * @param array<string, mixed> $content
+     * @param array<string, mixed>|null $content
      */
     public function renderComponent(
         Environment $env,
         array $context,
         string $template_name,
-        array $content = [],
+        ?array $content = [],
     ): string {
+        if ($content === null) {
+            $this->reportNullContent('component', $template_name);
+            $content = [];
+        }
+
         return Styleguide::renderNamespaced(
             $env,
             $context,
@@ -172,14 +185,19 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
 
     /**
      * @param array<string, mixed> $context
-     * @param array<string, mixed> $content
+     * @param array<string, mixed>|null $content
      */
     public function renderPage(
         Environment $env,
         array $context,
         string $template_name,
-        array $content = [],
+        ?array $content = [],
     ): string {
+        if ($content === null) {
+            $this->reportNullContent('page', $template_name);
+            $content = [];
+        }
+
         return Styleguide::renderNamespaced(
             $env,
             $context,
@@ -189,6 +207,72 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
             'Page',
             $this->observer,
         );
+    }
+
+    /**
+     * Logs a `component_*()` / `page_*()` call that received `null` content.
+     *
+     * `null` is accepted and rendered as `[]`, the way Drupal's untyped
+     * `$content = []` accepts it: an optional sub-object passed straight
+     * through (`component_pagination(content.pagination)`) is a normal state
+     * on the live site. The same `null` can also be a forgotten fixture key,
+     * and the two look identical from here. So the call renders, and the log
+     * names the caller. A scalar still throws a `TypeError` at the signature.
+     *
+     * The caller is read off the PHP backtrace: Twig compiles the call into
+     * the calling template's `doDisplay()`, and `getDebugInfo()` maps the
+     * compiled line back to the template line. `Template` is internal to Twig,
+     * so a change there degrades the message (no line) and never breaks the
+     * render. `error_log()` rather than a
+     * throw, like the other render diagnostics.
+     */
+    private function reportNullContent(string $prefix, string $templateName): void
+    {
+        $message = sprintf(
+            '[parisek/styleguide] %s_%s() called with null content in %s; rendered as [].',
+            $prefix,
+            $templateName,
+            self::callerLocation(),
+        );
+
+        // Once per call site and runtime: a loop over twelve teasers that each
+        // pass an optional sub-object would otherwise write twelve identical
+        // lines on every render.
+        if (isset($this->reportedNullContent[$message])) {
+            return;
+        }
+        $this->reportedNullContent[$message] = true;
+
+        error_log($message);
+    }
+
+    private static function callerLocation(): string
+    {
+        $frames = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT | DEBUG_BACKTRACE_IGNORE_ARGS, 12);
+        foreach ($frames as $i => $frame) {
+            $object = $frame['object'] ?? null;
+            if (!$object instanceof Template) {
+                continue;
+            }
+
+            // A frame's `line` is where ITS function was called from, so the
+            // line inside the template's compiled file lives on the frame
+            // before it (the call to the runtime method).
+            $compiledLine = $i > 0 ? ($frames[$i - 1]['line'] ?? null) : null;
+            $line = null;
+            if ($compiledLine !== null) {
+                foreach ($object->getDebugInfo() as $compiled => $twigLine) {
+                    if ($compiled <= $compiledLine) {
+                        $line = $twigLine;
+                        break;
+                    }
+                }
+            }
+
+            return sprintf('"%s"%s', $object->getTemplateName(), $line === null ? '' : ' at line ' . $line);
+        }
+
+        return 'an unknown template';
     }
 
     /**

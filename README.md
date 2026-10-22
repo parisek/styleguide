@@ -1243,6 +1243,19 @@ was reported as a missing one and served `200`, so a smoke test polling
 `/render/component/<id>` saw success for a component that rendered nothing.
 A consumer's CI can now treat a non-2xx render as the failure it is.
 
+**`null` content is not a failure.** `{{ component_pagination(content.pagination) }}`
+passes `null` when the fixture has no `pagination` key. The helper renders the
+call with `[]`, as Drupal does, and writes a warning to the render log
+(`error_log`) with the helper, the caller template and the line:
+
+```
+[parisek/styleguide] component_pagination() called with null content in "@component/article-list/article-list.twig" at line 51; rendered as [].
+```
+
+Read the log to tell a forgotten fixture key from an optional sub-object. A
+string or number as content still fails. `styleguide lint` does not report this:
+it reads templates and renders no fixture, so it cannot see a runtime value.
+
 ---
 
 ## Per-template metadata
