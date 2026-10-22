@@ -7,11 +7,12 @@
 `sync` adds the missing `[X.Y.Z]: <repo>/compare/v<previous>...vX.Y.Z` references
 and points `[Unreleased]` at `compare/v<newest>...HEAD`. `--version` counts a tag
 that does not exist yet: the Stamp Release workflow calls it before it tags.
-It never rewrites a reference that exists. It is idempotent.
+It never rewrites the URL of a reference that exists. It puts `[Unreleased]` and
+the version references in order, newest first. It is idempotent.
 
 `check` fails when a `## [X.Y.Z]` heading has no reference, when a reference
 does not point at a valid range, or when `[Unreleased]` does not start at the
-newest tag. It changes nothing.
+newest tag, or when the references are not in order. It changes nothing.
 
 <previous> is the newest tag below X.Y.Z by semver, not by date and not by
 heading, so a tag without a heading still ends the range before it. The lowest
@@ -132,31 +133,44 @@ def sync(text: str, tags: list[Version]) -> str:
     present = {m.group(1) for m in REF_LINE.finditer(text)}
     missing = [v for v in headings(text) if fmt(v) not in present]
     lines = text.split("\n")
-    # Highest first: each insert goes above the first lower reference, so the
-    # new block stays newest-first without touching the order that exists.
     for version in sorted(missing, reverse=True):
         if version not in tags:
             raise Failure(
                 f"heading [{fmt(version)}] has no tag v{fmt(version)}; tag it, or pass --version for the release in flight."
             )
         ref = f"[{fmt(version)}]: {release_url(repo, version, tags)}"
-        at = None
-        last = None
-        for index, line in enumerate(lines):
-            match = REF_LINE.match(line)
-            if match is None:
-                continue
-            last = index
-            label = match.group(1)
-            if label != "Unreleased" and re.fullmatch(r"\d+\.\d+\.\d+", label):
-                if parse(label) < version and at is None:
-                    at = index
-        if at is None:
-            if last is None:  # unreleased_ref() already proved a ref exists
-                raise Failure("the reference block vanished while inserting.")
-            at = last + 1
-        lines.insert(at, ref)
-    return "\n".join(lines)
+        last = max(i for i, line in enumerate(lines) if REF_LINE.match(line))  # unreleased_ref() proved one exists
+        lines.insert(last + 1, ref)
+    return "\n".join(sort_refs(lines))
+
+
+def order_key(label: str) -> tuple[int, Version]:
+    """`[Unreleased]` first, then versions newest first; other labels have no key."""
+    if label == "Unreleased":
+        return (1, (0, 0, 0))
+    return (0, parse(label))
+
+
+def sortable(label: str) -> bool:
+    return label == "Unreleased" or re.fullmatch(SEMVER, label) is not None
+
+
+def sort_refs(lines: list[str]) -> list[str]:
+    """Put `[Unreleased]` and the version references in order, newest first.
+
+    Only the lines that hold them move, and only among their own places. Other
+    reference definitions and the text around them stay where they are.
+    """
+    slots = [i for i, line in enumerate(lines) if (m := REF_LINE.match(line)) and sortable(m.group(1))]
+    ordered = sorted(
+        (lines[i] for i in slots),
+        key=lambda line: order_key(REF_LINE.match(line).group(1)),  # type: ignore[union-attr]
+        reverse=True,
+    )
+    result = list(lines)
+    for i, line in zip(slots, ordered):
+        result[i] = line
+    return result
 
 
 def check(text: str, tags: list[Version]) -> list[str]:
@@ -178,6 +192,12 @@ def check(text: str, tags: list[Version]) -> list[str]:
         if label in refs:
             findings.append(f"[{label}]: defined twice.")
         refs[label] = match.group(2)
+
+    lines = text.split("\n")
+    if sort_refs(lines) != lines:
+        findings.append(
+            "references are out of order: `[Unreleased]` first, then versions newest first."
+        )
 
     for version in headings(text):
         label = fmt(version)

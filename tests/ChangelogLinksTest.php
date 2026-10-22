@@ -335,4 +335,39 @@ final class ChangelogLinksTest extends TestCase
         $expected = $this->changelog(['1.1.0', '1.0.0'], [$this->ref('1.0.0', '1.1.0'), $this->ref('0.9.0', '1.0.0')], '1.1.0');
         self::assertSame($expected, $out);
     }
+
+    #[Test]
+    public function sync_sorts_references_that_are_out_of_order_and_keeps_their_urls(): void
+    {
+        $in = $this->changelog(
+            ['1.1.0', '1.0.0', '0.9.0'],
+            [$this->ref('0.8.0', '0.9.0'), $this->ref('1.0.0', '1.1.0'), $this->ref('0.9.0', '1.0.0')],
+            '1.1.0',
+        );
+        [$code, , , $out] = $this->runScript('sync', $in, ['0.8.0', '0.9.0', '1.0.0', '1.1.0']);
+
+        self::assertSame(0, $code);
+        $expected = $this->changelog(
+            ['1.1.0', '1.0.0', '0.9.0'],
+            [$this->ref('1.0.0', '1.1.0'), $this->ref('0.9.0', '1.0.0'), $this->ref('0.8.0', '0.9.0')],
+            '1.1.0',
+        );
+        self::assertSame($expected, $out);
+        self::assertSame(0, $this->runScript('check', $out, ['0.8.0', '0.9.0', '1.0.0', '1.1.0'])[0]);
+    }
+
+    #[Test]
+    public function check_fails_on_references_out_of_order_and_writes_nothing(): void
+    {
+        $in = $this->changelog(
+            ['1.1.0', '1.0.0'],
+            [$this->ref('0.9.0', '1.0.0'), $this->ref('1.0.0', '1.1.0')],
+            '1.1.0',
+        );
+        [$code, , $stderr, $out] = $this->runScript('check', $in, ['0.9.0', '1.0.0', '1.1.0']);
+
+        self::assertSame(1, $code);
+        self::assertStringContainsString('out of order', $stderr);
+        self::assertSame($in, $out);
+    }
 }
