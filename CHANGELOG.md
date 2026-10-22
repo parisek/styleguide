@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.36.0] - 2026-10-22
+
 ### Added
 
 - **`styleguide lint` rule `null-content`** (#242). Lint renders every fixture (each `styleguide.twig` and variant) through `renderObserved()` and warns about each `component_*()` / `page_*()` call that got `null` content, with the fixture, the calling template, the Twig line and the called component. A forgotten fixture key no longer fails the render (#240), so this is how CI sees it. The rule is on by default when a `styleguide.yaml` is found (`--config`, or `./styleguide.yaml`, or `./static/styleguide.yaml`). It adds about 12 ms per fixture (almeva, 99 fixtures: 0.09 s to 1.3 s). `--no-render` turns it off. With no loadable `styleguide.yaml` the rule is skipped and STDERR says so. A fixture that renders with HTTP 4xx/5xx or throws is a `render-failed` notice, because the null check for it did not finish. It never changes the exit code, so a project whose fixtures need host Twig extensions does not go red by upgrading.
