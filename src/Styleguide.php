@@ -2522,11 +2522,21 @@ final class Styleguide
      * destructuring only `html`/`calls`/`unobservable` are unaffected.
      *
      * @param 'component'|'page'|'doc' $kind
+     * `null_content` (added after 1.35.0) lists the `component_*()` / `page_*()`
+     * calls that received `null` as content. `null` renders as `[]`, so the
+     * matching `calls[].arguments` reads `[]`, the same as an intentional empty
+     * array; this list is how a caller tells the two apart. One entry per
+     * fixture, component and call site, each with the calling template and its
+     * Twig line (`null` when the caller cannot be read off the backtrace).
+     * `styleguide lint` reports it as the `null-content` rule. Purely
+     * additive, like `status`.
+     *
      * @return array{
      *   html: string,
      *   status: int,
      *   calls: list<array{component: string, arguments: array<string, mixed>, fixture: array{kind: string, slug: string, variant: string|null}, position: 'direct'|'nested', parent: string|null}>,
      *   unobservable: list<array{component: string|null, kind: 'component'|'page'|null, fixture: array{kind: string, slug: string, variant: string|null}, source: string, reason?: string}>,
+     *   null_content: list<array{component: string, kind: 'component'|'page', fixture: array{kind: string, slug: string, variant: string|null}, caller: array{template: string|null, line: int|null}}>,
      * }
      * @throws \InvalidArgumentException When `$kind` isn't `component`/`page`/`doc`.
      * @throws \LogicException When the supplied Twig environment already had
@@ -2580,7 +2590,7 @@ final class Styleguide
             $html = $result->body ?? '';
             $status = $result->status;
         } finally {
-            $calls = $this->observer->disarm();
+            $observed = $this->observer->disarmWithNullContent();
         }
 
         $unobservable = $this->detectUnobservableIncludes($kind, $slug, $variant, $fixture);
@@ -2599,7 +2609,13 @@ final class Styleguide
         // Keeping the assertion would mean inventory() enumerating a doc and
         // renderObserved() throwing on it — a LogicException on legitimate
         // input, not a caught wiring bug.
-        return ['html' => $html, 'status' => $status, 'calls' => $calls, 'unobservable' => $unobservable];
+        return [
+            'html' => $html,
+            'status' => $status,
+            'calls' => $observed['calls'],
+            'unobservable' => $unobservable,
+            'null_content' => $observed['nullContent'],
+        ];
     }
 
     /**

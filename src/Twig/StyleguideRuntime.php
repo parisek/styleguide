@@ -223,16 +223,31 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
      * the calling template's `doDisplay()`, and `getDebugInfo()` maps the
      * compiled line back to the template line. `Template` is internal to Twig,
      * so a change there degrades the message (no line) and never breaks the
-     * render. `error_log()` rather than a
-     * throw, like the other render diagnostics.
+     * render. `error_log()` rather than a throw, like the other render
+     * diagnostics.
+     *
+     * The observer is told of every such call, the log once per call site.
+     *
+     * @param 'component'|'page' $prefix
      */
     private function reportNullContent(string $prefix, string $templateName): void
     {
+        $caller = self::callerLocation();
+
+        // The observer hears about EVERY null call, the log only about the
+        // first one per call site. Sharing the log's dedupe would blind a
+        // second `renderObserved()` on this runtime: `styleguide lint` renders
+        // a hundred fixtures through one runtime, and the fixtures that share
+        // a template would report it once and then go quiet.
+        $this->observer->nullContent($prefix, str_replace('_', '-', $templateName), $caller['template'], $caller['line']);
+
         $message = sprintf(
             '[parisek/styleguide] %s_%s() called with null content in %s; rendered as [].',
             $prefix,
             $templateName,
-            self::callerLocation(),
+            $caller['template'] === null
+                ? 'an unknown template'
+                : sprintf('"%s"%s', $caller['template'], $caller['line'] === null ? '' : ' at line ' . $caller['line']),
         );
 
         // Once per call site and runtime: a loop over twelve teasers that each
@@ -246,7 +261,10 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
         error_log($message);
     }
 
-    private static function callerLocation(): string
+    /**
+     * @return array{template: string|null, line: int|null}
+     */
+    private static function callerLocation(): array
     {
         $frames = debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT | DEBUG_BACKTRACE_IGNORE_ARGS, 12);
         foreach ($frames as $i => $frame) {
@@ -269,10 +287,10 @@ final class StyleguideRuntime implements RuntimeExtensionInterface
                 }
             }
 
-            return sprintf('"%s"%s', $object->getTemplateName(), $line === null ? '' : ' at line ' . $line);
+            return ['template' => $object->getTemplateName(), 'line' => $line];
         }
 
-        return 'an unknown template';
+        return ['template' => null, 'line' => null];
     }
 
     /**
