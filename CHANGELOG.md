@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Stamp Release keeps the `CHANGELOG.md` link references up to date** (#245). A new `scripts/changelog-links.py` moves `[Unreleased]` to the new tag and adds `[X.Y.Z]` with the range from the newest earlier tag (by semver, so a tag without a heading still ends the range). The run fails if the reference block is missing. The same script has a `check` mode: the `Tests` workflow and `composer check` fail when a heading has no reference, a range is invalid, or `[Unreleased]` does not start at the newest tag. This PR adds the 29 missing references (1.16.0 to 1.36.0) and moves `[Unreleased]` from v1.32.0 to v1.36.0. `RELEASING.md` no longer asks for a manual edit.
+
 ## [1.36.0] - 2026-10-22
 
 ### Added

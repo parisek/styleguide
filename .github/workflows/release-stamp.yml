@@ -1,7 +1,7 @@
 name: Stamp Release
 
 # Manual release entrypoint. Stamps `[Unreleased]` in CHANGELOG to the
-# given version + date, runs the full test/PHPStan suite as a guard,
+# given version + date and its link references, runs the full test/PHPStan suite as a guard,
 # commits, tags, and pushes. The tag push then triggers `release.yml`
 # which creates the GitHub Release with notes derived from CHANGELOG.
 
@@ -90,6 +90,15 @@ jobs:
               raise SystemExit("failed to stamp CHANGELOG (no [Unreleased] heading found)")
           path.write_text(new)
           PY
+
+      - name: Update CHANGELOG link references
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Points `[Unreleased]` at the new tag and adds `[X.Y.Z]` with the
+          # range from the newest earlier tag. Fails when the reference block
+          # is missing. The tag does not exist yet, so --version adds it.
+          python3 scripts/changelog-links.py sync --version "$VERSION"
 
       - name: Configure git identity
         run: |

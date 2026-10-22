@@ -79,10 +79,12 @@
     },
     "scripts": {
         "adr": "python3 scripts/check-adr-index.py",
+        "changelog-links": "python3 scripts/changelog-links.py check",
         "check": [
             "@test",
             "@phpstan",
-            "@adr"
+            "@adr",
+            "@changelog-links"
         ],
         "cs": "php-cs-fixer fix --dry-run --diff",
         "cs:fix": "php-cs-fixer fix",
