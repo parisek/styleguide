@@ -1064,10 +1064,18 @@ Cost: rendering is about 12 ms per fixture. On a Drupal theme with 99 fixtures
 lint went from 0.09 s to 1.3 s. The rules run by default, and `--no-render`
 skips them. With no loadable `styleguide.yaml` they are skipped, and STDERR
 says so (`null-content skipped: ...`), so a skipped check does not look like a
-passed one. `--type` limits the fixtures that render.
+passed one. A `--config` that names no file exits `2`. `--type` limits the fixtures that render.
+
+Limits: a component called through `{% include %}` is not seen by the
+helper, so a null passed there is not reported (`renderObserved()` lists such
+includes in `unobservable`). Only fixtures in the catalogue render, so a
+component hidden by `components.include`, or one with no fixture, is not
+checked on its own. Fixtures need nothing beyond what `Styleguide::fromYaml()`
+builds: a project whose fixtures use host Twig extensions renders them as
+`render-failed` here; pass `--no-render` there.
 
 Text output is one line per finding: `SEVERITY  file  message`. JSON output
-is an array of `{ severity, file, rule, message }` objects. Exit code: `0`
+is an array of `{ severity, file, rule, message }` objects; `null-content` adds `component`, `line` and `fixture`, `render-failed` adds `fixture`. Exit code: `0`
 clean (or notice-only), `1` when any `warning`/`error` finding is present,
 `2` on a usage/internal error — run it in CI to catch metadata regressions
 before they ship.

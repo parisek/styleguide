@@ -173,9 +173,12 @@ final class Linter
     private function staleIgnoreFindings(array $findings, array $types, bool $rendered): array
     {
         $stale = [];
+        $renderFailed = array_filter($findings, static fn(LintFinding $f): bool => $f->rule === NullContentCheck::RENDER_FAILED_RULE) !== [];
         foreach ($this->ignores as $ignore) {
-            if (in_array($ignore->rule, LintIgnore::COMPONENT_RULES, true)) {
-                if (!$rendered || array_diff(self::SCAN_TYPES, $types) !== []) {
+            if (in_array($ignore->rule, NullContentCheck::RULES, true)) {
+                // A failed fixture's trace stops early, so the calls an entry
+                // excuses may never have been recorded: not stale, unchecked.
+                if (!$rendered || array_diff(self::SCAN_TYPES, $types) !== [] || $renderFailed) {
                     continue;
                 }
             } elseif (!$this->ignoreCoversScannedType($ignore->file, $types)) {

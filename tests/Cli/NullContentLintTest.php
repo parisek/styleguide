@@ -236,7 +236,10 @@ final class NullContentLintTest extends TestCase
     #[Test]
     public function an_ignore_entry_that_matches_nothing_is_stale(): void
     {
-        $all = (new NullContentCheck())->run($this->styleguide(), ['component']);
+        $all = array_values(array_filter(
+            (new NullContentCheck())->run($this->styleguide(), ['component']),
+            static fn($f): bool => $f->rule === 'null-content',
+        ));
         $ignores = [new LintIgnore('component/card/card.twig', 'null-content', 'was optional', 'gone')];
         $linter = new Linter($this->project . '/templates', $ignores);
 
@@ -285,5 +288,35 @@ final class NullContentLintTest extends TestCase
                 self::assertStringContainsString('component', $e->getMessage());
             }
         }
+    }
+
+    #[Test]
+    public function render_rules_are_not_judged_stale_when_nothing_rendered(): void
+    {
+        $ignores = [new LintIgnore('component/broken/broken.twig', 'render-failed', 'known')];
+
+        $findings = (new Linter($this->project . '/templates', $ignores))->run(null, null);
+
+        self::assertSame([], array_filter($findings, static fn($f): bool => $f->rule === 'stale-ignore'));
+    }
+
+    #[Test]
+    public function a_failed_fixture_stops_null_content_ignores_from_being_judged(): void
+    {
+        $render = (new NullContentCheck())->run($this->styleguide(), null);
+        $ignores = [new LintIgnore('component/card/card.twig', 'null-content', 'x', 'gone')];
+
+        $findings = (new Linter($this->project . '/templates', $ignores))->run(null, $render);
+
+        self::assertSame([], array_filter($findings, static fn($f): bool => $f->rule === 'stale-ignore'));
+    }
+
+    #[Test]
+    public function an_explicit_config_that_is_missing_exits_2(): void
+    {
+        [$exit, , $stderr] = $this->lint(['--config=/nonexistent/styleguide.yaml']);
+
+        self::assertSame(2, $exit);
+        self::assertStringContainsString('--config file not found', $stderr);
     }
 }

@@ -214,6 +214,9 @@ final class Command
         if (!isset($flags['no-render'])) {
             try {
                 $renderFindings = $this->nullContentFindings($flags['config'] ?? null, $types, $stderr);
+            } catch (\InvalidArgumentException $e) {
+                fwrite($stderr, $e->getMessage() . "\n");
+                return 2;
             } catch (\LogicException $e) {
                 // The environment cannot record a trace: a run that went on
                 // would report a clean `null-content` it never checked.
@@ -277,6 +280,12 @@ final class Command
      */
     private function nullContentFindings(string|bool|null $configOverride, ?array $types, $stderr): ?array
     {
+        // An explicit --config that is not a file is a usage error. Falling
+        // back to ./styleguide.yaml would render a different project than the
+        // one named, or skip the rule without a word.
+        if ($configOverride !== null && (!is_string($configOverride) || !is_file($configOverride))) {
+            throw new \InvalidArgumentException(sprintf('--config file not found: %s', is_string($configOverride) ? $configOverride : '(no value)'));
+        }
         $configPath = $this->resolveConfigPath($configOverride);
         if ($configPath === null) {
             fwrite($stderr, "null-content skipped: no styleguide.yaml found. Use --config=<path>, or --no-render to silence this.\n");
@@ -285,7 +294,10 @@ final class Command
 
         try {
             $styleguide = Styleguide::fromYaml($configPath);
-        } catch (\Throwable $e) {
+        } catch (\Exception $e) {
+            // Exceptions are configuration errors (bad YAML, a missing path).
+            // A bug in the package or a project extension is an \Error
+            // (TypeError and the like): not a skip, it reaches the user.
             fwrite($stderr, sprintf("null-content skipped: %s does not load (%s). Run `styleguide doctor`.\n", $configPath, $e->getMessage()));
             return null;
         }

@@ -28,6 +28,9 @@ final class NullContentCheck
 
     public const RENDER_FAILED_RULE = 'render-failed';
 
+    /** Rules that exist only when fixtures were rendered. */
+    public const RULES = [self::RULE, self::RENDER_FAILED_RULE];
+
     /**
      * @param list<string>|null $types Restrict the fixtures to these catalogue
      *        types; null renders component + page + doc.
@@ -96,10 +99,14 @@ final class NullContentCheck
 
     /**
      * `@component/card/card.twig` -> `component/card/card.twig`: the path shape
-     * every other rule reports, so one ignore file addresses them all.
+     * the other rules report, so one ignore file addresses them all.
      */
     private static function relativeTemplate(string $name): string
     {
-        return ltrim($name, '@');
+        $path = ltrim($name, '@');
+
+        // A call made in a fixture file loads through `@project/`; the other
+        // rules report that file as `component/<id>/styleguide.twig`.
+        return str_starts_with($path, 'project/') ? substr($path, 8) : $path;
     }
 }

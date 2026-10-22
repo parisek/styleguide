@@ -22,7 +22,7 @@ final class LintFinding
 
     /**
      * `component`, `line` and `fixture` are present only on a finding that has
-     * them (`null-content`), so every other rule keeps the four-key shape.
+     * them (`null-content`; `render-failed` has `fixture`), so every other rule keeps the four-key shape.
      *
      * @return array{severity: string, file: string, rule: string, message: string, component?: string, line?: int, fixture?: string}
      */
