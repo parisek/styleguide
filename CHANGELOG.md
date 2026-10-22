@@ -16,7 +16,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Fixed
 
-- **`component_*()` and `page_*()` accept `null` content** (#240). A template that passes an optional sub-object straight through, such as `{{ component_pagination(content.pagination) }}`, gave the helper `null` when the fixture omitted the key. The signature was `array`, so the render route answered 500. The helpers now take `?array` and render `null` as `[]`, as Drupal does. Each such call writes a warning to the render log (`error_log`) with the helper, the caller template and the line. A string or number as content still throws. `styleguide lint` reports it as the `null-content` rule (see Added below).
+- **`component_*()` and `page_*()` accept `null` content** (#240). A template that passes an optional sub-object straight through, such as `{{ component_pagination(content.pagination) }}`, gave the helper `null` when the fixture omitted the key. The signature was `array`, so the render route answered 500. The helpers now take `?array` and render `null` as `[]`, as Drupal does. Each such call writes a warning to the render log (`error_log`) with the helper, the caller template and the line. A string or number as content still throws. `styleguide lint` reports it as the `null-content` rule (see Added above).
 
 ## [1.35.0] - 2026-10-13
 
