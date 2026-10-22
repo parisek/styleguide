@@ -1010,9 +1010,10 @@ an older release, it will pass on a catalogue that renders nothing.
 vendor/bin/styleguide lint                       # scan component + page + doc, text output
 vendor/bin/styleguide lint --type=component       # scan just one type
 vendor/bin/styleguide lint --format=json --pretty # machine-readable, indented
+vendor/bin/styleguide lint --no-render            # static rules only, no fixture is rendered
 ```
 
-Reports eleven issue types: templates with no parseable `name:` (dropped from
+Reports thirteen issue types: templates with no parseable `name:` (dropped from
 the catalogue — `unindexed`), a `styleguide:` YAML key carrying content that
 the renderer never reads (`dead-styleguide-content` — see *Fixtures &
 sample data* below), `usage:` references to ids that don't exist
@@ -1029,9 +1030,41 @@ and no `styleguide:` key, so the entry shows an empty frame and no visual or
 behavioural test can reach it; `kind: utility` is exempt, since a utility has
 no stable appearance to pin), `variants_order:` ids with no
 `styleguide.<id>.twig` next to them, or a value that is not a list
-(`unknown-variants-order` — the runtime skips them silently), and ignore-list entries that no longer match
-anything (`stale-ignore`, informational only — see *Ignoring expected
+(`unknown-variants-order` — the runtime skips them silently), `component_*()` / `page_*()` calls that got `null` content
+(`null-content`, rendered rules below), and ignore-list entries that no longer
+match anything (`stale-ignore`, informational only — see *Ignoring expected
 findings* below).
+
+#### Rendered rules: `null-content` and `render-failed`
+
+The rules above read templates. These two render. Lint boots the
+`styleguide.yaml` it finds (`--config=<path>`, else `./styleguide.yaml`, else
+`./static/styleguide.yaml`) and renders every fixture: each `styleguide.twig`
+and each variant.
+
+- `null-content` (warning). A template that passes an optional sub-object
+  straight through, `{{ component_pagination(content.pagination) }}`, gives the
+  helper `null` when the fixture has no `pagination` key. The call renders as
+  `[]` and writes one log line, so nothing fails. The rule turns each such call
+  into a finding with the fixture, the calling template, the Twig line and the
+  called component:
+
+  ```
+  WARNING  component/article-list/article-list.twig  component_pagination() gets null content at line 51, in fixture component/article-list; it renders as []. Add the key to the fixture, or ignore this call in .styleguide-lintignore.yaml if the sub-object is optional.
+  ```
+
+  The JSON finding also has `component`, `line` and `fixture`. A key set to
+  `[]` or `{}` is an intentional empty value and is not reported.
+- `render-failed` (warning). A fixture that renders with HTTP 4xx/5xx, or
+  throws, is reported on its own. Its trace stops at the failure, so a quiet
+  `null-content` for it would claim a check that did not finish. `doctor` renders
+  one fixture only; this is the whole-tree check.
+
+Cost: rendering is about 12 ms per fixture. On a Drupal theme with 99 fixtures
+lint went from 0.09 s to 1.3 s. The rules run by default, and `--no-render`
+skips them. With no loadable `styleguide.yaml` they are skipped, and STDERR
+says so (`null-content skipped: ...`), so a skipped check does not look like a
+passed one. `--type` limits the fixtures that render.
 
 Text output is one line per finding: `SEVERITY  file  message`. JSON output
 is an array of `{ severity, file, rule, message }` objects. Exit code: `0`
@@ -1059,7 +1092,15 @@ ignore:
   - file: component/legacy-embed/*  # exact path, or an fnmatch pattern covering a subtree
     rule: no-fixture                # always a specific rule — never the whole file
     reason: rendered only inside the checkout flow, nothing to demo standalone
+  - file: component/article-list/article-list.twig  # the CALLING template
+    rule: null-content
+    component: pagination           # the called component; required for null-content
+    reason: a one-page list has no pager
 ```
+
+A `null-content` entry needs `file` and `component` together. One template can
+call several components, and the file alone would also hide the next optional
+sub-object someone adds to it. `component` on any other rule is refused.
 
 The design is deliberately grudging, because a suppression list is how a lint
 layer goes quiet without anyone deciding it should:
@@ -1071,7 +1112,8 @@ layer goes quiet without anyone deciding it should:
   which is the finding worth having.
 - **An entry that matches nothing reports itself** as `stale-ignore` (notice),
   so the list cannot outlive the thing it excused. That finding is itself not
-  suppressible.
+  suppressible. A `null-content` entry is judged only on a run that rendered
+  every type: without `--no-render`, and without `--type`.
 - **Suppressions are announced** on STDERR (`N finding(s) suppressed by the
   ignore list.`), so a hidden finding never looks like an absent check. Both
   output formats are unaffected.
@@ -1253,8 +1295,8 @@ call with `[]`, as Drupal does, and writes a warning to the render log
 ```
 
 Read the log to tell a forgotten fixture key from an optional sub-object. A
-string or number as content still fails. `styleguide lint` does not report this:
-it reads templates and renders no fixture, so it cannot see a runtime value.
+string or number as content still fails. `styleguide lint` reports it as the
+`null-content` rule, so CI can see it (see *`lint`* above).
 
 ---
 
