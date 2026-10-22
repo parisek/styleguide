@@ -1,7 +1,7 @@
 name: Stamp Release
 
 # Manual release entrypoint. Stamps `[Unreleased]` in CHANGELOG to the
-# given version + date, runs the full test/PHPStan suite as a guard,
+# given version + date and its link references, runs the full test/PHPStan suite as a guard,
 # commits, tags, and pushes. The tag push then triggers `release.yml`
 # which creates the GitHub Release with notes derived from CHANGELOG.
 
@@ -32,7 +32,7 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          if ! printf '%s' "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          if ! printf '%s' "$VERSION" | grep -qE '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'; then
             echo "::error::version must be semver X.Y.Z (without 'v' prefix); got: $VERSION"
             exit 1
           fi
@@ -91,6 +91,15 @@ jobs:
           path.write_text(new)
           PY
 
+      - name: Update CHANGELOG link references
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Points `[Unreleased]` at the new tag and adds `[X.Y.Z]` with the
+          # range from the newest earlier tag. Fails when the reference block
+          # is missing. The tag does not exist yet, so --version adds it.
+          python3 scripts/changelog-links.py sync --version "$VERSION"
+
       - name: Configure git identity
         run: |
           git config user.name 'github-actions[bot]'
@@ -103,8 +112,8 @@ jobs:
           git add CHANGELOG.md
           git commit -m "Release ${VERSION}"
           git tag "v${VERSION}"
-          git push origin HEAD:main
-          git push origin "v${VERSION}"
+          # Atomic: main never carries a stamped CHANGELOG without its tag.
+          git push --atomic origin HEAD:main "v${VERSION}"
 
       - name: Trigger release workflow
         # Tag pushes made by GITHUB_TOKEN don't fire downstream `on: push: tags`

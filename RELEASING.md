@@ -47,8 +47,12 @@ It validates the version, requires a non-empty `[Unreleased]`, runs
 `[X.Y.Z] - DATE`, commits `Release X.Y.Z`, tags `vX.Y.Z`, pushes, and dispatches
 `release.yml` — which builds the GitHub Release from the tag's CHANGELOG section.
 
-Also update the compare links at the bottom of `CHANGELOG.md` if they have
-drifted; the workflow stamps the heading, not the link refs.
+The workflow also writes the compare links at the bottom of `CHANGELOG.md`
+(`scripts/changelog-links.py sync`): `[Unreleased]` moves to the new tag, and
+`[X.Y.Z]` gets the range from the newest earlier tag. It fails if the reference
+block is missing. Do not edit the links by hand. The `Tests` workflow and
+`composer check` run `scripts/changelog-links.py check` and fail on drift; run
+`python3 scripts/changelog-links.py sync` to repair it.
 
 ### 4. Packagist
 

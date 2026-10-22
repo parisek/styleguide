@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Stamp Release keeps the `CHANGELOG.md` link references up to date** (#245). A new `scripts/changelog-links.py` moves `[Unreleased]` to the new tag and adds `[X.Y.Z]` with the range from the newest earlier tag (by semver, so a tag without a heading still ends the range). The run fails if the reference block is missing. The same script has a `check` mode: the `Tests` workflow and `composer check` fail when a heading has no reference, a range is invalid, or `[Unreleased]` does not start at the newest tag. This PR adds the 29 missing references (1.16.0 to 1.36.0) and moves `[Unreleased]` from v1.32.0 to v1.36.0. `RELEASING.md` no longer asks for a manual edit.
+
 ## [1.36.0] - 2026-10-22
 
 ### Added
@@ -2008,7 +2012,36 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.32.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.36.0...HEAD
+[1.36.0]: https://github.com/parisek/styleguide/compare/v1.35.0...v1.36.0
+[1.35.0]: https://github.com/parisek/styleguide/compare/v1.34.0...v1.35.0
+[1.34.0]: https://github.com/parisek/styleguide/compare/v1.33.0...v1.34.0
+[1.33.0]: https://github.com/parisek/styleguide/compare/v1.32.0...v1.33.0
+[1.32.0]: https://github.com/parisek/styleguide/compare/v1.31.0...v1.32.0
+[1.31.0]: https://github.com/parisek/styleguide/compare/v1.30.1...v1.31.0
+[1.30.1]: https://github.com/parisek/styleguide/compare/v1.30.0...v1.30.1
+[1.30.0]: https://github.com/parisek/styleguide/compare/v1.29.2...v1.30.0
+[1.29.2]: https://github.com/parisek/styleguide/compare/v1.29.1...v1.29.2
+[1.29.1]: https://github.com/parisek/styleguide/compare/v1.29.0...v1.29.1
+[1.29.0]: https://github.com/parisek/styleguide/compare/v1.28.1...v1.29.0
+[1.28.1]: https://github.com/parisek/styleguide/compare/v1.28.0...v1.28.1
+[1.28.0]: https://github.com/parisek/styleguide/compare/v1.27.0...v1.28.0
+[1.27.0]: https://github.com/parisek/styleguide/compare/v1.26.0...v1.27.0
+[1.26.0]: https://github.com/parisek/styleguide/compare/v1.25.0...v1.26.0
+[1.25.0]: https://github.com/parisek/styleguide/compare/v1.24.0...v1.25.0
+[1.24.0]: https://github.com/parisek/styleguide/compare/v1.23.0...v1.24.0
+[1.23.0]: https://github.com/parisek/styleguide/compare/v1.22.0...v1.23.0
+[1.22.0]: https://github.com/parisek/styleguide/compare/v1.21.0...v1.22.0
+[1.21.0]: https://github.com/parisek/styleguide/compare/v1.20.0...v1.21.0
+[1.20.0]: https://github.com/parisek/styleguide/compare/v1.19.0...v1.20.0
+[1.19.0]: https://github.com/parisek/styleguide/compare/v1.18.2...v1.19.0
+[1.18.2]: https://github.com/parisek/styleguide/compare/v1.18.1...v1.18.2
+[1.18.1]: https://github.com/parisek/styleguide/compare/v1.18.0...v1.18.1
+[1.18.0]: https://github.com/parisek/styleguide/compare/v1.17.0...v1.18.0
+[1.17.0]: https://github.com/parisek/styleguide/compare/v1.16.2...v1.17.0
+[1.16.2]: https://github.com/parisek/styleguide/compare/v1.16.1...v1.16.2
+[1.16.1]: https://github.com/parisek/styleguide/compare/v1.16.0...v1.16.1
+[1.16.0]: https://github.com/parisek/styleguide/compare/v1.15.0...v1.16.0
 [1.15.0]: https://github.com/parisek/styleguide/compare/v1.14.0...v1.15.0
 [1.14.0]: https://github.com/parisek/styleguide/compare/v1.13.1...v1.14.0
 [1.13.1]: https://github.com/parisek/styleguide/compare/v1.13.0...v1.13.1
@@ -2024,18 +2057,6 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 [1.8.1]: https://github.com/parisek/styleguide/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/parisek/styleguide/compare/v1.7.2...v1.8.0
 [1.7.2]: https://github.com/parisek/styleguide/compare/v1.7.1...v1.7.2
-[0.6.5]: https://github.com/parisek/styleguide/compare/v0.6.4...v0.6.5
-[0.6.4]: https://github.com/parisek/styleguide/compare/v0.6.3...v0.6.4
-[0.6.3]: https://github.com/parisek/styleguide/compare/v0.6.2...v0.6.3
-[0.6.2]: https://github.com/parisek/styleguide/compare/v0.6.1...v0.6.2
-[0.6.1]: https://github.com/parisek/styleguide/compare/v0.6.0...v0.6.1
-[0.6.0]: https://github.com/parisek/styleguide/compare/v0.5.0...v0.6.0
-[0.5.0]: https://github.com/parisek/styleguide/compare/v0.4.5...v0.5.0
-[0.4.5]: https://github.com/parisek/styleguide/compare/v0.4.4...v0.4.5
-[0.4.4]: https://github.com/parisek/styleguide/compare/v0.4.3...v0.4.4
-[0.4.3]: https://github.com/parisek/styleguide/compare/v0.4.2...v0.4.3
-[0.4.2]: https://github.com/parisek/styleguide/compare/v0.4.1...v0.4.2
-[0.4.1]: https://github.com/parisek/styleguide/compare/v0.4.0...v0.4.1
 [1.7.1]: https://github.com/parisek/styleguide/compare/v1.7.0...v1.7.1
 [1.7.0]: https://github.com/parisek/styleguide/compare/v1.6.2...v1.7.0
 [1.6.2]: https://github.com/parisek/styleguide/compare/v1.6.1...v1.6.2
@@ -2050,4 +2071,16 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 [1.1.1]: https://github.com/parisek/styleguide/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/parisek/styleguide/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/parisek/styleguide/compare/v0.6.5...v1.0.0
+[0.6.5]: https://github.com/parisek/styleguide/compare/v0.6.4...v0.6.5
+[0.6.4]: https://github.com/parisek/styleguide/compare/v0.6.3...v0.6.4
+[0.6.3]: https://github.com/parisek/styleguide/compare/v0.6.2...v0.6.3
+[0.6.2]: https://github.com/parisek/styleguide/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/parisek/styleguide/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/parisek/styleguide/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/parisek/styleguide/compare/v0.4.5...v0.5.0
+[0.4.5]: https://github.com/parisek/styleguide/compare/v0.4.4...v0.4.5
+[0.4.4]: https://github.com/parisek/styleguide/compare/v0.4.3...v0.4.4
+[0.4.3]: https://github.com/parisek/styleguide/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/parisek/styleguide/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/parisek/styleguide/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/parisek/styleguide/compare/v0.3.14...v0.4.0
