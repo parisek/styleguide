@@ -376,8 +376,8 @@ The package registers these on its pristine Twig env (or layers them on top of a
 
 | Name | Type | Purpose |
 |---|---|---|
-| `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/` |
-| `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig` |
+| `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/`. `content` may be `null` (an optional sub-object a template passes through): it renders as `{}` and the render log gets a warning naming the caller template and line (added 1.36.0). A string or number still throws |
+| `page_<name>(content = {})` | function | Same but for `@page/<name>/<name>.twig`. Takes `null` the same way |
 | `placeholder(opts)` | function | Generate a placeholder image URL — see README § Fixtures & sample data for the main option table (`subject`, `mood`, `seed`, `width`, `height`, `aspect`, `label`) and migration examples away from `picsum.photos`-style URLs. Three finishing options exist beyond that table: `grain` (bool, default `true` — film-grain overlay), `vignette` (bool, default `true` — edge darkening), `alt` (string, default `"<subject> placeholder"`). |
 | `resizer(image, …tuples)` | filter | Image resize URL from variadic tuples OR orientation-keyed map (`{landscape, portrait, square}`) |
 | `merge_resizer(…lists)` | function | Combines several `\|resizer` outputs into one `<picture>` candidate list, one argument per viewport layer (widest first). Null / non-array arguments are dropped, so an optional per-viewport image needs no `{% if %}`. **Non-final arguments contribute only their media-queried variants** — see § `merge_resizer()` below |
