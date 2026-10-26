@@ -9,6 +9,7 @@ use Parisek\Styleguide\Http\Request;
 use Parisek\Styleguide\Router;
 use Parisek\Styleguide\Styleguide;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -122,6 +123,108 @@ final class CanvasLinksTest extends TestCase
             . '<a href="/styleguide/page/about" data-sg-chrome>back</a>';
 
         self::assertSame($html, CanvasLinks::rewrite($html, '/styleguide'));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function markupShapes(): iterable
+    {
+        $to = '/styleguide/render/page/about?canvas=1';
+        yield '> inside a quoted attribute' => [
+            '<a title="Next >" href="/styleguide/page/about">x</a>',
+            '<a title="Next >" href="' . $to . '">x</a>',
+        ];
+        yield 'upper-case tag and attribute' => [
+            '<A HREF="/styleguide/page/about">x</A>',
+            '<A HREF="' . $to . '">x</A>',
+        ];
+        yield 'unquoted value gets double quotes' => [
+            '<a href=/styleguide/page/about class=nav>x</a>',
+            '<a href="' . $to . '" class=nav>x</a>',
+        ];
+        yield 'the first href wins, as in a browser' => [
+            '<a href="/styleguide/page/about" href="/styleguide/page/other">x</a>',
+            '<a href="' . $to . '" href="/styleguide/page/other">x</a>',
+        ];
+        yield 'a custom element named like a raw-text one is markup' => [
+            '<script-demo><a href="/styleguide/page/about">x</a></script-demo>',
+            '<script-demo><a href="' . $to . '">x</a></script-demo>',
+        ];
+        yield 'an anchor inside <template> is markup' => [
+            '<template><a href="/styleguide/page/about">x</a></template>',
+            '<template><a href="' . $to . '">x</a></template>',
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('markupShapes')]
+    public function valid_markup_shapes_are_understood(string $html, string $expected): void
+    {
+        self::assertSame($expected, CanvasLinks::rewrite($html, '/styleguide'));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function notMarkup(): iterable
+    {
+        yield 'comment' => ['<!-- <a href="/styleguide/page/about">old</a> -->'];
+        yield 'script string' => ['<script>const a = \'<a href="/styleguide/page/about">\';</script>'];
+        yield 'style' => ['<style>/* <a href="/styleguide/page/about"> */</style>'];
+        yield 'textarea' => ['<textarea><a href="/styleguide/page/about">x</a></textarea>'];
+        yield 'title' => ['<title><a href="/styleguide/page/about"></title>'];
+        foreach (['xmp', 'iframe', 'noembed', 'noframes', 'noscript'] as $element) {
+            yield $element => ["<$element><a href=\"/styleguide/page/about\">x</a></$element>"];
+        }
+        yield 'unterminated comment' => ['<!-- <a href="/styleguide/page/about">x</a>'];
+        foreach (['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'noscript'] as $element) {
+            yield "unterminated $element" => ["<$element><a href=\"/styleguide/page/about\">x</a>"];
+        }
+        yield 'plaintext to the end' => ['<plaintext><a href="/styleguide/page/about">x</a>'];
+        yield 'href= inside another quoted value' => ['<a title="see href=/styleguide/page/about">x</a>'];
+        yield 'abbr is not an anchor' => ['<abbr href="/styleguide/page/about">x</abbr>'];
+        yield 'anchor without href' => ['<a name="top">x</a>'];
+        yield 'href without value' => ['<a href>x</a>'];
+    }
+
+    #[Test]
+    #[DataProvider('notMarkup')]
+    public function text_that_is_not_an_entry_link_is_left_byte_for_byte(string $html): void
+    {
+        self::assertSame($html, CanvasLinks::rewrite($html, '/styleguide'));
+    }
+
+    #[Test]
+    #[RunInSeparateProcess]
+    public function a_regex_failure_returns_the_render_unchanged(): void
+    {
+        // The JIT ignores the backtrack limit, and a compiled pattern is cached
+        // per process, hence the separate process.
+        $limit = ini_get('pcre.backtrack_limit');
+        $jit = ini_get('pcre.jit');
+        ini_set('pcre.jit', '0');
+        ini_set('pcre.backtrack_limit', '10');
+        try {
+            $html = '<a title="' . str_repeat('x', 200) . '" href="/styleguide/page/about">x</a>';
+            self::assertSame($html, CanvasLinks::rewrite($html, '/styleguide'));
+        } finally {
+            ini_set('pcre.backtrack_limit', (string) $limit);
+            ini_set('pcre.jit', (string) $jit);
+        }
+    }
+
+    #[Test]
+    public function a_variant_is_not_carried_to_another_entry(): void
+    {
+        // A variant is a styleguide.<id>.twig sibling of ONE entry, so it is not a
+        // visitor preference like locale or theme (Router::withExplicitVariantIfPresent(),
+        // useVariant.js). A link can still name one.
+        $styleguide = $this->styleguideWithLinkedPages();
+        $body = (string) $styleguide->handle(new Request('/styleguide/render/page/home?canvas&variant=dark'))?->body;
+
+        self::assertStringContainsString('href="/styleguide/render/page/about?canvas=1"', $body);
+        self::assertStringNotContainsString('variant=dark', substr($body, (int) strpos($body, '<body')));
     }
 
     #[Test]

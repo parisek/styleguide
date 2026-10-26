@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
 import { resolveContentHeight, entryScrolls } from '../lib/previewHeight.js';
+import { useEntryLinks } from '../composables/useEntryLinks.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
 import { useCatalogStore } from '../stores/catalog.js';
@@ -11,6 +12,7 @@ const ui = useUiStore();
 const i18n = useI18nStore();
 const catalog = useCatalogStore();
 const viewport = inject('viewport');
+const entryLinks = useEntryLinks();
 
 const paneRef = ref(null);
 const wrapperRef = ref(null);
@@ -95,7 +97,9 @@ function onIframeLoad(event) {
         iframeContentHeight.value = null;
         if (contentRO) contentRO.disconnect();
     }
+    entryLinks.follow(event.target);
 }
+
 
 // CSS for the wrapper element. Every fixed-px width (preset or Custom) takes
 // the *scaled* dimensions so the wrapper occupies the visible amount of

@@ -1,5 +1,18 @@
 import { test, expect } from '@playwright/test';
 
+// Puts a link at the top of a preview iframe's body, as a page menu would have it.
+async function addLink(frame, href, { target = null, id = 'sg-test-entry-link' } = {}) {
+    await frame.locator('body').evaluate((body, args) => {
+        const link = document.createElement('a');
+        link.setAttribute('href', args.href);
+        if (args.target) link.setAttribute('target', args.target);
+        link.id = args.id;
+        link.textContent = args.id;
+        link.style.cssText = 'display:block;position:relative;z-index:99999;background:#fff';
+        body.prepend(link);
+    }, { href, target, id });
+}
+
 test.describe('Styleguide SPA', () => {
     test('landing hydrates on Foundations, cs locale, sidebar shows translated labels', async ({ page }) => {
         // Replaces smoke-browser.sh section 1 (landing hydration).
@@ -228,6 +241,132 @@ test.describe('Styleguide SPA', () => {
         await page.goto('/styleguide/component/sample');
         await page.getByRole('button', { name: /Canvas/i }).click();
         await expect(page).toHaveURL(/canvas=1/);
+    });
+
+    test('a link to another entry inside the preview moves the SPA route, not just the iframe', async ({ page }) => {
+        // #250: content links such as a page menu point at `/styleguide/page/<slug>`.
+        // The click must change the URL, the sidebar and the iframe src together,
+        // and keep `?locale=` (the link itself carries none).
+        await page.goto('/styleguide/page/pricing?locale=en');
+        const iframe = page.locator('iframe').first();
+        await expect(iframe).toHaveAttribute('src', /\/styleguide\/render\/page\/pricing/);
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact\?locale=en$/);
+        await expect(iframe).toHaveAttribute('src', /\/styleguide\/render\/page\/contact/);
+    });
+
+    test('a link that names its own locale and theme wins over the frame', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing?locale=cs');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact?locale=en&theme=dark');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact\?locale=en$/);
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', /theme=dark/);
+    });
+
+    test('a link to the same entry with its own locale and theme moves the SPA too', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/pricing?locale=en&theme=dark');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing\?locale=en$/);
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', /theme=dark&locale=en/);
+        // The next render keeps both: the theme is the stored toggle, the locale the URL.
+        await page.reload();
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', /theme=dark&locale=en/);
+    });
+
+    test('a native navigation that names a locale moves the SPA too', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        await page.frameLocator('iframe').first().locator('body')
+            .evaluate(() => window.location.assign('/styleguide/render/page/pricing?locale=en'));
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing\?locale=en$/);
+    });
+
+    test('a link to a place on another entry keeps its fragment', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/data-consumer#sgdata');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/data-consumer#sgdata$/);
+        await expect(page.frameLocator('iframe').first().locator('#sgdata')).toBeAttached();
+    });
+
+    test('a link to a place on the same entry does not reload the preview', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/pricing#sg-test-entry-link');
+        await frame.locator('body').evaluate(() => { window.sgMarker = 1; });
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing$/);
+        expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
+    });
+
+    test('a relative entry link resolves against the iframe <base href>, and Back returns', async ({ page }) => {
+        // The fixture sets `iframe.base_href: /`, so `styleguide/page/contact`
+        // means /styleguide/page/contact for the browser, not a path below the render.
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, 'styleguide/page/contact');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
+        await page.goBack();
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing$/);
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', '/styleguide/render/page/pricing');
+    });
+
+    test('a link inside a variant grid tile moves the SPA route', async ({ page }) => {
+        await page.goto('/styleguide/component/multi');
+        await expect(page.getByTestId('variant-tile').first()).toBeVisible();
+        const frame = page.getByTestId('variant-grid').frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
+    });
+
+    test('a link inside a compare column moves the SPA route', async ({ page }) => {
+        await page.goto('/styleguide/component/gizmo');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
+        await page.keyboard.press('Escape');
+        const frame = page.getByTestId('compare-strip').frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
+    });
+
+    test('a link inside an active board frame moves the SPA route', async ({ page }) => {
+        await page.goto('/styleguide/grid?view=board');
+        const board = page.getByTestId('board-frame').first();
+        await expect(board.locator('iframe')).toHaveCount(1);
+        await board.click();
+        await board.click();
+        const frame = board.frameLocator('iframe');
+        await addLink(frame, '/styleguide/page/contact');
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
+    });
+
+    test('a link opened in a new tab or to the same entry is left to the browser', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact', { target: '_blank', id: 'sg-blank' });
+        await addLink(frame, '#top', { id: 'sg-self' });
+        const [popup] = await Promise.all([page.waitForEvent('popup'), frame.locator('#sg-blank').click()]);
+        await popup.close();
+        await frame.locator('#sg-self').click();
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing$/);
+    });
+
+    test('an iframe navigation the click handler did not see still moves the SPA route', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', '/styleguide/render/page/pricing');
+        await page.frameLocator('iframe').first().locator('body')
+            .evaluate(() => window.location.assign('/styleguide/page/contact'));
+        await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', '/styleguide/render/page/contact');
     });
 
     test('the iframe theme toggle appends ?theme=dark to the iframe src and toggles it back off', async ({ page }) => {
