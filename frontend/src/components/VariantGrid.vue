@@ -31,11 +31,13 @@ import SourcePanel from './SourcePanel.vue';
 import CompareStrip from './CompareStrip.vue';
 import ErrorMark from './ErrorMark.vue';
 import { useRenderErrorsStore } from '../stores/renderErrors.js';
+import { useEntryLinks } from '../composables/useEntryLinks.js';
 
 const i18n = useI18nStore();
 const errors = useRenderErrorsStore();
 const ui = useUiStore();
 const viewport = inject('viewport');
+const entryLinks = useEntryLinks();
 
 // Per-tile "Code" toggle: shown only when the server allows the source
 // (`showSource` in #sg-config). Open state is keyed like the tile itself,
@@ -119,6 +121,7 @@ watch(() => tiles.value.map((t) => tileKey(t)), (liveKeys) => {
 
 function onTileLoad(tile, event) {
     const iframe = event.target;
+    entryLinks.follow(iframe);
     const doc = iframe?.contentDocument;
     if (!doc) return;
     const key = tileKey(tile);

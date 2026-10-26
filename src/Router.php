@@ -44,7 +44,7 @@ final class Router
      *        `synthesizeEmbeddedRoute()` instead.
      * @param string $mount The catalogue's mount path, already normalised by
      *        {@see MountPath::normalise()}.
-     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string,locale?:string}|null
+     * @return array{type:string,slug?:string,kind?:string,endpoint?:string,path?:string,theme?:string,variant?:string,locale?:string,canvas?:bool}|null
      */
     public static function parse(string $uri, array $cookies = [], string $mount = MountPath::DEFAULT): ?array
     {
@@ -91,6 +91,11 @@ final class Router
             $locale = self::whitelistLocale($query['locale'] ?? null);
             if ($locale !== null) {
                 $route['locale'] = $locale;
+            }
+            // Presence-based, like the back-bar check in render-cell.twig: the
+            // value is never inspected. Drives CanvasLinks in dispatchRender().
+            if (array_key_exists('canvas', $query)) {
+                $route['canvas'] = true;
             }
             return $route;
         }
