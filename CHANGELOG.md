@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.37.0] - 2026-10-26
+
 ### Fixed
 
 - **Links in canvas mode stay in canvas mode** (#250). A render opened with `?canvas` used to leave canvas on the first click: a link to another entry (`/styleguide/page/about`, from a data `url:` or from `homeUrl ~ 'page/about'` in Twig) opened the SPA with its sidebar. The render endpoint now rewrites, in the canvas output only, the `href` of each `<a>` whose path is `<mount>/(component|page|doc)/<slug>` to `<mount>/render/<kind>/<slug>?canvas=1`. It carries the request's `locale` and a `dark` theme unless the link sets them, and keeps the link's own query (`variant`) and fragment. External, `mailto:`, `tel:`, anchor, asset and other catalogue links are not touched. Without `?canvas` the output is unchanged. The standalone back-bar link carries `data-sg-chrome` and keeps pointing at the SPA. The scan knows comments, raw-text elements (`script`, `style`, `textarea`, `title`, `xmp`, `iframe`, `noembed`, `noframes`, `noscript`, `plaintext`) and quoted attribute values, so nothing outside a real `<a href>` changes; on a PCRE failure the render goes out unchanged.
