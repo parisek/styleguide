@@ -93,6 +93,15 @@ final class Result
         return new self($status, $headers, null, null);
     }
 
+    /**
+     * The same result with another body, e.g. a render output after a pass
+     * over its HTML. Headers and status stay.
+     */
+    public function withBody(string $body): self
+    {
+        return new self($this->status, $this->headers, $body, null);
+    }
+
     public function withHeader(string $name, string $value): self
     {
         return new self($this->status, [$name => $value] + $this->headers, $this->body, $this->file);
