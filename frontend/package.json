@@ -20,9 +20,9 @@
         "vitest": "^5.0.3"
     },
     "dependencies": {
-        "pinia": "^4.0.3",
+        "pinia": "^4.1.0",
         "prismjs": "^1.30.0",
-        "vue": "^3.5.43",
+        "vue": "^3.5.44",
         "vue-router": "^5.3.1"
     },
     "engines": {
