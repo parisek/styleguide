@@ -25,7 +25,7 @@ import { inject, computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
-import { entryScrolls } from '../lib/previewHeight.js';
+import { entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
 import { showSource } from '../lib/runtimeConfig.js';
 import SourcePanel from './SourcePanel.vue';
 import CompareStrip from './CompareStrip.vue';
@@ -125,17 +125,9 @@ function onTileLoad(tile, event) {
     const doc = iframe?.contentDocument;
     if (!doc) return;
     const key = tileKey(tile);
-    const measure = () => {
-        const h = Math.max(doc.documentElement?.scrollHeight ?? 0, doc.body?.scrollHeight ?? 0);
-        if (h > 0) heights[key] = h;
-    };
-    measure();
     const previous = heightObservers.get(key);
     if (previous) previous.disconnect();
-    const ro = new ResizeObserver(measure);
-    if (doc.documentElement) ro.observe(doc.documentElement);
-    if (doc.body) ro.observe(doc.body);
-    heightObservers.set(key, ro);
+    heightObservers.set(key, observeContentHeight(doc, (h) => { heights[key] = h; }));
 }
 
 // Per-tile cell width -- the measured width of the tile's own content area
