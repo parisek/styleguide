@@ -195,10 +195,12 @@
 	   never nest. `create_attribute` is called inline (not via a `{% set %}`
 	   variable) so its `is_safe` markup flag survives — same as the `<body>`
 	   line above; storing it in a variable would lose the flag and autoescape
-	   the quotes. #}
+	   the quotes. `data-sg-page-shell` marks the shell for the SPA's height
+	   measure (lib/previewHeight.js): the shell's `100dvh` floor resolves against
+	   the iframe, so the SPA has to lift it to read the content's own height. #}
 	{% set page_wrapper_class = kind == 'page' ? iframe.page_wrapper_class|default('') : '' %}
 	{% if use_inset %}<div style="padding:1.5rem">{% endif %}
-	{% if page_wrapper_class is not empty %}<div{{ create_attribute({ class: page_wrapper_class }) }}>{% endif %}
+	{% if page_wrapper_class is not empty %}<div data-sg-page-shell{{ create_attribute({ class: page_wrapper_class }) }}>{% endif %}
 	{{ body|raw }}
 	{% if page_wrapper_class is not empty %}</div>{% endif %}
 	{% if use_inset %}</div>{% endif %}

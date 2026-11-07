@@ -10,6 +10,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Fixed
 
+- **A page preview shrinks back to its content** (#255). A page render inside the `iframe.page_wrapper_class` shell (`min-h-dvh`, `main` set to `grow`) could only grow: the shell is never shorter than the iframe, and the iframe was sized from the document, so any moment the content was taller than its settled state (first paint before Alpine.js, a late font) fixed the height and left an empty band above the footer — 500 px in a 768 px compare column in the reproduction. The single preview, variant grid tiles, compare columns and board frames now share one measure (`lib/previewHeight.js`) that reads the shell with its height floor lifted for one synchronous layout, observes the shell's children and grandchildren (where a shrink shows while `main` absorbs it), and measures again when web fonts are ready. The shell carries a new `data-sg-page-shell` attribute so the SPA can find it. Renders without a shell keep the document measure, so a `<dialog>` overlay still gets a height. Viewport units inside a component (#133) are not covered.
 - **Template discovery no longer depends on directory order.** `ComponentParser` walks each template root sorted by path. Before, the walk followed the filesystem's order, so the order of parse warnings — and, when one root holds two templates with the same id, which one claims it — could differ from one machine or checkout to the next. That flipped the `LegacySingleRootTest` snapshot on CI.
 
 ## [1.37.0] - 2026-10-26
