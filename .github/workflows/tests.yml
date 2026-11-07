@@ -157,6 +157,17 @@ jobs:
       - name: Validate the ADR directory against the index
         run: python3 scripts/check-adr-index.py
 
+  changelog-links:
+    runs-on: ubuntu-latest
+    name: CHANGELOG link references match the tags
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the check reads the tags
+
+      - name: Validate the link references against the tags
+        run: python3 scripts/changelog-links.py check
+
   phpstan:
     runs-on: ubuntu-latest
     name: PHPStan
