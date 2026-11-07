@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
-import { resolveContentHeight, entryScrolls } from '../lib/previewHeight.js';
+import { resolveContentHeight, entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
@@ -64,23 +64,16 @@ const isLoading = computed(() => ui.isPreviewLoading);
 const singleCompare = computed(() => viewport.compareActive.value && !viewport.gridActive.value);
 
 // Same-origin iframes let the parent read contentDocument directly. Measure
-// scrollHeight (accounts for everything below the fold) and keep an
-// observer so post-load DOM changes (image/font load, accordion expansion,
+// the content height (lib/previewHeight.js — shared with the grid, the compare
+// strip and the board, #255) and keep an observer so post-load DOM changes (image/font load, accordion expansion,
 // JS-driven content swaps) feed back into the iframe's explicit height. A
 // fresh observer is created on every load so navigating between components
 // doesn't leak observers from the previous document.
 function fitIframeToContent(iframe) {
     const doc = iframe?.contentDocument;
     if (!doc) return;
-    const measure = () => {
-        const h = Math.max(doc.documentElement?.scrollHeight ?? 0, doc.body?.scrollHeight ?? 0);
-        if (h > 0) iframeContentHeight.value = h;
-    };
-    measure();
     if (contentRO) contentRO.disconnect();
-    contentRO = new ResizeObserver(measure);
-    if (doc.documentElement) contentRO.observe(doc.documentElement);
-    if (doc.body) contentRO.observe(doc.body);
+    contentRO = observeContentHeight(doc, (h) => { iframeContentHeight.value = h; });
 }
 
 // The loading flag itself is set synchronously by setRoute() in the ui
