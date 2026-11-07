@@ -21,6 +21,7 @@
 // pinned demo height (lib/previewHeight.js) and every height has a ceiling.
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { resolveContentHeight, entryScrolls } from '../lib/previewHeight.js';
+import { useEntryLinks } from '../composables/useEntryLinks.js';
 
 const props = defineProps({
     entry: { type: Object, required: true },
@@ -113,9 +114,13 @@ function unforward() {
     forwardedDoc = null;
 }
 
+const entryLinks = useEntryLinks();
+
 function onLoad() {
     finish();
     measure();
+    // An active frame takes clicks: a link to another entry opens that entry.
+    entryLinks.follow(frame.value);
     resizeObserver?.disconnect();
     unforward();
     const doc = frame.value?.contentDocument;

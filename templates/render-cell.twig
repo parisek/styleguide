@@ -132,7 +132,7 @@
 		{# Back link — just the arrow. The project name lived next to it
 		   historically but it's redundant with the favicon (same logical
 		   signal: "you're inside this project's styleguide"). #}
-		<a href="{{ sg_url|e }}" title="{{ project.name|default('Styleguide')|e }} — Styleguide" style="display:inline-flex;align-items:center;color:#a1a1aa;text-decoration:none">
+		<a href="{{ sg_url|e }}" data-sg-chrome title="{{ project.name|default('Styleguide')|e }} — Styleguide" style="display:inline-flex;align-items:center;color:#a1a1aa;text-decoration:none">
 			<span aria-hidden="true">←</span>
 		</a>
 		{# Friendly name + raw slug in parens. Mirrors how the SPA chrome's

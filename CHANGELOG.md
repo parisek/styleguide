@@ -10,7 +10,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Changed
 
-- **Stamp Release keeps the `CHANGELOG.md` link references up to date** (#245). A new `scripts/changelog-links.py` moves `[Unreleased]` to the new tag and adds `[X.Y.Z]` with the range from the newest earlier tag (by semver, so a tag without a heading still ends the range). The run fails if the reference block is missing. The same script has a `check` mode: the `Tests` workflow and `composer check` fail when a heading has no reference, a range is invalid, or `[Unreleased]` does not start at the newest tag. This PR adds the 29 missing references (1.16.0 to 1.36.0) and moves `[Unreleased]` from v1.32.0 to v1.36.0. `RELEASING.md` no longer asks for a manual edit.
+- **Stamp Release keeps the `CHANGELOG.md` link references up to date** (#245). A new `scripts/changelog-links.py` moves `[Unreleased]` to the new tag and adds `[X.Y.Z]` with the range from the newest earlier tag (by semver, so a tag without a heading still ends the range). The run fails if the reference block is missing. The same script has a `check` mode: the `Tests` workflow and `composer check` fail when a heading has no reference, a range is invalid, or `[Unreleased]` does not start at the newest tag. This PR adds the 30 missing references (1.16.0 to 1.37.0) and moves `[Unreleased]` from v1.32.0 to v1.37.0. `RELEASING.md` no longer asks for a manual edit.
+
+## [1.37.0] - 2026-10-26
+
+### Fixed
+
+- **Links in canvas mode stay in canvas mode** (#250). A render opened with `?canvas` used to leave canvas on the first click: a link to another entry (`/styleguide/page/about`, from a data `url:` or from `homeUrl ~ 'page/about'` in Twig) opened the SPA with its sidebar. The render endpoint now rewrites, in the canvas output only, the `href` of each `<a>` whose path is `<mount>/(component|page|doc)/<slug>` to `<mount>/render/<kind>/<slug>?canvas=1`. It carries the request's `locale` and a `dark` theme unless the link sets them, and keeps the link's own query (`variant`) and fragment. External, `mailto:`, `tel:`, anchor, asset and other catalogue links are not touched. Without `?canvas` the output is unchanged. The standalone back-bar link carries `data-sg-chrome` and keeps pointing at the SPA. The scan knows comments, raw-text elements (`script`, `style`, `textarea`, `title`, `xmp`, `iframe`, `noembed`, `noframes`, `noscript`, `plaintext`) and quoted attribute values, so nothing outside a real `<a href>` changes; on a PCRE failure the render goes out unchanged.
+- **A link to another entry inside the SPA preview moves the SPA** (#250). Clicked inside the preview iframe, `/styleguide/page/about` used to load the render in the iframe only: the URL, the sidebar, the toolbar and `?locale=` stayed on the old entry. Now the click moves the SPA route, in the single preview, variant grid tiles, compare columns and the active board frame. The route keeps `?locale=` unless the link names its own; a link's `?theme=` sets the iframe theme; `?variant=` is not carried to another entry (as with a sidebar click); a fragment is kept and scrolled to. A new tab, a modifier key, `download` and other targets are left to the browser. A navigation the click does not see (a script, a form) is caught on load and the route follows with `replace`.
 
 ## [1.36.0] - 2026-10-22
 
@@ -2012,7 +2019,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.36.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.37.0...HEAD
+[1.37.0]: https://github.com/parisek/styleguide/compare/v1.36.0...v1.37.0
 [1.36.0]: https://github.com/parisek/styleguide/compare/v1.35.0...v1.36.0
 [1.35.0]: https://github.com/parisek/styleguide/compare/v1.34.0...v1.35.0
 [1.34.0]: https://github.com/parisek/styleguide/compare/v1.33.0...v1.34.0

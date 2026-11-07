@@ -3618,7 +3618,8 @@ final class Styleguide
                 ]);
             }
 
-            return $this->renderer->render(
+            $theme = Router::whitelistTheme($route['theme'] ?? null);
+            $result = $this->renderer->render(
                 kind: $route['kind'],
                 slug: $route['slug'],
                 config: $config,
@@ -3626,8 +3627,23 @@ final class Styleguide
                 // Router::parse() / synthesizeEmbeddedRoute() always set this for
                 // `render`-type routes, but re-whitelist defensively — $route is a
                 // loosely-typed array<string,mixed>, not a value object.
-                theme: Router::whitelistTheme($route['theme'] ?? null),
+                theme: $theme,
             );
+
+            // Canvas mode: links to other entries open their render, still in
+            // canvas, in the same locale and theme. See CanvasLinks.
+            if (($route['canvas'] ?? false) === true && $result->body !== null) {
+                $carry = [];
+                if ($requestedLocale !== null) {
+                    $carry['locale'] = $requestedLocale;
+                }
+                if ($theme === 'dark') {
+                    $carry['theme'] = 'dark';
+                }
+                $result = $result->withBody(CanvasLinks::rewrite($result->body, $this->publicBase(), $carry));
+            }
+
+            return $result;
         } finally {
             $this->requestLocale = $previousLocale;
         }

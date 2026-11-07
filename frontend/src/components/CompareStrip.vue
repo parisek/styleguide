@@ -11,6 +11,7 @@ import { computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { computeTileGeometry, compareColumnTemplate } from '../lib/tileGeometry.js';
 import { useRenderErrorsStore } from '../stores/renderErrors.js';
 import ErrorMark from './ErrorMark.vue';
+import { useEntryLinks } from '../composables/useEntryLinks.js';
 
 const errors = useRenderErrorsStore();
 
@@ -27,6 +28,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['load']);
+const entryLinks = useEntryLinks();
 
 const PRE_MEASURE_MIN_HEIGHT = 96;
 
@@ -62,6 +64,7 @@ function registerCell(width, el) {
 }
 
 function onLoad(width, event) {
+    entryLinks.follow(event.target);
     if (!loadEmitted) {
         loadEmitted = true;
         emit('load');
