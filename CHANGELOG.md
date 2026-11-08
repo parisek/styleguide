@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **Template discovery no longer depends on directory order.** `ComponentParser` walks each template root sorted by path. Before, the walk followed the filesystem's order, so the order of parse warnings — and, when one root holds two templates with the same id, which one claims it — could differ from one machine or checkout to the next. That flipped the `LegacySingleRootTest` snapshot on CI.
+
 ## [1.37.0] - 2026-10-26
 
 ### Fixed

@@ -504,10 +504,15 @@ class ComponentParser
 
             $iterator = new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS);
             $flattened = new \RecursiveIteratorIterator($iterator);
-            $regex = new \RegexIterator($flattened, '/\.twig$/');
+            // Sorted by path: directory order is the filesystem's (an ext4
+            // hash, a fresh checkout's), so unsorted, which of two same-named
+            // templates claims an id, and the order of warnings, would change
+            // from one machine to the next.
+            $files = iterator_to_array(new \RegexIterator($flattened, '/\.twig$/'), false);
+            usort($files, static fn(\SplFileInfo $a, \SplFileInfo $b): int => strcmp($a->getPathname(), $b->getPathname()));
             $claimedHere = [];
 
-            foreach ($regex as $file) {
+            foreach ($files as $file) {
                 // A variant sibling carrying a {# name: #} header must never
                 // surface as a phantom catalogue entry — exclude the whole
                 // styleguide.* family, not just the exact default filename, so
