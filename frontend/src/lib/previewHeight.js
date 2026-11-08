@@ -51,56 +51,62 @@ export function entryScrolls(item) {
 }
 
 // The page shell render-cell.twig wraps a page render in when the consumer sets
-// `iframe.page_wrapper_class` — typically a flex column with a `100dvh` min-height and `main`
-// set to `grow`.
+// `iframe.page_wrapper_class` — typically a flex column with a `100dvh`
+// min-height and `main` set to `grow`.
 export const PAGE_SHELL_SELECTOR = '[data-sg-page-shell]';
 
-function px(value) {
-    const n = parseFloat(value);
-    return Number.isFinite(n) ? n : 0;
+// The viewport height a shelled page is measured at. Zero, so that no floor in
+// the page (the shell's, or one on body) can add height of its own: what is left
+// is the content.
+export const PROBE_HEIGHT_PX = 0;
+
+const FLOOR_STYLE_ID = 'sg-shell-floor';
+
+export function findPageShell(doc) {
+    return typeof doc?.querySelector === 'function' ? doc.querySelector(PAGE_SHELL_SELECTOR) : null;
 }
 
-// The height of the content in a same-origin preview document — the number every
-// surface that sizes an iframe to its content feeds back into that iframe (#255).
-//
-// The document's own scrollHeight is a RATCHET when the page shell is present:
-// a `100dvh` min-height resolves against the iframe, so the document is never shorter than
-// the iframe, and the iframe is sized from the document. Any moment the content
-// is taller than its settled state — the first paint before Alpine.js collapses
-// something, a late font — fixes the height there for good, and `main` grows to
-// fill the difference as an empty band above the footer. Reading the shell
-// instead, with its viewport floor lifted for one synchronous layout, gives the
-// content's own height. The lift is set and restored inside one task, so the
-// page never paints it and ResizeObserver, which samples sizes at the next
-// rendering step, never sees it either.
-//
-// Without a shell nothing changes: the document measure stays as it was, so a
-// `<dialog>` overlay (all top layer, an empty body) still gets a height.
-export function measureContentHeight(doc) {
-    const documentHeight = Math.max(doc?.documentElement?.scrollHeight ?? 0, doc?.body?.scrollHeight ?? 0);
-    const shell = typeof doc?.querySelector === 'function' ? doc.querySelector(PAGE_SHELL_SELECTOR) : null;
-    if (!shell || typeof shell.getBoundingClientRect !== 'function') return documentHeight;
+function documentHeight(doc) {
+    return Math.max(doc?.documentElement?.scrollHeight ?? 0, doc?.body?.scrollHeight ?? 0);
+}
 
-    const style = shell.style;
-    const saved = ['min-height', 'height'].map((prop) => [prop, style.getPropertyValue(prop), style.getPropertyPriority(prop)]);
-    // `height` too: a shell that also carries `h-full` under a `body { height:
-    // 100% }` is the same floor by another name.
-    style.setProperty('min-height', '0px', 'important');
-    style.setProperty('height', 'auto', 'important');
+// The height of the content in a same-origin preview document: the number every
+// surface that sizes an iframe to its content feeds back into that iframe.
+//
+// The document's scrollHeight is never smaller than its viewport, and a shelled
+// page's `100dvh` floor holds the content at the viewport height too. Sized from
+// that, the iframe can grow and never shrink: any moment the content is taller
+// than its settled state (the first paint before Alpine.js collapses something,
+// a late font) fixes the height for good, with `main` grown into an empty band
+// above the footer.
+//
+// So a shelled page is measured with its iframe briefly set to PROBE_HEIGHT_PX.
+// Every viewport floor then resolves to nothing, wherever it is declared, and
+// scrollHeight reads the content, including anything in body outside the shell.
+// Nothing in the page's own DOM is touched: only the iframe element in the SPA
+// changes, and it is restored in the same task, so neither frame paints the
+// probe and ResizeObserver, which samples at the next rendering step, never
+// sees it.
+//
+// A document without a shell, or a double without a frame, keeps the plain
+// document measure, so a `<dialog>` overlay (all top layer, an empty body) still
+// gets a height.
+export function measureContentHeight(doc, shell = findPageShell(doc)) {
+    return probe(doc, shell).height;
+}
+
+// The iframe element's own floors are lifted with its height, so a `min-h-*`
+// on the frame cannot hold the probe open.
+const PROBED = ['height', 'min-height'];
+
+function probe(doc, shell) {
+    const frame = doc?.defaultView?.frameElement;
+    if (!shell || !frame?.style) return { height: documentHeight(doc), shellHeight: null };
+    const style = frame.style;
+    const saved = PROBED.map((prop) => [prop, style.getPropertyValue(prop), style.getPropertyPriority(prop)]);
+    for (const prop of PROBED) style.setProperty(prop, `${PROBE_HEIGHT_PX}px`, 'important');
     try {
-        const top = shell.getBoundingClientRect().top - doc.documentElement.getBoundingClientRect().top;
-        const own = Math.max(shell.offsetHeight ?? 0, shell.scrollHeight ?? 0);
-        // Whatever the document keeps below the shell: body padding, border and
-        // margin, and the root's own padding.
-        const view = doc.defaultView;
-        let below = 0;
-        if (view && doc.body) {
-            const b = view.getComputedStyle(doc.body);
-            const r = view.getComputedStyle(doc.documentElement);
-            below = px(b.paddingBottom) + px(b.borderBottomWidth) + px(b.marginBottom)
-                + px(r.paddingBottom) + px(r.borderBottomWidth);
-        }
-        return Math.ceil(top + own + below);
+        return { height: documentHeight(doc), shellHeight: shell.offsetHeight ?? 0 };
     } finally {
         for (const [prop, value, priority] of saved) {
             if (value) style.setProperty(prop, value, priority);
@@ -109,22 +115,68 @@ export function measureContentHeight(doc) {
     }
 }
 
+// The iframe ends up exactly as tall as the content, plus whatever the document
+// keeps around the shell (body padding for a fixed header, margins). A `100dvh`
+// shell floor would then resolve to that whole height, taller than the shell's
+// content by exactly that amount, and `main` would grow into a band of that size
+// above the footer while the document scrolled by it inside the iframe. Taking
+// the surround off the floor keeps the shell flush with its content when the
+// page is taller than the floor, and still fills a short page down to the
+// iframe's bottom edge.
+//
+// Only a shell whose floor is the viewport gets this, judged once at load, so a
+// shell without one keeps its own min-height.
+function shellHasViewportFloor(doc, shell) {
+    const view = doc.defaultView;
+    if (!view?.getComputedStyle) return false;
+    const floor = parseFloat(view.getComputedStyle(shell).minHeight);
+    return Number.isFinite(floor) && floor > 0 && Math.abs(floor - view.innerHeight) <= 1;
+}
+
+function setFloorSurround(doc, surround) {
+    let el = doc.getElementById?.(FLOOR_STYLE_ID);
+    if (!el) {
+        if (!doc.head || typeof doc.createElement !== 'function') return;
+        el = doc.createElement('style');
+        el.id = FLOOR_STYLE_ID;
+        doc.head.appendChild(el);
+    }
+    const css = `${PAGE_SHELL_SELECTOR}{min-height:calc(100dvh - ${surround}px) !important}`;
+    if (el.textContent !== css) el.textContent = css;
+}
+
 // Measure now and again whenever the content may have changed size; `onHeight`
 // gets every positive measure. Returns an object with `disconnect()`, so callers
 // keep the bookkeeping they had for a bare ResizeObserver.
 //
-// The document and body are not enough to observe once a shell is present: when
-// content inside `main` shrinks, `main` grows by the same amount and nothing
-// above it changes size. The shell's children and grandchildren — header, main,
-// footer and the sections in them — do change, so they are observed too.
-// `fonts.ready` catches a web font that lands after `load` and rewraps text.
+// Size changes alone miss a shrink inside a shelled page: `main` grows by what a
+// section loses, and no box above it changes. So DOM changes anywhere in the
+// document are a trigger too, batched to one measure per frame, and so is every
+// web-font batch that finishes loading (`loadingdone`, not the `ready` promise,
+// which is replaced each time a new batch starts).
 export function observeContentHeight(doc, onHeight) {
+    const shell = findPageShell(doc);
+    const fixFloor = !!shell && shellHasViewportFloor(doc, shell);
     let live = true;
+
     const measure = () => {
         if (!live) return;
-        const h = measureContentHeight(doc);
-        if (h > 0) onHeight(h);
+        const { height: h, shellHeight } = probe(doc, shell);
+        if (h <= 0) return;
+        if (fixFloor && shellHeight != null) setFloorSurround(doc, Math.max(0, h - shellHeight));
+        onHeight(h);
     };
+
+    const view = doc?.defaultView;
+    let queued = false;
+    const schedule = () => {
+        if (queued || !live) return;
+        queued = true;
+        const run = () => { queued = false; measure(); };
+        if (typeof view?.requestAnimationFrame === 'function') view.requestAnimationFrame(run);
+        else run();
+    };
+
     measure();
 
     let ro = null;
@@ -132,21 +184,24 @@ export function observeContentHeight(doc, onHeight) {
         ro = new ResizeObserver(measure);
         if (doc?.documentElement) ro.observe(doc.documentElement);
         if (doc?.body) ro.observe(doc.body);
-        const shell = typeof doc?.querySelector === 'function' ? doc.querySelector(PAGE_SHELL_SELECTOR) : null;
-        if (shell) {
-            ro.observe(shell);
-            for (const child of shell.children ?? []) {
-                ro.observe(child);
-                for (const grandchild of child.children ?? []) ro.observe(grandchild);
-            }
-        }
     }
-    doc?.fonts?.ready?.then?.(measure, () => {});
+    let mo = null;
+    // The page's own MutationObserver: a node of one document is observed
+    // through that document's realm.
+    const MO = view?.MutationObserver;
+    if (shell && typeof MO === 'function' && doc?.documentElement) {
+        mo = new MO(schedule);
+        mo.observe(doc.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+    }
+    const fonts = doc?.fonts;
+    if (typeof fonts?.addEventListener === 'function') fonts.addEventListener('loadingdone', schedule);
 
     return {
         disconnect() {
             live = false;
             ro?.disconnect();
+            mo?.disconnect();
+            if (typeof fonts?.removeEventListener === 'function') fonts.removeEventListener('loadingdone', schedule);
         },
     };
 }

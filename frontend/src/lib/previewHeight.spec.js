@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-    resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight,
+    resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight, PROBE_HEIGHT_PX,
     CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX,
 } from './previewHeight.js';
 
@@ -52,32 +52,38 @@ describe('entryScrolls', () => {
     });
 });
 
-// jsdom does no layout, so the page shell is a double whose height follows the
-// one rule that matters: with its `100dvh` floor in place it is never shorter
-// than the iframe viewport.
-function shellDocument({ content, viewport, top = 0, children = [] }) {
-    const style = document.createElement('div').style;
-    const floored = () => !style.getPropertyValue('min-height');
-    const height = () => (floored() ? Math.max(content, viewport) : content);
+// jsdom does no layout, so a shelled page is a double that follows the rules
+// that matter: the viewport is the iframe element's inline height, a `100dvh`
+// floor (on the shell or body) resolves to it, the injected floor rule takes
+// `surround` off it, and the document is never shorter than its viewport.
+function shelledPage({ content, surround = 0, frameHeight = 900, floor = true }) {
+    const frame = document.createElement('iframe');
+    frame.style.height = `${frameHeight}px`;
+    const viewport = () => parseFloat(frame.style.height) || 0;
+    const injected = { el: null };
+    const head = { appendChild: (el) => { injected.el = el; } };
+    const fixed = () => {
+        const m = injected.el?.textContent?.match(/100dvh - (\d+)px/);
+        return m ? Number(m[1]) : 0;
+    };
+    const shellHeight = () => (floor ? Math.max(content, viewport() - fixed()) : content);
     const shell = {
-        style,
-        children,
-        get offsetHeight() { return height(); },
-        get scrollHeight() { return height(); },
-        getBoundingClientRect: () => ({ top }),
+        get offsetHeight() { return shellHeight(); },
     };
-    const documentElement = {
-        get scrollHeight() { return Math.max(viewport, top + height()); },
-        getBoundingClientRect: () => ({ top: 0 }),
-    };
-    return {
-        shell,
-        doc: {
-            documentElement,
-            body: { get scrollHeight() { return height(); } },
-            querySelector: (sel) => (sel === '[data-sg-page-shell]' ? shell : null),
+    const doc = {
+        head,
+        defaultView: {
+            frameElement: frame,
+            get innerHeight() { return viewport(); },
+            getComputedStyle: () => ({ minHeight: floor ? `${viewport()}px` : '0px' }),
         },
+        documentElement: { get scrollHeight() { return Math.max(viewport(), surround + shellHeight()); } },
+        body: { get scrollHeight() { return surround + shellHeight(); } },
+        querySelector: (sel) => (sel === '[data-sg-page-shell]' ? shell : null),
+        getElementById: (id) => (injected.el?.id === id ? injected.el : null),
+        createElement: (tag) => document.createElement(tag),
     };
+    return { doc, frame, injected };
 }
 
 describe('measureContentHeight', () => {
@@ -90,26 +96,31 @@ describe('measureContentHeight', () => {
         expect(measureContentHeight({ documentElement: { scrollHeight: 640 }, body: { scrollHeight: 10 } })).toBe(640);
     });
 
-    // #255: content 5540 px in an iframe still 6691 px tall from an earlier,
-    // taller paint. The document says 6691; the content is 5540.
-    it('measures the content, not the 100dvh floor, inside a page shell', () => {
-        const { doc } = shellDocument({ content: 5540, viewport: 6691 });
+    // Content 5540 px in an iframe still 6691 px tall from an earlier, taller
+    // paint. The document says 6691; the content is 5540.
+    it('measures a shelled page at the probe height, not at the iframe height', () => {
+        const { doc } = shelledPage({ content: 5540, frameHeight: 6691 });
         expect(doc.documentElement.scrollHeight).toBe(6691);
         expect(measureContentHeight(doc)).toBe(5540);
     });
 
-    it('counts what sits above the shell', () => {
-        const { doc } = shellDocument({ content: 500, viewport: 900, top: 24 });
-        expect(measureContentHeight(doc)).toBe(524);
+    it('counts what the document keeps around the shell', () => {
+        const { doc } = shelledPage({ content: 500, surround: 64 });
+        expect(measureContentHeight(doc)).toBe(564);
     });
 
-    it('restores the shell\'s own inline styles after measuring', () => {
-        const { doc, shell } = shellDocument({ content: 500, viewport: 900 });
-        shell.style.setProperty('height', '50%');
+    it('puts the iframe element back exactly as it was', () => {
+        const { doc, frame } = shelledPage({ content: 500 });
+        frame.style.setProperty('min-height', '400px', 'important');
         measureContentHeight(doc);
-        expect(shell.style.getPropertyValue('min-height')).toBe('');
-        expect(shell.style.getPropertyValue('height')).toBe('50%');
-        expect(shell.style.getPropertyPriority('height')).toBe('');
+        expect(frame.style.getPropertyValue('height')).toBe('900px');
+        expect(frame.style.getPropertyPriority('height')).toBe('');
+        expect(frame.style.getPropertyValue('min-height')).toBe('400px');
+        expect(frame.style.getPropertyPriority('min-height')).toBe('important');
+    });
+
+    it('probes at zero, so no floor in the page can add height', () => {
+        expect(PROBE_HEIGHT_PX).toBe(0);
     });
 });
 
@@ -137,16 +148,45 @@ describe('observeContentHeight', () => {
         expect(seen).toEqual([300, 450]);
     });
 
-    // Inside the shell, `main` absorbs a shrink by growing, so html, body and
-    // the shell keep their size; only the sections inside change.
-    it('observes the shell\'s children and grandchildren', () => {
-        const instances = recordingObserver();
-        const section = {};
-        const main = { children: [section] };
-        const header = { children: [] };
-        const { doc, shell } = shellDocument({ content: 500, viewport: 900, children: [header, main] });
+    // With the iframe at the measured height, a 100dvh floor would hold the
+    // shell `surround` px taller than its content: a band above the footer.
+    it('takes the surround off a viewport floor so the shell stays flush', () => {
+        recordingObserver();
+        const { doc, frame, injected } = shelledPage({ content: 1000, surround: 64 });
+        observeContentHeight(doc, (h) => { frame.style.height = `${h}px`; });
+        expect(frame.style.height).toBe('1064px');
+        expect(injected.el.textContent).toBe('[data-sg-page-shell]{min-height:calc(100dvh - 64px) !important}');
+        expect(doc.body.scrollHeight).toBe(1064);
+    });
+
+    it('leaves a shell without a viewport floor alone', () => {
+        recordingObserver();
+        const { doc, injected } = shelledPage({ content: 1000, surround: 64, floor: false });
         observeContentHeight(doc, () => {});
-        expect(instances[0].targets).toEqual(expect.arrayContaining([shell, header, main, section]));
+        expect(injected.el).toBeNull();
+    });
+
+    // Inside a shelled page `main` absorbs a shrink by growing, so no box above
+    // it changes size; a DOM change is what announces it.
+    it('measures again after a DOM change in a shelled page, once per frame', () => {
+        recordingObserver();
+        const { doc } = shelledPage({ content: 1500 });
+        const observers = [];
+        const frames = [];
+        doc.defaultView.MutationObserver = class {
+            constructor(cb) { this.cb = cb; observers.push(this); }
+            observe() {}
+            disconnect() {}
+        };
+        doc.defaultView.requestAnimationFrame = (cb) => frames.push(cb);
+        const seen = [];
+        observeContentHeight(doc, (h) => seen.push(h));
+        expect(observers).toHaveLength(1);
+        observers[0].cb();
+        observers[0].cb();
+        expect(frames).toHaveLength(1);
+        frames[0]();
+        expect(seen).toEqual([1500, 1500]);
     });
 
     it('stops reporting once disconnected', () => {
@@ -160,18 +200,26 @@ describe('observeContentHeight', () => {
         expect(instances[0].disconnected).toBe(true);
     });
 
-    it('measures again once web fonts are ready', async () => {
+    // `fonts.ready` is replaced each time a new batch starts loading; the event
+    // fires for every batch.
+    it('measures again after every web-font batch', () => {
         recordingObserver();
-        let ready;
+        const listeners = {};
         const doc = {
             documentElement: { scrollHeight: 300 }, body: { scrollHeight: 300 },
-            fonts: { ready: new Promise((r) => { ready = r; }) },
+            fonts: {
+                addEventListener: (type, cb) => { listeners[type] = cb; },
+                removeEventListener: (type) => { delete listeners[type]; },
+            },
         };
         const seen = [];
-        observeContentHeight(doc, (h) => seen.push(h));
+        const handle = observeContentHeight(doc, (h) => seen.push(h));
         doc.documentElement.scrollHeight = 320;
-        ready();
-        await doc.fonts.ready;
-        expect(seen).toEqual([300, 320]);
+        listeners.loadingdone();
+        doc.documentElement.scrollHeight = 340;
+        listeners.loadingdone();
+        expect(seen).toEqual([300, 320, 340]);
+        handle.disconnect();
+        expect(listeners.loadingdone).toBeUndefined();
     });
 });

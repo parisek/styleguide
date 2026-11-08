@@ -64,11 +64,10 @@ const isLoading = computed(() => ui.isPreviewLoading);
 const singleCompare = computed(() => viewport.compareActive.value && !viewport.gridActive.value);
 
 // Same-origin iframes let the parent read contentDocument directly. Measure
-// the content height (lib/previewHeight.js — shared with the grid, the compare
-// strip and the board, #255) and keep an observer so post-load DOM changes (image/font load, accordion expansion,
-// JS-driven content swaps) feed back into the iframe's explicit height. A
-// fresh observer is created on every load so navigating between components
-// doesn't leak observers from the previous document.
+// the content height and keep observing so post-load changes (image/font load,
+// accordion expansion, JS-driven content swaps) feed back into the iframe's
+// explicit height. A fresh observer is created on every load so navigating
+// between components doesn't leak observers from the previous document.
 function fitIframeToContent(iframe) {
     const doc = iframe?.contentDocument;
     if (!doc) return;
