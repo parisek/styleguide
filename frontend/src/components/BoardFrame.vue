@@ -20,7 +20,7 @@
 // would feed that height back into itself: a `render: chrome` entry keeps the
 // pinned demo height (lib/previewHeight.js) and every height has a ceiling.
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
-import { resolveContentHeight, entryScrolls } from '../lib/previewHeight.js';
+import { resolveContentHeight, entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
 
 const props = defineProps({
@@ -87,11 +87,7 @@ function withdraw() {
     state.value = 'idle';
 }
 
-function measure() {
-    const doc = frame.value?.contentDocument;
-    if (!doc) return;
-    const raw = Math.max(doc.documentElement?.scrollHeight ?? 0, doc.body?.scrollHeight ?? 0);
-    if (raw <= 0) return;
+function emitHeight(raw) {
     emit('measure', props.entry.key, resolveContentHeight({ rawContentHeight: raw, scrolls: entryScrolls(props.entry.item) }));
 }
 
@@ -118,7 +114,6 @@ const entryLinks = useEntryLinks();
 
 function onLoad() {
     finish();
-    measure();
     // An active frame takes clicks: a link to another entry opens that entry.
     entryLinks.follow(frame.value);
     resizeObserver?.disconnect();
@@ -129,10 +124,7 @@ function onLoad() {
         doc.addEventListener('keydown', forwardKey);
         forwardedDoc = doc;
     }
-    if (doc?.documentElement && typeof ResizeObserver === 'function') {
-        resizeObserver = new ResizeObserver(measure);
-        resizeObserver.observe(doc.documentElement);
-    }
+    if (doc) resizeObserver = observeContentHeight(doc, emitHeight);
 }
 
 // A new theme or content locale changes the render URL: load it again.

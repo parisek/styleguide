@@ -324,7 +324,7 @@ final class RendererTest extends TestCase
 
         // The configured shell wraps the page body so the preview matches the
         // production layout's `<div class="page-wrapper …">`.
-        self::assertStringContainsString('<div class="page-wrapper flex flex-col min-h-dvh">', $html);
+        self::assertStringContainsString('<div data-sg-page-shell class="page-wrapper flex flex-col min-h-dvh">', $html);
         self::assertStringContainsString('<div class="landing">Landing page</div>', $html);
     }
 
