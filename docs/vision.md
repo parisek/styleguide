@@ -73,7 +73,7 @@ The order is the order of priority. When two principles conflict, the earlier on
 2. **Production fidelity.** A preview renders with the project's own Twig environment, CSS and JS. The package does not restyle or rewrite component markup inside the iframe.
 3. **Stable public surface.** An `@api` class, method, config key, YAML key, JSON field, Twig function or CLI command follows SemVer (`docs/API.md`). A break needs a major version and a migration note.
 4. **One catalogue, every reader.** The SPA, the API and the CLI use the same parser and the same normalised shape (ADR-0002). A new catalogue fact reaches the API, not only the SPA.
-5. **Additive and opt-in.** A new feature that changes what an existing catalogue shows is opt-in. A new key has a default that keeps the old output.
+5. **Additive and opt-in.** A new feature that changes the render output, the API output or which entries a catalogue lists is opt-in. A new key has a default that keeps the old output. A new chrome control may appear by default: the chrome is outside SemVer (`docs/API.md`, "What's NOT covered by SemVer").
 6. **The project owns content and configuration. The package owns the chrome.** A project writes one bootstrap and one `styleguide.yaml` (ADR-0005). It writes no chrome code. A consumer quirk is fixed in the package, not in the consumer.
 7. **PHP only at runtime.** A consumer needs no Node and no CDN. `dist/` is committed and CI rebuilds it to prove that it matches `frontend/`.
 8. **Docs ship with the change.** A pull request that changes the public surface updates `docs/API.md`, `README.md` and `CHANGELOG.md` in the same pull request (`AGENTS.md`, "Documentation is part of the change").
@@ -106,7 +106,7 @@ Tier 3, ask first. Any of these:
 - a change to a principle, or to a rule, a screen, a path or a token set in `PRODUCT.md` or `DESIGN.md`,
 - a change to a requirement in `docs/specification.md` that the owner did not direct,
 - a breaking change to an `@api` surface (a major version),
-- a change to a default, or a new feature that is on by default,
+- a change to the default of a config key, or a new feature that changes the render output, the API output or the listed entries by default,
 - a new runtime dependency in `composer.json`, or a new frontend dependency that ships in `dist/`,
 - a change to `frontend/ui-contract/`,
 - a change on a security path: `PathGuard`, `AssetServer`, the source gate (`show_source`, `/api/source`), the escaping of untrusted data,
