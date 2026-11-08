@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
     resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight, PROBE_HEIGHT_PX,
     CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX, followsViewport,
-    VIEWPORT_PROBE_LOW_PX, VIEWPORT_PROBE_HIGH_PX, VIEWPORT_TOLERANCE_PX,
+    VIEWPORT_PROBE_LOW_PX, VIEWPORT_PROBE_HIGH_PX, VIEWPORT_TOLERANCE_PX, isComponentRender,
 } from './previewHeight.js';
 
 // The measurement a runaway chrome surface actually reported before the fix
@@ -262,7 +262,8 @@ describe('followsViewport', () => {
     });
 
     // The document of a short component is as tall as its viewport at either
-    // probe: asking the document flagged 62 of 98 real components.
+    // probe: asking the document flagged 64 of 98 real components in #133, 62 of
+    // them wrongly.
     it('is false for a short component, whose document still fills the viewport', () => {
         const { doc } = componentRender({ children: [{ content: 120 }], surround: 48 });
         expect(doc.documentElement.scrollHeight).toBe(400);
@@ -336,6 +337,24 @@ describe('observeContentHeight with a viewport-unit component', () => {
         expect(seen).toHaveLength(6);
         expect(new Set(seen.map(([h]) => h))).toEqual(new Set([CHROME_VIEWPORT_HEIGHT_PX]));
         expect(seen.every(([, follows]) => follows === true)).toBe(true);
+    });
+
+    // A page render keeps its content height, so a `min-h-screen` wrapper is
+    // measured at zero height instead of pinned.
+    it('does not pin a page render', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 700, floor: true }], frameHeight: 400 });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/landing' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.followsViewport]); frame.style.height = `${h}px`; });
+        expect(seen).toEqual([[700, false]]);
+    });
+
+    it('tells a page render from a component render by its path', () => {
+        const at = (pathname) => ({ defaultView: { location: { pathname } } });
+        expect(isComponentRender(at('/styleguide/render/component/card'))).toBe(true);
+        expect(isComponentRender(at('/tools/ui/render/page/about'))).toBe(false);
+        expect(isComponentRender({})).toBe(true);
     });
 
     it('still reports the content height of a short component', () => {

@@ -164,9 +164,13 @@ function setFloorSurround(doc, surround) {
 }
 
 // The two iframe heights a component render is probed at to learn whether its
-// content follows the viewport. Measured on a fleet of 98 real components: the
-// two that loop grew by 320 and 483 px between these heights, and nothing else
-// grew by more than 4 px.
+// content follows the viewport. The owner measured them on 96 renderable
+// components of a Drupal consumer on v1.16.1 (#133), reading each component's
+// own root (`[class*="component-"]`): the two that loop grew by 320 and 483 px
+// between these heights, and nothing else by more than 4 px. The probe below
+// reads the in-flow children of body instead, which hold that root (inset adds
+// a constant padding), so the deltas should carry over. That is an inference,
+// not a second measurement.
 export const VIEWPORT_PROBE_LOW_PX = 400;
 export const VIEWPORT_PROBE_HIGH_PX = 1200;
 
@@ -218,6 +222,19 @@ export function followsViewport(doc) {
     return high.some((h, i) => h - low[i] > VIEWPORT_TOLERANCE_PX);
 }
 
+// Only a component render is asked whether it follows the viewport. A page
+// render, with or without a shell, keeps its content height: measured at zero
+// height it cannot loop, and a page is meant to be read whole, not pinned at a
+// demo height. The SPA builds the render URLs, so the path says which kind a
+// document is. A document without a location (a test double) counts as a
+// component.
+const PAGE_RENDER_PATH = /\/render\/page\//;
+
+export function isComponentRender(doc) {
+    const path = doc?.defaultView?.location?.pathname;
+    return typeof path !== 'string' || !PAGE_RENDER_PATH.test(path);
+}
+
 // Measure now and again whenever the content may have changed size; `onHeight`
 // gets every positive measure. Returns an object with `disconnect()`, so callers
 // keep the bookkeeping they had for a bare ResizeObserver.
@@ -235,8 +252,7 @@ export function followsViewport(doc) {
 // document on every measure, so each grid tile gets its own answer, and a
 // component that only starts to fill the viewport after its script runs is
 // caught too. The second argument of `onHeight` says which of the two it was.
-// A shelled page is not asked: its probe at zero height already keeps every
-// viewport floor out of the measure.
+// A page render is not asked (`isComponentRender()`).
 export function observeContentHeight(doc, onHeight) {
     const shell = findPageShell(doc);
     const fixFloor = !!shell && shellHasViewportFloor(doc, shell);
@@ -244,7 +260,7 @@ export function observeContentHeight(doc, onHeight) {
 
     const measure = () => {
         if (!live) return;
-        if (!shell && followsViewport(doc) === true) {
+        if (!shell && isComponentRender(doc) && followsViewport(doc) === true) {
             onHeight(CHROME_VIEWPORT_HEIGHT_PX, { followsViewport: true });
             return;
         }

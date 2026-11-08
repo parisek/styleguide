@@ -58,6 +58,18 @@ test.describe('preview height of viewport-unit components', () => {
         });
     }
 
+    // Each compare column is its own document, measured on its own.
+    test('every compare column of the full-height variant keeps one height', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/viewport-inset?variant=full');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
+        const captions = page.getByTestId('compare-strip').getByTestId('compare-caption');
+        await expect(captions).toHaveText([/^320 × 640\b/, /^768 × 640\b/, /^1440 × 640\b/]);
+        await page.waitForTimeout(1200);
+        await expect(captions).toHaveText([/^320 × 640\b/, /^768 × 640\b/, /^1440 × 640\b/]);
+    });
+
     test('a component without viewport units keeps its content height', async ({ page }) => {
         await page.goto('/styleguide/component/gizmo?width=900');
         const iframe = page.locator('iframe[src*="/styleguide/render/component/gizmo"]').first();

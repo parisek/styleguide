@@ -133,7 +133,7 @@ Detail: `README.md`, "What it does" and the sections it links. Design authority:
 - R7.7 The SPA renders template data and YAML values as text. It inserts HTML only for a `description` value (entry, field, variant), which the metadata contract allows to hold HTML.
 - R7.8 The chrome tokens come from `frontend/ui-contract/` (ADR-0010).
 - R7.9 The chrome has a light and a dark theme. A preview follows the chrome theme through `?theme=`.
-- R7.10 A preview without a preset height is as tall as its content, in the single preview, in each variant grid tile, in each compare column and on the board. A preview whose content height follows its viewport height (a `min-h-dvh` root in any render mode, or `render: chrome`) is pinned at 640 px and scrolls inside its iframe. Each document gets its own answer, so the tiles of one entry can differ. The height does not change between load and the settled page without a change in the content.
+- R7.10 A preview without a preset height is as tall as its content, in the single preview, in each variant grid tile, in each compare column and on the board. A component preview whose content height follows its viewport height (a `min-h-dvh` root in any render mode, or `render: chrome`) is pinned at 640 px and scrolls inside its iframe. Each document gets its own answer, so the tiles of one entry can differ. The height does not change between load and the settled page without a change in the content.
 
 ---
 
