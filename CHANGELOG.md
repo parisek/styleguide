@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.37.1] - 2026-11-08
+
 ### Fixed
 
 - **A page preview shrinks back to its content** (#255). A page render inside the `iframe.page_wrapper_class` shell (`min-h-dvh`, `main` set to `grow`) could only grow: the shell is never shorter than the iframe, and the iframe was sized from the document, so any moment the content was taller than its settled state (first paint before Alpine.js, a late font) fixed the height and left an empty band above the footer. In the reproduction a 768 px compare column ran away to over 7000 px. The single preview, variant grid tiles, compare columns and board frames now share one measure (`lib/previewHeight.js`). A shelled page is measured with its iframe briefly set to zero height, so no viewport floor (on the shell or on `body`) adds height, and content in `body` outside the shell is still counted; the page's own DOM is not touched. When the shell's floor is the viewport, the SPA injects one `<style id="sg-shell-floor">` into the render that takes the space around the shell (body padding for a fixed header, margins) off that floor, so the shell sits flush with its content instead of leaving that much empty band and inner scroll. The measure re-runs on resize, on DOM changes in a shelled page (once per frame) and after every web-font batch (`loadingdone`). The shell carries a new `data-sg-page-shell` attribute so the SPA can find it. Renders without a shell keep the document measure, so a `<dialog>` overlay still gets a height. Viewport units inside a component (#133) are not covered.
