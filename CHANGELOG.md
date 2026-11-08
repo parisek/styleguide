@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **Stamp Release keeps the `CHANGELOG.md` link references up to date** (#245). A new `scripts/changelog-links.py` moves `[Unreleased]` to the new tag and adds `[X.Y.Z]` with the range from the newest earlier tag (by semver, so a tag without a heading still ends the range). The run fails if the reference block is missing. The same script has a `check` mode: the `Tests` workflow and `composer check` fail when a heading has no reference, a range is invalid, or `[Unreleased]` does not start at the newest tag. This PR adds the 31 missing references (1.16.0 to 1.37.1) and moves `[Unreleased]` from v1.32.0 to v1.37.1. `RELEASING.md` no longer asks for a manual edit.
+
 ## [1.37.1] - 2026-11-08
 
 ### Fixed
@@ -2022,7 +2026,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.37.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.37.1...HEAD
+[1.37.1]: https://github.com/parisek/styleguide/compare/v1.37.0...v1.37.1
 [1.37.0]: https://github.com/parisek/styleguide/compare/v1.36.0...v1.37.0
 [1.36.0]: https://github.com/parisek/styleguide/compare/v1.35.0...v1.36.0
 [1.35.0]: https://github.com/parisek/styleguide/compare/v1.34.0...v1.35.0
