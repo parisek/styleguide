@@ -18,3 +18,6 @@
 
 # tests/e2e/front-controller.sh work directory
 /.e2e-front-controller/
+
+# Python bytecode from scripts/
+__pycache__/
