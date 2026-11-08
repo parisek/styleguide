@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
     resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight, PROBE_HEIGHT_PX,
-    CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX,
+    CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX, followsViewport,
+    VIEWPORT_PROBE_LOW_PX, VIEWPORT_PROBE_HIGH_PX, VIEWPORT_TOLERANCE_PX,
 } from './previewHeight.js';
 
 // The measurement a runaway chrome surface actually reported before the fix
@@ -221,5 +222,144 @@ describe('observeContentHeight', () => {
         expect(seen).toEqual([300, 320, 340]);
         handle.disconnect();
         expect(listeners.loadingdone).toBeUndefined();
+    });
+});
+
+// jsdom does no layout, so a component render is a double that follows the
+// rules that matter: the viewport is the iframe element's inline height, a
+// child with a viewport floor is max(content, viewport), the document is never
+// shorter than its viewport, and `surround` is what the document holds around
+// the children (the inset padding).
+function componentRender({ children, surround = 0, frameHeight = 400 }) {
+    const frame = document.createElement('iframe');
+    frame.style.height = `${frameHeight}px`;
+    const viewport = () => parseFloat(frame.style.height) || 0;
+    const childHeight = (c) => (c.floor ? Math.max(c.content, viewport()) : c.content);
+    const elements = children.map((c) => ({
+        spec: c,
+        getBoundingClientRect: () => ({ height: childHeight(c) }),
+    }));
+    const contentHeight = () => surround + elements.reduce((sum, el) => sum + (el.spec.fixed ? 0 : childHeight(el.spec)), 0);
+    const doc = {
+        defaultView: {
+            frameElement: frame,
+            getComputedStyle: (el) => ({ position: el.spec?.fixed ? 'fixed' : 'static' }),
+        },
+        documentElement: { get scrollHeight() { return Math.max(viewport(), contentHeight()); } },
+        body: {
+            children: elements,
+            get scrollHeight() { return contentHeight(); },
+        },
+        querySelector: () => null,
+    };
+    return { doc, frame };
+}
+
+describe('followsViewport', () => {
+    it('is true for a root with a viewport floor', () => {
+        const { doc } = componentRender({ children: [{ content: 300, floor: true }], surround: 48 });
+        expect(followsViewport(doc)).toBe(true);
+    });
+
+    // The document of a short component is as tall as its viewport at either
+    // probe: asking the document flagged 62 of 98 real components.
+    it('is false for a short component, whose document still fills the viewport', () => {
+        const { doc } = componentRender({ children: [{ content: 120 }], surround: 48 });
+        expect(doc.documentElement.scrollHeight).toBe(400);
+        expect(followsViewport(doc)).toBe(false);
+    });
+
+    it('is false for a floor the content outgrows at both probes', () => {
+        const { doc } = componentRender({ children: [{ content: 1959, floor: true }] });
+        expect(followsViewport(doc)).toBe(false);
+    });
+
+    it('is true when content meets its floor between the probes', () => {
+        const { doc } = componentRender({ children: [{ content: 880, floor: true }] });
+        expect(followsViewport(doc)).toBe(true);
+    });
+
+    it('ignores a fixed overlay that fills the viewport', () => {
+        const { doc } = componentRender({ children: [{ content: 0, floor: true, fixed: true }, { content: 200 }] });
+        expect(followsViewport(doc)).toBe(false);
+    });
+
+    it('has no answer for content that measures zero, or without a frame', () => {
+        expect(followsViewport(componentRender({ children: [{ content: 0 }] }).doc)).toBeNull();
+        expect(followsViewport(componentRender({ children: [] }).doc)).toBeNull();
+        expect(followsViewport({ documentElement: { scrollHeight: 300 }, body: { scrollHeight: 300 } })).toBeNull();
+    });
+
+    it('allows a reflow of a line or two between the probes', () => {
+        const { doc, frame } = componentRender({ children: [{ content: 600 }] });
+        const el = doc.body.children[0];
+        el.getBoundingClientRect = () => ({ height: parseFloat(frame.style.height) < 800 ? 640 : 600 });
+        expect(followsViewport(doc)).toBe(false);
+        expect(VIEWPORT_TOLERANCE_PX).toBeLessThan(VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX);
+    });
+
+    it('puts the iframe element back exactly as it was', () => {
+        const { doc, frame } = componentRender({ children: [{ content: 300, floor: true }], frameHeight: 787 });
+        frame.style.setProperty('max-height', '900px', 'important');
+        followsViewport(doc);
+        expect(frame.style.getPropertyValue('height')).toBe('787px');
+        expect(frame.style.getPropertyValue('min-height')).toBe('');
+        expect(frame.style.getPropertyValue('max-height')).toBe('900px');
+        expect(frame.style.getPropertyPriority('max-height')).toBe('important');
+    });
+});
+
+describe('observeContentHeight with a viewport-unit component', () => {
+    afterEach(() => vi.unstubAllGlobals());
+
+    function stubResizeObserver() {
+        const instances = [];
+        vi.stubGlobal('ResizeObserver', class {
+            constructor(cb) { this.cb = cb; instances.push(this); }
+            observe() {}
+            disconnect() {}
+        });
+        return instances;
+    }
+
+    // The repro: the inner document stayed 48 px taller than the iframe it was
+    // measured from, and each measure added the same 48 px.
+    it('keeps one height however often it measures', () => {
+        const instances = stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 300, floor: true }], surround: 48, frameHeight: 400 });
+        const seen = [];
+        observeContentHeight(doc, (h, info) => {
+            seen.push([h, info.followsViewport]);
+            frame.style.height = `${h}px`;
+        });
+        for (let i = 0; i < 5; i++) instances[0].cb();
+        expect(seen).toHaveLength(6);
+        expect(new Set(seen.map(([h]) => h))).toEqual(new Set([CHROME_VIEWPORT_HEIGHT_PX]));
+        expect(seen.every(([, follows]) => follows === true)).toBe(true);
+    });
+
+    it('still reports the content height of a short component', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 120 }], surround: 48, frameHeight: 96 });
+        const seen = [];
+        observeContentHeight(doc, (h, info) => {
+            seen.push([h, info.followsViewport]);
+            frame.style.height = `${h}px`;
+        });
+        expect(seen).toEqual([[168, false]]);
+    });
+
+    // The single preview starts at a 400 px floor: the document reads 400, the
+    // content is 168.
+    it('measures a short component below the height its iframe has now', () => {
+        stubResizeObserver();
+        const { doc } = componentRender({ children: [{ content: 120 }], surround: 48, frameHeight: 400 });
+        expect(doc.documentElement.scrollHeight).toBe(400);
+        expect(measureContentHeight(doc)).toBe(168);
+    });
+
+    it('keeps the plain document measure for content that is all out of flow', () => {
+        const { doc } = componentRender({ children: [{ content: 0, floor: true, fixed: true }], frameHeight: 500 });
+        expect(measureContentHeight(doc)).toBe(500);
     });
 });

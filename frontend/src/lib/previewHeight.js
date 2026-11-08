@@ -24,6 +24,10 @@
 // CSS — that is an iframe's default behaviour once content exceeds its height —
 // and the variants demo honestly: sticky pins, fixed holds, static and absolute
 // scroll away.
+// A content whose height follows its viewport (below, `followsViewport`) gets
+// the same pinned height, for the same reason: `min-h-dvh` on a component root
+// makes its height a function of the iframe height in any render mode, not only
+// in `chrome`.
 export const CHROME_VIEWPORT_HEIGHT_PX = 640;
 
 // Defensive ceiling on any measured content height. This is NOT what fixes
@@ -80,7 +84,7 @@ function documentHeight(doc) {
 // a late font) fixes the height for good, with `main` grown into an empty band
 // above the footer.
 //
-// So a shelled page is measured with its iframe briefly set to PROBE_HEIGHT_PX.
+// So a preview is measured with its iframe briefly set to PROBE_HEIGHT_PX.
 // Every viewport floor then resolves to nothing, wherever it is declared, and
 // scrollHeight reads the content, including anything in body outside the shell.
 // Nothing in the page's own DOM is touched: only the iframe element in the SPA
@@ -88,31 +92,45 @@ function documentHeight(doc) {
 // probe and ResizeObserver, which samples at the next rendering step, never
 // sees it.
 //
-// A document without a shell, or a double without a frame, keeps the plain
-// document measure, so a `<dialog>` overlay (all top layer, an empty body) still
-// gets a height.
+// A component render takes the same probe: measured at its own height, a short
+// component would grow to the pre-measure floor of the surface and never come
+// back down. One whose content is all out of flow (a `<dialog>` overlay in the
+// top layer, a fixed panel) measures zero at the probe and keeps the plain
+// document measure, so it still gets a height. So does a double without a
+// frame.
 export function measureContentHeight(doc, shell = findPageShell(doc)) {
     return probe(doc, shell).height;
 }
 
-// The iframe element's own floors are lifted with its height, so a `min-h-*`
-// on the frame cannot hold the probe open.
-const PROBED = ['height', 'min-height'];
+// The frame's own floors and ceiling are lifted with its height, so a
+// `min-h-*` or `max-h-*` on the frame cannot hold a probe.
+const PROBED_RANGE = ['height', 'min-height', 'max-height'];
 
-function probe(doc, shell) {
-    const frame = doc?.defaultView?.frameElement;
-    if (!shell || !frame?.style) return { height: documentHeight(doc), shellHeight: null };
+function withFrameHeight(frame, px, read) {
     const style = frame.style;
-    const saved = PROBED.map((prop) => [prop, style.getPropertyValue(prop), style.getPropertyPriority(prop)]);
-    for (const prop of PROBED) style.setProperty(prop, `${PROBE_HEIGHT_PX}px`, 'important');
+    const saved = PROBED_RANGE.map((prop) => [prop, style.getPropertyValue(prop), style.getPropertyPriority(prop)]);
+    style.setProperty('height', `${px}px`, 'important');
+    style.setProperty('min-height', `${px}px`, 'important');
+    style.setProperty('max-height', 'none', 'important');
     try {
-        return { height: documentHeight(doc), shellHeight: shell.offsetHeight ?? 0 };
+        return read();
     } finally {
         for (const [prop, value, priority] of saved) {
             if (value) style.setProperty(prop, value, priority);
             else style.removeProperty(prop);
         }
     }
+}
+
+function probe(doc, shell) {
+    const frame = doc?.defaultView?.frameElement;
+    if (!frame?.style) return { height: documentHeight(doc), shellHeight: null };
+    const probed = withFrameHeight(frame, PROBE_HEIGHT_PX, () => ({
+        height: documentHeight(doc),
+        shellHeight: shell ? shell.offsetHeight ?? 0 : null,
+    }));
+    if (!shell && probed.height <= 0) return { height: documentHeight(doc), shellHeight: null };
+    return probed;
 }
 
 // The iframe ends up exactly as tall as the content, plus whatever the document
@@ -145,6 +163,61 @@ function setFloorSurround(doc, surround) {
     if (el.textContent !== css) el.textContent = css;
 }
 
+// The two iframe heights a component render is probed at to learn whether its
+// content follows the viewport. Measured on a fleet of 98 real components: the
+// two that loop grew by 320 and 483 px between these heights, and nothing else
+// grew by more than 4 px.
+export const VIEWPORT_PROBE_LOW_PX = 400;
+export const VIEWPORT_PROBE_HIGH_PX = 1200;
+
+// How much an element may grow between the two probes and still count as not
+// following the viewport. A vertical scrollbar that shows at one probe and not
+// at the other narrows the content and reflows text by a line or two, so the
+// margin is well above a few pixels and well below the 320 px a looping
+// component grows by.
+export const VIEWPORT_TOLERANCE_PX = 64;
+
+// The elements whose height is the content's: the in-flow children of body.
+// The inset wrapper of render-cell.twig is one of them and is as tall as the
+// component inside it plus its padding. A `position: fixed` child adds nothing
+// to the document height, so one that fills the viewport (an overlay) is not a
+// loop; the hidden standalone bar, scripts and styles measure zero.
+function contentElements(doc) {
+    const view = doc.defaultView;
+    return Array.from(doc.body?.children ?? []).filter((el) => {
+        if (typeof view?.getComputedStyle !== 'function') return true;
+        return view.getComputedStyle(el).position !== 'fixed';
+    });
+}
+
+function heights(elements) {
+    return elements.map((el) => el.getBoundingClientRect?.().height ?? 0);
+}
+
+// Whether the height of a component render follows the height of its iframe:
+// `true`, `false`, or `null` when there is no answer (no frame to probe, no
+// content, or content that measures zero at both heights, such as a popup
+// hidden until it opens).
+//
+// The document is the wrong thing to ask. Its scrollHeight is never less than
+// its viewport, so every component shorter than the high probe would answer
+// yes. Its in-flow elements are the right thing: an element with a `100dvh`
+// floor grows with the iframe, a short one keeps its own height, and one that
+// is taller than any viewport never meets its floor and keeps its height too.
+//
+// Only the iframe element in the SPA changes, restored in the same task, as in
+// `probe()` above.
+export function followsViewport(doc) {
+    const frame = doc?.defaultView?.frameElement;
+    if (!frame?.style || !doc.body) return null;
+    const elements = contentElements(doc);
+    if (elements.length === 0) return null;
+    const low = withFrameHeight(frame, VIEWPORT_PROBE_LOW_PX, () => heights(elements));
+    const high = withFrameHeight(frame, VIEWPORT_PROBE_HIGH_PX, () => heights(elements));
+    if (low.every((h) => h <= 0) && high.every((h) => h <= 0)) return null;
+    return high.some((h, i) => h - low[i] > VIEWPORT_TOLERANCE_PX);
+}
+
 // Measure now and again whenever the content may have changed size; `onHeight`
 // gets every positive measure. Returns an object with `disconnect()`, so callers
 // keep the bookkeeping they had for a bare ResizeObserver.
@@ -154,6 +227,16 @@ function setFloorSurround(doc, surround) {
 // document are a trigger too, batched to one measure per frame, and so is every
 // web-font batch that finishes loading (`loadingdone`, not the `ready` promise,
 // which is replaced each time a new batch starts).
+//
+// A component render whose content follows the viewport reports
+// CHROME_VIEWPORT_HEIGHT_PX instead of its measure: sized from its own measure,
+// the iframe would grow by the content's surround (the inset padding, say) on
+// every measure until MAX_CONTENT_HEIGHT_PX. The question is asked of every
+// document on every measure, so each grid tile gets its own answer, and a
+// component that only starts to fill the viewport after its script runs is
+// caught too. The second argument of `onHeight` says which of the two it was.
+// A shelled page is not asked: its probe at zero height already keeps every
+// viewport floor out of the measure.
 export function observeContentHeight(doc, onHeight) {
     const shell = findPageShell(doc);
     const fixFloor = !!shell && shellHasViewportFloor(doc, shell);
@@ -161,10 +244,14 @@ export function observeContentHeight(doc, onHeight) {
 
     const measure = () => {
         if (!live) return;
+        if (!shell && followsViewport(doc) === true) {
+            onHeight(CHROME_VIEWPORT_HEIGHT_PX, { followsViewport: true });
+            return;
+        }
         const { height: h, shellHeight } = probe(doc, shell);
         if (h <= 0) return;
         if (fixFloor && shellHeight != null) setFloorSurround(doc, Math.max(0, h - shellHeight));
-        onHeight(h);
+        onHeight(h, { followsViewport: false });
     };
 
     const view = doc?.defaultView;
