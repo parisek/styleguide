@@ -94,8 +94,8 @@ function documentHeight(doc) {
 //
 // A component render takes the same probe: measured at its own height, a short
 // component would grow to the pre-measure floor of the surface and never come
-// back down. One whose content is all out of flow (a `<dialog>` overlay in the
-// top layer, a fixed panel) measures zero at the probe and keeps the plain
+// back down. One whose roots are all out of flow (a `<dialog>` overlay in the
+// top layer, a fixed panel) has nothing in flow at the probe and keeps the plain
 // document measure, so it still gets a height. So does a double without a
 // frame.
 export function measureContentHeight(doc, shell = findPageShell(doc)) {
@@ -128,9 +128,14 @@ function probe(doc, shell) {
     const probed = withFrameHeight(frame, PROBE_HEIGHT_PX, () => ({
         height: documentHeight(doc),
         shellHeight: shell ? shell.offsetHeight ?? 0 : null,
+        // Read at the probe: an in-flow root that is empty at zero height has
+        // nothing of its own to show either.
+        rootsEmpty: !shell && heights(contentElements(doc)).every((h) => h <= 0),
     }));
-    if (!shell && probed.height <= 0) return { height: documentHeight(doc), shellHeight: null };
-    return probed;
+    // The roots, not the document: the inset padding alone keeps the document
+    // above zero when everything in it is out of flow.
+    if (probed.rootsEmpty) return { height: documentHeight(doc), shellHeight: null };
+    return { height: probed.height, shellHeight: probed.shellHeight };
 }
 
 // The iframe ends up exactly as tall as the content, plus whatever the document
@@ -168,8 +173,9 @@ function setFloorSurround(doc, surround) {
 // components of a Drupal consumer on v1.16.1, reading each component's
 // own root (`[class*="component-"]`): the two that loop grew by 320 and 483 px
 // between these heights, and nothing else by more than 4 px. The probe below
-// reads the same roots (`contentElements()`), found by structure instead of by
-// a class name.
+// reads roots found by structure (`contentElements()`) instead of by that class
+// name. That they pick out the same elements on that fleet is an estimate: it
+// was not measured again.
 export const VIEWPORT_PROBE_LOW_PX = 400;
 export const VIEWPORT_PROBE_HIGH_PX = 1200;
 
@@ -191,12 +197,20 @@ export const INSET_SELECTOR = '[data-sg-inset]';
 
 function contentElements(doc) {
     const view = doc.defaultView;
+    const style = (el) => (typeof view?.getComputedStyle === 'function' ? view.getComputedStyle(el) : null);
     const inset = typeof doc.querySelector === 'function' ? doc.querySelector(INSET_SELECTOR) : null;
-    const parent = inset ?? doc.body;
-    return Array.from(parent?.children ?? []).filter((el) => {
-        if (typeof view?.getComputedStyle !== 'function') return true;
-        return view.getComputedStyle(el).position !== 'fixed';
-    });
+    const roots = [];
+    // A `display: contents` element has no box of its own: its children are the
+    // roots.
+    const collect = (parent) => {
+        for (const el of Array.from(parent?.children ?? [])) {
+            const s = style(el);
+            if (s?.display === 'contents') collect(el);
+            else if (s?.position !== 'fixed') roots.push(el);
+        }
+    };
+    collect(inset ?? doc.body);
+    return roots;
 }
 
 function heights(elements) {

@@ -243,7 +243,10 @@ function componentRender({ children, surround = 0, frameHeight = 400 }) {
     const doc = {
         defaultView: {
             frameElement: frame,
-            getComputedStyle: (el) => ({ position: el.spec?.fixed ? 'fixed' : 'static' }),
+            getComputedStyle: (el) => ({
+                position: el.spec?.fixed ? 'fixed' : 'static',
+                display: el.contents ? 'contents' : 'block',
+            }),
         },
         documentElement: { get scrollHeight() { return Math.max(viewport(), contentHeight()); } },
         body: {
@@ -289,6 +292,19 @@ describe('followsViewport', () => {
         doc.querySelector = (sel) => (sel === '[data-sg-inset]' ? wrapper : null);
         expect(parseFloat(frame.style.height)).toBe(400);
         expect(followsViewport(doc)).toBe(false);
+    });
+
+    // A `display: contents` root has no box and measures 0; its children are
+    // the roots. Read as empty, it fed the plain document measure back into the
+    // frame and the preview grew on every pass.
+    it('asks the children of a display: contents root', () => {
+        const { doc, frame } = componentRender({ children: [{ content: 120, floor: true }] });
+        const inner = doc.body.children[0];
+        const contents = { contents: true, children: [inner], getBoundingClientRect: () => ({ height: 0 }) };
+        const wrapper = { children: [contents] };
+        doc.querySelector = (sel) => (sel === '[data-sg-inset]' ? wrapper : null);
+        expect(parseFloat(frame.style.height)).toBe(400);
+        expect(followsViewport(doc)).toBe(true);
     });
 
     it('ignores a fixed overlay that fills the viewport', () => {
@@ -391,5 +407,12 @@ describe('observeContentHeight with a viewport-unit component', () => {
     it('keeps the plain document measure for content that is all out of flow', () => {
         const { doc } = componentRender({ children: [{ content: 0, floor: true, fixed: true }], frameHeight: 500 });
         expect(measureContentHeight(doc)).toBe(500);
+    });
+
+    // The inset padding keeps the document at 48 px at the probe; the roots
+    // inside the wrapper are what is empty.
+    it('keeps the plain document measure for out-of-flow content inside the inset wrapper', () => {
+        const { doc } = componentRender({ children: [{ content: 0, floor: true, fixed: true }], surround: 48, frameHeight: 400 });
+        expect(measureContentHeight(doc)).toBe(400);
     });
 });
