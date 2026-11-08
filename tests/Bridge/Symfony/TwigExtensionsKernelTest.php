@@ -12,7 +12,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Host Twig extensions in the micro-kernel (#156, milestone 1.38 check 4).
+ * Host Twig extensions in the micro-kernel.
  *
  * The micro-kernel registers TwigBundle in debug for the profiler. An extension
  * tagged `twig.extension` reaches that `twig` service, which is not the
@@ -64,7 +64,10 @@ final class TwigExtensionsKernelTest extends TestCase
         $response = $this->kernel(TaggedOnlyKernel::class, 'dev', true)
             ->handle(Request::create('/styleguide/render/component/linked'));
 
-        self::assertGreaterThanOrEqual(500, $response->getStatusCode());
+        // The fixture keeps `show_source` off, so the failed render answers
+        // with the fixed message (R5.12), not a boot or routing fault.
+        self::assertSame(500, $response->getStatusCode());
+        self::assertStringContainsString('This entry cannot be shown.', (string) $response->getContent());
     }
 
     /**
