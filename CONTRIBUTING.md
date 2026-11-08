@@ -28,6 +28,7 @@ CI fails when `dist/` does not match `frontend/`.
 
 ## Write the change
 
+- Read [`docs/vision.md`](docs/vision.md) first. It says which changes the maintainer must approve before you start.
 - Add or extend a test for the change. Frontend logic in `frontend/src/lib/` gets a Vitest spec first.
 - Update the docs in the same pull request. The table in `AGENTS.md` shows which doc covers which change.
 - Add a note under `[Unreleased]` in `CHANGELOG.md` for any behavior a consumer can see.

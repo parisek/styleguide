@@ -16,3 +16,8 @@ body:
       description: Describe the behavior you want.
     validations:
       required: true
+  - type: textarea
+    id: vision
+    attributes:
+      label: Fit with the vision
+      description: Which principle of `docs/vision.md` does it serve? Does it change a default or break a public surface? Leave it empty if you do not know.
