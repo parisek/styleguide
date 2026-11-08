@@ -9,6 +9,7 @@
 // widths would otherwise start every render at once.
 import { computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { computeTileGeometry, compareColumnTemplate } from '../lib/tileGeometry.js';
+import { observeContentHeight } from '../lib/previewHeight.js';
 import { useRenderErrorsStore } from '../stores/renderErrors.js';
 import ErrorMark from './ErrorMark.vue';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
@@ -71,16 +72,8 @@ function onLoad(width, event) {
     }
     const doc = event.target?.contentDocument;
     if (!doc) return;
-    const measure = () => {
-        const h = Math.max(doc.documentElement?.scrollHeight ?? 0, doc.body?.scrollHeight ?? 0);
-        if (h > 0) heights[width] = h;
-    };
-    measure();
     heightObservers.get(width)?.disconnect();
-    const ro = new ResizeObserver(measure);
-    if (doc.documentElement) ro.observe(doc.documentElement);
-    if (doc.body) ro.observe(doc.body);
-    heightObservers.set(width, ro);
+    heightObservers.set(width, observeContentHeight(doc, (h) => { heights[width] = h; }));
 }
 
 // An unticked width takes its observers with it.
