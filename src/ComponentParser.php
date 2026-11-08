@@ -507,9 +507,12 @@ class ComponentParser
             // Sorted by path: directory order is the filesystem's (an ext4
             // hash, a fresh checkout's), so unsorted, which of two same-named
             // templates claims an id, and the order of warnings, would change
-            // from one machine to the next.
+            // from one machine to the next. Compared segment by segment (the
+            // separator sorts below every name character), so `card/` comes
+            // before `card-list/` as in a tree, not after it as bytes would.
             $files = iterator_to_array(new \RegexIterator($flattened, '/\.twig$/'), false);
-            usort($files, static fn(\SplFileInfo $a, \SplFileInfo $b): int => strcmp($a->getPathname(), $b->getPathname()));
+            $key = static fn(\SplFileInfo $f): string => str_replace(['/', '\\'], "\x00", $f->getPathname());
+            usort($files, static fn(\SplFileInfo $a, \SplFileInfo $b): int => strcmp($key($a), $key($b)));
             $claimedHere = [];
 
             foreach ($files as $file) {
