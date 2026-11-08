@@ -118,7 +118,7 @@ final class RendererTest extends TestCase
         self::assertStringContainsString('<div class="sample">Hello</div>', $html);
         // Components render inside a padded wrapper so short bodies don't sit flush
         // against the iframe's top edge underneath the styleguide chrome.
-        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        self::assertStringContainsString('<div data-sg-inset style="padding:1.5rem">', $html);
         // The error relay is the first script in <head>: it must listen
         // before any project script can throw at start-up. A file, so a
         // `script-src 'self'` CSP lets it run; versioned by content.
@@ -352,7 +352,7 @@ final class RendererTest extends TestCase
 
         self::assertStringNotContainsString('page-wrapper', $html);
         // Component still gets its own inset wrapper.
-        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        self::assertStringContainsString('<div data-sg-inset style="padding:1.5rem">', $html);
     }
 
     #[Test]
@@ -518,7 +518,7 @@ final class RendererTest extends TestCase
         ], 'cs')->body;
 
         // No inset wrapper — the component renders edge-to-edge.
-        self::assertStringNotContainsString('<div style="padding:1.5rem">', $html);
+        self::assertStringNotContainsString('<div data-sg-inset style="padding:1.5rem">', $html);
         // --header-height is reset so consumer hacks like
         // `margin-top: var(--header-height, 75px) * -1` collapse to 0 in
         // styleguide isolation (no sticky chrome above to hide behind).
@@ -536,7 +536,7 @@ final class RendererTest extends TestCase
             'render' => 'chrome',
         ], 'cs')->body;
 
-        self::assertStringNotContainsString('<div style="padding:1.5rem">', $html);
+        self::assertStringNotContainsString('<div data-sg-inset style="padding:1.5rem">', $html);
         self::assertStringContainsString('--header-height: 0px', $html);
         // 200vh on body gives sticky / fixed page chrome something to scroll
         // against so the sticky behaviour is demonstrable in isolation.
@@ -573,7 +573,7 @@ final class RendererTest extends TestCase
             // No 'render' key → normaliseRender → 'inset' (default).
         ], 'cs')->body;
 
-        self::assertStringContainsString('<div style="padding:1.5rem">', $html);
+        self::assertStringContainsString('<div data-sg-inset style="padding:1.5rem">', $html);
         // Inset must not inject the bleed/chrome/overlay CSS overrides.
         self::assertStringNotContainsString('--header-height', $html);
         self::assertStringNotContainsString('min-height: 200vh', $html);

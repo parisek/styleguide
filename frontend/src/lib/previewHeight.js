@@ -25,7 +25,7 @@
 // and the variants demo honestly: sticky pins, fixed holds, static and absolute
 // scroll away.
 // A content whose height follows its viewport (below, `followsViewport`) gets
-// the same pinned height, for the same reason: `min-h-dvh` on a component root
+// the same pinned height, for the same reason: a `100dvh` min-height on a component root
 // makes its height a function of the iframe height in any render mode, not only
 // in `chrome`.
 export const CHROME_VIEWPORT_HEIGHT_PX = 640;
@@ -165,12 +165,11 @@ function setFloorSurround(doc, surround) {
 
 // The two iframe heights a component render is probed at to learn whether its
 // content follows the viewport. The owner measured them on 96 renderable
-// components of a Drupal consumer on v1.16.1 (#133), reading each component's
+// components of a Drupal consumer on v1.16.1, reading each component's
 // own root (`[class*="component-"]`): the two that loop grew by 320 and 483 px
 // between these heights, and nothing else by more than 4 px. The probe below
-// reads the in-flow children of body instead, which hold that root (inset adds
-// a constant padding), so the deltas should carry over. That is an inference,
-// not a second measurement.
+// reads the same roots (`contentElements()`), found by structure instead of by
+// a class name.
 export const VIEWPORT_PROBE_LOW_PX = 400;
 export const VIEWPORT_PROBE_HIGH_PX = 1200;
 
@@ -181,14 +180,20 @@ export const VIEWPORT_PROBE_HIGH_PX = 1200;
 // component grows by.
 export const VIEWPORT_TOLERANCE_PX = 64;
 
-// The elements whose height is the content's: the in-flow children of body.
-// The inset wrapper of render-cell.twig is one of them and is as tall as the
-// component inside it plus its padding. A `position: fixed` child adds nothing
-// to the document height, so one that fills the viewport (an overlay) is not a
-// loop; the hidden standalone bar, scripts and styles measure zero.
+// The component roots: the in-flow children of the inset wrapper of
+// render-cell.twig (`data-sg-inset`), or of body in the other render modes.
+// Not the wrapper: when the project's body is a flex row or a grid with a
+// viewport min-height, the wrapper stretches with the viewport while the
+// component inside it keeps its own height. A `position: fixed` root adds
+// nothing to the document height, so one that fills the viewport (an overlay)
+// is not a loop; the hidden standalone bar, scripts and styles measure zero.
+export const INSET_SELECTOR = '[data-sg-inset]';
+
 function contentElements(doc) {
     const view = doc.defaultView;
-    return Array.from(doc.body?.children ?? []).filter((el) => {
+    const inset = typeof doc.querySelector === 'function' ? doc.querySelector(INSET_SELECTOR) : null;
+    const parent = inset ?? doc.body;
+    return Array.from(parent?.children ?? []).filter((el) => {
         if (typeof view?.getComputedStyle !== 'function') return true;
         return view.getComputedStyle(el).position !== 'fixed';
     });

@@ -70,6 +70,29 @@ test.describe('preview height of viewport-unit components', () => {
         await expect(captions).toHaveText([/^320 × 640\b/, /^768 × 640\b/, /^1440 × 640\b/]);
     });
 
+    // The project's body is a grid with a viewport min-height, so the inset
+    // wrapper stretches with the iframe. The component inside does not, and is
+    // not pinned.
+    test('a short component in a stretching body keeps its content height', async ({ page }) => {
+        await page.goto('/styleguide/component/viewport-stretch?width=900');
+        const iframe = page.locator('iframe[src*="/styleguide/render/component/viewport-stretch"]').first();
+        const { atLoad, settled } = await heightAtLoadAndSettled(page, iframe);
+        expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
+        expect(settled).toBeLessThan(260);
+    });
+
+    // A page render is never pinned; without a page shell it is measured at
+    // zero height like a component, so it keeps its content height.
+    test('a page without a shell keeps one content height', async ({ page }) => {
+        await page.goto('/styleguide/page/contact?width=900');
+        const iframe = page.locator('iframe[src*="/styleguide/render/page/contact"]').first();
+        const { atLoad, settled } = await heightAtLoadAndSettled(page, iframe);
+        expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
+        const content = await iframe.evaluate((el) => Math.ceil(el.contentDocument.body.getBoundingClientRect().height));
+        expect(settled).not.toBe(PINNED);
+        expect(Math.abs(settled - content)).toBeLessThanOrEqual(24);
+    });
+
     test('a component without viewport units keeps its content height', async ({ page }) => {
         await page.goto('/styleguide/component/gizmo?width=900');
         const iframe = page.locator('iframe[src*="/styleguide/render/component/gizmo"]').first();

@@ -280,6 +280,17 @@ describe('followsViewport', () => {
         expect(followsViewport(doc)).toBe(true);
     });
 
+    // A body that is a flex row or a grid with a viewport min-height stretches
+    // the inset wrapper with the viewport; the component inside keeps 120 px.
+    it('asks the component inside the inset wrapper, not the stretched wrapper', () => {
+        const { doc, frame } = componentRender({ children: [{ content: 168, floor: true }] });
+        const root = { getBoundingClientRect: () => ({ height: 120 }) };
+        const wrapper = { children: [root] };
+        doc.querySelector = (sel) => (sel === '[data-sg-inset]' ? wrapper : null);
+        expect(parseFloat(frame.style.height)).toBe(400);
+        expect(followsViewport(doc)).toBe(false);
+    });
+
     it('ignores a fixed overlay that fills the viewport', () => {
         const { doc } = componentRender({ children: [{ content: 0, floor: true, fixed: true }, { content: 200 }] });
         expect(followsViewport(doc)).toBe(false);
@@ -339,7 +350,7 @@ describe('observeContentHeight with a viewport-unit component', () => {
         expect(seen.every(([, follows]) => follows === true)).toBe(true);
     });
 
-    // A page render keeps its content height, so a `min-h-screen` wrapper is
+    // A page render keeps its content height, so a wrapper with a viewport min-height is
     // measured at zero height instead of pinned.
     it('does not pin a page render', () => {
         stubResizeObserver();
