@@ -10,7 +10,7 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ### Added
 
-- **A pinned preview says so** (#263). When a preview is pinned at 640 px because its content follows the viewport (#133), the toolbar shows a muted label „Výška podle viewportu“ / "Viewport height" next to the viewport size, and a variant grid tile shows a small chip in its header. The tooltip (`title`, and the `aria-label`) names the measured deltas, for example "Viewport +800 px → content +320 px. The preview is pinned at 640 px.", so a wrong pin can be reported instead of read as a clipped component. The label is not shown on a grid or a comparison, where each tile measures its own document, nor below the `md` breakpoint. It uses the UI contract tokens only (`text-ui-muted`, `border-ui-control-border`, `rounded-ui-pill`, `h-ui-control`).
+- **A pinned preview says so** (#263). When a preview is pinned at 640 px because its content follows the viewport (#133), the toolbar shows a muted label „Výška podle viewportu“ / "Viewport height" next to the viewport size, and a variant grid tile shows a small chip in its header. The tooltip (`title`, and the `aria-label`) names the measured deltas, for example "Viewport +800 px → content +320 px. The preview is pinned at 640 px.", so a wrong pin can be reported instead of read as a clipped component. The label is not shown on a grid or a comparison, where each tile measures its own document. Below the `md` breakpoint the toolbar shows the chip form instead, with the full text in its tooltip. It uses the UI contract tokens only (`text-ui-muted`, `border-ui-control-border`, `rounded-ui-pill`, `h-ui-control`).
 
 ### Fixed
 

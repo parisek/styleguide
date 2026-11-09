@@ -600,8 +600,12 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                 <!-- The single preview is pinned at its demo height because its
                      content follows the viewport (lib/previewHeight.js). Not on
                      a grid or a comparison: each tile and column measures its
-                     own document. Hidden below md, where the toolbar has no
-                     room for a second row. -->
+                     own document. Below md, where the toolbar has no room
+                     for the words, the chip form (an icon with the full text
+                     in its tooltip and name) takes its place. -->
+                <div v-if="showViewportPin" class="flex md:hidden items-center">
+                    <ViewportHeightMark :pin="ui.previewViewportPin" form="chip" />
+                </div>
                 <div v-if="showViewportPin" class="hidden md:flex items-center">
                     <ViewportHeightMark :pin="ui.previewViewportPin" />
                 </div>

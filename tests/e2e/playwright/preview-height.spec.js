@@ -119,6 +119,15 @@ test.describe('viewport height mark', () => {
         await expect(label).toHaveAttribute('title', /\+800 px .*\+\d+ px.*640 px/);
     });
 
+    test('below md the toolbar keeps the mark as a chip', async ({ page }) => {
+        await page.setViewportSize({ width: 600, height: 900 });
+        await page.goto('/styleguide/component/viewport-inset?variant=full&width=900');
+        await expect(page.getByTestId('viewport-height-label')).toBeHidden();
+        const chip = page.getByTestId('viewport-height-chip');
+        await expect(chip).toBeVisible();
+        await expect(chip).toHaveAttribute('title', /^(Výška podle viewportu|Viewport height)\. .*\+800 px/);
+    });
+
     test('the toolbar shows no label for a preview at its content height', async ({ page }) => {
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.goto('/styleguide/component/viewport-stretch?width=900');
