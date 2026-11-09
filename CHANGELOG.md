@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.38.0] - 2026-11-09
+
 ### Added
 
 - **A pinned preview says so** (#263). When a preview is pinned at 640 px because its content follows the viewport (#133), the toolbar shows a muted label „Výška podle viewportu“ / "Viewport height" next to the viewport size, and a variant grid tile shows a small chip in its header. The tooltip (`title`, and the `aria-label`) names the measured deltas, for example "Viewport +800 px → content +320 px. The preview is pinned at 640 px.", so a wrong pin can be reported instead of read as a clipped component. The label is not shown on a grid or a comparison, where each tile measures its own document. Below the `md` breakpoint the toolbar shows the chip form instead, with the full text in its tooltip. It uses the UI contract tokens only (`text-ui-muted`, `border-ui-control-border`, `rounded-ui-pill`, `h-ui-control`).
@@ -2034,7 +2036,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.37.1...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.38.0...HEAD
+[1.38.0]: https://github.com/parisek/styleguide/compare/v1.37.1...v1.38.0
 [1.37.1]: https://github.com/parisek/styleguide/compare/v1.37.0...v1.37.1
 [1.37.0]: https://github.com/parisek/styleguide/compare/v1.36.0...v1.37.0
 [1.36.0]: https://github.com/parisek/styleguide/compare/v1.35.0...v1.36.0
