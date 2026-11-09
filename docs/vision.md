@@ -206,7 +206,7 @@ The package fails its purpose, even if it works, when it:
 3. (Decided, 2026-11-08) The package gets a numbered specification, `docs/specification.md`. It lands in its own pull request, which is Tier 3. The first version records what `docs/API.md`, the ADRs and `README.md` already say. It changes no behavior.
 4. (Decided, 2026-11-08) Work runs in GitHub milestones that the owner names (see "Milestones and releases").
 5. (Decided, 2026-11-08) The first milestone is 1.38, "reliable previews". It shipped in release 1.38.0 on 2026-11-09.
-6. (Decided, 2026-11-09) One process standard for this package, `parisek/test-kit` and `portadesign/portadesign-mcp`. The owner merges. An agent merges only with the owner's merge permission for that session, and only when the full rule in "Review and merge" holds. The generic part of the process ships as a Claude Code plugin in `portadesign/claude-skills`. Each repository keeps one normative source with permanent identifiers; here it is `docs/specification.md`. This repository adopts the plugin in its own pull request when the plugin exists.
+6. (Decided, 2026-11-09) One process standard for this package, `parisek/test-kit` and `portadesign/portadesign-mcp`. The owner merges. An agent merges only with the owner's merge permission for that session, and only when the full rule in "Review and merge" holds. Each repository keeps one normative source with permanent identifiers; here it is `docs/specification.md`. Each repository carries the standard and its tools itself, so it works on its own without a shared plugin (owner decision, 2026-11-09). The three repositories sync by copying a change of the standard into each one.
 
 ## Open decisions
 
