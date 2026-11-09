@@ -33,8 +33,11 @@ export function parseRecord(body) {
 	}
 }
 
-// options: { headSha, requirementIds } (requirementIds: a Set of identifiers from the base branch's normative source).
-export function validateRecord(record, { headSha, requirementIds } = {}) {
+export const R_NUMBER = /^R[0-9]+(\.[0-9]+)?$/;
+
+// options: { headSha, requirementIds, idFormat }. requirementIds: a Set of identifiers from the base branch's
+// normative source. idFormat: the shape of one identifier; R-numbers by default, null for a custom source.
+export function validateRecord(record, { headSha, requirementIds, idFormat = R_NUMBER } = {}) {
 	const errors = [];
 	const mode = record.mode;
 	if (mode !== 'pr' && mode !== 'issue') return { ok: false, errors: ['mode must be "pr" or "issue".'] };
@@ -52,8 +55,9 @@ export function validateRecord(record, { headSha, requirementIds } = {}) {
 
 	if (Array.isArray(record.requirements)) {
 		const isNone = record.requirements.length === 1 && record.requirements[0] === 'none';
-		if (!isNone && requirementIds) for (const id of record.requirements) {
-			if (!requirementIds.has(id)) errors.push(`requirements entry is not in the normative source: ${String(id).slice(0, 40)}.`);
+		if (!isNone) for (const id of record.requirements) {
+			if (idFormat && (typeof id !== 'string' || !idFormat.test(id))) errors.push(`requirements entry is not an ${idFormat === R_NUMBER ? 'R-number' : 'identifier'}: ${String(id).slice(0, 40)}.`);
+			else if (requirementIds && !requirementIds.has(id)) errors.push(`requirements entry is not in the specification: ${String(id).slice(0, 40)}.`);
 		}
 	}
 	if (Array.isArray(record.citations)) for (const entry of record.citations) {

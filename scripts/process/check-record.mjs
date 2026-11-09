@@ -16,9 +16,10 @@ if (!file) { console.error('Usage: check-record.mjs <file> [--sha <head SHA>] [-
 const parsed = parseRecord(readFileSync(file, 'utf8'));
 if (!parsed.ok) { console.error(parsed.errors.join('\n')); process.exit(1); }
 const specs = all('--spec');
-const pattern = all('--pattern')[0] ?? DEFAULT_REQUIREMENT_PATTERN;
+const custom = all('--pattern')[0];
+const pattern = custom ?? DEFAULT_REQUIREMENT_PATTERN;
 const requirementIds = specs.length ? requirementIdsFrom(specs.map((path) => readFileSync(path, 'utf8')).join('\n'), pattern) : undefined;
-const result = validateRecord(parsed.record, { headSha: all('--sha')[0], requirementIds });
+const result = validateRecord(parsed.record, { headSha: all('--sha')[0], requirementIds, ...(custom ? { idFormat: null } : {}) });
 if (!result.ok) { console.error(result.errors.join('\n')); process.exit(1); }
 const blockers = approvalBlockers(parsed.record);
 console.log(blockers.length ? `Valid record. Not an approval: ${blockers.join(' ')}` : 'Valid record. Counts as an approval.');

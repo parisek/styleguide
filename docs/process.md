@@ -8,10 +8,10 @@ Repositories in scope: `parisek/test-kit`, `parisek/styleguide`, `portadesign/po
 
 ## 1. Two layers
 
-| Layer | Holds | Where in this repository |
-| --- | --- | --- |
-| Generic | This standard, the `vision-check` skill, the review record and its validator, the decision request format, the core of the pull request template | `docs/process.md`, `docs/skills/vision-check.md`, `scripts/process/` |
-| Project | Principles, purpose, readers, scope, anti-goals, extra Tier 3 items, the normative source, the design files, the configuration | `docs/vision.md`, `docs/specification.md`, `PRODUCT.md`, `DESIGN.md`, `.agent/project.conf` |
+| Layer | Holds |
+| --- | --- |
+| Generic | This standard, the `vision-check` skill, the review record and its validator, the decision request format, the core of the pull request template |
+| Project | Principles, purpose, readers, scope, anti-goals, extra Tier 3 items, the normative source, the design files, the configuration |
 
 A generic rule is the same in every repository. A repository that needs a different generic rule changes the standard in all three. It does not fork the rule locally.
 
@@ -165,6 +165,7 @@ Process documents, code, commits and pull requests are in English, in ASD-STE100
 
 ## 13. This repository
 
+- Files: generic part in `docs/process.md`, `docs/skills/vision-check.md` and `scripts/process/`; project part in `docs/vision.md`, `docs/specification.md`, `PRODUCT.md`, `DESIGN.md` and `.agent/project.conf`.
 - Normative source: `docs/specification.md` (R-numbers).
 - Gate: `composer test`, `composer phpstan`; for `frontend/`, `npm test` and a rebuilt `dist/`.
 - Origins of the shared parts: the texts and the record schema come from `parisek/test-kit`, the decision format and the scripts `project-config.sh` and `check-decision-request.sh` from `portadesign/portadesign-mcp`.
