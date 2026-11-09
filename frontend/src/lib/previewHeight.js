@@ -242,11 +242,11 @@ export function viewportGrowth(doc) {
     const low = withFrameHeight(frame, VIEWPORT_PROBE_LOW_PX, () => heights(elements));
     const high = withFrameHeight(frame, VIEWPORT_PROBE_HIGH_PX, () => heights(elements));
     if (low.every((h) => h <= 0) && high.every((h) => h <= 0)) return null;
-    const contentDeltaPx = Math.round(Math.max(...high.map((h, i) => h - low[i])));
+    const growth = Math.max(...high.map((h, i) => h - low[i]));
     return {
-        follows: contentDeltaPx > VIEWPORT_TOLERANCE_PX,
+        follows: growth > VIEWPORT_TOLERANCE_PX,
         viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
-        contentDeltaPx,
+        contentDeltaPx: Math.round(growth),
     };
 }
 

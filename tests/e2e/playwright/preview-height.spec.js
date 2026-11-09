@@ -136,5 +136,10 @@ test.describe('viewport height mark', () => {
         await expect(page.getByTestId('viewport-height-label')).toHaveCount(0);
         const chip = page.getByTestId('viewport-height-chip');
         await expect(chip).toHaveAttribute('aria-label', /\+800 px/);
+        // The chip shows only an icon, so its tooltip names the mark too.
+        await expect(chip).toHaveAttribute('title', /^(Výška podle viewportu|Viewport height)\. /);
+        // The header around it is a button, whose own name carries the pin.
+        await expect(page.locator('[data-testid="variant-tile-header"][role="button"]'))
+            .toHaveAttribute('aria-label', /\((Výška podle viewportu|Viewport height)\)$/);
     });
 });

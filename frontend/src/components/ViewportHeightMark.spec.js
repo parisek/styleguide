@@ -36,5 +36,6 @@ describe('ViewportHeightMark', () => {
         const chip = mount(ViewportHeightMark, { props: { pin, form: 'chip' } }).get('[data-testid="viewport-height-chip"]');
         expect(chip.attributes('aria-label')).toContain('Výška podle viewportu');
         expect(chip.find('.sr-only').text()).toBe('Výška podle viewportu');
+        expect(chip.attributes('title')).toBe('Výška podle viewportu. Viewport +800 px → obsah +320 px. Náhled má pevnou výšku 640 px.');
     });
 });

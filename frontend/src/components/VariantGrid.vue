@@ -107,6 +107,13 @@ const heights = reactive({});
 const pins = reactive({});
 const heightObservers = new Map();
 
+// A clickable header is a button with its own name, which hides the chip
+// inside it from assistive tech, so the name carries the pin too.
+function headerLabel(tile) {
+    const name = `${i18n.t('toolbar.variant_isolate_prefix')} ${tile.label}`;
+    return pins[tile.key] ? `${name} (${i18n.t('preview.viewport_height')})` : name;
+}
+
 // Navigating between two variant-having entries keeps VariantGrid mounted
 // (gridActive never flips), so onBeforeUnmount alone would leak one
 // ResizeObserver per tile of every previously visited entry — the v-for key
@@ -341,7 +348,7 @@ onBeforeUnmount(() => {
                      :class="tile.clickable ? 'cursor-pointer group' : ''"
                      :role="tile.clickable ? 'button' : undefined"
                      :tabindex="tile.clickable ? 0 : undefined"
-                     :aria-label="tile.clickable ? `${i18n.t('toolbar.variant_isolate_prefix')} ${tile.label}` : undefined"
+                     :aria-label="tile.clickable ? headerLabel(tile) : undefined"
                      @click="isolateTile(tile)"
                      @keydown.enter="isolateTile(tile)"
                      @keydown.space.prevent="isolateTile(tile)">
