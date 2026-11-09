@@ -30,6 +30,7 @@ import { showSource } from '../lib/runtimeConfig.js';
 import SourcePanel from './SourcePanel.vue';
 import CompareStrip from './CompareStrip.vue';
 import ErrorMark from './ErrorMark.vue';
+import ViewportHeightMark from './ViewportHeightMark.vue';
 import { useRenderErrorsStore } from '../stores/renderErrors.js';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
 
@@ -101,7 +102,17 @@ function tileKey(tile) {
 // access stays a normal reactive read; the ResizeObserver registries
 // themselves don't need to be reactive, so they're bare Maps.
 const heights = reactive({});
+// Per-tile pin from observeContentHeight(): set while the tile's content
+// follows its viewport height, so ViewportHeightMark shows it in the header.
+const pins = reactive({});
 const heightObservers = new Map();
+
+// A clickable header is a button with its own name, which hides the chip
+// inside it from assistive tech, so the name carries the pin too.
+function headerLabel(tile) {
+    const name = `${i18n.t('toolbar.variant_isolate_prefix')} ${tile.label}`;
+    return pins[tile.key] ? `${name} (${i18n.t('preview.viewport_height')})` : name;
+}
 
 // Navigating between two variant-having entries keeps VariantGrid mounted
 // (gridActive never flips), so onBeforeUnmount alone would leak one
@@ -115,6 +126,7 @@ watch(() => tiles.value.map((t) => tileKey(t)), (liveKeys) => {
             ro.disconnect();
             heightObservers.delete(key);
             delete heights[key];
+            delete pins[key];
         }
     }
 });
@@ -127,7 +139,12 @@ function onTileLoad(tile, event) {
     const key = tileKey(tile);
     const previous = heightObservers.get(key);
     if (previous) previous.disconnect();
-    heightObservers.set(key, observeContentHeight(doc, (h) => { heights[key] = h; }));
+    heightObservers.set(key, observeContentHeight(doc, (h, info) => {
+        heights[key] = h;
+        pins[key] = info?.followsViewport
+            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx }
+            : null;
+    }));
 }
 
 // Per-tile cell width -- the measured width of the tile's own content area
@@ -331,7 +348,7 @@ onBeforeUnmount(() => {
                      :class="tile.clickable ? 'cursor-pointer group' : ''"
                      :role="tile.clickable ? 'button' : undefined"
                      :tabindex="tile.clickable ? 0 : undefined"
-                     :aria-label="tile.clickable ? `${i18n.t('toolbar.variant_isolate_prefix')} ${tile.label}` : undefined"
+                     :aria-label="tile.clickable ? headerLabel(tile) : undefined"
                      @click="isolateTile(tile)"
                      @keydown.enter="isolateTile(tile)"
                      @keydown.space.prevent="isolateTile(tile)">
@@ -343,6 +360,7 @@ onBeforeUnmount(() => {
                     </div>
                     <!-- JavaScript errors in this tile, at any width. -->
                     <ErrorMark :count="errors.countFor(tile.key)" />
+                    <ViewportHeightMark :pin="pins[tile.key]" form="chip" />
                     <!-- Expand affordance: a discoverable hint that this
                          header click-throughs to the classic single
                          preview (VariantGrid's own equivalent of a link

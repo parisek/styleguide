@@ -57,7 +57,9 @@
         "mobile": "Mobile (375 px)",
         "tablet": "Tablet (768 px)",
         "desktop": "Desktop (1024 px)",
-        "full": "Full width"
+        "full": "Full width",
+        "viewport_height": "Viewport height",
+        "viewport_height_detail": "Viewport +{viewport} px → content +{content} px. The preview is pinned at {pinned} px."
     },
     "search": {
         "label": "Search",

@@ -575,3 +575,25 @@ describe('ViewportToolbar — overview grid', () => {
         });
     });
 });
+
+describe('ViewportToolbar — viewport height pin', () => {
+    const pin = { viewportDeltaPx: 800, contentDeltaPx: 320 };
+
+    it('shows the label next to the viewport size when the single preview is pinned', async () => {
+        const wrapper = mountWithViewport('component', 'hero');
+        expect(wrapper.find('[data-testid="viewport-height-label"]').exists()).toBe(false);
+        useI18nStore().strings.preview = { viewport_height: 'Viewport height', viewport_height_detail: 'Viewport +{viewport} px' };
+        useUiStore().previewViewportPin = pin;
+        await nextTick();
+        expect(wrapper.get('[data-testid="viewport-height-label"]').attributes('aria-label')).toContain('800');
+    });
+
+    it('hides the label on a variant grid, where each tile carries its own chip', async () => {
+        const wrapper = mountWithViewport('component', 'multi', {
+            items: [{ id: 'multi', name: 'Multi', variants: [{ id: 'a', title: 'A', description: '' }, { id: 'b', title: 'B', description: '' }] }],
+        });
+        useUiStore().previewViewportPin = pin;
+        await nextTick();
+        expect(wrapper.find('[data-testid="viewport-height-label"]').exists()).toBe(false);
+    });
+});
