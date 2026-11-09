@@ -4,11 +4,15 @@ import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { useCatalogStore } from '../stores/catalog.js';
 import { widthLabel, widthCategory } from '../lib/viewportMath.js';
+import ViewportHeightMark from './ViewportHeightMark.vue';
 
 const i18n = useI18nStore();
 const catalog = useCatalogStore();
 const ui = useUiStore();
 const viewport = inject('viewport');
+
+const showViewportPin = computed(() => !!ui.previewViewportPin
+    && !viewport.gridActive.value && !viewport.compareActive.value);
 
 const dropdownOpen = ref(false);
 const overflowOpen = ref(false);
@@ -592,6 +596,14 @@ onUnmounted(() => document.removeEventListener('click', onDocumentClick));
                             </div>
                         </div>
                     </div>
+                </div>
+                <!-- The single preview is pinned at its demo height because its
+                     content follows the viewport (lib/previewHeight.js). Not on
+                     a grid or a comparison: each tile and column measures its
+                     own document. Hidden below md, where the toolbar has no
+                     room for a second row. -->
+                <div v-if="showViewportPin" class="hidden md:flex items-center">
+                    <ViewportHeightMark :pin="ui.previewViewportPin" />
                 </div>
                 </template>
                 <!-- Secondary preview actions: inline on lg+, collapsed into a ⋮

@@ -106,3 +106,35 @@ test.describe('preview height of viewport-unit components', () => {
         expect(Math.abs(settled - content)).toBeLessThanOrEqual(24);
     });
 });
+
+// #263: a pinned preview says so. The toolbar carries a label with the measured
+// deltas on the single preview; on a variant grid each pinned tile carries a
+// chip and the short one carries none.
+test.describe('viewport height mark', () => {
+    test('the toolbar labels a pinned single preview and names the deltas', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/styleguide/component/viewport-inset?variant=full&width=900');
+        const label = page.getByTestId('viewport-height-label');
+        await expect(label).toBeVisible();
+        await expect(label).toHaveAttribute('title', /\+800 px .*\+\d+ px.*640 px/);
+    });
+
+    test('the toolbar shows no label for a preview at its content height', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.goto('/styleguide/component/viewport-stretch?width=900');
+        await expect(page.locator('iframe[src*="/styleguide/render/component/viewport-stretch"]').first()).toBeVisible();
+        await page.waitForTimeout(800);
+        await expect(page.getByTestId('viewport-height-label')).toHaveCount(0);
+    });
+
+    test('only the pinned grid tile carries the chip', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/viewport-bleed');
+        const tiles = page.getByTestId('variant-tile');
+        await expect(tiles).toHaveCount(2);
+        await expect(page.getByTestId('viewport-height-chip')).toHaveCount(1);
+        await expect(page.getByTestId('viewport-height-label')).toHaveCount(0);
+        const chip = page.getByTestId('viewport-height-chip');
+        await expect(chip).toHaveAttribute('aria-label', /\+800 px/);
+    });
+});

@@ -57,7 +57,9 @@
         "mobile": "Mobil (375 px)",
         "tablet": "Tablet (768 px)",
         "desktop": "Desktop (1024 px)",
-        "full": "Plná šířka"
+        "full": "Plná šířka",
+        "viewport_height": "Výška podle viewportu",
+        "viewport_height_detail": "Viewport +{viewport} px → obsah +{content} px. Náhled má pevnou výšku {pinned} px."
     },
     "search": {
         "label": "Hledat",

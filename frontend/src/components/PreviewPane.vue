@@ -24,6 +24,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
     if (contentRO) contentRO.disconnect();
+    ui.previewViewportPin = null;
     // Explicit teardown of the container ResizeObserver observeContainer()
     // creates on mount -- without this it stays attached to a now-detached
     // paneRef node until the next component/page route re-calls
@@ -51,6 +52,7 @@ watch(wrapperRef, (el) => viewport.observeWrapper(el));
 // and the new document's own `load`.
 watch(() => viewport.iframeSrc.value, () => {
     iframeContentHeight.value = null;
+    ui.previewViewportPin = null;
     if (contentRO) {
         contentRO.disconnect();
         contentRO = null;
@@ -72,7 +74,12 @@ function fitIframeToContent(iframe) {
     const doc = iframe?.contentDocument;
     if (!doc) return;
     if (contentRO) contentRO.disconnect();
-    contentRO = observeContentHeight(doc, (h) => { iframeContentHeight.value = h; });
+    contentRO = observeContentHeight(doc, (h, info) => {
+        iframeContentHeight.value = h;
+        ui.previewViewportPin = info?.followsViewport
+            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx }
+            : null;
+    });
 }
 
 // The loading flag itself is set synchronously by setRoute() in the ui
@@ -87,6 +94,7 @@ function onIframeLoad(event) {
         fitIframeToContent(event.target);
     } else {
         iframeContentHeight.value = null;
+        ui.previewViewportPin = null;
         if (contentRO) contentRO.disconnect();
     }
     entryLinks.follow(event.target);

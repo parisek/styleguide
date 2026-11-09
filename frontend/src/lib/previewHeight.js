@@ -217,7 +217,11 @@ function heights(elements) {
     return elements.map((el) => el.getBoundingClientRect?.().height ?? 0);
 }
 
-// Whether the height of a component render follows the height of its iframe:
+// Whether the height of a component render follows the height of its iframe.
+// `viewportGrowth()` answers with how much the iframe grew between the probes
+// (`viewportDeltaPx`), how much the fastest-growing root grew with it
+// (`contentDeltaPx`) and the verdict (`follows`); the chrome shows the two
+// numbers on a pinned preview. `followsViewport()` is the verdict alone:
 // `true`, `false`, or `null` when there is no answer (no frame to probe, no
 // content, or content that measures zero at both heights, such as a popup
 // hidden until it opens).
@@ -230,7 +234,7 @@ function heights(elements) {
 //
 // Only the iframe element in the SPA changes, restored in the same task, as in
 // `probe()` above.
-export function followsViewport(doc) {
+export function viewportGrowth(doc) {
     const frame = doc?.defaultView?.frameElement;
     if (!frame?.style || !doc.body) return null;
     const elements = contentElements(doc);
@@ -238,7 +242,17 @@ export function followsViewport(doc) {
     const low = withFrameHeight(frame, VIEWPORT_PROBE_LOW_PX, () => heights(elements));
     const high = withFrameHeight(frame, VIEWPORT_PROBE_HIGH_PX, () => heights(elements));
     if (low.every((h) => h <= 0) && high.every((h) => h <= 0)) return null;
-    return high.some((h, i) => h - low[i] > VIEWPORT_TOLERANCE_PX);
+    const contentDeltaPx = Math.round(Math.max(...high.map((h, i) => h - low[i])));
+    return {
+        follows: contentDeltaPx > VIEWPORT_TOLERANCE_PX,
+        viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
+        contentDeltaPx,
+    };
+}
+
+export function followsViewport(doc) {
+    const growth = viewportGrowth(doc);
+    return growth ? growth.follows : null;
 }
 
 // Only a component render is asked whether it follows the viewport. A page
@@ -270,7 +284,8 @@ export function isComponentRender(doc) {
 // every measure until MAX_CONTENT_HEIGHT_PX. The question is asked of every
 // document on every measure, so each grid tile gets its own answer, and a
 // component that only starts to fill the viewport after its script runs is
-// caught too. The second argument of `onHeight` says which of the two it was.
+// caught too. The second argument of `onHeight` says which of the two it was,
+// and for a pinned one carries the two deltas of `viewportGrowth()`.
 // A page render is not asked (`isComponentRender()`).
 export function observeContentHeight(doc, onHeight) {
     const shell = findPageShell(doc);
@@ -279,8 +294,13 @@ export function observeContentHeight(doc, onHeight) {
 
     const measure = () => {
         if (!live) return;
-        if (!shell && isComponentRender(doc) && followsViewport(doc) === true) {
-            onHeight(CHROME_VIEWPORT_HEIGHT_PX, { followsViewport: true });
+        const growth = !shell && isComponentRender(doc) ? viewportGrowth(doc) : null;
+        if (growth?.follows) {
+            onHeight(CHROME_VIEWPORT_HEIGHT_PX, {
+                followsViewport: true,
+                viewportDeltaPx: growth.viewportDeltaPx,
+                contentDeltaPx: growth.contentDeltaPx,
+            });
             return;
         }
         const { height: h, shellHeight } = probe(doc, shell);

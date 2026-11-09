@@ -62,6 +62,11 @@ export const useUiStore = defineStore('ui', {
             gridQuery: usePersistedRef('sg-grid-query', ''),
             isDragging: false,
             isPreviewLoading: false,
+            // The single preview's pin, set by PreviewPane.vue when its
+            // content follows the viewport height (lib/previewHeight.js):
+            // `{ viewportDeltaPx, contentDeltaPx }`, or null. The toolbar
+            // shows it next to the viewport size.
+            previewViewportPin: null,
             searchQuery: '',
             routeType: 'landing',
             routeSlug: null,

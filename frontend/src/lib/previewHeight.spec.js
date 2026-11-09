@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
     resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight, PROBE_HEIGHT_PX,
-    CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX, followsViewport,
+    CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX, followsViewport, viewportGrowth,
     VIEWPORT_PROBE_LOW_PX, VIEWPORT_PROBE_HIGH_PX, VIEWPORT_TOLERANCE_PX, isComponentRender,
 } from './previewHeight.js';
 
@@ -258,6 +258,32 @@ function componentRender({ children, surround = 0, frameHeight = 400 }) {
     return { doc, frame };
 }
 
+describe('viewportGrowth', () => {
+    it('names how much the iframe and the content grew between the probes', () => {
+        const { doc } = componentRender({ children: [{ content: 300, floor: true }], surround: 48 });
+        expect(viewportGrowth(doc)).toEqual({
+            follows: true,
+            viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
+            contentDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
+        });
+    });
+
+    // An 880 px root meets its floor only above 880, so it grows by 320.
+    it('reports the growth of the root that grew most', () => {
+        const { doc } = componentRender({ children: [{ content: 120 }, { content: 880, floor: true }] });
+        expect(viewportGrowth(doc)).toMatchObject({ follows: true, contentDeltaPx: VIEWPORT_PROBE_HIGH_PX - 880 });
+    });
+
+    it('reports a short component as not following, with no growth', () => {
+        const { doc } = componentRender({ children: [{ content: 120 }], surround: 48 });
+        expect(viewportGrowth(doc)).toMatchObject({ follows: false, contentDeltaPx: 0 });
+    });
+
+    it('has no answer where followsViewport has none', () => {
+        expect(viewportGrowth(componentRender({ children: [{ content: 0 }] }).doc)).toBeNull();
+    });
+});
+
 describe('followsViewport', () => {
     it('is true for a root with a viewport floor', () => {
         const { doc } = componentRender({ children: [{ content: 300, floor: true }], surround: 48 });
@@ -364,6 +390,18 @@ describe('observeContentHeight with a viewport-unit component', () => {
         expect(seen).toHaveLength(6);
         expect(new Set(seen.map(([h]) => h))).toEqual(new Set([CHROME_VIEWPORT_HEIGHT_PX]));
         expect(seen.every(([, follows]) => follows === true)).toBe(true);
+    });
+
+    it('passes the measured deltas with a pinned height', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 880, floor: true }], frameHeight: 400 });
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info]); frame.style.height = `${h}px`; });
+        expect(seen).toEqual([[CHROME_VIEWPORT_HEIGHT_PX, {
+            followsViewport: true,
+            viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
+            contentDeltaPx: VIEWPORT_PROBE_HIGH_PX - 880,
+        }]]);
     });
 
     // A page render keeps its content height, so a wrapper with a viewport min-height is
