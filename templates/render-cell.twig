@@ -199,7 +199,11 @@
 	   measure: the shell's `100dvh` floor resolves against the iframe the SPA
 	   sizes from the content, so the SPA has to know which element holds it. #}
 	{% set page_wrapper_class = kind == 'page' ? iframe.page_wrapper_class|default('') : '' %}
-	{% if use_inset %}<div style="padding:1.5rem">{% endif %}
+	{# `data-sg-inset` marks the wrapper for the SPA's height measure: it asks
+	   the component inside the wrapper, not the wrapper, whether its height
+	   follows the viewport, because the wrapper itself stretches when the
+	   project's body is a flex row or a grid with a viewport min-height. #}
+	{% if use_inset %}<div data-sg-inset style="padding:1.5rem">{% endif %}
 	{% if page_wrapper_class is not empty %}<div data-sg-page-shell{{ create_attribute({ class: page_wrapper_class }) }}>{% endif %}
 	{{ body|raw }}
 	{% if page_wrapper_class is not empty %}</div>{% endif %}

@@ -65,7 +65,8 @@ final class ComponentParserTest extends TestCase
         // the has_default_variant tests below), With fields 50 (no explicit
         // weight -> parser default), then the sidebar-tree cluster
         // widget-one/two/three 51/52/53, gizmo 54, Ordered 90 (variants_order
-        // and a titled default fixture), and Broken Sample 999
+        // and a titled default fixture), the preview-height pair
+        // viewport-inset/-bleed/-stretch 91/92/93, and Broken Sample 999
         // (deliberately last — its Twig body throws, exercised by
         // RendererTest, but its YAML metadata is valid so ComponentParser,
         // which never renders the body, picks it up like any other
@@ -74,7 +75,7 @@ final class ComponentParserTest extends TestCase
         // sort on `name` (see parseAll()'s usort()), and "Defkit Card" sorts
         // before "With fields" alphabetically.
         self::assertSame(
-            ['Another', 'Sample', 'Translated sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Ordered', 'Broken Sample'],
+            ['Another', 'Sample', 'Translated sample', 'Multi', 'Only Variants', 'Defkit Card', 'With fields', 'Widget - one', 'Widget - two', 'Widget - three', 'Gizmo', 'Ordered', 'Viewport inset', 'Viewport bleed', 'Viewport stretch', 'Broken Sample'],
             array_column($components, 'name'),
             'parseAll returns the full fixture set sorted by weight',
         );

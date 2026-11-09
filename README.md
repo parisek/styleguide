@@ -1369,6 +1369,8 @@ By default every component renders inside a 24 px-padded wrapper — right for a
 | `chrome` | Same as `bleed`, plus `body { min-height: 200vh }`. Sticky / fixed elements have room to scroll against. | `header` with sticky variant, `footer`, `cookieconsent`. |
 | `overlay` | Same iframe wrapper as `bleed`. Separate label exists so future UI can surface "this is a modal" without a wrapper change. | Native `<dialog>` modals. |
 
+A preview without a preset height is as tall as its content. A component whose height follows the viewport (a `min-h-dvh` or `h-svh` root, in any mode) cannot be sized from its own content: the floor would resolve against the iframe the SPA sizes from it. The SPA detects this per preview, from the component roots inside the inset wrapper (`data-sg-inset`) or `body`, and pins it at 640 px, the same demo height a `chrome` entry gets, and the component scrolls inside its iframe. No metadata key is needed. `?canvas=1` still opens the render at the real viewport.
+
 ```twig
 {#
 name: "Slider"

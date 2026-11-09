@@ -172,6 +172,34 @@
                 ]
             },
             {
+                "id": "viewport-inset",
+                "name": "Viewport inset",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": [
+                    "full"
+                ]
+            },
+            {
+                "id": "viewport-bleed",
+                "name": "Viewport bleed",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": [
+                    "full"
+                ]
+            },
+            {
+                "id": "viewport-stretch",
+                "name": "Viewport stretch",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
                 "id": "broken-sample",
                 "name": "Broken Sample",
                 "fields_md5": "d751713988987e9331980363e24189ce",
@@ -330,6 +358,18 @@
             "hasTemplate": true
         },
         {
+            "id": "viewport-bleed",
+            "hasTemplate": true
+        },
+        {
+            "id": "viewport-inset",
+            "hasTemplate": true
+        },
+        {
+            "id": "viewport-stretch",
+            "hasTemplate": true
+        },
+        {
             "id": "widget-one",
             "hasTemplate": true
         },
@@ -368,7 +408,7 @@
     "api": {
         "/styleguide/api/components": [
             200,
-            "acf944525be472c6efd219651e2ab156"
+            "c97f8b2f29e4f647f4c131f117ca6dbb"
         ],
         "/styleguide/api/pages": [
             200,
@@ -388,7 +428,7 @@
         ],
         "/styleguide/render/component/multi": [
             200,
-            "a1d8ee98ac681515b179754ba01d5560"
+            "5721aa18c29e06ed4aa827f1bb96e5a3"
         ]
     }
 }
