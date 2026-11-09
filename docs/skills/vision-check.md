@@ -8,6 +8,7 @@ The model is the skill of the same name in `parisek/test-kit`. A review cites re
 
 - A pull request number and the mode `pr`, or an issue number and the mode `issue`. A caller may give a head SHA and a diff file instead of a number.
 - Make your own diff with `git diff origin/main...HEAD` (against the merge base). If a supplied diff differs from it, use yours and say so in `unverified`. If your diff reverts merged work, the base is stale: give the verdict `needs-owner` and say so.
+- Before you run the tests in a fresh worktree, run the `setup` command of `.agent/project.conf` (`scripts/process/project-config.sh setup`). Without it the sandbox has no `vendor/` and no `node_modules/`.
 - The mode `pr` is a merge review. The mode `issue` is triage. Its output never counts as a merge review.
 
 ## Rules
@@ -47,11 +48,20 @@ Answer the four questions of `docs/vision.md`, "Test for a new issue".
 
 ## Output
 
-Write one review record: the line `<!-- styleguide-review -->` and one JSON block. Then add a short list of findings, most severe first. Each finding has a citation `path:line`.
+Write one review record: the line `<!-- agent:review -->` and one JSON block (`docs/process.md`, section 5). Then add a short list of findings, most severe first. Each finding has a citation `path:line` or `path:start-end`.
 
 Every field is required. `reviewer` is `codex` or `claude`. The author's own comment uses `author` and never counts. `sha` is the 40-character head SHA. Each `requirements` entry is an `R` number that exists in `docs/specification.md` on the base branch (a pull request could add the number in its own diff). The single entry `none` means the change meets and changes no requirement.
 
-Field formats. `security`: `none`, or the path and the reason. `unexpected_files`: `none`, or the file paths. `tests`: `present`, `docs-only` or `none: <reason>`. `risk`: `none`, or one sentence.
+Field formats. `security`: `none`, or the path and the reason. `unexpected_files`: `none`, or the file paths. `tests`: `present`, `docs-only` or `none: <reason>`. `risk`: `none`, or one sentence. `default_behavior`: `none`, or the default that the change adds or changes.
+
+Check the record before you post it. Write the specification of the base branch to a file first, so a change cannot add its own R-number:
+
+```bash
+git show origin/main:docs/specification.md > /tmp/base-spec.md
+node scripts/process/check-record.mjs <record file> --sha <head SHA> --spec /tmp/base-spec.md
+```
+
+The script prints whether the record counts as an approval (`docs/process.md`, section 5).
 
 In the mode `issue` use `"mode": "issue"`. Leave out `sha`, `evidence`, `unverified`, `unexpected_files` and `tests`.
 
