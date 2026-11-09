@@ -14,9 +14,9 @@ Consumers wire `\Parisek\Styleguide\Styleguide::run()` into a public PHP file an
 
 ## Vision first
 
-Read [`docs/vision.md`](docs/vision.md) before you open or review an issue or a pull request. It holds the principles, the decision tiers (what you decide alone, what you decide and report, what you ask first), the stop conditions and the review rule. The specification (`docs/specification.md`) and, until it exists, the contract (`docs/API.md`, the ADRs, `README.md`) win when they disagree with it.
+Read [`docs/vision.md`](docs/vision.md) before you open or review an issue or a pull request. It holds the principles, the decision tiers (what you decide alone, what you decide and report, what you ask first), the stop conditions and the review rule. The specification (`docs/specification.md`) and the contract it cites (`docs/API.md`, the ADRs, `README.md`) win when they disagree with it.
 
-- Name the tier and the principle number of every change in the pull request (the template has the fields). Cite the requirement it meets or changes (`R6.7` in `docs/specification.md`). Until the specification exists, cite a `docs/API.md` section, an ADR number or a `README.md` section.
+- Name the tier and the principle number of every change in the pull request (the template has the fields). Cite the requirement it meets or changes (`R6.7` in `docs/specification.md`).
 - A Tier 3 item waits for the owner: a break of an `@api` surface, a changed default, a new runtime dependency, a security path, a new ADR, a release, an edit of `docs/vision.md`. See the full list in `docs/vision.md`.
 - Chrome work follows `PRODUCT.md`, `DESIGN.md` and `frontend/ui-contract/` (`docs/vision.md`, "Design authority"). A new screen, path or token set is a design decision: open a `Design decision: <question>` issue with the label `awaiting-owner` and do other work.
 - The commit body or the pull request records what you rejected or left alone. A diff cannot show a non-change.
