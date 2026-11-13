@@ -17,8 +17,9 @@
 //
 // The render is same-origin, so the frame measures its own document and tells
 // the view, which lays the rows out again. A page that sizes itself with `vh`
-// would feed that height back into itself: a `render: chrome` entry keeps the
-// pinned demo height (lib/previewHeight.js) and every height has a ceiling.
+// would feed that height back into itself: a `render: chrome` entry, and a page
+// or component whose content follows the viewport, is pinned at the board's
+// designed frame (lib/previewHeight.js) and every height has a ceiling.
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { resolveContentHeight, entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
@@ -30,6 +31,9 @@ const props = defineProps({
     y: { type: Number, required: true },
     width: { type: Number, required: true },
     height: { type: Number, required: true },
+    // The height a page whose content follows the viewport is pinned at: the
+    // board's designed frame (lib/previewHeight.js designedViewportHeight()).
+    pinnedHeight: { type: Number, default: undefined },
     queue: { type: Object, required: true },
     scrollRoot: { type: Object, default: null },
     href: { type: String, required: true },
@@ -88,7 +92,7 @@ function withdraw() {
 }
 
 function emitHeight(raw) {
-    emit('measure', props.entry.key, resolveContentHeight({ rawContentHeight: raw, scrolls: entryScrolls(props.entry.item) }));
+    emit('measure', props.entry.key, resolveContentHeight({ rawContentHeight: raw, scrolls: entryScrolls(props.entry.item), pinnedHeight: props.pinnedHeight }));
 }
 
 // The page's own document swallows these, so it hands them to the board, with
@@ -124,7 +128,7 @@ function onLoad() {
         doc.addEventListener('keydown', forwardKey);
         forwardedDoc = doc;
     }
-    if (doc) resizeObserver = observeContentHeight(doc, emitHeight);
+    if (doc) resizeObserver = observeContentHeight(doc, emitHeight, { pinnedHeight: props.pinnedHeight });
 }
 
 // A new theme or content locale changes the render URL: load it again.

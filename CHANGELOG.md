@@ -8,6 +8,14 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A page with a full-screen section no longer stretches its preview** (#277). A page whose hero (or any section inside it) sets a viewport floor, such as `min-h-[calc(100svh-4rem)]`, was never probed: 1.38.0 asked only component renders. On 1.35.0 such a board frame grew to the 20,000 px ceiling; on 1.38.0 the zero-height probe stopped the loop, but the iframe was then sized to the page, the hero resolved its floor against that whole height and filled the preview with empty space. Now a page is measured as before and then asked whether it stays at that height: the SPA sets the iframe briefly to the measured height and reads the document again. A frame floor (a `min-h-dvh` shell, wrapper or body, a `main` that grows) fills the page and the document stays where it was, so the page keeps its content height. A section with its own viewport floor makes the document grow by more than 64 px, and the page is pinned and scrolls inside. Single preview, variant grid, compare and board use the same check. Specification R7.10.
+
+### Changed
+
+- **A pinned preview takes the designed frame of its surface instead of 640 px** (#277). One rule for every surface and kind (`designedViewportHeight()` in `lib/previewHeight.js`): the preset height when there is one; else the catalogue frame of the preview width, the same frame the grid tiles show (16:10 on a desktop width, square at 1024 px and below); else 640 px (Full). This applies to `render: chrome` entries, to components whose content follows the viewport (#133) and to pages (above). A component pinned at a custom width of 900 px is now 900 px tall, a compare column of 1440 px is 900 px tall, and a board frame takes the board's frame height. The viewport height mark (#263) names the actual pinned height.
+
 ## [1.38.0] - 2026-11-09
 
 ### Added

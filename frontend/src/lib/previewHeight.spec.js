@@ -3,6 +3,7 @@ import {
     resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight, PROBE_HEIGHT_PX,
     CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX, followsViewport, viewportGrowth,
     VIEWPORT_PROBE_LOW_PX, VIEWPORT_PROBE_HIGH_PX, VIEWPORT_TOLERANCE_PX, isComponentRender,
+    pageGrowth, designedViewportHeight,
 } from './previewHeight.js';
 
 // The measurement a runaway chrome surface actually reported before the fix
@@ -284,6 +285,46 @@ describe('viewportGrowth', () => {
     });
 });
 
+describe('pageGrowth', () => {
+    it('reports how much a page grows when shown at its own height', () => {
+        const { doc } = componentRender({ children: [{ content: 500, floor: true }, { content: 1000 }], frameHeight: 0 });
+        expect(pageGrowth(doc, 1500)).toEqual({ follows: true, viewportDeltaPx: 1500, contentDeltaPx: 1000 });
+    });
+
+    it('allows a few pixels of reflow', () => {
+        const { doc } = componentRender({ children: [{ content: 1500 }], frameHeight: 0 });
+        expect(pageGrowth(doc, 1500).follows).toBe(false);
+    });
+
+    it('has no answer without a frame or a height', () => {
+        expect(pageGrowth({ defaultView: {} }, 900)).toBeNull();
+        const { doc } = componentRender({ children: [{ content: 100 }] });
+        expect(pageGrowth(doc, 0)).toBeNull();
+    });
+});
+
+describe('designedViewportHeight', () => {
+    it('takes the preset height first', () => {
+        expect(designedViewportHeight({ width: 1440, height: 1024 })).toBe(1024);
+    });
+
+    it('takes the catalogue frame for a width without a height', () => {
+        expect(designedViewportHeight({ width: 1440 })).toBe(900);
+        expect(designedViewportHeight({ width: 375 })).toBe(375);
+    });
+
+    it('falls back to the chrome height without a width', () => {
+        expect(designedViewportHeight()).toBe(CHROME_VIEWPORT_HEIGHT_PX);
+        expect(designedViewportHeight({ width: null, height: null })).toBe(CHROME_VIEWPORT_HEIGHT_PX);
+    });
+});
+
+describe('resolveContentHeight with a pinned height', () => {
+    it('pins a chrome surface at the given height', () => {
+        expect(resolveContentHeight({ rawContentHeight: 5000, scrolls: true, pinnedHeight: 900 })).toBe(900);
+    });
+});
+
 describe('followsViewport', () => {
     it('is true for a root with a viewport floor', () => {
         const { doc } = componentRender({ children: [{ content: 300, floor: true }], surround: 48 });
@@ -399,6 +440,7 @@ describe('observeContentHeight with a viewport-unit component', () => {
         observeContentHeight(doc, (h, info) => { seen.push([h, info]); frame.style.height = `${h}px`; });
         expect(seen).toEqual([[CHROME_VIEWPORT_HEIGHT_PX, {
             followsViewport: true,
+            pinnedPx: CHROME_VIEWPORT_HEIGHT_PX,
             viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
             contentDeltaPx: VIEWPORT_PROBE_HIGH_PX - 880,
         }]]);
@@ -413,6 +455,35 @@ describe('observeContentHeight with a viewport-unit component', () => {
         const seen = [];
         observeContentHeight(doc, (h, info) => { seen.push([h, info.followsViewport]); frame.style.height = `${h}px`; });
         expect(seen).toEqual([[700, false]]);
+    });
+
+    // The downstream case: a hero with a `100svh` floor in the middle of a page.
+    // Shown at its content height, the hero would fill the whole iframe and
+    // push the rest of the page below it, so the page is pinned at the
+    // surface's designed viewport instead.
+    it('pins a page with a viewport-floor section at the designed height', () => {
+        const instances = stubResizeObserver();
+        const { doc, frame } = componentRender({
+            children: [{ content: 80 }, { content: 500, floor: true }, { content: 2400 }],
+            frameHeight: 400,
+        });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/home' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
+        for (let i = 0; i < 3; i++) instances[0].cb();
+        expect(new Set(seen.map(([h]) => h))).toEqual(new Set([900]));
+        expect(seen[0][1]).toEqual({ followsViewport: true, pinnedPx: 900, viewportDeltaPx: 2980, contentDeltaPx: 2480 });
+    });
+
+    // A page frame with a viewport floor (a wrapper, a body grid) fills the
+    // viewport by design: at its content height it stays there.
+    it('keeps a page whose only viewport floor is its own frame', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 2400, floor: true }], frameHeight: 400 });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/about' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.followsViewport]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
+        expect(seen).toEqual([[2400, false]]);
     });
 
     it('tells a page render from a component render by its path', () => {

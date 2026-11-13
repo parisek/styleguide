@@ -5,10 +5,17 @@ import { test, expect } from '@playwright/test';
 // viewport-bleed (render: bleed). Each has a short default fixture and a `full`
 // variant whose root has a viewport floor (`min-height: 100dvh`, `100svh`).
 // Sized from its own document, such a variant grew by its surround on every
-// measure until the 20,000 px ceiling. The fix pins it at the demo viewport
-// height (640, lib/previewHeight.js) and leaves every other preview at its
-// content height, per document, so each grid tile gets its own answer.
+// measure until the 20,000 px ceiling. The fix pins it and leaves every other
+// preview at its content height, per document, so each grid tile gets its own
+// answer.
+//
+// #277: one rule for every surface and kind. A pinned preview takes the
+// designed frame of its surface (lib/previewHeight.js designedViewportHeight()):
+// the preset height, else the catalogue frame of its width (16:10 on a desktop
+// width, square below it), else 640 px in Full mode. A page is pinned too when
+// shown at its own height it would grow (a full-screen hero inside it).
 const PINNED = 640;
+const designed = (width) => (width > 1024 ? Math.round(width * 0.625) : width);
 
 // Height of the iframe element, as the SPA set it, in CSS px of the iframe's
 // own layout (the logical height, before any scale transform).
@@ -36,7 +43,7 @@ test.describe('preview height of viewport-unit components', () => {
             const iframe = page.locator(`iframe[src*="/styleguide/render/component/${slug}"]`).first();
             const { atLoad, settled } = await heightAtLoadAndSettled(page, iframe);
             expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
-            expect(settled).toBe(PINNED);
+            expect(settled).toBe(designed(900));
         });
 
         test(`${slug}: each grid tile gets its own height`, async ({ page }) => {
@@ -65,9 +72,9 @@ test.describe('preview height of viewport-unit components', () => {
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('compare-project-widths').click();
         const captions = page.getByTestId('compare-strip').getByTestId('compare-caption');
-        await expect(captions).toHaveText([/^320 × 640\b/, /^768 × 640\b/, /^1440 × 640\b/]);
+        await expect(captions).toHaveText([/^320 × 320\b/, /^768 × 768\b/, /^1440 × 900\b/]);
         await page.waitForTimeout(1200);
-        await expect(captions).toHaveText([/^320 × 640\b/, /^768 × 640\b/, /^1440 × 640\b/]);
+        await expect(captions).toHaveText([/^320 × 320\b/, /^768 × 768\b/, /^1440 × 900\b/]);
     });
 
     // The project's body is a grid with a viewport min-height, so the inset
@@ -93,6 +100,45 @@ test.describe('preview height of viewport-unit components', () => {
         expect(Math.abs(settled - content)).toBeLessThanOrEqual(24);
     });
 
+    // The downstream case (#277): a hero with a `100svh` floor inside a page.
+    // At its content height the hero would fill the whole preview, so the page
+    // is pinned at the designed frame and scrolls inside.
+    test('a page with a full-screen hero is pinned at the designed frame in the single preview', async ({ page }) => {
+        await page.goto('/styleguide/page/screen-hero?width=1440');
+        const iframe = page.locator('iframe[src*="/styleguide/render/page/screen-hero"]').first();
+        const { atLoad, settled } = await heightAtLoadAndSettled(page, iframe);
+        expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
+        expect(settled).toBe(designed(1440));
+        const scrolls = await iframe.evaluate((el) => el.contentDocument.documentElement.scrollHeight > el.clientHeight);
+        expect(scrolls).toBe(true);
+    });
+
+    test('a page with a full-screen hero is pinned in every compare column', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/page/screen-hero');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('compare-project-widths').click();
+        const captions = page.getByTestId('compare-strip').getByTestId('compare-caption');
+        await expect(captions).toHaveText([/^320 × 320\b/, /^768 × 768\b/, /^1440 × 900\b/]);
+        await page.waitForTimeout(1200);
+        await expect(captions).toHaveText([/^320 × 320\b/, /^768 × 768\b/, /^1440 × 900\b/]);
+    });
+
+    test('on the board a page with a full-screen hero is pinned and a plain page is not', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/grid?view=board');
+        const hero = page.locator('[data-testid="board-frame"] iframe[src*="/render/page/screen-hero"]');
+        const contact = page.locator('[data-testid="board-frame"] iframe[src*="/render/page/contact"]');
+        await hero.scrollIntoViewIfNeeded();
+        const width = await hero.evaluate((el) => parseFloat(getComputedStyle(el).width));
+        const { atLoad, settled } = await heightAtLoadAndSettled(page, hero);
+        expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
+        expect(settled).toBe(designed(width));
+        await contact.scrollIntoViewIfNeeded();
+        await expect.poll(() => frameHeight(contact)).toBeGreaterThan(0);
+        expect(await frameHeight(contact)).toBeLessThan(designed(width));
+    });
+
     test('a component without viewport units keeps its content height', async ({ page }) => {
         await page.goto('/styleguide/component/gizmo?width=900');
         const iframe = page.locator('iframe[src*="/styleguide/render/component/gizmo"]').first();
@@ -116,7 +162,7 @@ test.describe('viewport height mark', () => {
         await page.goto('/styleguide/component/viewport-inset?variant=full&width=900');
         const label = page.getByTestId('viewport-height-label');
         await expect(label).toBeVisible();
-        await expect(label).toHaveAttribute('title', /\+800 px .*\+\d+ px.*640 px/);
+        await expect(label).toHaveAttribute('title', /\+800 px .*\+\d+ px.*900 px/);
     });
 
     test('below md the toolbar keeps the mark as a chip', async ({ page }) => {

@@ -122,8 +122,9 @@ final class CommandTest extends TestCase
         $decoded = json_decode(trim($stdout), true, flags: JSON_THROW_ON_ERROR);
         self::assertIsArray($decoded);
         // Landing 30, Pricing 35, Contact 40 (no category: the fixture
-        // for the sidebar's default group under `pages.group_by`).
-        self::assertSame(['Landing', 'Pricing', 'Contact'], array_column($decoded, 'name'));
+        // for the sidebar's default group under `pages.group_by`), Screen hero
+        // 90 (the preview height fixture of a page with a full-screen hero).
+        self::assertSame(['Landing', 'Pricing', 'Contact', 'Screen hero'], array_column($decoded, 'name'));
     }
 
     #[Test]

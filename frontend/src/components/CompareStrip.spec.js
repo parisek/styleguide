@@ -4,7 +4,7 @@ import { useRenderErrorsStore } from '../stores/renderErrors.js';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import CompareStrip from './CompareStrip.vue';
-import { CHROME_VIEWPORT_HEIGHT_PX } from '../lib/previewHeight.js';
+import { designedViewportHeight } from '../lib/previewHeight.js';
 
 // jsdom lays nothing out, so every clientWidth reads 0. Stub it for tests
 // that check the fit-to-column zoom (same approach as VariantGrid.spec.js).
@@ -75,10 +75,13 @@ describe('CompareStrip', () => {
         wrapper.unmount();
     });
 
-    it('gives a render: chrome entry a fixed viewport height instead of measuring it', () => {
+    // One rule for every surface: a pinned column takes the designed frame of
+    // its width, 16:10 on a desktop width and square below it.
+    it('gives a render: chrome entry its designed viewport height instead of measuring it', () => {
         const wrapper = mountStrip({ scrolls: true });
         for (const frame of wrapper.findAll('iframe')) {
-            expect(frame.attributes('style')).toContain(`height: ${CHROME_VIEWPORT_HEIGHT_PX}px`);
+            const width = Number(frame.attributes('style').match(/width: (\d+)px/)[1]);
+            expect(frame.attributes('style')).toContain(`height: ${designedViewportHeight({ width })}px`);
         }
         wrapper.unmount();
     });
@@ -115,7 +118,7 @@ describe('CompareStrip — a changed set of widths', () => {
     it('captions a render: chrome entry with its pinned viewport height', () => {
         const wrapper = mountStrip({ widths: [320, 768], scrolls: true });
         expect(wrapper.findAll('[data-testid="compare-caption"]').map((c) => c.text()))
-            .toEqual([`320 × ${CHROME_VIEWPORT_HEIGHT_PX}`, `768 × ${CHROME_VIEWPORT_HEIGHT_PX}`]);
+            .toEqual(['320 × 320', '768 × 768']);
         wrapper.unmount();
     });
 

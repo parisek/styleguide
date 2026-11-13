@@ -232,6 +232,14 @@
                 "fields_files": [],
                 "has_styleguide": true,
                 "variants": []
+            },
+            {
+                "id": "screen-hero",
+                "name": "Screen hero",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
             }
         ],
         "doc": [
@@ -412,7 +420,7 @@
         ],
         "/styleguide/api/pages": [
             200,
-            "051594aa64d084a54992eedce1c86a9e"
+            "b35c18f642f19c33f46e81f7e5c6978d"
         ],
         "/styleguide/api/docs": [
             200,

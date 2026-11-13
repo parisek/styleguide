@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, inject } from 'vue';
-import { resolveContentHeight, entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
+import { resolveContentHeight, entryScrolls, observeContentHeight, designedViewportHeight } from '../lib/previewHeight.js';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
 import { useUiStore } from '../stores/ui.js';
 import { useI18nStore } from '../stores/i18n.js';
@@ -77,9 +77,9 @@ function fitIframeToContent(iframe) {
     contentRO = observeContentHeight(doc, (h, info) => {
         iframeContentHeight.value = h;
         ui.previewViewportPin = info?.followsViewport
-            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx }
+            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
             : null;
-    });
+    }, { pinnedHeight: designedViewportHeight(viewport.effective.value) });
 }
 
 // The loading flag itself is set synchronously by setRoute() in the ui
@@ -117,6 +117,7 @@ const wrapperStyle = computed(() => {
     const sourceH = h ?? resolveContentHeight({
         rawContentHeight: iframeContentHeight.value, minHeight: 400,
         scrolls: entryScrolls(viewport.currentItem.value),
+        pinnedHeight: designedViewportHeight(viewport.effective.value),
     });
     const scaledW = Math.max(1, Math.round(w * z));
     const scaledH = Math.max(1, Math.round(sourceH * z));
@@ -133,6 +134,7 @@ const iframeStyle = computed(() => {
     const h = viewport.effective.value.height ?? resolveContentHeight({
         rawContentHeight: iframeContentHeight.value, minHeight: 400,
         scrolls: entryScrolls(viewport.currentItem.value),
+        pinnedHeight: designedViewportHeight(viewport.effective.value),
     });
     const z = viewport.zoom.value;
     return `width: ${w}px; height: ${h}px; transform: scale(${z}); transform-origin: 0 0`;

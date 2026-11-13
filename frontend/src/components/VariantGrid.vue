@@ -25,7 +25,7 @@ import { inject, computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
-import { entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
+import { entryScrolls, observeContentHeight, designedViewportHeight } from '../lib/previewHeight.js';
 import { showSource } from '../lib/runtimeConfig.js';
 import SourcePanel from './SourcePanel.vue';
 import CompareStrip from './CompareStrip.vue';
@@ -142,9 +142,9 @@ function onTileLoad(tile, event) {
     heightObservers.set(key, observeContentHeight(doc, (h, info) => {
         heights[key] = h;
         pins[key] = info?.followsViewport
-            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx }
+            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
             : null;
-    }));
+    }, { pinnedHeight: designedViewportHeight(viewport.effective.value) }));
 }
 
 // Per-tile cell width -- the measured width of the tile's own content area
@@ -210,6 +210,7 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
         // scroll-room, so their content height is a function of their viewport
         // height — auto-sizing the tile to it never converges (#116).
         scrolls: entryScrolls(viewport.currentItem.value),
+        pinnedHeight: designedViewportHeight(viewport.effective.value),
     });
     return {
         ...tile,
