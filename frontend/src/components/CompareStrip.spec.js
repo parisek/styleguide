@@ -118,7 +118,7 @@ describe('CompareStrip — a changed set of widths', () => {
     it('captions a render: chrome entry with its pinned viewport height', () => {
         const wrapper = mountStrip({ widths: [320, 768], scrolls: true });
         expect(wrapper.findAll('[data-testid="compare-caption"]').map((c) => c.text()))
-            .toEqual(['320 × 320', '768 × 768']);
+            .toEqual(['320 × 568', '768 × 1024']);
         wrapper.unmount();
     });
 

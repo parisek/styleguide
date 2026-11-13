@@ -291,14 +291,23 @@ describe('pageGrowth', () => {
         expect(pageGrowth(doc, 1500)).toEqual({ follows: true, viewportDeltaPx: 1500, contentDeltaPx: 1000 });
     });
 
-    // A frame floor with padding around it (a fixed header's offset, a header
-    // and a footer next to a `main` with a viewport floor) grows the page by
-    // that surround only, a small share of it.
-    it('does not count a frame floor with a surround', () => {
+    // Any growth beyond the tolerance counts: a frame floor with something
+    // around it would cut that much off the bottom of the page.
+    it('counts a frame floor with a surround', () => {
         const { doc } = componentRender({ children: [{ content: 1600, floor: true }], surround: 112, frameHeight: 0 });
-        expect(pageGrowth(doc, 1712)).toEqual({ follows: false, viewportDeltaPx: 1712, contentDeltaPx: 112 });
+        expect(pageGrowth(doc, 1712)).toEqual({ follows: true, viewportDeltaPx: 1712, contentDeltaPx: 112 });
         const short = componentRender({ children: [{ content: 80 }, { content: 300, floor: true }, { content: 200 }], frameHeight: 0 });
-        expect(pageGrowth(short.doc, 580).follows).toBe(false);
+        expect(pageGrowth(short.doc, 580).follows).toBe(true);
+    });
+
+    it('does not count a frame floor the content fills', () => {
+        const { doc } = componentRender({ children: [{ content: 1600, floor: true }], frameHeight: 0 });
+        expect(pageGrowth(doc, 1600)).toEqual({ follows: false, viewportDeltaPx: 1600, contentDeltaPx: 0 });
+    });
+
+    it('needs more than the tolerance', () => {
+        const { doc } = componentRender({ children: [{ content: 40, floor: true }], surround: 60, frameHeight: 0 });
+        expect(pageGrowth(doc, 100)).toEqual({ follows: false, viewportDeltaPx: 100, contentDeltaPx: 60 });
     });
 
     it('allows a few pixels of reflow', () => {
@@ -318,9 +327,18 @@ describe('designedViewportHeight', () => {
         expect(designedViewportHeight({ width: 1440, height: 1024 })).toBe(1024);
     });
 
-    it('takes the catalogue frame for a width without a height', () => {
+    it('takes the catalogue frame for a desktop width without a height', () => {
         expect(designedViewportHeight({ width: 1440 })).toBe(900);
-        expect(designedViewportHeight({ width: 375 })).toBe(375);
+        expect(designedViewportHeight({ width: 1920 })).toBe(1200);
+    });
+
+    // At 1024 px and below a pinned preview is a device screen, not a square.
+    it('takes the device screen for a phone or tablet width', () => {
+        expect(designedViewportHeight({ width: 320 })).toBe(568);
+        expect(designedViewportHeight({ width: 375 })).toBe(667);
+        expect(designedViewportHeight({ width: 768 })).toBe(1024);
+        expect(designedViewportHeight({ width: 900 })).toBe(1201);
+        expect(designedViewportHeight({ width: 360 })).toBe(640);
     });
 
     it('falls back to the chrome height without a width', () => {

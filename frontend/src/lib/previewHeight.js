@@ -1,4 +1,5 @@
 import { gridPreviewSize } from './catalogGrid.js';
+import { VIEWPORTS } from './viewportMath.js';
 
 // Shared height resolution for the two surfaces that size a same-origin iframe
 // from its own content: VariantGrid's per-tile geometry (lib/tileGeometry.js)
@@ -54,14 +55,20 @@ export function resolveContentHeight({ rawContentHeight, minHeight, scrolls = fa
 // The height a pinned preview takes: the designed viewport of the surface.
 // One rule for every surface and kind, so the next surface cannot pick its
 // own number. A surface with a preset height uses it. A surface that knows
-// only its width uses the catalogue frame for that width
-// (`gridPreviewSize()`: 16:10 on a desktop width, square below it), which is
-// the frame the grid tiles already show. A surface without a width (Full)
-// falls back to CHROME_VIEWPORT_HEIGHT_PX.
+// only its width uses a designed screen for that width: above 1024 px the
+// catalogue frame the grid tiles show (16:10); at 1024 px and below the
+// device the width belongs to, the preset of that width or else the
+// proportions of the nearest phone or tablet preset, so a pinned 320 px page
+// is a phone screen (320 x 568), not a square. A surface without a width
+// (Full) falls back to CHROME_VIEWPORT_HEIGHT_PX.
+const DEVICE_PRESETS = VIEWPORTS.filter((v) => v.category === 'mobile' || v.category === 'tablet');
+
 export function designedViewportHeight({ width = null, height = null } = {}) {
     if (height) return height;
-    if (width) return gridPreviewSize(width).height;
-    return CHROME_VIEWPORT_HEIGHT_PX;
+    if (!width) return CHROME_VIEWPORT_HEIGHT_PX;
+    if (width > 1024) return gridPreviewSize(width).height;
+    const device = DEVICE_PRESETS.reduce((best, v) => (Math.abs(v.width - width) < Math.abs(best.width - width) ? v : best));
+    return Math.round(width * (device.height / device.width));
 }
 
 // Single source of truth for "is this entry chrome?", so the grid and the
@@ -277,22 +284,23 @@ export function viewportGrowth(doc) {
 // shown whole and is pinned at its designed viewport. `viewportDeltaPx` is the height the page was shown
 // at, `contentDeltaPx` how much it grew there.
 //
-// The growth must also be more than PAGE_GROWTH_SHARE of the page height. A
-// frame floor grows the document only by what sits around the frame (body
-// padding for a fixed header, a header and a footer next to a `main` with a
-// viewport floor): a small share of the page. A section with its own floor
-// grows it by the rest of the page, which is most of it. Measured on 297
-// page renders of seven projects at 1440, 768 and 320 px: every page that
-// keeps its content height grew by 0 or 41 px; the three pages with a
-// full-screen hero grew by 86 to 94 % of their height.
-export const PAGE_GROWTH_SHARE = 0.5;
-
+// Any growth beyond VIEWPORT_TOLERANCE_PX counts. A page whose height depends
+// on the height of its viewport cannot be shown whole as it renders on a
+// screen: a section with a viewport floor would fill the preview with empty
+// space, and a frame floor with something around it (padding for a fixed
+// header, a header and a footer next to a `main` with a floor) would cut its
+// bottom off by that much. Such a page shows one designed screen instead. A
+// page shell (`iframe.page_wrapper_class`) is the exception: its floor is
+// corrected for the surround (setFloorSurround) and it stays whole. Measured
+// on 297 page renders of seven projects at 1440, 768 and 320 px: the pages
+// without a viewport-dependent section grew by 0 or 41 px, the three pages
+// with a full-screen hero by 3,409 px or more.
 export function pageGrowth(doc, height) {
     const frame = doc?.defaultView?.frameElement;
     if (!frame?.style || !(height > 0)) return null;
     const grown = withFrameHeight(frame, height, () => documentHeight(doc)) - height;
     return {
-        follows: grown > Math.max(VIEWPORT_TOLERANCE_PX, PAGE_GROWTH_SHARE * height),
+        follows: grown > VIEWPORT_TOLERANCE_PX,
         viewportDeltaPx: Math.round(height),
         contentDeltaPx: Math.max(0, Math.round(grown)),
     };
@@ -357,7 +365,7 @@ export function observeContentHeight(doc, onHeight, { pinnedHeight = CHROME_VIEW
                 followsViewport: true,
                 kind,
                 pinnedPx: px,
-            viewportDeltaPx: growth.viewportDeltaPx,
+                viewportDeltaPx: growth.viewportDeltaPx,
                 contentDeltaPx: growth.contentDeltaPx,
             });
         };

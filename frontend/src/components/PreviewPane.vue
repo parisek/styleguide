@@ -76,7 +76,9 @@ function fitIframeToContent(iframe) {
     if (contentRO) contentRO.disconnect();
     contentRO = observeContentHeight(doc, (h, info) => {
         iframeContentHeight.value = h;
-        ui.previewViewportPin = info?.followsViewport
+        // In Full mode the iframe fills the pane, so nothing is pinned and
+        // there is no height to name.
+        ui.previewViewportPin = info?.followsViewport && viewport.effective.value.width !== null
             ? { kind: info.kind, viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
             : null;
     }, { pinnedHeight: () => designedViewportHeight(viewport.effective.value) });

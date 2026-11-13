@@ -256,6 +256,14 @@
                 "fields_files": [],
                 "has_styleguide": true,
                 "variants": []
+            },
+            {
+                "id": "frame-flush",
+                "name": "Frame flush",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
             }
         ],
         "doc": [
@@ -436,7 +444,7 @@
         ],
         "/styleguide/api/pages": [
             200,
-            "6e478c01c480944258b859145272e19b"
+            "80d7c7b26047de2315d23289ddbb40e0"
         ],
         "/styleguide/api/docs": [
             200,

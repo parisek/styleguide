@@ -124,8 +124,9 @@ final class CommandTest extends TestCase
         // Landing 30, Pricing 35, Contact 40 (no category: the fixture
         // for the sidebar's default group under `pages.group_by`), Screen hero
         // 90 (the preview height fixture of a page with a full-screen hero),
-        // Frame padded 91 and Frame main 92 (frame floors that must not pin).
-        self::assertSame(['Landing', 'Pricing', 'Contact', 'Screen hero', 'Frame padded', 'Frame main'], array_column($decoded, 'name'));
+        // Frame padded 91 and Frame main 92 (a frame floor with a surround: pinned),
+        // Frame flush 93 (a frame floor its content fills: not pinned).
+        self::assertSame(['Landing', 'Pricing', 'Contact', 'Screen hero', 'Frame padded', 'Frame main', 'Frame flush'], array_column($decoded, 'name'));
     }
 
     #[Test]
