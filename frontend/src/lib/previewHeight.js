@@ -149,8 +149,10 @@ function withFrameHeight(frame, px, read) {
             else style.removeProperty(prop);
         }
         if (scroll && (scroller.scrollTop !== scroll[0] || scroller.scrollLeft !== scroll[1])) {
-            scroller.scrollTop = scroll[0];
-            scroller.scrollLeft = scroll[1];
+            // `instant`: a page with `scroll-behavior: smooth` would animate a
+            // plain write, and the next probe would read it half way.
+            if (typeof scroller.scrollTo === 'function') scroller.scrollTo({ top: scroll[0], left: scroll[1], behavior: 'instant' });
+            else { scroller.scrollTop = scroll[0]; scroller.scrollLeft = scroll[1]; }
         }
     }
 }
@@ -327,7 +329,10 @@ export function pageGrowth(doc, height) {
 export function appShellGrowth(doc) {
     const frame = doc?.defaultView?.frameElement;
     if (!frame?.style || !doc.body) return null;
-    const roots = contentElements(doc);
+    // A page shell grows with the viewport by design (its `100dvh` floor), and
+    // 1.37.1 corrects its floor instead: it is never an app shell.
+    const shell = findPageShell(doc);
+    const roots = contentElements(doc).filter((el) => el !== shell);
     if (roots.length === 0) return null;
     const atZero = withFrameHeight(frame, PROBE_HEIGHT_PX, () => heights(roots));
     // An absolutely positioned root adds nothing to the document height. Next

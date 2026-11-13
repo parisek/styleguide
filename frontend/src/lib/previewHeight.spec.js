@@ -3,7 +3,7 @@ import {
     resolveContentHeight, entryScrolls, measureContentHeight, observeContentHeight, PROBE_HEIGHT_PX,
     CHROME_VIEWPORT_HEIGHT_PX, MAX_CONTENT_HEIGHT_PX, followsViewport, viewportGrowth,
     VIEWPORT_PROBE_LOW_PX, VIEWPORT_PROBE_HIGH_PX, VIEWPORT_TOLERANCE_PX, isComponentRender,
-    pageGrowth, designedViewportHeight,
+    pageGrowth, designedViewportHeight, appShellGrowth,
 } from './previewHeight.js';
 
 // The measurement a runaway chrome surface actually reported before the fix
@@ -542,6 +542,24 @@ describe('observeContentHeight with a viewport-unit component', () => {
         const seen = [];
         observeContentHeight(doc, (h, info) => { seen.push([h, info.followsViewport]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
         expect(seen).toEqual([[2480, false]]);
+    });
+
+    // An absolutely positioned app with nothing in flow beside it but a skip
+    // link is the app: it pins.
+    it('pins an absolute app next to a skip link', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 20 }, { content: 0, floor: true, absolute: true }], frameHeight: 400 });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/app' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.kind]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
+        expect(seen).toEqual([[900, 'viewport']]);
+    });
+
+    it('never takes a page shell for an app shell', () => {
+        const { doc } = componentRender({ children: [{ content: 0, floor: true }], frameHeight: 400 });
+        const shell = doc.body.children[0];
+        doc.querySelector = (sel) => (sel === '[data-sg-page-shell]' ? shell : null);
+        expect(appShellGrowth(doc)).toBeNull();
     });
 
     // A skip link or a cookie banner next to the shell leaves it a shell.

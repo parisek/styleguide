@@ -244,15 +244,17 @@ test.describe('preview height of viewport-unit components', () => {
 
     // A measure resizes the iframe for a moment; the reader's place in a
     // pinned page stays where it was.
-    test('a measure keeps the scroll position of a pinned page', async ({ page }) => {
+    for (const smooth of [false, true]) test(`a measure keeps the scroll position of a pinned page${smooth ? ' with smooth scrolling' : ''}`, async ({ page }) => {
         await page.goto('/styleguide/page/frame-padded?width=1440');
         const iframe = page.locator('iframe[src*="/styleguide/render/page/frame-padded"]').first();
         await expect.poll(() => frameHeight(iframe)).toBe(designed(1440));
-        const before = await iframe.evaluate((el) => {
+        const before = await iframe.evaluate((el, smoothRoot) => {
             const s = el.contentDocument.scrollingElement;
             s.scrollTop = s.scrollHeight;
+            // Tailwind's `scroll-smooth` animates a plain write of scrollTop.
+            if (smoothRoot) el.contentDocument.documentElement.style.scrollBehavior = 'smooth';
             return s.scrollTop;
-        });
+        }, smooth);
         expect(before).toBeGreaterThan(500);
         await iframe.evaluate((el) => {
             const extra = el.contentDocument.createElement('div');
