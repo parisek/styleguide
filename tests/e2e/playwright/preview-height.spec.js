@@ -120,6 +120,9 @@ test.describe('preview height of viewport-unit components', () => {
         expect(settled).toBe(designed(1440));
         const scrolls = await iframe.evaluate((el) => el.contentDocument.documentElement.scrollHeight > el.clientHeight);
         expect(scrolls).toBe(true);
+        // The hero has content of its own, so the page is asked at its own
+        // height (not as an app shell) and the mark says so.
+        await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', /^(Ve své výšce|Shown at its height of) \d+ px/);
     });
 
     test('a page with a full-screen hero is pinned in every compare column', async ({ page }) => {
@@ -224,6 +227,19 @@ test.describe('preview height of viewport-unit components', () => {
         await page.keyboard.press('Enter');
         await expect.poll(() => frameHeight(iframe)).toBe(designed(1920));
         await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', new RegExp(`${designed(1920)} px\\.$`));
+    });
+
+    test('a pinned grid tile follows a switch from a preset to a custom width of the same size', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/viewport-inset?width=1440');
+        const full = page.locator('iframe[data-sg-tile="viewport-inset:full"]');
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-desktop-xl').click();
+        await expect.poll(() => frameHeight(full)).toBe(1080);
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByLabel(/Custom width|Vlastní šířka/).fill('1920');
+        await page.keyboard.press('Enter');
+        await expect.poll(() => frameHeight(full)).toBe(designed(1920));
     });
 
     // A measure resizes the iframe for a moment; the reader's place in a

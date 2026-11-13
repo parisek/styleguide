@@ -97,8 +97,8 @@ const columns = computed(() => props.widths.map((width) => {
         pinnedHeight: designedViewportHeight({ width }),
     });
     // The second number is the height the column really renders at: the
-    // content's own height, or a chrome entry's pinned viewport. Never a
-    // device height -- no column is drawn at 568. Until the first load the
+    // content's own height, or the designed screen of a pinned column (a phone
+    // or tablet screen at 1024 px and below). Until the first load the
     // height is only the pre-measure floor, so the caption shows the width
     // alone rather than a number that is about to change.
     const known = props.scrolls || heights[width] != null;

@@ -301,7 +301,8 @@ export function viewportGrowth(doc) {
 // bottom off by that much. Such a page shows one designed screen instead. A
 // page shell (`iframe.page_wrapper_class`) is the exception: its floor is
 // corrected for the surround (setFloorSurround) and it stays whole. Measured
-// on 297 page renders of seven projects at 1440, 768 and 320 px: the pages
+// on 297 page renders (the six projects and the kit catalogue of
+// portadesign/draty-z-porty) at 1440, 768 and 320 px: the pages
 // without a viewport-dependent section grew by 0 or 41 px, the three pages
 // with a full-screen hero by 3,409 px or more.
 export function pageGrowth(doc, height) {
@@ -319,8 +320,9 @@ export function pageGrowth(doc, height) {
 // own at zero viewport height (at most VIEWPORT_TOLERANCE_PX) and grows with
 // the iframe, such as `height: 100vh` or `calc(100vh - 4rem)`. The zero-height
 // probe cannot see its content, and `pageGrowth()` would see only what sits
-// around it. Other roots do not matter: a skip link, a cookie banner or a
-// header next to the shell leaves it a shell. The deltas are those of
+// around it. Other in-flow roots do not matter: a skip link, a cookie banner or
+// a header next to the shell leaves it a shell. An absolutely positioned root
+// counts only when the page has no in-flow content of its own. The deltas are those of
 // `viewportGrowth()`.
 export function appShellGrowth(doc) {
     const frame = doc?.defaultView?.frameElement;
@@ -328,7 +330,13 @@ export function appShellGrowth(doc) {
     const roots = contentElements(doc);
     if (roots.length === 0) return null;
     const atZero = withFrameHeight(frame, PROBE_HEIGHT_PX, () => heights(roots));
-    const shells = roots.filter((_, i) => atZero[i] <= VIEWPORT_TOLERANCE_PX);
+    // An absolutely positioned root adds nothing to the document height. Next
+    // to in-flow content of its own (a decoration, a drawer) it does not make
+    // the page depend on the viewport; alone it is the app.
+    const view = doc.defaultView;
+    const absolute = roots.map((el) => typeof view?.getComputedStyle === 'function' && view.getComputedStyle(el).position === 'absolute');
+    const hasFlow = roots.some((_, i) => !absolute[i] && atZero[i] > VIEWPORT_TOLERANCE_PX);
+    const shells = roots.filter((_, i) => atZero[i] <= VIEWPORT_TOLERANCE_PX && !(absolute[i] && hasFlow));
     if (shells.length === 0) return null;
     const low = withFrameHeight(frame, VIEWPORT_PROBE_LOW_PX, () => heights(shells));
     const high = withFrameHeight(frame, VIEWPORT_PROBE_HIGH_PX, () => heights(shells));

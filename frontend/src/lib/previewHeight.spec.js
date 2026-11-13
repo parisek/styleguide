@@ -240,12 +240,12 @@ function componentRender({ children, surround = 0, frameHeight = 400 }) {
         spec: c,
         getBoundingClientRect: () => ({ height: childHeight(c) }),
     }));
-    const contentHeight = () => surround + elements.reduce((sum, el) => sum + (el.spec.fixed ? 0 : childHeight(el.spec)), 0);
+    const contentHeight = () => surround + elements.reduce((sum, el) => sum + (el.spec.fixed || el.spec.absolute ? 0 : childHeight(el.spec)), 0);
     const doc = {
         defaultView: {
             frameElement: frame,
             getComputedStyle: (el) => ({
-                position: el.spec?.fixed ? 'fixed' : 'static',
+                position: el.spec?.fixed ? 'fixed' : el.spec?.absolute ? 'absolute' : 'static',
                 display: el.contents ? 'contents' : 'block',
             }),
         },
@@ -531,6 +531,17 @@ describe('observeContentHeight with a viewport-unit component', () => {
         for (let i = 0; i < 3; i++) instances[0].cb();
         expect(new Set(seen.map(([h]) => h))).toEqual(new Set([900]));
         expect(seen[0][1]).toBe('viewport');
+    });
+
+    // An absolutely positioned decoration sized by the viewport adds nothing
+    // to the page height: next to in-flow content it does not pin the page.
+    it('keeps a page whose only viewport-sized root is an absolute decoration', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 2480 }, { content: 0, floor: true, absolute: true }], frameHeight: 400 });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/deco' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.followsViewport]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
+        expect(seen).toEqual([[2480, false]]);
     });
 
     // A skip link or a cookie banner next to the shell leaves it a shell.
