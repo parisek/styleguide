@@ -1,6 +1,7 @@
 <script setup>
 // The mark on a preview whose height follows its viewport: the preview is
-// pinned at CHROME_VIEWPORT_HEIGHT_PX instead of sized to its content, and
+// pinned at the surface's designed height (`pinnedPx`, CHROME_VIEWPORT_HEIGHT_PX
+// without one) instead of sized to its content, and
 // this says so, so a wrong pin gets reported rather than read as a clipped
 // component. `label` is the toolbar form, `chip` the grid-tile form; both
 // carry the measured deltas in `title` and `aria-label`. The chip shows only
@@ -19,10 +20,13 @@ const i18n = useI18nStore();
 const text = computed(() => i18n.t('preview.viewport_height'));
 const detail = computed(() => {
     if (!props.pin) return '';
-    return i18n.t('preview.viewport_height_detail')
+    // A page is not probed at two viewports: it is shown at its own height and
+    // grows there, so it has its own sentence.
+    const key = props.pin.kind === 'page' ? 'preview.viewport_height_detail_page' : 'preview.viewport_height_detail';
+    return i18n.t(key)
         .replace('{viewport}', String(props.pin.viewportDeltaPx))
         .replace('{content}', String(props.pin.contentDeltaPx))
-        .replace('{pinned}', String(CHROME_VIEWPORT_HEIGHT_PX));
+        .replace('{pinned}', String(props.pin.pinnedPx ?? CHROME_VIEWPORT_HEIGHT_PX));
 });
 const accessibleName = computed(() => `${text.value}. ${detail.value}`);
 </script>

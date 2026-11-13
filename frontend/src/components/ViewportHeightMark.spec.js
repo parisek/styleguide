@@ -26,6 +26,12 @@ describe('ViewportHeightMark', () => {
         expect(label.attributes('aria-label')).toBe('Výška podle viewportu. Viewport +800 px → obsah +320 px. Náhled má pevnou výšku 640 px.');
     });
 
+    it('names the pinned height and words a pinned page by its own height', () => {
+        const page = { followsViewport: true, kind: 'page', viewportDeltaPx: 2980, contentDeltaPx: 2480, pinnedPx: 900 };
+        const label = mount(ViewportHeightMark, { props: { pin: page } }).get('[data-testid="viewport-height-label"]');
+        expect(label.attributes('title')).toBe('Ve své výšce 2980 px se stránka zvětší o 2480 px. Náhled má pevnou výšku 900 px.');
+    });
+
     it('uses only contract tokens for colour, border and radius', () => {
         const cls = mount(ViewportHeightMark, { props: { pin } }).get('span').classes();
         expect(cls).toEqual(expect.arrayContaining(['text-ui-muted', 'border-ui-control-border', 'rounded-ui-pill', 'h-ui-control']));

@@ -2,6 +2,9 @@ import { test, expect } from '@playwright/test';
 
 // Puts a link at the top of a preview iframe's body, as a page menu would have it.
 async function addLink(frame, href, { target = null, id = 'sg-test-entry-link' } = {}) {
+    // A frame that is still loading shows `about:blank` first, and its load
+    // throws the link away with that document. Wait for the render itself.
+    await expect.poll(() => frame.locator('body').evaluate(() => location.pathname.includes('/render/') && document.readyState === 'complete')).toBe(true);
     await frame.locator('body').evaluate((body, args) => {
         const link = document.createElement('a');
         link.setAttribute('href', args.href);

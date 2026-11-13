@@ -25,7 +25,7 @@ import { inject, computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { useUiStore } from '../stores/ui.js';
 import { computeTileGeometry, autoGridColumnBasis } from '../lib/tileGeometry.js';
-import { entryScrolls, observeContentHeight } from '../lib/previewHeight.js';
+import { entryScrolls, observeContentHeight, designedViewportHeight } from '../lib/previewHeight.js';
 import { showSource } from '../lib/runtimeConfig.js';
 import SourcePanel from './SourcePanel.vue';
 import CompareStrip from './CompareStrip.vue';
@@ -142,9 +142,9 @@ function onTileLoad(tile, event) {
     heightObservers.set(key, observeContentHeight(doc, (h, info) => {
         heights[key] = h;
         pins[key] = info?.followsViewport
-            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx }
+            ? { kind: info.kind, viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
             : null;
-    }));
+    }, { pinnedHeight: () => designedViewportHeight(viewport.effective.value) }));
 }
 
 // Per-tile cell width -- the measured width of the tile's own content area
@@ -209,7 +209,11 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
         // `render: chrome` components declare `min-height: 200vh` for
         // scroll-room, so their content height is a function of their viewport
         // height — auto-sizing the tile to it never converges (#116).
-        scrolls: entryScrolls(viewport.currentItem.value),
+        // A pinned tile takes the designed frame of the moment, so a preset to
+        // custom-width switch of the same size, which triggers no measure,
+        // still takes the new frame.
+        scrolls: entryScrolls(viewport.currentItem.value) || !!pins[key],
+        pinnedHeight: designedViewportHeight(viewport.effective.value),
     });
     return {
         ...tile,
@@ -360,7 +364,7 @@ onBeforeUnmount(() => {
                     </div>
                     <!-- JavaScript errors in this tile, at any width. -->
                     <ErrorMark :count="errors.countFor(tile.key)" />
-                    <ViewportHeightMark :pin="pins[tile.key]" form="chip" />
+                    <ViewportHeightMark :pin="pins[tile.key] && { ...pins[tile.key], pinnedPx: designedViewportHeight(viewport.effective.value) }" form="chip" />
                     <!-- Expand affordance: a discoverable hint that this
                          header click-throughs to the classic single
                          preview (VariantGrid's own equivalent of a link

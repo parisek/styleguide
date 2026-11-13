@@ -18,8 +18,8 @@ import { resolveContentHeight } from './previewHeight.js';
 // Full preset: fluid tile, no scaling, height is whatever the iframe's own
 // content measures (or the caller's pre-measure floor before the first
 // load/ResizeObserver tick).
-export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawContentHeight, minHeight, scrolls = false }) {
-    const contentHeight = resolveContentHeight({ rawContentHeight, minHeight, scrolls });
+export function computeTileGeometry({ presetWidth, presetHeight, cellWidth, rawContentHeight, minHeight, scrolls = false, pinnedHeight }) {
+    const contentHeight = resolveContentHeight({ rawContentHeight, minHeight, scrolls, pinnedHeight });
     if (presetWidth === null) {
         return {
             fluid: true, zoom: 1,
