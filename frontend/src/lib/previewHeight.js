@@ -273,16 +273,26 @@ export function viewportGrowth(doc) {
 // document stays where it was. A section with a viewport floor inside the page
 // (a full-screen hero) resolves to the whole page height instead, and the
 // document grows by about that much: the hero would fill the preview with
-// empty space and push the rest of the page below it. Growth beyond
-// VIEWPORT_TOLERANCE_PX means the page cannot be shown whole and is pinned at
-// its designed viewport. `viewportDeltaPx` is the height the page was shown
+// empty space and push the rest of the page below it. Such a page cannot be
+// shown whole and is pinned at its designed viewport. `viewportDeltaPx` is the height the page was shown
 // at, `contentDeltaPx` how much it grew there.
+//
+// The growth must also be more than PAGE_GROWTH_SHARE of the page height. A
+// frame floor grows the document only by what sits around the frame (body
+// padding for a fixed header, a header and a footer next to a `main` with a
+// viewport floor): a small share of the page. A section with its own floor
+// grows it by the rest of the page, which is most of it. Measured on 297
+// page renders of seven projects at 1440, 768 and 320 px: every page that
+// keeps its content height grew by 0 or 41 px; the three pages with a
+// full-screen hero grew by 86 to 94 % of their height.
+export const PAGE_GROWTH_SHARE = 0.5;
+
 export function pageGrowth(doc, height) {
     const frame = doc?.defaultView?.frameElement;
     if (!frame?.style || !(height > 0)) return null;
     const grown = withFrameHeight(frame, height, () => documentHeight(doc)) - height;
     return {
-        follows: grown > VIEWPORT_TOLERANCE_PX,
+        follows: grown > Math.max(VIEWPORT_TOLERANCE_PX, PAGE_GROWTH_SHARE * height),
         viewportDeltaPx: Math.round(height),
         contentDeltaPx: Math.max(0, Math.round(grown)),
     };
@@ -328,27 +338,37 @@ export function isComponentRender(doc) {
 // caught too. The second argument of `onHeight` says which of the two it was,
 // and for a pinned one carries the two deltas of `viewportGrowth()`.
 // A page is measured first and then asked whether it stays at that height.
+//
+// `pinnedHeight` is a number or a function that returns one. A surface whose
+// frame can change without a new load (the width menu of the single preview,
+// the preset of a variant grid) passes a function, so every measure reads the
+// frame of that moment instead of the one at load.
 export function observeContentHeight(doc, onHeight, { pinnedHeight = CHROME_VIEWPORT_HEIGHT_PX } = {}) {
+    const pinnedNow = () => (typeof pinnedHeight === 'function' ? pinnedHeight() : pinnedHeight) ?? CHROME_VIEWPORT_HEIGHT_PX;
     const shell = findPageShell(doc);
     const fixFloor = !!shell && shellHasViewportFloor(doc, shell);
     let live = true;
 
     const measure = () => {
         if (!live) return;
-        const pin = (growth) => onHeight(pinnedHeight, {
-            followsViewport: true,
-            pinnedPx: pinnedHeight,
+        const pin = (growth, kind) => {
+            const px = pinnedNow();
+            return onHeight(px, {
+                followsViewport: true,
+                kind,
+                pinnedPx: px,
             viewportDeltaPx: growth.viewportDeltaPx,
-            contentDeltaPx: growth.contentDeltaPx,
-        });
+                contentDeltaPx: growth.contentDeltaPx,
+            });
+        };
         const page = !!shell || !isComponentRender(doc);
         const growth = page ? null : viewportGrowth(doc);
-        if (growth?.follows) return pin(growth);
+        if (growth?.follows) return pin(growth, 'component');
         const { height: h, shellHeight } = probe(doc, shell);
         if (h <= 0) return;
         if (fixFloor && shellHeight != null) setFloorSurround(doc, Math.max(0, h - shellHeight));
         const grown = page ? pageGrowth(doc, h) : null;
-        if (grown?.follows) return pin(grown);
+        if (grown?.follows) return pin(grown, 'page');
         onHeight(h, { followsViewport: false });
     };
 

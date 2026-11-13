@@ -77,9 +77,9 @@ function fitIframeToContent(iframe) {
     contentRO = observeContentHeight(doc, (h, info) => {
         iframeContentHeight.value = h;
         ui.previewViewportPin = info?.followsViewport
-            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
+            ? { kind: info.kind, viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
             : null;
-    }, { pinnedHeight: designedViewportHeight(viewport.effective.value) });
+    }, { pinnedHeight: () => designedViewportHeight(viewport.effective.value) });
 }
 
 // The loading flag itself is set synchronously by setRoute() in the ui

@@ -291,6 +291,16 @@ describe('pageGrowth', () => {
         expect(pageGrowth(doc, 1500)).toEqual({ follows: true, viewportDeltaPx: 1500, contentDeltaPx: 1000 });
     });
 
+    // A frame floor with padding around it (a fixed header's offset, a header
+    // and a footer next to a `main` with a viewport floor) grows the page by
+    // that surround only, a small share of it.
+    it('does not count a frame floor with a surround', () => {
+        const { doc } = componentRender({ children: [{ content: 1600, floor: true }], surround: 112, frameHeight: 0 });
+        expect(pageGrowth(doc, 1712)).toEqual({ follows: false, viewportDeltaPx: 1712, contentDeltaPx: 112 });
+        const short = componentRender({ children: [{ content: 80 }, { content: 300, floor: true }, { content: 200 }], frameHeight: 0 });
+        expect(pageGrowth(short.doc, 580).follows).toBe(false);
+    });
+
     it('allows a few pixels of reflow', () => {
         const { doc } = componentRender({ children: [{ content: 1500 }], frameHeight: 0 });
         expect(pageGrowth(doc, 1500).follows).toBe(false);
@@ -440,6 +450,7 @@ describe('observeContentHeight with a viewport-unit component', () => {
         observeContentHeight(doc, (h, info) => { seen.push([h, info]); frame.style.height = `${h}px`; });
         expect(seen).toEqual([[CHROME_VIEWPORT_HEIGHT_PX, {
             followsViewport: true,
+            kind: 'component',
             pinnedPx: CHROME_VIEWPORT_HEIGHT_PX,
             viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
             contentDeltaPx: VIEWPORT_PROBE_HIGH_PX - 880,
@@ -472,7 +483,20 @@ describe('observeContentHeight with a viewport-unit component', () => {
         observeContentHeight(doc, (h, info) => { seen.push([h, info]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
         for (let i = 0; i < 3; i++) instances[0].cb();
         expect(new Set(seen.map(([h]) => h))).toEqual(new Set([900]));
-        expect(seen[0][1]).toEqual({ followsViewport: true, pinnedPx: 900, viewportDeltaPx: 2980, contentDeltaPx: 2480 });
+        expect(seen[0][1]).toEqual({ followsViewport: true, kind: 'page', pinnedPx: 900, viewportDeltaPx: 2980, contentDeltaPx: 2480 });
+    });
+
+    // The width menu changes the frame without a new load: the next measure
+    // takes the frame of that moment.
+    it('reads a pinned height given as a function on every measure', () => {
+        const instances = stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 300, floor: true }], frameHeight: 400 });
+        let designed = 900;
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.pinnedPx]); frame.style.height = `${h}px`; }, { pinnedHeight: () => designed });
+        designed = 768;
+        instances[0].cb();
+        expect(seen).toEqual([[900, 900], [768, 768]]);
     });
 
     // A page frame with a viewport floor (a wrapper, a body grid) fills the

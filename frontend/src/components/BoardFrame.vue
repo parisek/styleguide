@@ -128,7 +128,7 @@ function onLoad() {
         doc.addEventListener('keydown', forwardKey);
         forwardedDoc = doc;
     }
-    if (doc) resizeObserver = observeContentHeight(doc, emitHeight, { pinnedHeight: props.pinnedHeight });
+    if (doc) resizeObserver = observeContentHeight(doc, emitHeight, { pinnedHeight: () => props.pinnedHeight });
 }
 
 // A new theme or content locale changes the render URL: load it again.

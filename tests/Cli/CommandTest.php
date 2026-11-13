@@ -123,8 +123,9 @@ final class CommandTest extends TestCase
         self::assertIsArray($decoded);
         // Landing 30, Pricing 35, Contact 40 (no category: the fixture
         // for the sidebar's default group under `pages.group_by`), Screen hero
-        // 90 (the preview height fixture of a page with a full-screen hero).
-        self::assertSame(['Landing', 'Pricing', 'Contact', 'Screen hero'], array_column($decoded, 'name'));
+        // 90 (the preview height fixture of a page with a full-screen hero),
+        // Frame padded 91 and Frame main 92 (frame floors that must not pin).
+        self::assertSame(['Landing', 'Pricing', 'Contact', 'Screen hero', 'Frame padded', 'Frame main'], array_column($decoded, 'name'));
     }
 
     #[Test]

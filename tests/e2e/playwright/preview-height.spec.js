@@ -88,8 +88,8 @@ test.describe('preview height of viewport-unit components', () => {
         expect(settled).toBeLessThan(260);
     });
 
-    // A page render is never pinned; without a page shell it is measured at
-    // zero height like a component, so it keeps its content height.
+    // A page without a viewport floor of its own is measured at zero height
+    // like a component and keeps its content height.
     test('a page without a shell keeps one content height', async ({ page }) => {
         await page.goto('/styleguide/page/contact?width=900');
         const iframe = page.locator('iframe[src*="/styleguide/render/page/contact"]').first();
@@ -137,6 +137,49 @@ test.describe('preview height of viewport-unit components', () => {
         await contact.scrollIntoViewIfNeeded();
         await expect.poll(() => frameHeight(contact)).toBeGreaterThan(0);
         expect(await frameHeight(contact)).toBeLessThan(designed(width));
+    });
+
+    // A frame floor is not a full-screen section: these pages keep their
+    // content height. The surround of the frame (96 px of padding, a header and
+    // a footer around a `main` with a viewport floor) is a small share of the
+    // page.
+    for (const slug of ['frame-padded', 'frame-main']) {
+        test(`${slug}: a page whose frame has a viewport floor keeps its content height`, async ({ page }) => {
+            await page.goto(`/styleguide/page/${slug}?width=1440`);
+            const iframe = page.locator(`iframe[src*="/styleguide/render/page/${slug}"]`).first();
+            const { atLoad, settled } = await heightAtLoadAndSettled(page, iframe);
+            expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
+            expect(settled).toBeGreaterThan(1400);
+            await expect(page.getByTestId('viewport-height-label')).toHaveCount(0);
+        });
+    }
+
+    // The width menu changes the frame without loading the preview again: the
+    // pinned height follows the frame of the moment.
+    test('a pinned page follows a width switch in the menu', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/page/screen-hero?width=768');
+        const iframe = page.locator('iframe[src*="/styleguide/render/page/screen-hero"]').first();
+        await expect.poll(() => frameHeight(iframe)).toBe(designed(768));
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-width-1440').click();
+        await expect.poll(() => frameHeight(iframe)).toBe(designed(1440));
+        await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', new RegExp(`${designed(1440)} px\\.$`));
+        // A preset brings its own height, and the label names it.
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-mobile').click();
+        await expect.poll(() => frameHeight(iframe)).toBe(667);
+        await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', /667 px\.$/);
+    });
+
+    test('a pinned grid tile follows a width switch in the menu', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/component/viewport-inset');
+        const full = page.locator('iframe[data-sg-tile="viewport-inset:full"]');
+        await expect.poll(() => frameHeight(full)).toBe(PINNED);
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-width-1440').click();
+        await expect.poll(() => frameHeight(full)).toBe(designed(1440));
     });
 
     test('a component without viewport units keeps its content height', async ({ page }) => {

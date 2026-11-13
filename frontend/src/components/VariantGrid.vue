@@ -142,9 +142,9 @@ function onTileLoad(tile, event) {
     heightObservers.set(key, observeContentHeight(doc, (h, info) => {
         heights[key] = h;
         pins[key] = info?.followsViewport
-            ? { viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
+            ? { kind: info.kind, viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
             : null;
-    }, { pinnedHeight: designedViewportHeight(viewport.effective.value) }));
+    }, { pinnedHeight: () => designedViewportHeight(viewport.effective.value) }));
 }
 
 // Per-tile cell width -- the measured width of the tile's own content area

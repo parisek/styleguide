@@ -240,6 +240,22 @@
                 "fields_files": [],
                 "has_styleguide": true,
                 "variants": []
+            },
+            {
+                "id": "frame-padded",
+                "name": "Frame padded",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "frame-main",
+                "name": "Frame main",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
             }
         ],
         "doc": [
@@ -420,7 +436,7 @@
         ],
         "/styleguide/api/pages": [
             200,
-            "b35c18f642f19c33f46e81f7e5c6978d"
+            "6e478c01c480944258b859145272e19b"
         ],
         "/styleguide/api/docs": [
             200,

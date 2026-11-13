@@ -20,7 +20,10 @@ const i18n = useI18nStore();
 const text = computed(() => i18n.t('preview.viewport_height'));
 const detail = computed(() => {
     if (!props.pin) return '';
-    return i18n.t('preview.viewport_height_detail')
+    // A page is not probed at two viewports: it is shown at its own height and
+    // grows there, so it has its own sentence.
+    const key = props.pin.kind === 'page' ? 'preview.viewport_height_detail_page' : 'preview.viewport_height_detail';
+    return i18n.t(key)
         .replace('{viewport}', String(props.pin.viewportDeltaPx))
         .replace('{content}', String(props.pin.contentDeltaPx))
         .replace('{pinned}', String(props.pin.pinnedPx ?? CHROME_VIEWPORT_HEIGHT_PX));
