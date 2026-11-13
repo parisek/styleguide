@@ -11,11 +11,11 @@ import { VIEWPORTS } from './viewportMath.js';
 // Custom-width mode (820 x 33,554,400 px). A shared helper is what stops the
 // next change from fixing one and missing the other again.
 
-// Demo viewport height for a `render: chrome` entry whenever there is no
-// canonical preset height to fall back on (Full, or a fixed-width/Custom-width
-// preset).
+// The pinned height of last resort: a surface without a width (Full) and a
+// caller that passes no `pinnedHeight`. Every other pinned preview takes the
+// designed frame of its surface (`designedViewportHeight()` below).
 //
-// Such an entry declares `body { min-height: 200vh }` (render-cell.twig) so
+// Why a preview is pinned at all: a `render: chrome` entry declares `body { min-height: 200vh }` (render-cell.twig) so
 // sticky and fixed chrome has something to scroll against — which means its
 // content height is DERIVED FROM its viewport height. Sizing the iframe to that
 // content would define the two heights in terms of each other, and the loop runs
@@ -130,9 +130,14 @@ export function measureContentHeight(doc, shell = findPageShell(doc)) {
 // `min-h-*` or `max-h-*` on the frame cannot hold a probe.
 const PROBED_RANGE = ['height', 'min-height', 'max-height'];
 
+// A probe resizes the iframe, and a browser clamps the scroll position of the
+// document inside to the new height. The reader's place in a pinned page is
+// put back with the height, so a measure never moves it.
 function withFrameHeight(frame, px, read) {
     const style = frame.style;
     const saved = PROBED_RANGE.map((prop) => [prop, style.getPropertyValue(prop), style.getPropertyPriority(prop)]);
+    const scroller = frame.contentDocument?.scrollingElement ?? null;
+    const scroll = scroller ? [scroller.scrollTop, scroller.scrollLeft] : null;
     style.setProperty('height', `${px}px`, 'important');
     style.setProperty('min-height', `${px}px`, 'important');
     style.setProperty('max-height', 'none', 'important');
@@ -142,6 +147,10 @@ function withFrameHeight(frame, px, read) {
         for (const [prop, value, priority] of saved) {
             if (value) style.setProperty(prop, value, priority);
             else style.removeProperty(prop);
+        }
+        if (scroll && (scroller.scrollTop !== scroll[0] || scroller.scrollLeft !== scroll[1])) {
+            scroller.scrollTop = scroll[0];
+            scroller.scrollLeft = scroll[1];
         }
     }
 }
@@ -158,8 +167,8 @@ function probe(doc, shell) {
     }));
     // The roots, not the document: the inset padding alone keeps the document
     // above zero when everything in it is out of flow.
-    if (probed.rootsEmpty) return { height: documentHeight(doc), shellHeight: null, rootsEmpty: true };
-    return { height: probed.height, shellHeight: probed.shellHeight, rootsEmpty: false };
+    if (probed.rootsEmpty) return { height: documentHeight(doc), shellHeight: null };
+    return { height: probed.height, shellHeight: probed.shellHeight };
 }
 
 // The iframe ends up exactly as tall as the content, plus whatever the document
@@ -306,6 +315,31 @@ export function pageGrowth(doc, height) {
     };
 }
 
+// Whether a page holds an app shell: a root that has next to nothing of its
+// own at zero viewport height (at most VIEWPORT_TOLERANCE_PX) and grows with
+// the iframe, such as `height: 100vh` or `calc(100vh - 4rem)`. The zero-height
+// probe cannot see its content, and `pageGrowth()` would see only what sits
+// around it. Other roots do not matter: a skip link, a cookie banner or a
+// header next to the shell leaves it a shell. The deltas are those of
+// `viewportGrowth()`.
+export function appShellGrowth(doc) {
+    const frame = doc?.defaultView?.frameElement;
+    if (!frame?.style || !doc.body) return null;
+    const roots = contentElements(doc);
+    if (roots.length === 0) return null;
+    const atZero = withFrameHeight(frame, PROBE_HEIGHT_PX, () => heights(roots));
+    const shells = roots.filter((_, i) => atZero[i] <= VIEWPORT_TOLERANCE_PX);
+    if (shells.length === 0) return null;
+    const low = withFrameHeight(frame, VIEWPORT_PROBE_LOW_PX, () => heights(shells));
+    const high = withFrameHeight(frame, VIEWPORT_PROBE_HIGH_PX, () => heights(shells));
+    const growth = Math.max(...high.map((h, i) => h - low[i]));
+    return {
+        follows: growth > VIEWPORT_TOLERANCE_PX,
+        viewportDeltaPx: VIEWPORT_PROBE_HIGH_PX - VIEWPORT_PROBE_LOW_PX,
+        contentDeltaPx: Math.round(growth),
+    };
+}
+
 export function followsViewport(doc) {
     const growth = viewportGrowth(doc);
     return growth ? growth.follows : null;
@@ -372,15 +406,12 @@ export function observeContentHeight(doc, onHeight, { pinnedHeight = CHROME_VIEW
         const page = !!shell || !isComponentRender(doc);
         const growth = page ? null : viewportGrowth(doc);
         if (growth?.follows) return pin(growth, 'component');
-        const { height: h, shellHeight, rootsEmpty } = probe(doc, shell);
-        // A page with nothing to measure at zero height (an app shell whose
-        // one root is `height: 100vh`) is asked as a component is: a root that
-        // grows with the iframe pins it. Fed its own document height instead,
-        // it would grow by its surround on every measure.
-        if (page && (rootsEmpty || h <= 0)) {
-            const shellGrowth = viewportGrowth(doc);
-            if (shellGrowth?.follows) return pin(shellGrowth, 'viewport');
-        }
+        // An app shell has nothing to measure at zero height. Fed its own
+        // document height instead, it would grow by its surround on every
+        // measure.
+        const shellGrowth = page ? appShellGrowth(doc) : null;
+        if (shellGrowth?.follows) return pin(shellGrowth, 'viewport');
+        const { height: h, shellHeight } = probe(doc, shell);
         if (h <= 0) return;
         if (fixFloor && shellHeight != null) setFloorSurround(doc, Math.max(0, h - shellHeight));
         const grown = page ? pageGrowth(doc, h) : null;

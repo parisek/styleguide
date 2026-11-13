@@ -533,6 +533,16 @@ describe('observeContentHeight with a viewport-unit component', () => {
         expect(seen[0][1]).toBe('viewport');
     });
 
+    // A skip link or a cookie banner next to the shell leaves it a shell.
+    it('pins an app shell next to another root', () => {
+        stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 1 }, { content: 0, floor: true }], surround: 8, frameHeight: 400 });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/app' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.kind]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
+        expect(seen).toEqual([[900, 'viewport']]);
+    });
+
     // A page frame with a viewport floor (a wrapper, a body grid) fills the
     // viewport by design: at its content height it stays there.
     it('keeps a page whose only viewport floor is its own frame', () => {

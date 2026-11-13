@@ -209,7 +209,10 @@ const renderTiles = computed(() => tiles.value.map((tile) => {
         // `render: chrome` components declare `min-height: 200vh` for
         // scroll-room, so their content height is a function of their viewport
         // height — auto-sizing the tile to it never converges (#116).
-        scrolls: entryScrolls(viewport.currentItem.value),
+        // A pinned tile takes the designed frame of the moment, so a preset to
+        // custom-width switch of the same size, which triggers no measure,
+        // still takes the new frame.
+        scrolls: entryScrolls(viewport.currentItem.value) || !!pins[key],
         pinnedHeight: designedViewportHeight(viewport.effective.value),
     });
     return {
@@ -361,7 +364,7 @@ onBeforeUnmount(() => {
                     </div>
                     <!-- JavaScript errors in this tile, at any width. -->
                     <ErrorMark :count="errors.countFor(tile.key)" />
-                    <ViewportHeightMark :pin="pins[tile.key]" form="chip" />
+                    <ViewportHeightMark :pin="pins[tile.key] && { ...pins[tile.key], pinnedPx: designedViewportHeight(viewport.effective.value) }" form="chip" />
                     <!-- Expand affordance: a discoverable hint that this
                          header click-throughs to the classic single
                          preview (VariantGrid's own equivalent of a link

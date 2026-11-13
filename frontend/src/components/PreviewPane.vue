@@ -17,6 +17,17 @@ const entryLinks = useEntryLinks();
 const paneRef = ref(null);
 const wrapperRef = ref(null);
 const iframeContentHeight = ref(null);
+// The last pin the observer reported, without its height: the height is the
+// designed frame of the moment (pinnedPx below), so a switch from a preset to
+// a custom width of the same size, which resizes nothing and so triggers no
+// measure, still takes the new frame.
+const contentPin = ref(null);
+const pinnedPx = computed(() => designedViewportHeight(viewport.effective.value));
+watch([contentPin, pinnedPx, () => viewport.effective.value.width], ([pin, px, width]) => {
+    // In Full mode the iframe fills the pane, so nothing is pinned and there
+    // is no height to name.
+    ui.previewViewportPin = pin && width !== null ? { ...pin, pinnedPx: px } : null;
+});
 let contentRO = null;
 
 onMounted(() => {
@@ -52,6 +63,7 @@ watch(wrapperRef, (el) => viewport.observeWrapper(el));
 // and the new document's own `load`.
 watch(() => viewport.iframeSrc.value, () => {
     iframeContentHeight.value = null;
+    contentPin.value = null;
     ui.previewViewportPin = null;
     if (contentRO) {
         contentRO.disconnect();
@@ -76,10 +88,8 @@ function fitIframeToContent(iframe) {
     if (contentRO) contentRO.disconnect();
     contentRO = observeContentHeight(doc, (h, info) => {
         iframeContentHeight.value = h;
-        // In Full mode the iframe fills the pane, so nothing is pinned and
-        // there is no height to name.
-        ui.previewViewportPin = info?.followsViewport && viewport.effective.value.width !== null
-            ? { kind: info.kind, viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx, pinnedPx: info.pinnedPx }
+        contentPin.value = info?.followsViewport
+            ? { kind: info.kind, viewportDeltaPx: info.viewportDeltaPx, contentDeltaPx: info.contentDeltaPx }
             : null;
     }, { pinnedHeight: () => designedViewportHeight(viewport.effective.value) });
 }
@@ -96,6 +106,7 @@ function onIframeLoad(event) {
         fitIframeToContent(event.target);
     } else {
         iframeContentHeight.value = null;
+        contentPin.value = null;
         ui.previewViewportPin = null;
         if (contentRO) contentRO.disconnect();
     }
@@ -118,8 +129,8 @@ const wrapperStyle = computed(() => {
     // 820 x 33,554,400 px in Custom-width mode after the grid was fixed).
     const sourceH = h ?? resolveContentHeight({
         rawContentHeight: iframeContentHeight.value, minHeight: 400,
-        scrolls: entryScrolls(viewport.currentItem.value),
-        pinnedHeight: designedViewportHeight(viewport.effective.value),
+        scrolls: entryScrolls(viewport.currentItem.value) || !!contentPin.value,
+        pinnedHeight: pinnedPx.value,
     });
     const scaledW = Math.max(1, Math.round(w * z));
     const scaledH = Math.max(1, Math.round(sourceH * z));
@@ -135,8 +146,8 @@ const iframeStyle = computed(() => {
     if (w === null) return 'width: 100%; height: 100%';
     const h = viewport.effective.value.height ?? resolveContentHeight({
         rawContentHeight: iframeContentHeight.value, minHeight: 400,
-        scrolls: entryScrolls(viewport.currentItem.value),
-        pinnedHeight: designedViewportHeight(viewport.effective.value),
+        scrolls: entryScrolls(viewport.currentItem.value) || !!contentPin.value,
+        pinnedHeight: pinnedPx.value,
     });
     const z = viewport.zoom.value;
     return `width: ${w}px; height: ${h}px; transform: scale(${z}); transform-origin: 0 0`;

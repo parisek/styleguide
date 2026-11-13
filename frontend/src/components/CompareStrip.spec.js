@@ -76,7 +76,7 @@ describe('CompareStrip', () => {
     });
 
     // One rule for every surface: a pinned column takes the designed frame of
-    // its width, 16:10 on a desktop width and square below it.
+    // its width, 16:10 above 1024 px and a phone or tablet screen below it.
     it('gives a render: chrome entry its designed viewport height instead of measuring it', () => {
         const wrapper = mountStrip({ scrolls: true });
         for (const frame of wrapper.findAll('iframe')) {

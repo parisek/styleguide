@@ -210,6 +210,44 @@ test.describe('preview height of viewport-unit components', () => {
         await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', /667 px\.$/);
     });
 
+    // A preset and a custom width of the same size resize nothing, so no
+    // measure runs: the pinned height still follows the frame.
+    test('a pinned page follows a switch from a preset to a custom width of the same size', async ({ page }) => {
+        await page.setViewportSize({ width: 1680, height: 900 });
+        await page.goto('/styleguide/page/screen-hero?width=1440');
+        const iframe = page.locator('iframe[src*="/styleguide/render/page/screen-hero"]').first();
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByTestId('viewport-preset-desktop-xl').click();
+        await expect.poll(() => frameHeight(iframe)).toBe(1080);
+        await page.getByTestId('viewport-trigger').click();
+        await page.getByLabel(/Custom width|Vlastní šířka/).fill('1920');
+        await page.keyboard.press('Enter');
+        await expect.poll(() => frameHeight(iframe)).toBe(designed(1920));
+        await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', new RegExp(`${designed(1920)} px\\.$`));
+    });
+
+    // A measure resizes the iframe for a moment; the reader's place in a
+    // pinned page stays where it was.
+    test('a measure keeps the scroll position of a pinned page', async ({ page }) => {
+        await page.goto('/styleguide/page/frame-padded?width=1440');
+        const iframe = page.locator('iframe[src*="/styleguide/render/page/frame-padded"]').first();
+        await expect.poll(() => frameHeight(iframe)).toBe(designed(1440));
+        const before = await iframe.evaluate((el) => {
+            const s = el.contentDocument.scrollingElement;
+            s.scrollTop = s.scrollHeight;
+            return s.scrollTop;
+        });
+        expect(before).toBeGreaterThan(500);
+        await iframe.evaluate((el) => {
+            const extra = el.contentDocument.createElement('div');
+            extra.style.height = '20px';
+            el.contentDocument.body.prepend(extra);
+        });
+        await page.waitForTimeout(600);
+        const after = await iframe.evaluate((el) => el.contentDocument.scrollingElement.scrollTop);
+        expect(Math.abs(after - before)).toBeLessThanOrEqual(24);
+    });
+
     // From one fixed width to another, so the tile keeps its iframe (Full to a
     // width would mount a new one).
     test('a pinned grid tile follows a width switch in the menu', async ({ page }) => {
