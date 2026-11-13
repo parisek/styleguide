@@ -40,7 +40,7 @@ test.describe('overview grid', () => {
         await expect(page).toHaveURL(/\/styleguide\/grid$/);
 
         await page.getByTestId('grid-filter-section').filter({ hasText: /Stránky|Pages/ }).click();
-        await expect(page.getByTestId('grid-tile-link')).toHaveText(['Pricing', 'Contact', 'Screen hero', 'Frame padded', 'Frame main', 'Frame flush']);
+        await expect(page.getByTestId('grid-tile-link')).toHaveText(['Pricing', 'Contact', 'Screen hero', 'Frame padded', 'Frame main', 'Frame flush', 'App frame']);
 
         await page.getByTestId('grid-filter-section').first().click();
         await page.getByTestId('grid-filter-query').fill('layout 238');

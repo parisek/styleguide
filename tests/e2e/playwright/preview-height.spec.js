@@ -11,9 +11,11 @@ import { test, expect } from '@playwright/test';
 //
 // #277: one rule for every surface and kind. A pinned preview takes the
 // designed frame of its surface (lib/previewHeight.js designedViewportHeight()):
-// the preset height, else the catalogue frame of its width (16:10 on a desktop
-// width, square below it), else 640 px in Full mode. A page is pinned too when
-// shown at its own height it would grow (a full-screen hero inside it).
+// the preset height, else the catalogue frame of its width above 1024 px
+// (16:10), else the screen of the nearest phone or tablet preset, else 640 px
+// in Full mode. A page is pinned too when shown at its own height it would grow
+// by more than 64 px (a full-screen hero inside it, a frame floor with a
+// surround), or when its only root has a viewport height (an app shell).
 const PINNED = 640;
 // Above 1024 px the catalogue frame (16:10); at 1024 px and below the screen of
 // the nearest phone or tablet preset.
@@ -170,6 +172,18 @@ test.describe('preview height of viewport-unit components', () => {
         await expect(page.getByTestId('viewport-height-label')).toHaveCount(0);
     });
 
+    // An app shell: the one root is `height: 100vh`, with the default body
+    // margin around it. It has nothing to measure at zero height; fed its own
+    // document height it would grow by the margin on every measure.
+    test('app-frame: a page whose only root has a viewport height is pinned', async ({ page }) => {
+        await page.goto('/styleguide/page/app-frame?width=1440');
+        const iframe = page.locator('iframe[src*="/styleguide/render/page/app-frame"]').first();
+        const { atLoad, settled } = await heightAtLoadAndSettled(page, iframe);
+        expect(Math.abs(settled - atLoad)).toBeLessThanOrEqual(1);
+        expect(settled).toBe(designed(1440));
+        await expect(page.getByTestId('viewport-height-label')).toHaveCount(1);
+    });
+
     // In Full mode the iframe fills the pane: nothing is pinned, nothing named.
     test('a page with a full-screen hero carries no mark in Full mode', async ({ page }) => {
         await page.goto('/styleguide/page/screen-hero');
@@ -196,11 +210,13 @@ test.describe('preview height of viewport-unit components', () => {
         await expect(page.getByTestId('viewport-height-label')).toHaveAttribute('title', /667 px\.$/);
     });
 
+    // From one fixed width to another, so the tile keeps its iframe (Full to a
+    // width would mount a new one).
     test('a pinned grid tile follows a width switch in the menu', async ({ page }) => {
         await page.setViewportSize({ width: 1680, height: 900 });
-        await page.goto('/styleguide/component/viewport-inset');
+        await page.goto('/styleguide/component/viewport-inset?width=900');
         const full = page.locator('iframe[data-sg-tile="viewport-inset:full"]');
-        await expect.poll(() => frameHeight(full)).toBe(PINNED);
+        await expect.poll(() => frameHeight(full)).toBe(designed(900));
         await page.getByTestId('viewport-trigger').click();
         await page.getByTestId('viewport-width-1440').click();
         await expect.poll(() => frameHeight(full)).toBe(designed(1440));

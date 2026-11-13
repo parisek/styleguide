@@ -158,8 +158,8 @@ function probe(doc, shell) {
     }));
     // The roots, not the document: the inset padding alone keeps the document
     // above zero when everything in it is out of flow.
-    if (probed.rootsEmpty) return { height: documentHeight(doc), shellHeight: null };
-    return { height: probed.height, shellHeight: probed.shellHeight };
+    if (probed.rootsEmpty) return { height: documentHeight(doc), shellHeight: null, rootsEmpty: true };
+    return { height: probed.height, shellHeight: probed.shellHeight, rootsEmpty: false };
 }
 
 // The iframe ends up exactly as tall as the content, plus whatever the document
@@ -372,7 +372,15 @@ export function observeContentHeight(doc, onHeight, { pinnedHeight = CHROME_VIEW
         const page = !!shell || !isComponentRender(doc);
         const growth = page ? null : viewportGrowth(doc);
         if (growth?.follows) return pin(growth, 'component');
-        const { height: h, shellHeight } = probe(doc, shell);
+        const { height: h, shellHeight, rootsEmpty } = probe(doc, shell);
+        // A page with nothing to measure at zero height (an app shell whose
+        // one root is `height: 100vh`) is asked as a component is: a root that
+        // grows with the iframe pins it. Fed its own document height instead,
+        // it would grow by its surround on every measure.
+        if (page && (rootsEmpty || h <= 0)) {
+            const shellGrowth = viewportGrowth(doc);
+            if (shellGrowth?.follows) return pin(shellGrowth, 'viewport');
+        }
         if (h <= 0) return;
         if (fixFloor && shellHeight != null) setFloorSurround(doc, Math.max(0, h - shellHeight));
         const grown = page ? pageGrowth(doc, h) : null;

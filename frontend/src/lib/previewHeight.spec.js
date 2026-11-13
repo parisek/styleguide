@@ -339,6 +339,9 @@ describe('designedViewportHeight', () => {
         expect(designedViewportHeight({ width: 768 })).toBe(1024);
         expect(designedViewportHeight({ width: 900 })).toBe(1201);
         expect(designedViewportHeight({ width: 360 })).toBe(640);
+        // 1024 px is a tablet, as in the catalogue grid; above it the 16:10 frame.
+        expect(designedViewportHeight({ width: 1024 })).toBe(1366);
+        expect(designedViewportHeight({ width: 1025 })).toBe(641);
     });
 
     it('falls back to the chrome height without a width', () => {
@@ -515,6 +518,19 @@ describe('observeContentHeight with a viewport-unit component', () => {
         designed = 768;
         instances[0].cb();
         expect(seen).toEqual([[900, 900], [768, 768]]);
+    });
+
+    // An app shell: the one root is `height: 100vh`, so it measures zero at
+    // the zero-height probe. It is asked as a component and pinned.
+    it('pins a page whose only root has a viewport height', () => {
+        const instances = stubResizeObserver();
+        const { doc, frame } = componentRender({ children: [{ content: 0, floor: true }], surround: 8, frameHeight: 400 });
+        doc.defaultView.location = { pathname: '/styleguide/render/page/app' };
+        const seen = [];
+        observeContentHeight(doc, (h, info) => { seen.push([h, info.kind]); frame.style.height = `${h}px`; }, { pinnedHeight: 900 });
+        for (let i = 0; i < 3; i++) instances[0].cb();
+        expect(new Set(seen.map(([h]) => h))).toEqual(new Set([900]));
+        expect(seen[0][1]).toBe('viewport');
     });
 
     // A page frame with a viewport floor (a wrapper, a body grid) fills the
