@@ -8,6 +8,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+## [1.38.1] - 2026-11-15
+
 ### Fixed
 
 - **A page with a full-screen section no longer stretches its preview** (#277). A page whose hero (or any section inside it) sets a viewport floor, such as `min-h-[calc(100svh-4rem)]`, was never probed: 1.38.0 asked only component renders. On 1.35.0 such a board frame grew to the 20,000 px ceiling; on 1.38.0 the zero-height probe stopped the loop, but the iframe was then sized to the page, the hero resolved its floor against that whole height and filled the preview with empty space. Now a page is measured as before and then shown briefly at that height and read again. When it grows by more than 64 px, its height depends on the viewport (a section with a viewport floor, a frame floor with padding or a header and footer around it, `vh` spacing): shown whole it would fill with empty space or lose its bottom, so it is pinned and scrolls inside. A frame floor its content fills keeps the page whole, and so does a page shell (`iframe.page_wrapper_class`), whose floor 1.37.1 already corrects for its surround. An app shell (a root such as `height: 100vh` or `calc(100vh - 4rem)`, next to a header or a skip link) has nothing to measure at zero height; it is now asked as a component is and pinned, where before it grew by the body margin on every measure up to the ceiling. A measure puts the scroll position inside a pinned preview back, so it never moves the reader. Measured on 297 page renders (the six projects and the kit catalogue of portadesign/draty-z-porty, at 1440, 768 and 320 px): pages without a viewport-dependent section grew by 0 or 41 px, the three pages with a full-screen hero by 3,409 px or more. Single preview, variant grid, compare and board use the same check. Specification R7.10.
@@ -2044,7 +2046,8 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 - **DOKUMENTACE sidebar group** — collapsible sidebar section grouping Foundations, Overview, and doc entries. Controlled by a new `nav.docs` i18n key (cs: `Dokumentace`, en: `Documentation`). The group is always present in the sidebar; doc entries appear below foundations + overview when `templates/doc/` is populated.
 - **General `responsive` front-comment flag** — new optional boolean YAML metadata key applicable to component, page, and doc templates (default `true`). When set to `false`, the SPA hides the responsive-width toolbar for that entry, useful for docs or fixed-layout demos where viewport resizing has no meaning.
 
-[Unreleased]: https://github.com/parisek/styleguide/compare/v1.38.0...HEAD
+[Unreleased]: https://github.com/parisek/styleguide/compare/v1.38.1...HEAD
+[1.38.1]: https://github.com/parisek/styleguide/compare/v1.38.0...v1.38.1
 [1.38.0]: https://github.com/parisek/styleguide/compare/v1.37.1...v1.38.0
 [1.37.1]: https://github.com/parisek/styleguide/compare/v1.37.0...v1.37.1
 [1.37.0]: https://github.com/parisek/styleguide/compare/v1.36.0...v1.37.0
