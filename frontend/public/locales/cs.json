@@ -59,7 +59,8 @@
         "desktop": "Desktop (1024 px)",
         "full": "Plná šířka",
         "viewport_height": "Výška podle viewportu",
-        "viewport_height_detail": "Viewport +{viewport} px → obsah +{content} px. Náhled má pevnou výšku {pinned} px."
+        "viewport_height_detail": "Viewport +{viewport} px → obsah +{content} px. Náhled má pevnou výšku {pinned} px.",
+        "viewport_height_detail_page": "Ve své výšce {viewport} px se stránka zvětší o {content} px. Náhled má pevnou výšku {pinned} px."
     },
     "search": {
         "label": "Hledat",

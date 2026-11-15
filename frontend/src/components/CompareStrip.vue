@@ -9,7 +9,7 @@
 // widths would otherwise start every render at once.
 import { computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { computeTileGeometry, compareColumnTemplate } from '../lib/tileGeometry.js';
-import { observeContentHeight } from '../lib/previewHeight.js';
+import { observeContentHeight, designedViewportHeight } from '../lib/previewHeight.js';
 import { useRenderErrorsStore } from '../stores/renderErrors.js';
 import ErrorMark from './ErrorMark.vue';
 import { useEntryLinks } from '../composables/useEntryLinks.js';
@@ -73,7 +73,7 @@ function onLoad(width, event) {
     const doc = event.target?.contentDocument;
     if (!doc) return;
     heightObservers.get(width)?.disconnect();
-    heightObservers.set(width, observeContentHeight(doc, (h) => { heights[width] = h; }));
+    heightObservers.set(width, observeContentHeight(doc, (h) => { heights[width] = h; }, { pinnedHeight: designedViewportHeight({ width }) }));
 }
 
 // An unticked width takes its observers with it.
@@ -94,10 +94,11 @@ const columns = computed(() => props.widths.map((width) => {
         rawContentHeight: heights[width] ?? null,
         minHeight: PRE_MEASURE_MIN_HEIGHT,
         scrolls: props.scrolls,
+        pinnedHeight: designedViewportHeight({ width }),
     });
     // The second number is the height the column really renders at: the
-    // content's own height, or a chrome entry's pinned viewport. Never a
-    // device height -- no column is drawn at 568. Until the first load the
+    // content's own height, or the designed screen of a pinned column (a phone
+    // or tablet screen at 1024 px and below). Until the first load the
     // height is only the pre-measure floor, so the caption shows the width
     // alone rather than a number that is about to change.
     const known = props.scrolls || heights[width] != null;

@@ -22,13 +22,13 @@ class FakeIntersectionObserver {
     }
 }
 
-function mountFrame({ queue = createLoadQueue(6), id = 'home', item = {} } = {}) {
+function mountFrame({ queue = createLoadQueue(6), id = 'home', item = {}, pinnedHeight } = {}) {
     return mount(BoardFrame, {
         props: {
             entry: { key: `page:${id}`, id, name: id, ...item },
             src: `/styleguide/render/page/${id}`,
             href: `/styleguide/page/${id}`,
-            x: 100, y: 200, width: 1440, height: 900,
+            x: 100, y: 200, width: 1440, height: 900, pinnedHeight,
             queue,
         },
         attachTo: document.body,
@@ -140,5 +140,16 @@ describe('BoardFrame', () => {
         });
         await wrapper.get('iframe').trigger('load');
         expect(wrapper.emitted('measure')[0]).toEqual(['page:home', 640]);
+    });
+
+    it('pins a chrome entry at the board frame it is given', async () => {
+        const wrapper = mountFrame({ item: { item: { render: 'chrome' } }, pinnedHeight: 900 });
+        FakeIntersectionObserver.instances[0].fire(true);
+        await wrapper.vm.$nextTick();
+        Object.defineProperty(wrapper.get('iframe').element, 'contentDocument', {
+            value: { documentElement: { scrollHeight: 1280 }, body: { scrollHeight: 1280 } },
+        });
+        await wrapper.get('iframe').trigger('load');
+        expect(wrapper.emitted('measure')[0]).toEqual(['page:home', 900]);
     });
 });

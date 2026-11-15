@@ -232,6 +232,46 @@
                 "fields_files": [],
                 "has_styleguide": true,
                 "variants": []
+            },
+            {
+                "id": "screen-hero",
+                "name": "Screen hero",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "frame-padded",
+                "name": "Frame padded",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "frame-main",
+                "name": "Frame main",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "frame-flush",
+                "name": "Frame flush",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
+            },
+            {
+                "id": "app-frame",
+                "name": "App frame",
+                "fields_md5": "d751713988987e9331980363e24189ce",
+                "fields_files": [],
+                "has_styleguide": true,
+                "variants": []
             }
         ],
         "doc": [
@@ -412,7 +452,7 @@
         ],
         "/styleguide/api/pages": [
             200,
-            "051594aa64d084a54992eedce1c86a9e"
+            "72b7ff6723db4a17f94b8ba3c3ddb2c7"
         ],
         "/styleguide/api/docs": [
             200,

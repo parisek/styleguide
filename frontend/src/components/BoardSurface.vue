@@ -21,6 +21,7 @@
 import { computed, ref, reactive, watch, nextTick, onMounted, onBeforeUnmount } from 'vue';
 import { useI18nStore } from '../stores/i18n.js';
 import { gridPreviewSize } from '../lib/catalogGrid.js';
+import { designedViewportHeight } from '../lib/previewHeight.js';
 import {
     boardLayout, BOARD_FIT_HEIGHT_SLACK, BOARD_HEAD_HEIGHT_PX, BOARD_NAME_BAND_PX,
 } from '../lib/boardLayout.js';
@@ -71,6 +72,7 @@ const PAD_X = 40;
 const PAD_TOP = 16;
 const PAD_BOTTOM = 96;
 
+const pinnedHeight = computed(() => designedViewportHeight({ width: props.previewWidth }));
 const layout = computed(() => boardLayout({ groups: props.groups, width: props.previewWidth, heightOf }));
 const zoom = ref(1);
 const scroller = ref(null);
@@ -431,6 +433,7 @@ const buttonClass = PILL_BUTTON;
                         :y="frame.y"
                         :width="frame.width"
                         :height="frame.height"
+                        :pinned-height="pinnedHeight"
                         :queue="props.queue"
                         :selected="selectedKey === frame.key"
                         :active="activeKey === frame.key"
