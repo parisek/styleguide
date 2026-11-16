@@ -136,7 +136,7 @@ When in doubt, use the higher tier.
 
 ## Review and merge
 
-This is the rule of test-kit (owner direction, 2026-11-08). The owner does not review every change. The owner merges. An agent merges only when the owner gives it merge permission for that session (decision 6). A change merges when all of these hold:
+This is the rule of test-kit (owner direction, 2026-11-08). The owner does not review every change. The owner merges. An agent merges only when the owner gives it merge permission for that session (decision 6), or for one milestone (decision 7). A change merges when all of these hold:
 
 - Codex and Claude review it independently and both approve,
 - each review is bound to the commit SHA that merges,
@@ -226,6 +226,7 @@ The package fails its purpose, even if it works, when it:
 4. (Decided, 2026-11-08) Work runs in GitHub milestones that the owner names (see "Milestones and releases").
 5. (Decided, 2026-11-08) The first milestone is 1.38, "reliable previews". It shipped in release 1.38.0 on 2026-11-09.
 6. (Decided, 2026-11-09) One process standard for this package, `parisek/test-kit` and `portadesign/portadesign-mcp`. The owner merges. An agent merges only with the owner's merge permission for that session, and only when the full rule in "Review and merge" holds. Each repository keeps one normative source with permanent identifiers; here it is `docs/specification.md`. Each repository carries the standard and its tools itself, so it works on its own without a shared plugin (owner decision, 2026-11-09). The three repositories sync by copying a change of the standard into each one.
+7. (Decided, 2026-11-16) The owner can give merge permission for one milestone, in writing on the milestone's issue (`docs/process.md`, section 4). It lasts until the milestone closes or the owner withdraws it, and covers a Tier 3 pull request only when it names it. A session permission stays as before. Neither reaches a scheduled routine. The change came from portadesign/portadesign-mcp#924.
 
 ## Open decisions
 
