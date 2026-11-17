@@ -62,6 +62,7 @@
 - [ ] CI green on the head SHA.
 - [ ] Codex record `<!-- agent:review -->` on the head SHA.
 - [ ] Claude record `<!-- agent:review -->` on the head SHA.
+- [ ] Release only: `<!-- agent:security-review -->` record with `Verdict: pass` (`docs/process.md`, section 6).
 - [ ] Breaking `@api` change, new runtime dependency, release or security path (`PathGuard`, `AssetServer`, the source gate, escaping): the owner decides.
 
 </details>
