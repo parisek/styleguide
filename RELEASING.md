@@ -36,7 +36,8 @@ range from the newest tag to the `main` commit that the workflow will stamp.
 Stamp Release adds only the changelog stamp, so that commit is the reviewed one.
 Post the `<!-- agent:security-review -->` record on the milestone's `[Roadmap]`
 issue. A Critical or High finding blocks the release until its fix merges and
-the review runs again.
+the review runs again. Section 6 also sets the full audit once per minor
+version and the issue for each Medium or Low finding.
 
 ### 2. Make sure changes sit under `[Unreleased]`
 
