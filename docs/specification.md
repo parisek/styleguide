@@ -90,7 +90,7 @@ Detail: `docs/API.md`, "Component YAML metadata", "Component Twig file conventio
 
 Detail: `docs/API.md`, "Twig functions & filters", "Render errors", "URL surface". README, "Component render modes", "File-convention variants".
 
-- R5.1 A render uses the project's Twig environment and the project's `iframe.css`, `iframe.js` and fonts. The package does not change component markup.
+- R5.1 A render uses the project's Twig environment and the project's `iframe.css`, `iframe.js` and fonts. The package does not change component markup, with two exceptions that change only the `href` of an `<a>`. In canvas mode (`?canvas`), a link to an entry opens that entry's canvas render. With `iframe.base_href`, a fragment-only link (`#x`, not `#`) gets the render's own URL in front, so the `<base>` that the package adds does not send it to another document.
 - R5.2 When the consumer passes a `twig` environment, the package adds its helpers to it. A helper that the consumer already registered wins (ADR-0004).
 - R5.3 The Twig functions and filters of `docs/API.md` are registered: `component_<name>()`, `page_<name>()`, `placeholder()`, `resizer`, `merge_resizer()`, `cachebust`, `styleguide_data()`, the i18n functions and the others in the table.
 - R5.4 `component_<name>(null)` renders as `{}` and logs a warning with the caller template and line. A string or a number still throws.

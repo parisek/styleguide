@@ -269,6 +269,133 @@ final class CanvasLinksTest extends TestCase
     }
 
     /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function fragmentLinks(): iterable
+    {
+        $doc = '/styleguide/render/doc/intro?variant=b';
+        yield 'double quotes' => ['<a href="#b">x</a>', '<a href="' . $doc . '#b">x</a>'];
+        yield 'single quotes' => ["<a href='#b'>x</a>", "<a href='" . $doc . "#b'>x</a>"];
+        yield 'unquoted' => ['<a href=#b class=x>x</a>', '<a href="' . $doc . '#b" class=x>x</a>'];
+        yield 'entity in the value' => ['<a href="&#35;b">x</a>', '<a href="' . $doc . '#b">x</a>'];
+        yield 'whitespace around the value' => ['<a href=" #b ">x</a>', '<a href="' . $doc . '#b">x</a>'];
+        yield 'encoded fragment stays encoded' => ['<a href="#a%20b">x</a>', '<a href="' . $doc . '#a%20b">x</a>'];
+    }
+
+    #[Test]
+    #[DataProvider('fragmentLinks')]
+    public function a_fragment_link_gets_the_url_of_its_own_render(string $html, string $expected): void
+    {
+        self::assertSame(
+            $expected,
+            CanvasLinks::anchorFragments($html, '/styleguide/render/doc/intro?variant=b'),
+        );
+    }
+
+    #[Test]
+    public function the_query_of_the_document_is_escaped(): void
+    {
+        self::assertSame(
+            '<a href="/styleguide/render/doc/intro?variant=b&amp;locale=cs#b">x</a>',
+            CanvasLinks::anchorFragments('<a href="#b">x</a>', '/styleguide/render/doc/intro?variant=b&locale=cs'),
+        );
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function notFragmentLinks(): iterable
+    {
+        yield 'empty fragment, a JavaScript hook' => ['<a href="#">x</a>'];
+        yield 'path with a fragment' => ['<a href="/styleguide/page/about#b">x</a>'];
+        yield 'query with a fragment' => ['<a href="?x=1#b">x</a>'];
+        yield 'relative path' => ['<a href="about#b">x</a>'];
+        yield 'external' => ['<a href="https://example.com/#b">x</a>'];
+        yield 'empty href' => ['<a href="">x</a>'];
+        yield 'href without value' => ['<a href>x</a>'];
+        yield 'comment' => ['<!-- <a href="#b">x</a> -->'];
+        yield 'script string' => ['<script>const a = \'<a href="#b">\';</script>'];
+        yield 'not an anchor' => ['<link rel="x" href="#b"><area href="#b">'];
+        yield 'chrome link' => ['<a href="#b" data-sg-chrome>x</a>'];
+    }
+
+    #[Test]
+    #[DataProvider('notFragmentLinks')]
+    public function any_other_href_is_left_byte_for_byte_by_the_fragment_pass(string $html): void
+    {
+        self::assertSame($html, CanvasLinks::anchorFragments($html, '/styleguide/render/doc/intro'));
+    }
+
+    #[Test]
+    public function with_base_href_a_fragment_link_points_at_its_own_render(): void
+    {
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: /\n");
+
+        $body = (string) $styleguide->handle(new Request('/styleguide/render/doc/intro?variant=b&theme=dark'))?->body;
+        self::assertStringContainsString('<base href="/">', $body);
+        self::assertStringContainsString('href="/styleguide/render/doc/intro?variant=b&amp;theme=dark#b"', $body);
+        self::assertStringContainsString('href="#"', $body);
+
+        // An SPA path loaded inside the iframe is the document URL as well.
+        $embedded = $styleguide->handle(new Request('/styleguide/doc/intro', [], 'iframe'));
+        self::assertStringContainsString('href="/styleguide/doc/intro#b"', (string) $embedded?->body);
+
+        // The host base path is part of the document URL.
+        $hosted = $styleguide->handle(new Request('/styleguide/render/doc/intro', basePath: '/app/'));
+        self::assertStringContainsString('href="/app/styleguide/render/doc/intro#b"', (string) $hosted?->body);
+    }
+
+    #[Test]
+    public function with_base_href_a_canvas_render_gets_both_passes(): void
+    {
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: /\n");
+
+        $body = (string) $styleguide->handle(new Request('/styleguide/render/doc/intro?canvas'))?->body;
+        self::assertStringContainsString('href="/styleguide/render/doc/intro?canvas#b"', $body);
+        self::assertStringContainsString('href="/styleguide/render/doc/other?canvas=1"', $body);
+    }
+
+    #[Test]
+    public function an_absolute_form_request_target_gives_no_host(): void
+    {
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: /\n");
+
+        $body = (string) $styleguide->handle(new Request('http://evil.example/styleguide/render/doc/intro'))?->body;
+        self::assertStringNotContainsString('evil.example', $body);
+    }
+
+    #[Test]
+    public function without_base_href_a_fragment_link_is_unchanged(): void
+    {
+        $styleguide = $this->styleguideWithFragmentLink('');
+
+        $body = (string) $styleguide->handle(new Request('/styleguide/render/doc/intro'))?->body;
+        self::assertStringNotContainsString('<base', $body);
+        self::assertStringContainsString('<a href="#b">', $body);
+    }
+
+    private function styleguideWithFragmentLink(string $yaml): Styleguide
+    {
+        $this->root = sys_get_temp_dir() . '/sg-fragment-' . bin2hex(random_bytes(4));
+        foreach (['intro', 'other'] as $doc) {
+            mkdir($this->root . '/templates/doc/' . $doc, 0777, true);
+        }
+        file_put_contents(
+            $this->root . '/templates/doc/intro/intro.twig',
+            '<a href="#b">To B</a><a href="#">Hook</a><a href="{{ homeUrl }}doc/other">Other</a><section id="b">B</section>',
+        );
+        file_put_contents($this->root . '/templates/doc/other/other.twig', '<p>other</p>');
+        file_put_contents($this->root . '/styleguide.yaml', "project:\n  name: Fragments\n" . $yaml);
+
+        return new Styleguide([
+            'templates_path' => $this->root . '/templates',
+            'static_path' => $this->root,
+            'config_yaml' => $this->root . '/styleguide.yaml',
+            'twig_context' => ['homeUrl' => '/styleguide/'],
+        ]);
+    }
+
+    /**
      * Two kinds of entry link, as a real project has them: a data `url:` that
      * the renderer rebases onto `homeUrl`, and one built in Twig.
      */

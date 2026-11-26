@@ -307,6 +307,26 @@ test.describe('Styleguide SPA', () => {
         expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
     });
 
+    test('a fragment link in a render with <base href> scrolls in place (#289)', async ({ page }) => {
+        // The fixture sets `iframe.base_href: /`. A bare `#x` would resolve to
+        // the site root; the server prefixes it with the render URL. With a
+        // dark theme the frame URL carries a query, so the click must not move
+        // the route either.
+        for (const dark of [false, true]) {
+            await page.goto('/styleguide/doc/sample-doc');
+            if (dark) await page.getByTestId('iframe-theme-toggle').click();
+            const iframe = page.locator('iframe').first();
+            await expect(iframe).toHaveAttribute('src', dark ? /theme=dark/ : '/styleguide/render/doc/sample-doc');
+            const frame = page.frameLocator('iframe').first();
+            await expect(frame.locator('#sg-fragment-link')).toHaveAttribute('href', /\/styleguide\/render\/doc\/sample-doc(\?theme=dark)?#sg-fragment-target$/);
+            await frame.locator('body').evaluate(() => { window.sgMarker = 1; });
+            await frame.locator('#sg-fragment-link').click();
+            await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
+            expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
+            await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
+        }
+    });
+
     test('a relative entry link resolves against the iframe <base href>, and Back returns', async ({ page }) => {
         // The fixture sets `iframe.base_href: /`, so `styleguide/page/contact`
         // means /styleguide/page/contact for the browser, not a path below the render.

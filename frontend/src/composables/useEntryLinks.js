@@ -86,6 +86,15 @@ export function useEntryLinks() {
             if (target && target.toLowerCase() !== '_self') return;
             // `link.href` is what the browser would follow: resolved against
             // the document's base URI, so a `<base href>` is honoured.
+            // A place in this very document (`#b`, which the server prefixes
+            // with the render URL when the render has a `<base>`) scrolls in
+            // place. The route would otherwise move to the same entry when the
+            // frame URL names a locale or a theme, and nothing would scroll.
+            if (isSameDocument(link.href, here)) {
+                event.preventDefault();
+                scrollToId(doc, safeDecode(new URL(link.href).hash.slice(1)));
+                return;
+            }
             const entry = entryFromUrl(link.href, here);
             if (!entry) return;
             if (isSelf(entry, landed)) {
@@ -108,6 +117,17 @@ export function useEntryLinks() {
 function withoutHash(url) {
     const at = url.indexOf('#');
     return at === -1 ? url : url.slice(0, at);
+}
+
+// The link names a place (`#b`, not a bare `#`) in the document it is in.
+export function isSameDocument(href, here) {
+    let target;
+    try {
+        target = new URL(href, here);
+    } catch {
+        return false;
+    }
+    return target.hash.length > 1 && withoutHash(target.href) === withoutHash(here);
 }
 
 function safeDecode(value) {

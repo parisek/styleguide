@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **A fragment link in a render scrolls again when `iframe.base_href` is set** (#289). The `<base>` that `base_href` adds is also the base of a bare `#x`, so with `base_href: "/"` a table of contents, a skip link or a "back to top" link opened the site root inside the iframe. The render endpoint now prefixes the `href` of each fragment-only `<a>` with the URL of the render itself (path and query as requested, with the host base path): `#b` becomes `/styleguide/render/doc/intro?variant=x#b`. The browser sees the same document and scrolls. Middle-click and "copy link" give a URL that opens the same render. `href="#"` (a JavaScript hook) and every other link are not touched, and a render without `base_href` is unchanged. A link that a script adds after the render is not covered. In the SPA preview, a click on a place in the same render now scrolls the preview in place; before, a frame with `?theme=dark` or `?locale=` moved the route to the same entry and nothing scrolled. Specification R5.1 now names this exception, and the canvas link rewrite of 1.37.0 (#250) that it did not name before.
+
 ## [1.38.1] - 2026-11-15
 
 ### Fixed

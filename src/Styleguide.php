@@ -3219,7 +3219,7 @@ final class Styleguide
 
         return match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path'] ?? '', $request->ifNoneMatch),
-            'render' => $this->dispatchRender($route),
+            'render' => $this->dispatchRender($route, $request),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
         };
@@ -3439,7 +3439,7 @@ final class Styleguide
     /**
      * @param array<string, mixed> $route
      */
-    private function dispatchRender(array $route): Http\Result
+    private function dispatchRender(array $route, Http\Request $request): Http\Result
     {
         // Save and restore, not just reset. A consumer's Twig callback can
         // re-enter handle() on this same instance — the package already treats
@@ -3643,6 +3643,13 @@ final class Styleguide
                 $result = $result->withBody(CanvasLinks::rewrite($result->body, $this->publicBase(), $carry));
             }
 
+            // `iframe.base_href` adds a `<base>`, and the browser resolves a bare
+            // `#b` against it, away from this render. See CanvasLinks. After the
+            // canvas pass, so the URL of this document is never rewritten again.
+            if (($config['iframe']['base_href'] ?? null) && $result->body !== null) {
+                $result = $result->withBody(CanvasLinks::anchorFragments($result->body, $this->documentUrl($request)));
+            }
+
             return $result;
         } finally {
             $this->requestLocale = $previousLocale;
@@ -3677,6 +3684,22 @@ final class Styleguide
             ));
         }
         return $this->publicBase() . '/assets/' . basename($matches[0]);
+    }
+
+    /**
+     * The path and query of this request as the browser sees them, with the
+     * host's base path in front. Only the path and the query of the URI are
+     * kept: an absolute-form request target (`http://host/…`) gives no host,
+     * so the result is always a root-relative URL on this site.
+     */
+    private function documentUrl(Http\Request $request): string
+    {
+        $path = (string) parse_url($request->uri, \PHP_URL_PATH);
+        $query = parse_url($request->uri, \PHP_URL_QUERY);
+        // `//x` would be protocol-relative and leave the site.
+        $path = '/' . ltrim($path, '/');
+
+        return rtrim($request->basePath, '/') . $path . (is_string($query) ? '?' . $query : '');
     }
 
     /**
