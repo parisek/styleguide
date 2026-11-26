@@ -513,8 +513,8 @@ iframe:
   page_wrapper_class: ""                   # optional — wrapper <div> class for page renders only (see below)
   base_href: "/"                           # optional — affects relative URLs inside the iframe
                                            # (a fragment-only link `#x` gets the render URL in front,
-                                           # so it still scrolls inside the render; not for a base
-                                           # on another origin)
+                                           # so it still scrolls inside the render; only for a base
+                                           # without a scheme or a host)
 
 # Optional data consumed by the overview screen. All keys optional; missing
 # blocks simply hide their section.
