@@ -355,13 +355,26 @@ final class CanvasLinksTest extends TestCase
         self::assertStringContainsString('href="/styleguide/render/doc/other?canvas=1"', $body);
     }
 
-    #[Test]
-    public function an_absolute_form_request_target_gives_no_host(): void
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function otherOriginBases(): iterable
     {
-        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: /\n");
+        yield 'absolute' => ['https://cdn.example/'];
+        yield 'dev server' => ['http://localhost:5173/'];
+        yield 'protocol-relative' => ['//cdn.example/'];
+    }
 
-        $body = (string) $styleguide->handle(new Request('http://evil.example/styleguide/render/doc/intro'))?->body;
-        self::assertStringNotContainsString('evil.example', $body);
+    #[Test]
+    #[DataProvider('otherOriginBases')]
+    public function a_base_on_another_origin_leaves_the_links_alone(string $base): void
+    {
+        // A root-relative URL would resolve against that origin as well.
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: '$base'\n");
+
+        $result = $styleguide->handle(new Request('/styleguide/render/doc/intro'));
+        self::assertNotNull($result);
+        self::assertStringContainsString('<a href="#b">', (string) $result->body);
     }
 
     #[Test]
@@ -371,8 +384,9 @@ final class CanvasLinksTest extends TestCase
 
         // parse_url() refuses a path segment ending in `:<digits>`; a wrong
         // URL (the site root) would send the link away, so nothing changes.
-        $body = (string) $styleguide->handle(new Request('/styleguide/render/doc/intro/:80'))?->body;
-        self::assertStringContainsString('<a href="#b">', $body);
+        $result = $styleguide->handle(new Request('/styleguide/render/doc/intro/:80'));
+        self::assertNotNull($result);
+        self::assertStringContainsString('<a href="#b">', (string) $result->body);
 
         $body = (string) $styleguide->handle(new Request("/styleguide/render/doc/intro?x=\xff"))?->body;
         self::assertStringContainsString('<a href="#b">', $body);

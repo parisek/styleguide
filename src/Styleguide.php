@@ -3646,7 +3646,12 @@ final class Styleguide
             // `iframe.base_href` adds a `<base>`, and the browser resolves a bare
             // `#b` against it, away from this render. See CanvasLinks. After the
             // canvas pass, so the URL of this document is never rewritten again.
-            $document = ($config['iframe']['base_href'] ?? null) ? $this->documentUrl($request) : null;
+            // A base on another origin (an asset host, a dev server) would take the
+            // root-relative URL there too, so such a render is left as it is.
+            $baseHref = $config['iframe']['base_href'] ?? null;
+            $document = is_string($baseHref) && self::isSameOriginBase($baseHref)
+                ? $this->documentUrl($request)
+                : null;
             if ($document !== null && $result->body !== null) {
                 $result = $result->withBody(CanvasLinks::anchorFragments($result->body, $document));
             }
@@ -3688,10 +3693,23 @@ final class Styleguide
     }
 
     /**
+     * True for a non-empty `<base href>` without a scheme or a host: a URL
+     * on the origin of the render, which a root-relative link keeps.
+     */
+    private static function isSameOriginBase(string $href): bool
+    {
+        $href = trim($href);
+        if ($href === '' || str_starts_with($href, '//') || str_starts_with($href, '\\')) {
+            return false;
+        }
+
+        return preg_match('~^[A-Za-z][A-Za-z0-9+.\-]*:~', $href) !== 1;
+    }
+
+    /**
      * The path and query of this request as the browser sees them, with the
      * host's base path in front. Only the path and the query of the URI are
-     * kept: an absolute-form request target (`http://host/…`) gives no host,
-     * so the result is always a root-relative URL on this site. Null when the
+     * kept, so the result is always a root-relative URL on this site. Null when the
      * URI does not parse or is not UTF-8: a wrong URL would send the link away,
      * so the links are then left as they are.
      */

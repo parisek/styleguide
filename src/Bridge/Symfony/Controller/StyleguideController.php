@@ -143,8 +143,10 @@ final class StyleguideController
         // The raw query, not getQueryString(): that one sorts and re-encodes the
         // keys, and a render writes its own URL into fragment links. The browser
         // compares that URL with the one it has, so it must stay byte for byte.
+        // An empty query (`…/intro?`) keeps its `?`, as the browser URL does.
         $query = (string) $request->server->get('QUERY_STRING', '');
+        $asked = str_contains((string) $request->server->get('REQUEST_URI', ''), '?');
 
-        return $request->getPathInfo() . ($query === '' ? '' : '?' . $query);
+        return $request->getPathInfo() . ($query === '' && !$asked ? '' : '?' . $query);
     }
 }

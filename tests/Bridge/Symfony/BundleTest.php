@@ -222,6 +222,13 @@ final class BundleTest extends TestCase
         try {
             $response = $this->kernelWithConfig($config)
                 ->handle(Request::create('/styleguide/render/doc/sample-doc?theme=dark&locale=en'));
+            // Request::create() drops a bare `?`, so the server values are set by hand.
+            $empty = $this->kernelWithConfig($config)->handle(new Request(server: [
+                'REQUEST_URI' => '/styleguide/render/doc/sample-doc?',
+                'QUERY_STRING' => '',
+                'REQUEST_METHOD' => 'GET',
+                'HTTP_HOST' => 'localhost',
+            ]));
         } finally {
             unlink($config);
         }
@@ -229,6 +236,12 @@ final class BundleTest extends TestCase
         self::assertStringContainsString(
             'href="/styleguide/render/doc/sample-doc?theme=dark&amp;locale=en#sg-fragment-target"',
             (string) $response->getContent(),
+        );
+
+        // An empty query keeps its `?`, so the link still names this document.
+        self::assertStringContainsString(
+            'href="/styleguide/render/doc/sample-doc?#sg-fragment-target"',
+            (string) $empty->getContent(),
         );
     }
 
