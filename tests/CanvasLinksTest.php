@@ -365,6 +365,20 @@ final class CanvasLinksTest extends TestCase
     }
 
     #[Test]
+    public function a_request_uri_that_does_not_parse_leaves_the_links_alone(): void
+    {
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: /\n");
+
+        // parse_url() refuses a path segment ending in `:<digits>`; a wrong
+        // URL (the site root) would send the link away, so nothing changes.
+        $body = (string) $styleguide->handle(new Request('/styleguide/render/doc/intro/:80'))?->body;
+        self::assertStringContainsString('<a href="#b">', $body);
+
+        $body = (string) $styleguide->handle(new Request("/styleguide/render/doc/intro?x=\xff"))?->body;
+        self::assertStringContainsString('<a href="#b">', $body);
+    }
+
+    #[Test]
     public function without_base_href_a_fragment_link_is_unchanged(): void
     {
         $styleguide = $this->styleguideWithFragmentLink('');

@@ -211,6 +211,28 @@ final class BundleTest extends TestCase
     }
 
     #[Test]
+    public function a_fragment_link_keeps_the_query_of_the_request_as_sent(): void
+    {
+        // getQueryString() would sort the keys to `locale=en&theme=dark`, a URL
+        // the browser does not have, and the link would not scroll in place.
+        $fixtures = realpath(__DIR__ . '/../../fixtures');
+        $config = sys_get_temp_dir() . '/sg-bundle-base-href-' . bin2hex(random_bytes(4)) . '.yaml';
+        file_put_contents($config, "bootstrap:\n  templates_path: $fixtures/templates\n  static_path: $fixtures\n"
+            . "project:\n  name: Bundle Fixture\niframe:\n  base_href: /\n");
+        try {
+            $response = $this->kernelWithConfig($config)
+                ->handle(Request::create('/styleguide/render/doc/sample-doc?theme=dark&locale=en'));
+        } finally {
+            unlink($config);
+        }
+
+        self::assertStringContainsString(
+            'href="/styleguide/render/doc/sample-doc?theme=dark&amp;locale=en#sg-fragment-target"',
+            (string) $response->getContent(),
+        );
+    }
+
+    #[Test]
     public function an_asset_is_streamed_as_a_file(): void
     {
         // BinaryFileResponse, not a string body — the reason Result carries a

@@ -319,11 +319,17 @@ test.describe('Styleguide SPA', () => {
             await expect(iframe).toHaveAttribute('src', dark ? /theme=dark/ : '/styleguide/render/doc/sample-doc');
             const frame = page.frameLocator('iframe').first();
             await expect(frame.locator('#sg-fragment-link')).toHaveAttribute('href', /\/styleguide\/render\/doc\/sample-doc(\?theme=dark)?#sg-fragment-target$/);
-            await frame.locator('body').evaluate(() => { window.sgMarker = 1; });
+            await frame.locator('body').evaluate(() => {
+                window.sgMarker = 1;
+                window.addEventListener('hashchange', () => { window.sgHashChanged = true; });
+            });
             await frame.locator('#sg-fragment-link').click();
             await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
             expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
             await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
+            // A native fragment navigation, as on the live site.
+            await expect.poll(() => frame.locator('body').evaluate(() => window.sgHashChanged === true)).toBe(true);
+            await expect(frame.locator('#sg-fragment-target:target')).toHaveCount(1);
         }
     });
 

@@ -140,8 +140,11 @@ final class StyleguideController
 
     private function uri(Request $request): string
     {
-        $query = $request->getQueryString();
+        // The raw query, not getQueryString(): that one sorts and re-encodes the
+        // keys, and a render writes its own URL into fragment links. The browser
+        // compares that URL with the one it has, so it must stay byte for byte.
+        $query = (string) $request->server->get('QUERY_STRING', '');
 
-        return $request->getPathInfo() . ($query === null ? '' : '?' . $query);
+        return $request->getPathInfo() . ($query === '' ? '' : '?' . $query);
     }
 }

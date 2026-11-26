@@ -3646,8 +3646,9 @@ final class Styleguide
             // `iframe.base_href` adds a `<base>`, and the browser resolves a bare
             // `#b` against it, away from this render. See CanvasLinks. After the
             // canvas pass, so the URL of this document is never rewritten again.
-            if (($config['iframe']['base_href'] ?? null) && $result->body !== null) {
-                $result = $result->withBody(CanvasLinks::anchorFragments($result->body, $this->documentUrl($request)));
+            $document = ($config['iframe']['base_href'] ?? null) ? $this->documentUrl($request) : null;
+            if ($document !== null && $result->body !== null) {
+                $result = $result->withBody(CanvasLinks::anchorFragments($result->body, $document));
             }
 
             return $result;
@@ -3690,12 +3691,21 @@ final class Styleguide
      * The path and query of this request as the browser sees them, with the
      * host's base path in front. Only the path and the query of the URI are
      * kept: an absolute-form request target (`http://host/…`) gives no host,
-     * so the result is always a root-relative URL on this site.
+     * so the result is always a root-relative URL on this site. Null when the
+     * URI does not parse or is not UTF-8: a wrong URL would send the link away,
+     * so the links are then left as they are.
      */
-    private function documentUrl(Http\Request $request): string
+    private function documentUrl(Http\Request $request): ?string
     {
-        $path = (string) parse_url($request->uri, \PHP_URL_PATH);
-        $query = parse_url($request->uri, \PHP_URL_QUERY);
+        if (preg_match('//u', $request->uri) !== 1) {
+            return null;
+        }
+        $parts = parse_url($request->uri);
+        if ($parts === false) {
+            return null;
+        }
+        $path = (string) ($parts['path'] ?? '');
+        $query = $parts['query'] ?? null;
         // `//x` would be protocol-relative and leave the site.
         $path = '/' . ltrim($path, '/');
 

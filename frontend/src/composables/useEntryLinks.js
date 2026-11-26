@@ -87,14 +87,12 @@ export function useEntryLinks() {
             // `link.href` is what the browser would follow: resolved against
             // the document's base URI, so a `<base href>` is honoured.
             // A place in this very document (`#b`, which the server prefixes
-            // with the render URL when the render has a `<base>`) scrolls in
-            // place. The route would otherwise move to the same entry when the
-            // frame URL names a locale or a theme, and nothing would scroll.
-            if (isSameDocument(link.href, here)) {
-                event.preventDefault();
-                scrollToId(doc, safeDecode(new URL(link.href).hash.slice(1)));
-                return;
-            }
+            // with the render URL when the render has a `<base>`) is left to the
+            // browser: a fragment navigation scrolls, fires `hashchange` and sets
+            // `:target`, as on the live site. Without this, a frame URL that
+            // names a locale or a theme moved the route to the same entry, and
+            // nothing scrolled.
+            if (isSameDocument(link.href, win.location.href)) return;
             const entry = entryFromUrl(link.href, here);
             if (!entry) return;
             if (isSelf(entry, landed)) {
