@@ -223,6 +223,13 @@ final class BundleTest extends TestCase
             $response = $this->kernelWithConfig($config)
                 ->handle(Request::create('/styleguide/render/doc/sample-doc?theme=dark&locale=en'));
             // Request::create() drops a bare `?`, so the server values are set by hand.
+            // A rewrite rule with [QSA] adds `route=` to QUERY_STRING only.
+            $rewritten = $this->kernelWithConfig($config)->handle(new Request(server: [
+                'REQUEST_URI' => '/styleguide/render/doc/sample-doc?theme=dark',
+                'QUERY_STRING' => 'route=styleguide&theme=dark',
+                'REQUEST_METHOD' => 'GET',
+                'HTTP_HOST' => 'localhost',
+            ]));
             $empty = $this->kernelWithConfig($config)->handle(new Request(server: [
                 'REQUEST_URI' => '/styleguide/render/doc/sample-doc?',
                 'QUERY_STRING' => '',
@@ -236,6 +243,11 @@ final class BundleTest extends TestCase
         self::assertStringContainsString(
             'href="/styleguide/render/doc/sample-doc?theme=dark&amp;locale=en#sg-fragment-target"',
             (string) $response->getContent(),
+        );
+
+        self::assertStringContainsString(
+            'href="/styleguide/render/doc/sample-doc?theme=dark#sg-fragment-target"',
+            (string) $rewritten->getContent(),
         );
 
         // An empty query keeps its `?`, so the link still names this document.

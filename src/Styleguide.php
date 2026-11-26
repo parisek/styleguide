@@ -3648,8 +3648,10 @@ final class Styleguide
             // canvas pass, so the URL of this document is never rewritten again.
             // A base on another origin (an asset host, a dev server) would take the
             // root-relative URL there too, so such a render is left as it is.
+            // The same test as `{% if iframe.base_href %}` in render-cell.twig,
+            // so the pass runs exactly when the render has a `<base>`.
             $baseHref = $config['iframe']['base_href'] ?? null;
-            $document = is_string($baseHref) && self::isSameOriginBase($baseHref)
+            $document = is_scalar($baseHref) && $baseHref && self::isSameOriginBase((string) $baseHref)
                 ? $this->documentUrl($request)
                 : null;
             if ($document !== null && $result->body !== null) {
@@ -3698,8 +3700,11 @@ final class Styleguide
      */
     private static function isSameOriginBase(string $href): bool
     {
-        $href = trim($href);
-        if ($href === '' || str_starts_with($href, '//') || str_starts_with($href, '\\')) {
+        // As the URL parser does: strip surrounding C0 controls and spaces,
+        // drop tabs and newlines, and read `\` as `/`. Then `/\host/` and
+        // `/<tab>/host/` are the protocol-relative URLs they are in a browser.
+        $href = str_replace(["\t", "\n", "\r", '\\'], ['', '', '', '/'], trim($href, "\x00..\x20"));
+        if ($href === '' || str_starts_with($href, '//')) {
             return false;
         }
 

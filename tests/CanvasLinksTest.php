@@ -355,6 +355,29 @@ final class CanvasLinksTest extends TestCase
         self::assertStringContainsString('href="/styleguide/render/doc/other?canvas=1"', $body);
     }
 
+    #[Test]
+    public function an_spa_path_in_canvas_keeps_its_own_url_in_a_fragment_link(): void
+    {
+        // The canvas pass would turn `/styleguide/doc/intro` into a render URL,
+        // which reloads the frame. The fragment pass runs after it, so the link
+        // keeps the URL the frame has.
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: /\n");
+
+        $result = $styleguide->handle(new Request('/styleguide/doc/intro?canvas', [], 'iframe'));
+        self::assertNotNull($result);
+        self::assertStringContainsString('href="/styleguide/doc/intro?canvas#b"', (string) $result->body);
+    }
+
+    #[Test]
+    public function a_falsy_base_href_adds_no_base_and_changes_no_link(): void
+    {
+        $styleguide = $this->styleguideWithFragmentLink("iframe:\n  base_href: '0'\n");
+
+        $body = (string) $styleguide->handle(new Request('/styleguide/render/doc/intro'))?->body;
+        self::assertStringNotContainsString('<base', $body);
+        self::assertStringContainsString('<a href="#b">', $body);
+    }
+
     /**
      * @return iterable<string, array{string}>
      */
@@ -363,6 +386,9 @@ final class CanvasLinksTest extends TestCase
         yield 'absolute' => ['https://cdn.example/'];
         yield 'dev server' => ['http://localhost:5173/'];
         yield 'protocol-relative' => ['//cdn.example/'];
+        yield 'slash and backslash' => ['/\\cdn.example/'];
+        yield 'backslashes' => ['\\\\cdn.example/'];
+        yield 'tab inside' => ["/\t/cdn.example/"];
     }
 
     #[Test]
