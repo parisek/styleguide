@@ -424,6 +424,11 @@ test.describe('Styleguide SPA', () => {
                 .addEventListener('click', (event) => event.stopPropagation()));
             return '#sg-fragment-link';
         },
+        'an ancestor that stops propagation in the capture phase': async (page) => {
+            await page.evaluate(() => document.querySelector('article')
+                .addEventListener('click', (event) => event.stopPropagation(), true));
+            return '#sg-fragment-link';
+        },
         'a child of the link that stops propagation': async (page) => {
             await page.evaluate(() => {
                 const link = document.getElementById('sg-fragment-link');
@@ -499,6 +504,11 @@ test.describe('Styleguide SPA', () => {
         },
     };
     const navigationOnlyCases = {
+        'a handler that moves the URL with replaceState first': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link')
+                .addEventListener('click', () => history.replaceState(null, '', `${location.pathname}?tab=1`)));
+            return '#sg-fragment-link';
+        },
         'a handler on the link that stops immediate propagation': async (page) => {
             await page.evaluate(() => document.getElementById('sg-fragment-link')
                 .addEventListener('click', (event) => event.stopImmediatePropagation()));
@@ -519,7 +529,7 @@ test.describe('Styleguide SPA', () => {
                     window.addEventListener('click', (event) => { window.sgSeen = event.defaultPrevented; });
                 });
                 await page.locator(selector).click();
-                await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc#sg-fragment-target$/);
+                await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc(\?tab=1)?#sg-fragment-target$/);
                 await expect(page.locator('#sg-fragment-target')).toBeInViewport();
                 if (navigation && !name.includes('propagation')) {
                     // The project sees the click as on the live site.

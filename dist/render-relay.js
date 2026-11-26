@@ -65,13 +65,14 @@
         var here = location.href.split('#')[0];
         // Without a `<base>` elsewhere, the link already names this document.
         if (probe.href.split('#')[0] === here) return null;
-        return { from: probe.href, to: here + raw };
+        return { from: probe.href, fragment: raw };
     }
 
     // `location.href`, not `location.hash`: setting the hash it already has
-    // does nothing, and a "back to top" link must scroll again.
-    function go(url) {
-        location.href = url;
+    // does nothing, and a "back to top" link must scroll again. The URL is
+    // read now, because a project handler may have moved it in this click.
+    function go(fragment) {
+        location.href = location.href.split('#')[0] + fragment;
     }
 
     // With the Navigation API the relay acts on the navigation itself, after
@@ -88,16 +89,21 @@
             var link = anchorOf(click);
             var noted = link ? fragmentOf(click, link) : null;
             if (!noted) return;
+            // Only the link's own navigation counts. A project handler may move
+            // the URL itself in the same click (`history.pushState()` or
+            // `replaceState()`, with or without preventing the default): that
+            // navigation passes, and the listener waits for the link's one.
+            function isTheLink(e) {
+                if (e.destination.url !== noted.from) return false;
+                if ('sourceElement' in e) return e.sourceElement === link;
+                return e.userInitiated !== false;
+            }
             function onNavigate(e) {
+                if (click.defaultPrevented || !isTheLink(e)) return;
                 navigation.removeEventListener('navigate', onNavigate);
-                // A project handler that prevented the click may still move the
-                // URL itself (`history.pushState(null, '', href)` after a smooth
-                // scroll). That is its navigation, not the link's.
-                if (click.defaultPrevented || e.defaultPrevented || !e.cancelable || e.hashChange) return;
-                if (e.destination.url !== noted.from) return;
-                if ('sourceElement' in e && e.sourceElement && e.sourceElement !== link) return;
+                if (e.defaultPrevented || !e.cancelable || e.hashChange) return;
                 try { e.preventDefault(); } catch (err) { return; }
-                go(noted.to);
+                go(noted.fragment);
             }
             navigation.addEventListener('navigate', onNavigate);
             setTimeout(function () { navigation.removeEventListener('navigate', onNavigate); }, 0);
@@ -109,7 +115,10 @@
     // in the bubble phase. A handler that stops propagation on the way up
     // (Alpine `@click.stop` on the link, inside it or on a panel around it)
     // keeps the click from `window`, so the relay also adds a last listener to
-    // each node on the path. (`stopImmediatePropagation()` is not covered.) The first of them that sees propagation stopped
+    // each node on the path, in both phases. Two gaps stay: a
+    // `stopImmediatePropagation()` before the relay's listener, and a project
+    // listener on `window` added after the relay, which sees the click as
+    // prevented. The first of them that sees propagation stopped
     // acts; the listeners go away after the click.
     window.addEventListener('click', function (e) {
         var link = anchorOf(e);
@@ -124,18 +133,26 @@
             if (ev !== e || !ev.cancelBubble || ev.sgFragmentDone) return;
             ev.sgFragmentDone = true;
             var next = fragmentOf(ev, link);
-            if (next) { ev.preventDefault(); go(next.to); }
+            if (next) { ev.preventDefault(); go(next.fragment); }
         }
-        for (var j = 0; j < nodes.length; j++) nodes[j].addEventListener('click', stopped);
+        // In both phases: a stop in the capture phase (`@click.capture.stop`)
+        // never reaches the bubble listeners.
+        for (var j = 0; j < nodes.length; j++) {
+            nodes[j].addEventListener('click', stopped, true);
+            nodes[j].addEventListener('click', stopped);
+        }
         setTimeout(function () {
-            for (var k = 0; k < nodes.length; k++) nodes[k].removeEventListener('click', stopped);
+            for (var k = 0; k < nodes.length; k++) {
+                nodes[k].removeEventListener('click', stopped, true);
+                nodes[k].removeEventListener('click', stopped);
+            }
         }, 0);
     }, true);
     window.addEventListener('click', function (e) {
         if (e.sgFragmentDone) return;
         var link = anchorOf(e);
         var next = link ? fragmentOf(e, link) : null;
-        if (next) { e.preventDefault(); go(next.to); }
+        if (next) { e.preventDefault(); go(next.fragment); }
     });
 })();
 
