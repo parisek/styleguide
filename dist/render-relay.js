@@ -16,6 +16,35 @@
 // The catalogue checks each frame's `load` for a document without this
 // relay instead.) console.error still reaches
 // the console; the wrapper only copies the message.
+//
+// The second part keeps a fragment link in its document. `iframe.base_href`
+// puts a `<base>` into the render so relative asset URLs resolve, but the
+// browser resolves a bare `#b` against it too: with `base_href: "/"` the
+// link opens the site root. On the live site there is no `<base>` and it
+// scrolls. A click on such a link becomes a fragment navigation of this
+// document instead, so it scrolls, fires `hashchange`, sets `:target` and
+// adds a history entry, as on the live site. The markup is not changed.
+(function () {
+    // On `window`, so it runs after every handler on the link and on
+    // `document`: a project script that already handles the click (and
+    // prevents the default) wins.
+    window.addEventListener('click', function (e) {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        var link = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!link || link.hasAttribute('download')) return;
+        var target = link.getAttribute('target');
+        if (target && target.toLowerCase() !== '_self') return;
+        // A browser strips leading and trailing whitespace from a URL. `#`
+        // alone names no place and is a common script hook.
+        var raw = link.getAttribute('href').replace(/^\s+|\s+$/g, '');
+        if (raw.length < 2 || raw.charAt(0) !== '#') return;
+        // Without a `<base>` elsewhere, the link already names this document.
+        if (link.href.split('#')[0] === location.href.split('#')[0]) return;
+        e.preventDefault();
+        location.hash = raw.slice(1);
+    });
+})();
+
 (function () {
     if (window.parent === window) return;
     var sent = 0;

@@ -140,20 +140,8 @@ final class StyleguideController
 
     private function uri(Request $request): string
     {
-        // The raw query, not getQueryString(): that one sorts and re-encodes the
-        // keys, and a render writes its own URL into fragment links. The browser
-        // compares that URL with the one it has, so it must stay byte for byte.
-        // The query of the browser URL, from REQUEST_URI: QUERY_STRING can hold
-        // parameters that a rewrite rule added (`[QSA]`). An empty query
-        // (`…/intro?`) keeps its `?`, as the browser URL does.
-        $requestUri = $request->getRequestUri();
-        $at = strpos($requestUri, '?');
-        if ($at === false) {
-            return $request->getPathInfo();
-        }
-        $query = substr($requestUri, $at + 1);
-        $hash = strpos($query, '#');
+        $query = $request->getQueryString();
 
-        return $request->getPathInfo() . '?' . ($hash === false ? $query : substr($query, 0, $hash));
+        return $request->getPathInfo() . ($query === null ? '' : '?' . $query);
     }
 }

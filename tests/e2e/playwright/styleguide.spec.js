@@ -308,17 +308,18 @@ test.describe('Styleguide SPA', () => {
     });
 
     test('a fragment link in a render with <base href> scrolls in place (#289)', async ({ page }) => {
-        // The fixture sets `iframe.base_href: /`. A bare `#x` would resolve to
-        // the site root; the server prefixes it with the render URL. With a
-        // dark theme the frame URL carries a query, so the click must not move
-        // the route either.
+        // The fixture sets `iframe.base_href: /`, so the browser resolves a bare
+        // `#x` to the site root. The render relay turns the click into a
+        // fragment navigation of the render. With a dark theme the frame URL
+        // carries a query, so the click must not move the route either.
         for (const dark of [false, true]) {
             await page.goto('/styleguide/doc/sample-doc');
             if (dark) await page.getByTestId('iframe-theme-toggle').click();
             const iframe = page.locator('iframe').first();
             await expect(iframe).toHaveAttribute('src', dark ? /theme=dark/ : '/styleguide/render/doc/sample-doc');
             const frame = page.frameLocator('iframe').first();
-            await expect(frame.locator('#sg-fragment-link')).toHaveAttribute('href', /\/styleguide\/render\/doc\/sample-doc(\?theme=dark)?#sg-fragment-target$/);
+            // The markup is the template's own.
+            await expect(frame.locator('#sg-fragment-link')).toHaveAttribute('href', '#sg-fragment-target');
             await frame.locator('body').evaluate(() => {
                 window.sgMarker = 1;
                 window.addEventListener('hashchange', () => { window.sgHashChanged = true; });
@@ -326,11 +327,28 @@ test.describe('Styleguide SPA', () => {
             await frame.locator('#sg-fragment-link').click();
             await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
             expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
+            expect(await frame.locator('body').evaluate(() => location.pathname)).toBe('/styleguide/render/doc/sample-doc');
             await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
-            // A native fragment navigation, as on the live site.
             await expect.poll(() => frame.locator('body').evaluate(() => window.sgHashChanged === true)).toBe(true);
             await expect(frame.locator('#sg-fragment-target:target')).toHaveCount(1);
         }
+    });
+
+    test('a fragment link in a top-level render with <base href> stays on the render (#289)', async ({ page }) => {
+        await page.goto('/styleguide/render/doc/sample-doc?canvas=1');
+        await page.locator('#sg-fragment-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc\?canvas=1#sg-fragment-target$/);
+        await expect(page.locator('#sg-fragment-target')).toBeInViewport();
+    });
+
+    test('a project handler that prevents the default keeps the fragment click (#289)', async ({ page }) => {
+        await page.goto('/styleguide/render/doc/sample-doc');
+        await page.locator('#sg-fragment-link').evaluate((link) => {
+            link.addEventListener('click', (event) => { event.preventDefault(); window.sgOwn = true; });
+        });
+        await page.locator('#sg-fragment-link').click();
+        await expect.poll(() => page.evaluate(() => window.sgOwn === true)).toBe(true);
+        expect(page.url()).toMatch(/\/styleguide\/render\/doc\/sample-doc$/);
     });
 
     test('a relative entry link resolves against the iframe <base href>, and Back returns', async ({ page }) => {

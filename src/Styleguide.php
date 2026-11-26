@@ -3219,7 +3219,7 @@ final class Styleguide
 
         return match ($route['type']) {
             'asset' => $this->assetServer->serve($route['path'] ?? '', $request->ifNoneMatch),
-            'render' => $this->dispatchRender($route, $request),
+            'render' => $this->dispatchRender($route),
             'api' => $this->dispatchApi($route),
             default => $this->dispatchSpa($route),
         };
@@ -3439,7 +3439,7 @@ final class Styleguide
     /**
      * @param array<string, mixed> $route
      */
-    private function dispatchRender(array $route, Http\Request $request): Http\Result
+    private function dispatchRender(array $route): Http\Result
     {
         // Save and restore, not just reset. A consumer's Twig callback can
         // re-enter handle() on this same instance — the package already treats
@@ -3643,21 +3643,6 @@ final class Styleguide
                 $result = $result->withBody(CanvasLinks::rewrite($result->body, $this->publicBase(), $carry));
             }
 
-            // `iframe.base_href` adds a `<base>`, and the browser resolves a bare
-            // `#b` against it, away from this render. See CanvasLinks. After the
-            // canvas pass, so the URL of this document is never rewritten again.
-            // A base on another origin (an asset host, a dev server) would take the
-            // root-relative URL there too, so such a render is left as it is.
-            // The same test as `{% if iframe.base_href %}` in render-cell.twig,
-            // so the pass runs exactly when the render has a `<base>`.
-            $baseHref = $config['iframe']['base_href'] ?? null;
-            $document = is_scalar($baseHref) && $baseHref && self::isSameOriginBase((string) $baseHref)
-                ? $this->documentUrl($request)
-                : null;
-            if ($document !== null && $result->body !== null) {
-                $result = $result->withBody(CanvasLinks::anchorFragments($result->body, $document));
-            }
-
             return $result;
         } finally {
             $this->requestLocale = $previousLocale;
@@ -3692,47 +3677,6 @@ final class Styleguide
             ));
         }
         return $this->publicBase() . '/assets/' . basename($matches[0]);
-    }
-
-    /**
-     * True for a non-empty `<base href>` without a scheme or a host: a URL
-     * on the origin of the render, which a root-relative link keeps.
-     */
-    private static function isSameOriginBase(string $href): bool
-    {
-        // As the URL parser does: strip surrounding C0 controls and spaces,
-        // drop tabs and newlines, and read `\` as `/`. Then `/\host/` and
-        // `/<tab>/host/` are the protocol-relative URLs they are in a browser.
-        $href = str_replace(["\t", "\n", "\r", '\\'], ['', '', '', '/'], trim($href, "\x00..\x20"));
-        if ($href === '' || str_starts_with($href, '//')) {
-            return false;
-        }
-
-        return preg_match('~^[A-Za-z][A-Za-z0-9+.\-]*:~', $href) !== 1;
-    }
-
-    /**
-     * The path and query of this request as the browser sees them, with the
-     * host's base path in front. Only the path and the query of the URI are
-     * kept, so the result is always a root-relative URL on this site. Null when the
-     * URI does not parse or is not UTF-8: a wrong URL would send the link away,
-     * so the links are then left as they are.
-     */
-    private function documentUrl(Http\Request $request): ?string
-    {
-        if (preg_match('//u', $request->uri) !== 1) {
-            return null;
-        }
-        $parts = parse_url($request->uri);
-        if ($parts === false) {
-            return null;
-        }
-        $path = (string) ($parts['path'] ?? '');
-        $query = $parts['query'] ?? null;
-        // `//x` would be protocol-relative and leave the site.
-        $path = '/' . ltrim($path, '/');
-
-        return rtrim($request->basePath, '/') . $path . (is_string($query) ? '?' . $query : '');
     }
 
     /**
