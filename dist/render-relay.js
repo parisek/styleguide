@@ -21,23 +21,34 @@
 // puts a `<base>` into the render so relative asset URLs resolve, but the
 // browser resolves a bare `#b` against it too: with `base_href: "/"` the
 // link opens the site root. On the live site there is no `<base>` and it
-// scrolls. A click on such a link becomes a fragment navigation of this
-// document instead, so it scrolls (also on a repeat click), fires
-// `hashchange` and sets `:target`, as on the live site. The markup is not
-// changed, so a project script reads the `href` it wrote.
+// scrolls. Such a navigation becomes a fragment navigation of this document
+// instead, so it scrolls (also on a repeat click), fires `hashchange` and
+// sets `:target`, as on the live site. The markup is not changed, so a
+// project script reads the `href` it wrote.
 (function () {
-    // The `<a>` of the click, also inside an open shadow root, or null.
+    var XLINK = 'http://www.w3.org/1999/xlink';
+
+    function hrefOf(node) {
+        var value = node.getAttribute('href');
+        if (value === null && node.getAttributeNS) value = node.getAttributeNS(XLINK, 'href');
+        return value || null;
+    }
+
+    // The `<a>` or `<area>` of the click, also in SVG and inside an open
+    // shadow root, or null.
     function anchorOf(e) {
         var path = e.composedPath ? e.composedPath() : [e.target];
         for (var i = 0; i < path.length; i++) {
             var node = path[i];
-            if (node && node.nodeType === 1 && node.localName === 'a' && node.hasAttribute('href')) return node;
+            if (node && node.nodeType === 1 && (node.localName === 'a' || node.localName === 'area') && hrefOf(node) !== null) {
+                return node;
+            }
         }
         return null;
     }
 
-    // The place a fragment-only link names, when the `<base>` would send it
-    // to another document; else null.
+    // For a fragment-only link that the `<base>` sends to another document:
+    // where the browser would go (`from`) and where it should go (`to`).
     function fragmentOf(e, link) {
         if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return null;
         if (link.hasAttribute('download')) return null;
@@ -45,47 +56,67 @@
         if (target && target.toLowerCase() !== '_self') return null;
         // A browser strips leading and trailing whitespace from a URL. `#`
         // alone names no place and is a common script hook.
-        var raw = link.getAttribute('href').replace(/^\s+|\s+$/g, '');
+        var raw = hrefOf(link).replace(/^\s+|\s+$/g, '');
         if (raw.length < 2 || raw.charAt(0) !== '#') return null;
-        // `getAttribute`, not `link.href`: an SVG `<a>` has no string `href`.
-        var resolved;
-        try { resolved = new URL(raw, document.baseURI).href; } catch (err) { return null; }
+        // A detached `<a>` resolves against the document base in every
+        // browser; an SVG `<a>` has no string `href` of its own.
+        var probe = document.createElement('a');
+        probe.setAttribute('href', raw);
         var here = location.href.split('#')[0];
         // Without a `<base>` elsewhere, the link already names this document.
-        if (resolved.split('#')[0] === here) return null;
-        return here + raw;
+        if (probe.href.split('#')[0] === here) return null;
+        return { from: probe.href, to: here + raw };
     }
 
-    function follow(e, url) {
-        e.preventDefault();
-        // `location.href`, not `location.hash`: setting the hash it already
-        // has does nothing, and a "back to top" link must scroll again.
+    // `location.href`, not `location.hash`: setting the hash it already has
+    // does nothing, and a "back to top" link must scroll again.
+    function go(url) {
         location.href = url;
     }
 
-    // In the capture phase only to find the link. The decision waits for the
-    // project's own handlers, so a script that prevents the default wins.
+    // With the Navigation API the relay acts on the navigation itself, after
+    // every click handler of the project has run. It does not touch the click
+    // event, so a project handler sees `defaultPrevented` and propagation as
+    // on the live site, and one that prevents the default keeps its click.
+    var navigation = window.navigation;
+    if (navigation && typeof navigation.addEventListener === 'function') {
+        var pending = null;
+        // Capture on `window`, the first listener of the document: it only
+        // notes the link. Nothing is decided here.
+        window.addEventListener('click', function (e) {
+            var link = anchorOf(e);
+            var next = link ? fragmentOf(e, link) : null;
+            pending = next;
+            if (next) setTimeout(function () { if (pending === next) pending = null; }, 0);
+        }, true);
+        navigation.addEventListener('navigate', function (e) {
+            var noted = pending;
+            pending = null;
+            if (!noted || !e.cancelable || e.hashChange || e.destination.url !== noted.from) return;
+            e.preventDefault();
+            go(noted.to);
+        });
+        return;
+    }
+
+    // Without it, the relay acts on the click, as late as it can: on `window`
+    // in the bubble phase. A handler on the link that stops propagation
+    // (Alpine `@click.stop`) keeps the click from `window`, so a last
+    // listener on the link covers that case.
     window.addEventListener('click', function (e) {
         var link = anchorOf(e);
         if (!link || !fragmentOf(e, link)) return;
-        // A handler on the link that stops propagation (Alpine `@click.stop`)
-        // keeps the click from `window`. This listener, added last to the link
-        // itself, still sees it then.
         link.addEventListener('click', function last(ev) {
             link.removeEventListener('click', last);
             if (ev !== e || !ev.cancelBubble) return;
-            var url = fragmentOf(ev, link);
-            if (url) follow(ev, url);
+            var next = fragmentOf(ev, link);
+            if (next) { ev.preventDefault(); go(next.to); }
         });
     }, true);
-
-    // In the bubble phase on `window`: after the handlers on the link and on
-    // `document`, and before the handlers on `window` that a project script
-    // adds later.
     window.addEventListener('click', function (e) {
         var link = anchorOf(e);
-        var url = link ? fragmentOf(e, link) : null;
-        if (url) follow(e, url);
+        var next = link ? fragmentOf(e, link) : null;
+        if (next) { e.preventDefault(); go(next.to); }
     });
 })();
 

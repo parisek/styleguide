@@ -368,56 +368,117 @@ test.describe('Styleguide SPA', () => {
         await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
     });
 
-    test('the render relay handles a repeat click, @click.stop, SVG and shadow DOM links (#289)', async ({ page }) => {
-        const errors = [];
-        page.on('pageerror', (error) => errors.push(error.message));
-        await page.goto('/styleguide/render/doc/sample-doc');
-        const render = /\/styleguide\/render\/doc\/sample-doc#sg-fragment-target$/;
-
-        // A repeat click scrolls again, as a native one does.
-        await page.locator('#sg-fragment-link').click();
-        await expect(page).toHaveURL(render);
-        await page.evaluate(() => window.scrollTo(0, 0));
-        await page.locator('#sg-fragment-link').click();
-        await expect(page.locator('#sg-fragment-target')).toBeInViewport();
-
-        // A handler on the link that stops propagation but not the default.
-        await page.evaluate(() => {
-            window.scrollTo(0, 0);
-            history.replaceState(null, '', location.pathname);
-            const link = document.getElementById('sg-fragment-link');
-            link.addEventListener('click', (event) => event.stopPropagation());
-        });
-        await page.locator('#sg-fragment-link').click();
-        await expect(page).toHaveURL(render);
-
-        // An SVG link and a link inside an open shadow root.
-        await page.evaluate(() => {
-            history.replaceState(null, '', location.pathname);
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', '200');
-            svg.setAttribute('height', '40');
-            const a = document.createElementNS('http://www.w3.org/2000/svg', 'a');
-            a.setAttribute('href', '#sg-fragment-target');
-            a.id = 'sg-svg-link';
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('width', '200');
-            rect.setAttribute('height', '40');
-            a.appendChild(rect);
-            svg.appendChild(a);
-            const host = document.createElement('div');
-            host.id = 'sg-shadow-host';
-            host.attachShadow({ mode: 'open' }).innerHTML = '<a id="inner" href="#sg-fragment-target">In shadow</a>';
-            document.body.prepend(host);
-            document.body.prepend(svg);
-        });
-        await page.locator('#sg-svg-link rect').click();
-        await expect(page).toHaveURL(render);
-        await page.evaluate(() => history.replaceState(null, '', location.pathname));
-        await page.locator('#sg-shadow-host').getByText('In shadow').click();
-        await expect(page).toHaveURL(render);
-        expect(errors).toEqual([]);
-    });
+    // Each case adds one link to the render, clicks it and expects the render
+    // to stay with `#sg-fragment-target`. `navigation: false` hides the
+    // Navigation API, so the click fallback of the relay runs.
+    const relayCases = {
+        'a repeat click': async (page) => {
+            await page.locator('#sg-fragment-link').click();
+            await page.evaluate(() => { window.scrollTo(0, 0); });
+            return '#sg-fragment-link';
+        },
+        'a handler on the link that stops propagation': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link')
+                .addEventListener('click', (event) => event.stopPropagation()));
+            return '#sg-fragment-link';
+        },
+        'an SVG link': async (page) => {
+            await page.evaluate(() => {
+                const ns = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('width', '200');
+                svg.setAttribute('height', '40');
+                const a = document.createElementNS(ns, 'a');
+                a.setAttribute('href', '#sg-fragment-target');
+                a.id = 'sg-case';
+                const rect = document.createElementNS(ns, 'rect');
+                rect.setAttribute('width', '200');
+                rect.setAttribute('height', '40');
+                a.appendChild(rect);
+                svg.appendChild(a);
+                document.body.prepend(svg);
+            });
+            return '#sg-case rect';
+        },
+        'a link in an open shadow root': async (page) => {
+            await page.evaluate(() => {
+                const host = document.createElement('div');
+                host.id = 'sg-case';
+                host.attachShadow({ mode: 'open' }).innerHTML = '<a href="#sg-fragment-target">In shadow</a>';
+                document.body.prepend(host);
+            });
+            return '#sg-case >> text=In shadow';
+        },
+    };
+    const navigationOnlyCases = {
+        'an ancestor that stops propagation': async (page) => {
+            await page.evaluate(() => document.querySelector('article')
+                .addEventListener('click', (event) => event.stopPropagation()));
+            return '#sg-fragment-link';
+        },
+        'a handler on the link that stops immediate propagation': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link')
+                .addEventListener('click', (event) => event.stopImmediatePropagation()));
+            return '#sg-fragment-link';
+        },
+        'an SVG link with only xlink:href': async (page) => {
+            await page.evaluate(() => {
+                const ns = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('width', '200');
+                svg.setAttribute('height', '40');
+                const a = document.createElementNS(ns, 'a');
+                a.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '#sg-fragment-target');
+                a.id = 'sg-case';
+                const rect = document.createElementNS(ns, 'rect');
+                rect.setAttribute('width', '200');
+                rect.setAttribute('height', '40');
+                a.appendChild(rect);
+                svg.appendChild(a);
+                document.body.prepend(svg);
+            });
+            return '#sg-case rect';
+        },
+        'an image map area': async (page) => {
+            await page.evaluate(() => {
+                const map = document.createElement('map');
+                map.name = 'sg-map';
+                map.innerHTML = '<area id="sg-case" shape="rect" coords="0,0,200,40" href="#sg-fragment-target" alt="To the end">';
+                const img = document.createElement('img');
+                img.useMap = '#sg-map';
+                img.width = 200;
+                img.height = 40;
+                img.id = 'sg-map-img';
+                img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="40"/%3E';
+                document.body.prepend(map, img);
+            });
+            return '#sg-map-img';
+        },
+    };
+    for (const navigation of [true, false]) {
+        const cases = navigation ? { ...relayCases, ...navigationOnlyCases } : relayCases;
+        for (const [name, arrange] of Object.entries(cases)) {
+            test(`the render relay keeps ${name} in the render${navigation ? '' : ' without the Navigation API'} (#289)`, async ({ page }) => {
+                const errors = [];
+                page.on('pageerror', (error) => errors.push(error.message));
+                if (!navigation) await page.addInitScript(() => { Object.defineProperty(window, 'navigation', { value: undefined }); });
+                await page.goto('/styleguide/render/doc/sample-doc');
+                const selector = await arrange(page);
+                await page.evaluate(() => {
+                    window.sgSeen = null;
+                    window.addEventListener('click', (event) => { window.sgSeen = event.defaultPrevented; });
+                });
+                await page.locator(selector).click();
+                await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc#sg-fragment-target$/);
+                await expect(page.locator('#sg-fragment-target')).toBeInViewport();
+                if (navigation && !name.includes('propagation')) {
+                    // The project sees the click as on the live site.
+                    expect(await page.evaluate(() => window.sgSeen)).toBe(false);
+                }
+                expect(errors).toEqual([]);
+            });
+        }
+    }
 
     test('a relative entry link resolves against the iframe <base href>, and Back returns', async ({ page }) => {
         // The fixture sets `iframe.base_href: /`, so `styleguide/page/contact`
