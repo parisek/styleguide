@@ -85,7 +85,9 @@
         // notes the link, and adds a `navigate` listener for this click alone.
         // Added now, after the project's own `navigate` listeners, it runs
         // last, so a project router sees the navigation first.
+        var drop = null;
         window.addEventListener('click', function (click) {
+            if (drop) drop();
             var link = anchorOf(click);
             var noted = link ? fragmentOf(click, link) : null;
             if (!noted) return;
@@ -100,13 +102,21 @@
             }
             function onNavigate(e) {
                 if (click.defaultPrevented || !isTheLink(e)) return;
-                navigation.removeEventListener('navigate', onNavigate);
+                drop();
                 if (e.defaultPrevented || !e.cancelable || e.hashChange) return;
                 try { e.preventDefault(); } catch (err) { return; }
                 go(noted.fragment);
             }
+            // Chromium starts the link's navigation in the same task as the
+            // click; Firefox and WebKit start it after a `setTimeout(0)`. So the
+            // listener stays until it acts, the next click, or one second.
+            var timer = setTimeout(function () { if (drop) drop(); }, 1000);
+            drop = function () {
+                navigation.removeEventListener('navigate', onNavigate);
+                clearTimeout(timer);
+                drop = null;
+            };
             navigation.addEventListener('navigate', onNavigate);
-            setTimeout(function () { navigation.removeEventListener('navigate', onNavigate); }, 0);
         }, true);
         return;
     }

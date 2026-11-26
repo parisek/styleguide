@@ -110,7 +110,7 @@ jobs:
         run: cd frontend && npm run build
 
       - name: Install Playwright browsers
-        run: cd frontend && npx playwright install --with-deps chromium
+        run: cd frontend && npx playwright install --with-deps chromium firefox webkit
 
       - name: Run Playwright suite
         run: cd frontend && npm run test:e2e

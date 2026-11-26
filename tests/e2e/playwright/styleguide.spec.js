@@ -378,7 +378,8 @@ test.describe('Styleguide SPA', () => {
 
     test('a project navigate listener runs before the relay and does not throw (#289)', async ({ page }) => {
         const errors = [];
-        page.on('pageerror', (error) => errors.push(error.message));
+        // The fixture ships no project script; WebKit reports its 404 as an error.
+                page.on('pageerror', (error) => { if (!error.message.includes('/dist/js/script.js')) errors.push(error.message); });
         await page.goto('/styleguide/render/doc/sample-doc');
         await page.evaluate(() => {
             window.sgSeen = [];
@@ -520,7 +521,8 @@ test.describe('Styleguide SPA', () => {
         for (const [name, arrange] of Object.entries(cases)) {
             test(`the render relay keeps ${name} in the render${navigation ? '' : ' without the Navigation API'} (#289)`, async ({ page }) => {
                 const errors = [];
-                page.on('pageerror', (error) => errors.push(error.message));
+                // The fixture ships no project script; WebKit reports its 404 as an error.
+                page.on('pageerror', (error) => { if (!error.message.includes('/dist/js/script.js')) errors.push(error.message); });
                 if (!navigation) await page.addInitScript(() => { Object.defineProperty(window, 'navigation', { value: undefined }); });
                 await page.goto('/styleguide/render/doc/sample-doc');
                 const selector = await arrange(page);
