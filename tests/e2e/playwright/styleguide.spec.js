@@ -351,6 +351,74 @@ test.describe('Styleguide SPA', () => {
         expect(page.url()).toMatch(/\/styleguide\/render\/doc\/sample-doc$/);
     });
 
+    test('a link to a place in the same dark render scrolls and keeps the route (#289)', async ({ page }) => {
+        // The full render URL with a fragment names this document. The frame URL
+        // carries `?theme=dark`, so the SPA used to move the route to the same
+        // entry, and the frame reloaded without its fragment.
+        await page.goto('/styleguide/doc/sample-doc');
+        await page.getByTestId('iframe-theme-toggle').click();
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', /theme=dark/);
+        const frame = page.frameLocator('iframe').first();
+        const here = await frame.locator('body').evaluate(() => location.href.split('#')[0]);
+        await addLink(frame, `${here}#sg-fragment-target`);
+        await frame.locator('body').evaluate(() => { window.sgMarker = 1; });
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
+        expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
+        await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
+    });
+
+    test('the render relay handles a repeat click, @click.stop, SVG and shadow DOM links (#289)', async ({ page }) => {
+        const errors = [];
+        page.on('pageerror', (error) => errors.push(error.message));
+        await page.goto('/styleguide/render/doc/sample-doc');
+        const render = /\/styleguide\/render\/doc\/sample-doc#sg-fragment-target$/;
+
+        // A repeat click scrolls again, as a native one does.
+        await page.locator('#sg-fragment-link').click();
+        await expect(page).toHaveURL(render);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.locator('#sg-fragment-link').click();
+        await expect(page.locator('#sg-fragment-target')).toBeInViewport();
+
+        // A handler on the link that stops propagation but not the default.
+        await page.evaluate(() => {
+            window.scrollTo(0, 0);
+            history.replaceState(null, '', location.pathname);
+            const link = document.getElementById('sg-fragment-link');
+            link.addEventListener('click', (event) => event.stopPropagation());
+        });
+        await page.locator('#sg-fragment-link').click();
+        await expect(page).toHaveURL(render);
+
+        // An SVG link and a link inside an open shadow root.
+        await page.evaluate(() => {
+            history.replaceState(null, '', location.pathname);
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', '200');
+            svg.setAttribute('height', '40');
+            const a = document.createElementNS('http://www.w3.org/2000/svg', 'a');
+            a.setAttribute('href', '#sg-fragment-target');
+            a.id = 'sg-svg-link';
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('width', '200');
+            rect.setAttribute('height', '40');
+            a.appendChild(rect);
+            svg.appendChild(a);
+            const host = document.createElement('div');
+            host.id = 'sg-shadow-host';
+            host.attachShadow({ mode: 'open' }).innerHTML = '<a id="inner" href="#sg-fragment-target">In shadow</a>';
+            document.body.prepend(host);
+            document.body.prepend(svg);
+        });
+        await page.locator('#sg-svg-link rect').click();
+        await expect(page).toHaveURL(render);
+        await page.evaluate(() => history.replaceState(null, '', location.pathname));
+        await page.locator('#sg-shadow-host').getByText('In shadow').click();
+        await expect(page).toHaveURL(render);
+        expect(errors).toEqual([]);
+    });
+
     test('a relative entry link resolves against the iframe <base href>, and Back returns', async ({ page }) => {
         // The fixture sets `iframe.base_href: /`, so `styleguide/page/contact`
         // means /styleguide/page/contact for the browser, not a path below the render.

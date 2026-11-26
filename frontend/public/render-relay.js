@@ -22,26 +22,70 @@
 // browser resolves a bare `#b` against it too: with `base_href: "/"` the
 // link opens the site root. On the live site there is no `<base>` and it
 // scrolls. A click on such a link becomes a fragment navigation of this
-// document instead, so it scrolls, fires `hashchange`, sets `:target` and
-// adds a history entry, as on the live site. The markup is not changed.
+// document instead, so it scrolls (also on a repeat click), fires
+// `hashchange` and sets `:target`, as on the live site. The markup is not
+// changed, so a project script reads the `href` it wrote.
 (function () {
-    // On `window`, so it runs after every handler on the link and on
-    // `document`: a project script that already handles the click (and
-    // prevents the default) wins.
-    window.addEventListener('click', function (e) {
-        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-        var link = e.target && e.target.closest ? e.target.closest('a[href]') : null;
-        if (!link || link.hasAttribute('download')) return;
+    // The `<a>` of the click, also inside an open shadow root, or null.
+    function anchorOf(e) {
+        var path = e.composedPath ? e.composedPath() : [e.target];
+        for (var i = 0; i < path.length; i++) {
+            var node = path[i];
+            if (node && node.nodeType === 1 && node.localName === 'a' && node.hasAttribute('href')) return node;
+        }
+        return null;
+    }
+
+    // The place a fragment-only link names, when the `<base>` would send it
+    // to another document; else null.
+    function fragmentOf(e, link) {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return null;
+        if (link.hasAttribute('download')) return null;
         var target = link.getAttribute('target');
-        if (target && target.toLowerCase() !== '_self') return;
+        if (target && target.toLowerCase() !== '_self') return null;
         // A browser strips leading and trailing whitespace from a URL. `#`
         // alone names no place and is a common script hook.
         var raw = link.getAttribute('href').replace(/^\s+|\s+$/g, '');
-        if (raw.length < 2 || raw.charAt(0) !== '#') return;
+        if (raw.length < 2 || raw.charAt(0) !== '#') return null;
+        // `getAttribute`, not `link.href`: an SVG `<a>` has no string `href`.
+        var resolved;
+        try { resolved = new URL(raw, document.baseURI).href; } catch (err) { return null; }
+        var here = location.href.split('#')[0];
         // Without a `<base>` elsewhere, the link already names this document.
-        if (link.href.split('#')[0] === location.href.split('#')[0]) return;
+        if (resolved.split('#')[0] === here) return null;
+        return here + raw;
+    }
+
+    function follow(e, url) {
         e.preventDefault();
-        location.hash = raw.slice(1);
+        // `location.href`, not `location.hash`: setting the hash it already
+        // has does nothing, and a "back to top" link must scroll again.
+        location.href = url;
+    }
+
+    // In the capture phase only to find the link. The decision waits for the
+    // project's own handlers, so a script that prevents the default wins.
+    window.addEventListener('click', function (e) {
+        var link = anchorOf(e);
+        if (!link || !fragmentOf(e, link)) return;
+        // A handler on the link that stops propagation (Alpine `@click.stop`)
+        // keeps the click from `window`. This listener, added last to the link
+        // itself, still sees it then.
+        link.addEventListener('click', function last(ev) {
+            link.removeEventListener('click', last);
+            if (ev !== e || !ev.cancelBubble) return;
+            var url = fragmentOf(ev, link);
+            if (url) follow(ev, url);
+        });
+    }, true);
+
+    // In the bubble phase on `window`: after the handlers on the link and on
+    // `document`, and before the handlers on `window` that a project script
+    // adds later.
+    window.addEventListener('click', function (e) {
+        var link = anchorOf(e);
+        var url = link ? fragmentOf(e, link) : null;
+        if (url) follow(e, url);
     });
 })();
 

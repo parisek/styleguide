@@ -86,12 +86,13 @@ export function useEntryLinks() {
             if (target && target.toLowerCase() !== '_self') return;
             // `link.href` is what the browser would follow: resolved against
             // the document's base URI, so a `<base href>` is honoured.
-            // A place in this very document (`#b`, which the server prefixes
-            // with the render URL when the render has a `<base>`) is left to the
-            // browser: a fragment navigation scrolls, fires `hashchange` and sets
-            // `:target`, as on the live site. Without this, a frame URL that
-            // names a locale or a theme moved the route to the same entry, and
-            // nothing scrolled.
+            // A place in this very document (`#b` in a render without a
+            // `<base>`, or the full URL of the render with a fragment) is left
+            // to the browser: a fragment navigation scrolls, fires `hashchange`
+            // and sets `:target`, as on the live site. Without this, a frame URL
+            // that names a locale or a theme moved the route to the same entry,
+            // and nothing scrolled. (With a `<base>`, `#b` resolves elsewhere;
+            // render-relay.js handles that click.)
             if (isSameDocument(link.href, win.location.href)) return;
             const entry = entryFromUrl(link.href, here);
             if (!entry) return;
