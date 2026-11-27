@@ -49,6 +49,8 @@ jobs:
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
           REQUIRED_WORKFLOWS: 'Tests,Lint PR Title'
+          # The Tests job whose rebuild must match the committed dist/.
+          DIST_CHECK: 'dist/ is reproducible from frontend/'
         run: |
           if [ -n "$HEAD_BRANCH" ]; then
             .github/scripts/dependabot-merge.sh "$HEAD_BRANCH" "$HEAD_SHA"

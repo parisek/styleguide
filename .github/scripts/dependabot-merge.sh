@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Squash-merges a Dependabot pull request that cannot reach the users of the
-# package: dev-only Composer or npm updates and GitHub Actions pins, minor or
+# package: dev-only Composer or npm updates (npm: the lockfile too) and GitHub Actions pins, minor or
 # patch only, after every check is green. Every other case prints
 # "SKIP: <reason>" and leaves the pull request to the owner.
 # Adapted from portadesign-mcp's scripts/agent/dependabot-merge.sh.
@@ -13,6 +13,9 @@
 #   SKIP_BRANCHES       regex: Dependabot branches left to the owner (optional)
 #   SKIP_DEPENDENCIES   space-separated package names left to the owner (optional)
 #   MERGE_TOKEN_SET=1   GH_TOKEN may merge a change of a workflow file
+#   DIST_CHECK          name of the check run that proves the built bundle did
+#                       not change; required when an npm lockfile changes a
+#                       runtime package
 set -euo pipefail
 
 repo=${GITHUB_REPOSITORY:?"GITHUB_REPOSITORY is not set"}
@@ -109,9 +112,23 @@ check() (
 	case "$kind" in
 		npm)
 			only '^([^/]+/)*package(-lock)?\.json$' || skip "#$number changes a file other than package.json and package-lock.json"
-			# The lockfile does not reach the users of a package; package.json outside devDependencies does.
+			# package.json outside devDependencies reaches the users. A lockfile-only
+			# update can still move a runtime package, direct or transitive, and the
+			# SPA bundle in dist/ is built from the lockfile. npm marks many build
+			# packages as runtime too (vue-router pulls in rolldown), so a changed
+			# runtime entry alone would send every vite update to the owner. What
+			# reaches the users is the bundle: a Dependabot pull request does not
+			# rebuild dist/, so DIST_CHECK passes only when the bundle stays the
+			# same. When a runtime entry changes, that check must have run and passed.
 			for f in $(jq -r '.[].filename | select(endswith("/package.json") or . == "package.json")' <<<"$files"); do
 				unchanged "$f" 'del(.devDependencies)' || skip "#$number changes $f outside devDependencies"
+			done
+			for f in $(jq -r '.[].filename | select(endswith("/package-lock.json") or . == "package-lock.json")' <<<"$files"); do
+				unchanged "$f" '(.packages // {}) | del(.[""]) | with_entries(select(.value.dev != true))' && continue
+				[ -n "${DIST_CHECK:-}" ] || skip "#$number changes a runtime package in $f and DIST_CHECK is not set"
+				jq -e --arg n "$DIST_CHECK" '[.check_runs[] | select(.name == $n)] | length > 0
+					and all(.[]; .status == "completed" and .conclusion == "success")' <<<"$runs" >/dev/null \
+					|| skip "#$number changes a runtime package in $f and has no successful \"$DIST_CHECK\" check"
 			done
 			;;
 		actions)
