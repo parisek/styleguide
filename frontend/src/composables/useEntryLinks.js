@@ -1,5 +1,5 @@
 import { useRoute, useRouter } from 'vue-router';
-import { entryFromUrl } from '../lib/entryLink.js';
+import { anchorOf, entryFromUrl, linkUrl } from '../lib/entryLink.js';
 import { useUiStore } from '../stores/ui.js';
 
 // Links between entries inside a preview iframe (#250). A page's menu links
@@ -80,12 +80,14 @@ export function useEntryLinks() {
         doc.addEventListener('click', (event) => {
             if (event.defaultPrevented || event.button !== 0) return;
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            const link = event.target?.closest?.('a[href]');
+            const link = anchorOf(event);
             if (!link || link.hasAttribute('download')) return;
+            const href = linkUrl(link);
+            if (!href) return;
             const target = link.getAttribute('target');
             if (target && target.toLowerCase() !== '_self') return;
-            // `link.href` is what the browser would follow: resolved against
-            // the document's base URI, so a `<base href>` is honoured.
+            // `href` is what the browser would follow: resolved against the
+            // document's base URI, so a `<base href>` is honoured.
             // A place in this very document (`#b` in a render without a
             // `<base>`, or the full URL of the render with a fragment) is left
             // to the browser: a fragment navigation scrolls, fires `hashchange`
@@ -93,13 +95,13 @@ export function useEntryLinks() {
             // that names a locale or a theme moved the route to the same entry,
             // and nothing scrolled. (With a `<base>`, `#b` resolves elsewhere;
             // render-relay.js handles that click.)
-            if (isSameDocument(link.href, win.location.href)) return;
-            const entry = entryFromUrl(link.href, here);
+            if (isSameDocument(href, win.location.href)) return;
+            const entry = entryFromUrl(href, here);
             if (!entry) return;
             if (isSelf(entry, landed)) {
                 // `<base>/page/x#team` on page x: the same document under its SPA
                 // URL. Followed, it would reload the frame and lose the place.
-                if (entry.hash && withoutHash(link.href) !== withoutHash(here)) {
+                if (entry.hash && withoutHash(href) !== withoutHash(here)) {
                     event.preventDefault();
                     scrollToId(doc, safeDecode(entry.hash.slice(1)));
                 }

@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Fixed
+
+- **An entry link inside SVG or a shadow root moves the SPA route** (#291). Inside a preview, the SPA turns a click on a link to another entry into a route change (#250). It looked the link up with `event.target.closest()` and read `link.href`, so it missed a link inside an open shadow root (the target there is the host) and an SVG `<a>` (its `href` is not a string). The browser then navigated the iframe, the route followed with `replace`, and Back skipped the previous entry. The SPA now finds the link in `composedPath()`, covers `<a>` and `<area>` in HTML and SVG (`href` or `xlink:href`), and resolves the link against the document base, as the browser does. A closed shadow root stays out of reach.
+
 ## [1.38.2] - 2026-11-27
 
 ### Fixed

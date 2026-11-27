@@ -47,3 +47,37 @@ export function entryFromUrl(href, from, base = baseUrl()) {
         hash: target.hash.length > 1 ? target.hash : null,
     };
 }
+
+const XLINK = 'http://www.w3.org/1999/xlink';
+
+// The `<a>` or `<area>` a click is on, also in SVG and inside an open shadow
+// root, or null. `event.target.closest()` misses both: at `document` the
+// target of a click in a shadow root is its host, and an SVG `<a>` is found
+// but has no string `href`.
+export function anchorOf(event) {
+    const path = typeof event?.composedPath === 'function' ? event.composedPath() : [event?.target];
+    for (const node of path) {
+        if (node?.nodeType === 1 && (node.localName === 'a' || node.localName === 'area') && rawHref(node) !== null) {
+            return node;
+        }
+    }
+    return null;
+}
+
+// The URL a link points at, resolved as the browser resolves it: against the
+// document base URI, so a `<base href>` is honoured. Null when it does not
+// parse. Works for HTML and SVG links (`href` or `xlink:href`).
+export function linkUrl(link) {
+    const raw = rawHref(link);
+    if (raw === null) return null;
+    try {
+        return new URL(raw.trim(), link.ownerDocument?.baseURI).href;
+    } catch {
+        return null;
+    }
+}
+
+function rawHref(node) {
+    const value = node.getAttribute('href') ?? node.getAttributeNS?.(XLINK, 'href') ?? null;
+    return value === '' ? null : value;
+}
