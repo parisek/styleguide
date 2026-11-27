@@ -1,1 +1,0 @@
-{"check_runs":[{"name":"t","app":{"slug":"github-actions"},"status":"completed","conclusion":"success"},{"name":"dist","app":{"slug":"github-actions"},"status":"completed","conclusion":"success"}]}

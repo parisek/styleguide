@@ -44,13 +44,23 @@ expect() {
 	if grep -qE "$2" <<<"$out"; then echo "ok   $1"; else echo "FAIL $1: $out"; fail=1; fi
 }
 
-expect npm-lock-dev-only-dist-green 'DRY RUN: would merge #7'
-expect npm-lock-dev-only 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
-expect npm-lock-runtime 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
-expect npm-lock-runtime 'SKIP: #7 changes a lockfile and DIST_CHECK is not set' ''
-expect npm-lock-runtime-dist-green 'DRY RUN: would merge #7'
-expect npm-lock-runtime-dist-other-app 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
-expect npm-lock-v1-dist-missing 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+# The lockfile rule reads only that a lockfile changed and the check runs,
+# so the cases differ in the check runs, not in the lockfile content.
+expect npm-lock-dist-green 'DRY RUN: would merge #7'
+expect npm-lock-no-dist 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+expect npm-lock-no-dist 'SKIP: #7 changes a lockfile and DIST_CHECK is not set' ''
+expect npm-lock-dist-skipped 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+expect npm-lock-dist-other-app 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+expect npm-lock-v1-no-dist 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
 expect npm-json-runtime 'SKIP: #7 changes frontend/package.json outside devDependencies'
 expect npm-json-dev-only 'DRY RUN: would merge #7'
+
+# DIST_CHECK in the merge workflow names a job of the Tests workflow, byte for byte.
+root=$(cd "$here/../.." && pwd)
+want=$(sed -n "s/^[[:space:]]*DIST_CHECK:[[:space:]]*'\(.*\)'[[:space:]]*$/\1/p" "$root/.github/workflows/dependabot-merge.yml")
+if [ -n "$want" ] && grep -qxF "    name: $want" "$root/.github/workflows/tests.yml"; then
+	echo "ok   DIST_CHECK names a Tests job"
+else
+	echo "FAIL DIST_CHECK '$want' is not the name of a job in tests.yml"; fail=1
+fi
 exit "$fail"
