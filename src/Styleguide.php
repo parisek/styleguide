@@ -135,6 +135,23 @@ final class Styleguide
     private int $acceptedRegistrations = 0;
 
     /**
+     * Function and filter names the host's own extensions define, read
+     * before the package adds anything. A bundled helper of the same name is
+     * not registered, so the host's version renders, as in production.
+     *
+     * @var array{functions: array<string, true>, filters: array<string, true>}
+     */
+    private array $hostHelperNames = ['functions' => [], 'filters' => []];
+
+    /**
+     * Bundled helpers a host definition shadows, as `name()` or `|name`.
+     * Read by {@see diagnostics()} for `styleguide doctor`.
+     *
+     * @var list<string>
+     */
+    private array $shadowedHelpers = [];
+
+    /**
      * Environments this package has already registered its helpers on.
      *
      * Weak on purpose: an entry must never be the reason a consumer's
@@ -432,6 +449,10 @@ final class Styleguide
         $this->twig = $this->config['twig'] instanceof Environment
             ? $this->attachLoaders($this->config['twig'], $this->roots)
             : $this->buildOwnTwig($this->roots);
+
+        // Before the package adds its own extensions: only what is on the
+        // environment now belongs to the host.
+        $this->hostHelperNames = self::hostHelperNames($this->twig);
 
         $this->registerBundledExtensionsOrExplain($this->twig);
 
@@ -1168,8 +1189,22 @@ final class Styleguide
             StyleguideRuntime::class => fn(): StyleguideRuntime => $this->twigRuntime,
         ]));
 
+        $collided = [];
         foreach ($extension->getFunctions() as $function) {
-            $added = $this->tryAddFunction($twig, $function);
+            $name = $function->getName();
+            if (isset($this->hostHelperNames['functions'][$name])) {
+                // A host extension defines this name. Twig initialises the
+                // staging extension last, so adding ours would override the
+                // host's: skip it. Not a refusal, so the locked-environment
+                // count does not see it.
+                $this->shadowedHelpers[] = $name . '()';
+                $added = false;
+            } else {
+                $added = $this->tryAddFunction($twig, $function);
+                if (!$added) {
+                    $collided[] = $name . '()';
+                }
+            }
 
             // ONLY these two may enter $unobservableFunctions. The array is
             // not a log of collisions: renderObserved() refuses outright
@@ -1200,8 +1235,70 @@ final class Styleguide
         }
 
         foreach ($extension->getFilters() as $filter) {
-            $this->tryAddFilter($twig, $filter);
+            $name = $filter->getName();
+            if (isset($this->hostHelperNames['filters'][$name])) {
+                $this->shadowedHelpers[] = '|' . $name;
+            } elseif (!$this->tryAddFilter($twig, $filter)) {
+                $collided[] = '|' . $name;
+            }
         }
+
+        // A refusal next to accepted helpers is a name the host added with
+        // `addFunction()` / `addFilter()`: the host's version wins there too.
+        // With nothing accepted, the refusals are a second construction's own
+        // footprint (or a closed environment, which is refused later).
+        if ($this->acceptedRegistrations > 0) {
+            array_push($this->shadowedHelpers, ...$collided);
+        }
+    }
+
+    /**
+     * Function and filter names the host's extensions on this environment
+     * define.
+     *
+     * Reads `getExtensions()` and each extension's own definitions. Neither
+     * initialises the environment, so a later `addFunction()` still works.
+     *
+     * Left out: Twig's own extensions, the package's own
+     * {@see StyleguideTwigExtension} (README § *If your environment is already
+     * initialised* tells a host to register it), and the extras the package
+     * registers itself when they are absent. A host that registers one of
+     * those extras gets what the package would have given it, and the
+     * package's helper of the same name keeps its place: `|format_date` stays
+     * the package's, not `IntlExtension`'s.
+     *
+     * @return array{functions: array<string, true>, filters: array<string, true>}
+     */
+    private static function hostHelperNames(Environment $twig): array
+    {
+        $notHost = [
+            CoreExtension::class,
+            EscaperExtension::class,
+            OptimizerExtension::class,
+            StyleguideTwigExtension::class,
+            \Parisek\Twig\TypographyExtension::class,
+            \Parisek\Twig\AttributeExtension::class,
+            \Twig\Extra\Intl\IntlExtension::class,
+            \Twig\Extra\String\StringExtension::class,
+            \Symfony\Bridge\Twig\Extension\DumpExtension::class,
+        ];
+
+        $names = ['functions' => [], 'filters' => []];
+        foreach ($twig->getExtensions() as $class => $extension) {
+            // By class name, not by namespace: a host's anonymous
+            // `extends AbstractExtension` reports a `Twig\\Extension\\…` name.
+            if (in_array($class, $notHost, true)) {
+                continue;
+            }
+            foreach ($extension->getFunctions() as $function) {
+                $names['functions'][$function->getName()] = true;
+            }
+            foreach ($extension->getFilters() as $filter) {
+                $names['filters'][$filter->getName()] = true;
+            }
+        }
+
+        return $names;
     }
 
     /**
@@ -1491,13 +1588,15 @@ final class Styleguide
     /**
      * Sibling of {@see tryAddFunction()} for filters.
      */
-    private function tryAddFilter(Environment $twig, TwigFilter $filter): void
+    private function tryAddFilter(Environment $twig, TwigFilter $filter): bool
     {
         try {
             $twig->addFilter($filter);
             $this->acceptedRegistrations++;
+            return true;
         } catch (\LogicException $e) {
             $this->recordRegistrationFailure($filter->getName(), $e);
+            return false;
         }
     }
 
@@ -2884,7 +2983,11 @@ final class Styleguide
      * while naming only the styleguide's own — so a consumer with its own
      * `create_attribute()` was never warned.
      *
-     * @return array{dist: string, paths: array<string, string>, helpers: list<string>}
+     * `shadowed` lists the bundled helpers a host definition replaced, as
+     * `name()` or `|name`. The host's version renders. Empty when the package
+     * built the environment and `twig_extensions` is not set.
+     *
+     * @return array{dist: string, paths: array<string, string>, helpers: list<string>, shadowed: list<string>}
      */
     public function diagnostics(): array
     {
@@ -2936,7 +3039,10 @@ final class Styleguide
         $helpers = array_keys(array_diff_key($helpers, $language));
         sort($helpers);
 
-        return ['dist' => $this->distRoot, 'paths' => $paths, 'helpers' => $helpers];
+        $shadowed = array_values(array_unique($this->shadowedHelpers));
+        sort($shadowed);
+
+        return ['dist' => $this->distRoot, 'paths' => $paths, 'helpers' => $helpers, 'shadowed' => $shadowed];
     }
 
     /**

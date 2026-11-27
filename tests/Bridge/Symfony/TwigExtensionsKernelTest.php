@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Parisek\Styleguide\Tests\Bridge\Symfony;
 
 use Parisek\Styleguide\Bridge\Symfony\StyleguideKernel;
+use Parisek\Styleguide\Tests\Support\HostHelpersExtension;
 use Parisek\Styleguide\Tests\Support\UrlExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -56,6 +57,30 @@ final class TwigExtensionsKernelTest extends TestCase
 
         self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
         self::assertStringContainsString('href="/about"', (string) $response->getContent());
+    }
+
+    #[Test]
+    public function a_host_helper_with_a_package_name_wins_in_production(): void
+    {
+        $response = $this->kernel(HostHelpersKernel::class, 'prod', false)
+            ->handle(Request::create('/styleguide/render/component/host-helpers'));
+        $html = (string) $response->getContent();
+
+        self::assertSame(200, $response->getStatusCode(), $html);
+        self::assertStringContainsString('data-placeholder="/host/placeholder.svg"', $html);
+        self::assertStringContainsString('data-resized="/host/resized/photo.jpg"', $html);
+    }
+
+    #[Test]
+    public function a_host_helper_with_a_package_name_wins_with_the_profiler_on(): void
+    {
+        $response = $this->kernel(HostHelpersKernel::class, 'dev', true)
+            ->handle(Request::create('/styleguide/render/component/host-helpers'));
+        $html = (string) $response->getContent();
+
+        self::assertSame(200, $response->getStatusCode(), $html);
+        self::assertStringContainsString('data-placeholder="/host/placeholder.svg"', $html);
+        self::assertStringContainsString('data-resized="/host/resized/photo.jpg"', $html);
     }
 
     #[Test]
@@ -120,5 +145,18 @@ final class TaggedOnlyKernel extends StyleguideKernel
     protected function configureProject(ContainerConfigurator $container): void
     {
         $container->services()->set('app.url_extension', UrlExtension::class)->tag('twig.extension');
+    }
+}
+
+/**
+ * A project kernel whose extension defines `placeholder()` and `|resizer`,
+ * two names the package defines too.
+ */
+final class HostHelpersKernel extends StyleguideKernel
+{
+    protected function configureProject(ContainerConfigurator $container): void
+    {
+        $container->services()->set('app.host_helpers', HostHelpersExtension::class);
+        $container->extension('styleguide', ['twig_extensions' => ['app.host_helpers']]);
     }
 }

@@ -6,6 +6,7 @@ namespace Parisek\Styleguide\Tests\Bridge\Symfony;
 
 use Parisek\Styleguide\Bridge\Symfony\DependencyInjection\TwigExtensionsPass;
 use Parisek\Styleguide\Bridge\Symfony\StyleguideBundle;
+use Parisek\Styleguide\Tests\Support\HostHelpersExtension;
 use Parisek\Styleguide\Tests\Support\NotAnExtension;
 use Parisek\Styleguide\Tests\Support\UrlExtension;
 use PHPUnit\Framework\Attributes\Test;
@@ -143,6 +144,19 @@ final class TwigExtensionsBundleTest extends TestCase
         self::assertSame(200, $response->getStatusCode(), $html);
         self::assertStringContainsString('href="/about"', $html);
         self::assertStringContainsString('data-build="/build"', $html);
+    }
+
+    #[Test]
+    public function a_host_helper_with_a_package_name_wins_in_the_bundle(): void
+    {
+        $kernel = $this->kernel(['test.host_helpers'], ['test.host_helpers' => HostHelpersExtension::class]);
+
+        $response = $kernel->handle(Request::create('/styleguide/render/component/host-helpers'));
+        $html = (string) $response->getContent();
+
+        self::assertSame(200, $response->getStatusCode(), $html);
+        self::assertStringContainsString('data-placeholder="/host/placeholder.svg"', $html);
+        self::assertStringContainsString('data-resized="/host/resized/photo.jpg"', $html);
     }
 
     #[Test]

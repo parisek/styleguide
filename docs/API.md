@@ -401,6 +401,8 @@ Adding new optional keys: **non-breaking**. Changing the default of `render`, or
 
 The package registers these on its pristine Twig env (or layers them on top of a consumer-supplied env). Removing or renaming any of them is **breaking**.
 
+**A host helper of the same name wins** (R5.15), for functions and filters, in every mode: an extension or an `addFunction()` / `addFilter()` on a `twig` environment before `Styleguide` is built, an extension in `twig_extensions`, and a service in `styleguide.twig_extensions` (micro-kernel and bundle). The package then does not register its own helper, so a component renders with the host's version, as in production. Not a host definition: the package's own `StyleguideTwigExtension` and the extras it registers itself when absent (`TypographyExtension`, `AttributeExtension`, `IntlExtension`, `StringExtension`, `DumpExtension`); `\|format_date` stays the package's even when the host registers `IntlExtension`. `diagnostics()['shadowed']` lists each shadowed helper (`placeholder()`, `\|resizer`), and `Doctor::runFor()` reports each as a `twig` notice. Before 1.39.0 the package helper won everywhere except `addFunction()` / `addFilter()` on a `twig` environment.
+
 | Name | Type | Purpose |
 |---|---|---|
 | `component_<name>(content = {})` | function | Render `@component/<name>/<name>.twig` with the given content array. Generated dynamically per-component-id discovered under `templates_path/component/`. `content` may be `null` (an optional sub-object a template passes through): it renders as `{}` and the render log gets a warning naming the caller template and line. A string or number still throws |

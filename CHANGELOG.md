@@ -8,6 +8,10 @@ Releases before [0.4.0] have moved to [`CHANGELOG-archive.md`](CHANGELOG-archive
 
 ## [Unreleased]
 
+### Changed
+
+- **A host Twig helper with the name of a package helper wins** (#267). A component now renders with the host's `placeholder()`, `\|resizer` or other same-named function or filter, as in production, in every mode: an extension in `twig_extensions`, a service in `styleguide.twig_extensions` (micro-kernel and bundle) and an extension on a `twig` environment. Before, the package helper won there without a message, because Twig initialises the functions added one at a time last. Only `addFunction()` / `addFilter()` on a `twig` environment already let the host win. The package's own `StyleguideTwigExtension` and the extras it registers itself (`IntlExtension` and the others) do not count, so `\|format_date` stays the package's. `diagnostics()['shadowed']` lists each shadowed helper and `Doctor::runFor()` reports each as a `twig` notice; `styleguide doctor` on the command line does not see `twig_extensions`. Specification R5.15.
+
 ### Fixed
 
 - **An entry link inside SVG or a shadow root moves the SPA route** (#291). Inside a preview, the SPA turns a click on a link to another entry into a route change (#250). It looked the link up with `event.target.closest()` and read `link.href`, so it missed a link inside an open shadow root (the target there is the host) and an SVG `<a>` (its `href` is not a string). The browser then navigated the iframe, the route followed with `replace`, and Back skipped the previous entry. The SPA now finds the link in `composedPath()`, covers `<a>` and `<area>` in HTML and SVG (`href` or `xlink:href`), and resolves the link against the document base, as the browser does (`href=""` counts as a link, and only C0 controls and spaces are stripped). A link without its own `target` now takes the one of `<base target>`, so such a link opens where the browser would open it. A closed shadow root stays out of reach.
