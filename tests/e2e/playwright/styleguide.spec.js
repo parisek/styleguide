@@ -307,6 +307,258 @@ test.describe('Styleguide SPA', () => {
         expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
     });
 
+    test('a fragment link in a render with <base href> scrolls in place (#289)', async ({ page }) => {
+        // The fixture sets `iframe.base_href: /`, so the browser resolves a bare
+        // `#x` to the site root. The render relay turns the click into a
+        // fragment navigation of the render. With a dark theme the frame URL
+        // carries a query, so the click must not move the route either.
+        for (const dark of [false, true]) {
+            await page.goto('/styleguide/doc/sample-doc');
+            if (dark) await page.getByTestId('iframe-theme-toggle').click();
+            const iframe = page.locator('iframe').first();
+            await expect(iframe).toHaveAttribute('src', dark ? /theme=dark/ : '/styleguide/render/doc/sample-doc');
+            const frame = page.frameLocator('iframe').first();
+            // The markup is the template's own.
+            await expect(frame.locator('#sg-fragment-link')).toHaveAttribute('href', '#sg-fragment-target');
+            await frame.locator('body').evaluate(() => {
+                window.sgMarker = 1;
+                window.addEventListener('hashchange', () => { window.sgHashChanged = true; });
+            });
+            await frame.locator('#sg-fragment-link').click();
+            await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
+            expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
+            expect(await frame.locator('body').evaluate(() => location.pathname)).toBe('/styleguide/render/doc/sample-doc');
+            await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
+            await expect.poll(() => frame.locator('body').evaluate(() => window.sgHashChanged === true)).toBe(true);
+            await expect(frame.locator('#sg-fragment-target:target')).toHaveCount(1);
+        }
+    });
+
+    test('a fragment link in a top-level render with <base href> stays on the render (#289)', async ({ page }) => {
+        await page.goto('/styleguide/render/doc/sample-doc?canvas=1');
+        await page.locator('#sg-fragment-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc\?canvas=1#sg-fragment-target$/);
+        await expect(page.locator('#sg-fragment-target')).toBeInViewport();
+    });
+
+    for (const navigation of [true, false]) {
+        test(`a project handler that prevents the default keeps the fragment click${navigation ? '' : ' without the Navigation API'} (#289)`, async ({ page }) => {
+            if (!navigation) await page.addInitScript(() => { Object.defineProperty(window, 'navigation', { value: undefined }); });
+            await page.goto('/styleguide/render/doc/sample-doc');
+            // A smooth-scroll handler that moves the URL itself.
+            await page.locator('#sg-fragment-link').evaluate((link) => {
+                link.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    window.sgOwn = true;
+                    history.pushState(null, '', link.getAttribute('href'));
+                });
+                window.addEventListener('hashchange', () => { window.sgHashChanged = true; });
+            });
+            await page.locator('#sg-fragment-link').click();
+            await expect.poll(() => page.evaluate(() => window.sgOwn === true)).toBe(true);
+            // The project's own pushState, resolved against the `<base>`, as it
+            // would be. The relay does not turn it into a fragment navigation.
+            expect(await page.evaluate(() => location.href)).toMatch(/^https?:\/\/[^/]+\/#sg-fragment-target$/);
+            expect(await page.evaluate(() => window.sgHashChanged === true)).toBe(false);
+        });
+    }
+
+    for (const navigation of [true, false]) {
+        test(`a project handler that only prevents the default leaves the render as it is${navigation ? '' : ' without the Navigation API'} (#289)`, async ({ page }) => {
+            if (!navigation) await page.addInitScript(() => { Object.defineProperty(window, 'navigation', { value: undefined }); });
+            await page.goto('/styleguide/render/doc/sample-doc');
+            await page.locator('#sg-fragment-link').evaluate((link) => {
+                link.addEventListener('click', (event) => { event.preventDefault(); window.sgOwn = true; });
+            });
+            await page.locator('#sg-fragment-link').click();
+            await expect.poll(() => page.evaluate(() => window.sgOwn === true)).toBe(true);
+            expect(await page.evaluate(() => location.href)).toMatch(/\/styleguide\/render\/doc\/sample-doc$/);
+        });
+    }
+
+    test('a project navigate listener runs before the relay and does not throw (#289)', async ({ page }) => {
+        const errors = [];
+        // The fixture ships no project script; WebKit reports its 404 as an error.
+        page.on('pageerror', (error) => { if (!error.message.includes('/dist/js/script.js')) errors.push(error.message); });
+        await page.goto('/styleguide/render/doc/sample-doc');
+        await page.evaluate(() => {
+            window.sgSeen = [];
+            navigation.addEventListener('navigate', (event) => {
+                window.sgSeen.push(event.defaultPrevented);
+            });
+        });
+        await page.locator('#sg-fragment-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc#sg-fragment-target$/);
+        // The project saw the link's navigation before the relay cancelled it.
+        expect((await page.evaluate(() => window.sgSeen))[0]).toBe(false);
+        expect(errors).toEqual([]);
+    });
+
+    test('a link to a place in the same dark render scrolls and keeps the route (#289)', async ({ page }) => {
+        // The full render URL with a fragment names this document. The frame URL
+        // carries `?theme=dark`, so the SPA used to move the route to the same
+        // entry, and the frame reloaded without its fragment.
+        await page.goto('/styleguide/doc/sample-doc');
+        await page.getByTestId('iframe-theme-toggle').click();
+        await expect(page.locator('iframe').first()).toHaveAttribute('src', /theme=dark/);
+        const frame = page.frameLocator('iframe').first();
+        const here = await frame.locator('body').evaluate(() => location.href.split('#')[0]);
+        await addLink(frame, `${here}#sg-fragment-target`);
+        await frame.locator('body').evaluate(() => { window.sgMarker = 1; });
+        await frame.locator('#sg-test-entry-link').click();
+        await expect(page).toHaveURL(/\/styleguide\/doc\/sample-doc$/);
+        expect(await frame.locator('body').evaluate(() => window.sgMarker)).toBe(1);
+        await expect(frame.locator('#sg-fragment-target')).toBeInViewport();
+    });
+
+    // Each case adds one link to the render, clicks it and expects the render
+    // to stay with `#sg-fragment-target`. `navigation: false` hides the
+    // Navigation API, so the click fallback of the relay runs.
+    const relayCases = {
+        'a repeat click': async (page) => {
+            await page.locator('#sg-fragment-link').click();
+            await page.evaluate(() => { window.scrollTo(0, 0); });
+            return '#sg-fragment-link';
+        },
+        'a handler on the link that stops propagation': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link')
+                .addEventListener('click', (event) => event.stopPropagation()));
+            return '#sg-fragment-link';
+        },
+        'an ancestor that stops propagation in the capture phase': async (page) => {
+            await page.evaluate(() => document.querySelector('article')
+                .addEventListener('click', (event) => event.stopPropagation(), true));
+            return '#sg-fragment-link';
+        },
+        'a child of the link that stops propagation': async (page) => {
+            await page.evaluate(() => {
+                const link = document.getElementById('sg-fragment-link');
+                link.innerHTML = '<span id="sg-case">To the end</span>';
+                document.getElementById('sg-case').addEventListener('click', (event) => event.stopPropagation());
+            });
+            return '#sg-case';
+        },
+        'an ancestor that stops propagation': async (page) => {
+            await page.evaluate(() => document.querySelector('article')
+                .addEventListener('click', (event) => event.stopPropagation()));
+            return '#sg-fragment-link';
+        },
+        'an SVG link': async (page) => {
+            await page.evaluate(() => {
+                const ns = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('width', '200');
+                svg.setAttribute('height', '40');
+                const a = document.createElementNS(ns, 'a');
+                a.setAttribute('href', '#sg-fragment-target');
+                a.id = 'sg-case';
+                const rect = document.createElementNS(ns, 'rect');
+                rect.setAttribute('width', '200');
+                rect.setAttribute('height', '40');
+                a.appendChild(rect);
+                svg.appendChild(a);
+                document.body.prepend(svg);
+            });
+            return '#sg-case rect';
+        },
+        'a link in an open shadow root': async (page) => {
+            await page.evaluate(() => {
+                const host = document.createElement('div');
+                host.id = 'sg-case';
+                host.attachShadow({ mode: 'open' }).innerHTML = '<a href="#sg-fragment-target">In shadow</a>';
+                document.body.prepend(host);
+            });
+            return '#sg-case >> text=In shadow';
+        },
+        'an SVG link with only xlink:href': async (page) => {
+            await page.evaluate(() => {
+                const ns = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('width', '200');
+                svg.setAttribute('height', '40');
+                const a = document.createElementNS(ns, 'a');
+                a.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '#sg-fragment-target');
+                a.id = 'sg-case';
+                const rect = document.createElementNS(ns, 'rect');
+                rect.setAttribute('width', '200');
+                rect.setAttribute('height', '40');
+                a.appendChild(rect);
+                svg.appendChild(a);
+                document.body.prepend(svg);
+            });
+            return '#sg-case rect';
+        },
+        'an image map area': async (page) => {
+            await page.evaluate(() => {
+                const map = document.createElement('map');
+                map.name = 'sg-map';
+                map.innerHTML = '<area id="sg-case" shape="rect" coords="0,0,200,40" href="#sg-fragment-target" alt="To the end">';
+                const img = document.createElement('img');
+                img.useMap = '#sg-map';
+                img.width = 200;
+                img.height = 40;
+                img.id = 'sg-map-img';
+                img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="40"/%3E';
+                document.body.prepend(map, img);
+            });
+            return '#sg-map-img';
+        },
+    };
+    const navigationOnlyCases = {
+        'a handler that dispatches another click first (a menu that closes itself)': async (page) => {
+            await page.evaluate(() => {
+                const toggle = document.createElement('button');
+                toggle.id = 'sg-menu-toggle';
+                toggle.addEventListener('click', () => { window.sgToggled = true; });
+                document.body.prepend(toggle);
+                document.getElementById('sg-fragment-link').addEventListener('click', () => toggle.click());
+            });
+            return '#sg-fragment-link';
+        },
+        'a handler that blocks for more than a second': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link').addEventListener('click', () => {
+                const until = Date.now() + 1200;
+                while (Date.now() < until) { /* busy */ }
+            }));
+            return '#sg-fragment-link';
+        },
+        'a handler that moves the URL with replaceState first': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link')
+                .addEventListener('click', () => history.replaceState(null, '', `${location.pathname}?tab=1`)));
+            return '#sg-fragment-link';
+        },
+        'a handler on the link that stops immediate propagation': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link')
+                .addEventListener('click', (event) => event.stopImmediatePropagation()));
+            return '#sg-fragment-link';
+        },
+    };
+    for (const navigation of [true, false]) {
+        const cases = navigation ? { ...relayCases, ...navigationOnlyCases } : relayCases;
+        for (const [name, arrange] of Object.entries(cases)) {
+            test(`the render relay keeps ${name} in the render${navigation ? '' : ' without the Navigation API'} (#289)`, async ({ page }) => {
+                const errors = [];
+                // The fixture ships no project script; WebKit reports its 404 as an error.
+                page.on('pageerror', (error) => { if (!error.message.includes('/dist/js/script.js')) errors.push(error.message); });
+                if (!navigation) await page.addInitScript(() => { Object.defineProperty(window, 'navigation', { value: undefined }); });
+                await page.goto('/styleguide/render/doc/sample-doc');
+                const selector = await arrange(page);
+                await page.evaluate(() => {
+                    window.sgSeen = null;
+                    window.addEventListener('click', (event) => { window.sgSeen = event.defaultPrevented; });
+                });
+                await page.locator(selector).click();
+                await expect(page).toHaveURL(/\/styleguide\/render\/doc\/sample-doc(\?tab=1)?#sg-fragment-target$/);
+                await expect(page.locator('#sg-fragment-target')).toBeInViewport();
+                if (navigation && !name.includes('propagation')) {
+                    // The project sees the click as on the live site.
+                    expect(await page.evaluate(() => window.sgSeen)).toBe(false);
+                }
+                expect(errors).toEqual([]);
+            });
+        }
+    }
+
     test('a relative entry link resolves against the iframe <base href>, and Back returns', async ({ page }) => {
         // The fixture sets `iframe.base_href: /`, so `styleguide/page/contact`
         // means /styleguide/page/contact for the browser, not a path below the render.

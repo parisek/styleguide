@@ -25,6 +25,11 @@ export default defineConfig({
     },
     projects: [
         { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+        // The fragment fix of the render relay (#289) depends on when each
+        // engine fires the Navigation API `navigate` event, so its tests run
+        // in all three engines.
+        { name: 'firefox', grep: /#289/, use: { ...devices['Desktop Firefox'] } },
+        { name: 'webkit', grep: /#289/, use: { ...devices['Desktop Safari'] } },
     ],
     // Reuses the exact boot command tests/e2e/run.sh already uses for Layer A/B
     // (php -S 127.0.0.1:8421 -t tests/fixtures tests/fixtures/index.php) so

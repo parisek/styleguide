@@ -512,6 +512,7 @@ iframe:
   body_class: ""                           # optional — <body> class
   page_wrapper_class: ""                   # optional — wrapper <div> class for page renders only (see below)
   base_href: "/"                           # optional — affects relative URLs inside the iframe
+                                           # (a click on a `#x` link still scrolls inside the render)
 
 # Optional data consumed by the overview screen. All keys optional; missing
 # blocks simply hide their section.
@@ -879,6 +880,8 @@ Unlike the four endpoints above, the response is an **object**, not a bare array
 Every preview reports its JavaScript errors to the catalogue: uncaught errors, unhandled promise rejections, `console.error` calls and files that failed to load (a script, a stylesheet, an image). They appear under the same warning badge as the skipped templates, in their own section "JavaScript na této stránce", and a small mark on the variant tile or compare column says where. Identical errors from several tiles or widths make one row with the list of places, so an error that only happens at 320 px is visible as such.
 
 A small script does the reporting: `dist/render-relay.js`, served under `<mount>/assets/` and loaded by `render-cell.twig` as the first script in `<head>`. It runs before any project script, so start-up errors are caught too. It is a file, not an inline script, so a `Content-Security-Policy` of `script-src 'self'` lets it run. It posts only when the preview is framed, only to its own origin, and reports the first 50 errors of a document; the dialog then says the list is cut. `console.error` still reaches the browser console. An error belongs to its iframe: switching entry, theme or locale, reloading, unticking a compare width or isolating a variant clears it, and so does a link clicked inside a preview, also when it leads to a page without the relay. A script from another origin without CORS yields only "Script error.", which the dialog says. The reports are a convenience, not a security boundary: a preview's own scripts could post the same messages. Nothing to configure.
+
+The same script keeps a fragment link in its preview when `iframe.base_href` is set. The `<base>` is also the base of a bare `#x`, so with `base_href: "/"` such a link would open the site root. The script turns that navigation into a fragment navigation of the preview, so the link scrolls, fires `hashchange` and sets `:target`, as on the live site. It does not change the markup. With the Navigation API it acts on the navigation after every click handler of the project, and after every `navigate` listener the project added before the click, has run, so the project sees the click event unchanged; a handler that prevents the default keeps its click. Without the API it acts on the click in the bubble phase on `window`, and also when a handler on the way stops propagation; two gaps stay there: `stopImmediatePropagation()` before the relay's listener, and a project listener on `window` that sees the click as prevented. Middle-click and "copy link" still give the URL the `<base>` makes.
 
 ### `GET /styleguide/api/source/<kind>/<slug>[?variant=<id>]`
 
