@@ -461,11 +461,12 @@ final class Styleguide
             ? $this->attachLoaders($this->config['twig'], $this->roots)
             : $this->buildOwnTwig($this->roots);
 
-        // Before the package adds its own extensions: only what is on the
-        // environment now belongs to the host.
-        $this->hostHelperNames = self::hostHelperNames($this->twig);
-
         $this->registerBundledExtensionsOrExplain($this->twig);
+
+        // After the extras, before the helpers: an extra the package just
+        // added comes after every host extension, so it wins over a host
+        // name it shares, and hostHelperNames() must see it.
+        $this->hostHelperNames = self::hostHelperNames($this->twig);
 
         // A runtime already on this environment, on an environment this
         // package has registered on before, belongs to an earlier
@@ -1275,17 +1276,15 @@ final class Styleguide
      * initialises the environment, so a later `addFunction()` still works.
      *
      * Order counts. Twig initialises extensions in registration order, and a
-     * later definition replaces an earlier one. So a pre-registered
-     * {@see StyleguideTwigExtension} (README § *If your environment is already
-     * initialised*) removes the names it defines from the
-     * host extensions before it: those render the package's version. Only a
-     * host extension after it wins.
+     * later definition replaces an earlier one. So a package-side extension
+     * (a pre-registered {@see StyleguideTwigExtension}, README § *If your
+     * environment is already initialised*, or one of the extras) removes the
+     * names it defines from the host extensions before it: those do not
+     * render. Only a host extension after it wins. The package adds the
+     * extras it registers itself after every host extension, so a host
+     * `|format_date` loses to `IntlExtension` and the package keeps its own.
      *
-     * Left out: Twig's own extensions and the extras the package registers
-     * itself when they are absent. A host that registers one of
-     * those extras gets what the package would have given it, and the
-     * package's helper of the same name keeps its place: `|format_date` stays
-     * the package's, not `IntlExtension`'s.
+     * Left out: Twig's own extensions.
      *
      * @return array{functions: array<string, true>, filters: array<string, true>}
      */
@@ -1295,6 +1294,8 @@ final class Styleguide
             CoreExtension::class,
             EscaperExtension::class,
             OptimizerExtension::class,
+        ];
+        $packageSide = [
             \Parisek\Twig\TypographyExtension::class,
             \Parisek\Twig\AttributeExtension::class,
             \Twig\Extra\Intl\IntlExtension::class,
@@ -1304,7 +1305,7 @@ final class Styleguide
 
         $names = ['functions' => [], 'filters' => []];
         foreach ($twig->getExtensions() as $class => $extension) {
-            if ($extension instanceof StyleguideTwigExtension) {
+            if ($extension instanceof StyleguideTwigExtension || in_array($class, $packageSide, true)) {
                 foreach ($extension->getFunctions() as $function) {
                     unset($names['functions'][$function->getName()]);
                 }
@@ -2678,7 +2679,7 @@ final class Styleguide
     {
         if ($this->unobservableFunctions !== [] && !$this->observationIsWiredIn()) {
             throw new \LogicException(sprintf(
-                'Styleguide::renderObserved(): cannot observe this render — the package could not register %s. '
+                'Styleguide::renderObserved(): cannot observe this render — the package did not register %s. '
                 . 'A host definition of that name (on the `twig` environment, in `twig_extensions` or in a '
                 . '`styleguide.twig_extensions` service) or a locked extension set was already present before '
                 . 'Styleguide was constructed, and a host definition wins (R5.15). renderObserved() requires exclusive control '

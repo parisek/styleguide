@@ -92,6 +92,26 @@ final class HostHelperCollisionTest extends TestCase
     }
 
     #[Test]
+    public function a_host_filter_an_extra_also_defines_loses_and_is_not_reported(): void
+    {
+        // The package adds IntlExtension after every host extension, so a
+        // host `|format_date` never renders. The report must not claim it.
+        if (!class_exists(\Twig\Extra\Intl\IntlExtension::class)) {
+            self::markTestSkipped('twig/intl-extra is not installed.');
+        }
+        $host = new class extends AbstractExtension {
+            public function getFilters(): array
+            {
+                return [new TwigFilter('format_date', static fn(): string => 'host-date')];
+            }
+        };
+        $sg = Styleguide::fromYaml(self::YAML, ['twig_extensions' => [$host]]);
+
+        self::assertSame('1. 2. 2026', trim($sg->renderTemplate('@component/host-helpers/date.twig')));
+        self::assertSame([], $sg->diagnostics()['shadowed']);
+    }
+
+    #[Test]
     public function a_second_construction_on_one_environment_reports_nothing(): void
     {
         $twig = new Environment(new ArrayLoader());
@@ -218,7 +238,7 @@ final class HostHelperCollisionTest extends TestCase
         self::assertSame(['component_*()'], $sg->diagnostics()['shadowed']);
 
         $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('the package could not register component_*');
+        $this->expectExceptionMessage('the package did not register component_*');
         $sg->renderObserved('component', 'host-helpers');
     }
 }
