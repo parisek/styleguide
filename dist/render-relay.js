@@ -84,10 +84,10 @@
         // Capture on `window`, the first listener of the document: it only
         // notes the link, and adds a `navigate` listener for this click alone.
         // Added now, after the project's own `navigate` listeners, it runs
-        // last, so a project router sees the navigation first.
-        var drop = null;
+        // last, so a project router sees the navigation first. Each click has
+        // its own listener: a handler may dispatch another click before the
+        // link navigates (a menu link that calls `toggle.click()`).
         window.addEventListener('click', function (click) {
-            if (drop) drop();
             var link = anchorOf(click);
             var noted = link ? fragmentOf(click, link) : null;
             if (!noted) return;
@@ -100,6 +100,11 @@
                 if ('sourceElement' in e) return e.sourceElement === link;
                 return e.userInitiated !== false;
             }
+            var timer;
+            function drop() {
+                navigation.removeEventListener('navigate', onNavigate);
+                clearTimeout(timer);
+            }
             function onNavigate(e) {
                 if (click.defaultPrevented || !isTheLink(e)) return;
                 drop();
@@ -108,14 +113,10 @@
                 go(noted.fragment);
             }
             // Chromium starts the link's navigation in the same task as the
-            // click; Firefox and WebKit start it after a `setTimeout(0)`. So the
-            // listener stays until it acts, the next click, or one second.
-            var timer = setTimeout(function () { if (drop) drop(); }, 1000);
-            drop = function () {
-                navigation.removeEventListener('navigate', onNavigate);
-                clearTimeout(timer);
-                drop = null;
-            };
+            // click; Firefox and WebKit start it after the click task, so after
+            // the project's handlers, however long they run. The listener stays
+            // until it acts or for five seconds.
+            timer = setTimeout(drop, 5000);
             navigation.addEventListener('navigate', onNavigate);
         }, true);
         return;

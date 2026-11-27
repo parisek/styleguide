@@ -379,7 +379,7 @@ test.describe('Styleguide SPA', () => {
     test('a project navigate listener runs before the relay and does not throw (#289)', async ({ page }) => {
         const errors = [];
         // The fixture ships no project script; WebKit reports its 404 as an error.
-                page.on('pageerror', (error) => { if (!error.message.includes('/dist/js/script.js')) errors.push(error.message); });
+        page.on('pageerror', (error) => { if (!error.message.includes('/dist/js/script.js')) errors.push(error.message); });
         await page.goto('/styleguide/render/doc/sample-doc');
         await page.evaluate(() => {
             window.sgSeen = [];
@@ -505,6 +505,23 @@ test.describe('Styleguide SPA', () => {
         },
     };
     const navigationOnlyCases = {
+        'a handler that dispatches another click first (a menu that closes itself)': async (page) => {
+            await page.evaluate(() => {
+                const toggle = document.createElement('button');
+                toggle.id = 'sg-menu-toggle';
+                toggle.addEventListener('click', () => { window.sgToggled = true; });
+                document.body.prepend(toggle);
+                document.getElementById('sg-fragment-link').addEventListener('click', () => toggle.click());
+            });
+            return '#sg-fragment-link';
+        },
+        'a handler that blocks for more than a second': async (page) => {
+            await page.evaluate(() => document.getElementById('sg-fragment-link').addEventListener('click', () => {
+                const until = Date.now() + 1200;
+                while (Date.now() < until) { /* busy */ }
+            }));
+            return '#sg-fragment-link';
+        },
         'a handler that moves the URL with replaceState first': async (page) => {
             await page.evaluate(() => document.getElementById('sg-fragment-link')
                 .addEventListener('click', () => history.replaceState(null, '', `${location.pathname}?tab=1`)));
