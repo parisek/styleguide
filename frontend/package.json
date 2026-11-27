@@ -10,20 +10,20 @@
         "test:e2e": "NODE_PATH=./node_modules playwright test"
     },
     "devDependencies": {
-        "@playwright/test": "^1.65.0",
+        "@playwright/test": "^1.65.1",
         "@tailwindcss/vite": "^4.3.5",
-        "@vitejs/plugin-vue": "^6.0.10",
-        "@vue/test-utils": "^2.5.1",
+        "@vitejs/plugin-vue": "^6.0.11",
+        "@vue/test-utils": "^2.6.0",
         "jsdom": "^30.1.3",
         "tailwindcss": "^4.3.5",
-        "vite": "^8.3.7",
-        "vitest": "^5.1.0"
+        "vite": "^8.3.8",
+        "vitest": "^5.1.1"
     },
     "dependencies": {
         "pinia": "^4.1.0",
         "prismjs": "^1.30.0",
-        "vue": "^3.5.45",
-        "vue-router": "^5.3.1"
+        "vue": "^3.5.46",
+        "vue-router": "^5.5.1"
     },
     "engines": {
         "node": ">=22.18.0"
