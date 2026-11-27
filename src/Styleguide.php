@@ -2678,13 +2678,14 @@ final class Styleguide
     {
         if ($this->unobservableFunctions !== [] && !$this->observationIsWiredIn()) {
             throw new \LogicException(sprintf(
-                'Styleguide::renderObserved(): cannot observe this render — %s could not be registered on the '
-                . 'supplied Twig environment, because a function of that name (or a locked extension set) was '
-                . 'already present before Styleguide was constructed. renderObserved() requires exclusive control '
+                'Styleguide::renderObserved(): cannot observe this render — the package could not register %s. '
+                . 'A host definition of that name (on the `twig` environment, in `twig_extensions` or in a '
+                . '`styleguide.twig_extensions` service) or a locked extension set was already present before '
+                . 'Styleguide was constructed, and a host definition wins (R5.15). renderObserved() requires exclusive control '
                 . 'of component_*/page_* to record a trace, and a partial/silent trace would be worse than this '
                 . 'refusal. Fix: construct Styleguide with a pristine environment (omit the `twig` config key, '
-                . 'the package builds its own), or, if a shared environment is required, do not pre-register '
-                . 'component_*/page_* on it before constructing Styleguide — the package registers its own '
+                . 'the package builds its own), or, if a shared environment is required, do not define '
+                . 'component_*/page_* in it or in twig_extensions — the package registers its own '
                 . '(honouring any OTHER pre-registered helper, e.g. real WP __()) and both run() and '
                 . 'renderObserved() work off the same wiring. This does not affect run()\'s HTTP path, which '
                 . 'keeps rendering with whichever component_*/page_* won the registration race.',

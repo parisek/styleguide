@@ -216,5 +216,9 @@ final class HostHelperCollisionTest extends TestCase
 
         self::assertSame('host:linked', trim($sg->renderTemplate('@component/host-helpers/component-call.twig')));
         self::assertSame(['component_*()'], $sg->diagnostics()['shadowed']);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('the package could not register component_*');
+        $sg->renderObserved('component', 'host-helpers');
     }
 }
