@@ -157,7 +157,7 @@ jobs:
       - name: Validate the ADR directory against the index
         run: python3 scripts/check-adr-index.py
 
-  dependabot-merge:
+  dependabot-merge-rules:
     runs-on: ubuntu-latest
     name: dependabot-merge.sh rules
     steps:

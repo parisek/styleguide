@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Squash-merges a Dependabot pull request that cannot reach the users of the
-# package: dev-only Composer or npm updates (npm: the lockfile too) and GitHub Actions pins, minor or
+# package: dev-only Composer or npm updates (npm: a lockfile change only with
+# an unchanged dist/ bundle) and GitHub Actions pins, minor or
 # patch only, after every check is green. Every other case prints
 # "SKIP: <reason>" and leaves the pull request to the owner.
 # Adapted from portadesign-mcp's scripts/agent/dependabot-merge.sh.
@@ -14,8 +15,7 @@
 #   SKIP_DEPENDENCIES   space-separated package names left to the owner (optional)
 #   MERGE_TOKEN_SET=1   GH_TOKEN may merge a change of a workflow file
 #   DIST_CHECK          name of the check run that proves the built bundle did
-#                       not change; required when an npm lockfile changes a
-#                       runtime package
+#                       not change; required when an npm lockfile changes
 set -euo pipefail
 
 repo=${GITHUB_REPOSITORY:?"GITHUB_REPOSITORY is not set"}
@@ -112,24 +112,22 @@ check() (
 	case "$kind" in
 		npm)
 			only '^([^/]+/)*package(-lock)?\.json$' || skip "#$number changes a file other than package.json and package-lock.json"
-			# package.json outside devDependencies reaches the users. A lockfile-only
-			# update can still move a runtime package, direct or transitive, and the
-			# SPA bundle in dist/ is built from the lockfile. npm marks many build
-			# packages as runtime too (vue-router pulls in rolldown), so a changed
-			# runtime entry alone would send every vite update to the owner. What
-			# reaches the users is the bundle: a Dependabot pull request does not
-			# rebuild dist/, so DIST_CHECK passes only when the bundle stays the
-			# same. When a runtime entry changes, that check must have run and passed.
+			# package.json outside devDependencies reaches the users. The lockfile
+			# reaches them through dist/: the SPA bundle is built from it, by dev
+			# packages (vite, tailwind) and from runtime ones (vue). A Dependabot pull
+			# request does not rebuild dist/, so the DIST_CHECK job passes only when
+			# the bundle stays the same. Every lockfile change needs that job, run by
+			# GitHub Actions and green; any lockfile version, any entry.
 			for f in $(jq -r '.[].filename | select(endswith("/package.json") or . == "package.json")' <<<"$files"); do
 				unchanged "$f" 'del(.devDependencies)' || skip "#$number changes $f outside devDependencies"
 			done
-			for f in $(jq -r '.[].filename | select(endswith("/package-lock.json") or . == "package-lock.json")' <<<"$files"); do
-				unchanged "$f" '(.packages // {}) | del(.[""]) | with_entries(select(.value.dev != true))' && continue
-				[ -n "${DIST_CHECK:-}" ] || skip "#$number changes a runtime package in $f and DIST_CHECK is not set"
-				jq -e --arg n "$DIST_CHECK" '[.check_runs[] | select(.name == $n)] | length > 0
-					and all(.[]; .status == "completed" and .conclusion == "success")' <<<"$runs" >/dev/null \
-					|| skip "#$number changes a runtime package in $f and has no successful \"$DIST_CHECK\" check"
-			done
+			if jq -e 'any(.[]; .filename | test("(^|/)package-lock\\.json$"))' <<<"$files" >/dev/null; then
+				[ -n "${DIST_CHECK:-}" ] || skip "#$number changes a lockfile and DIST_CHECK is not set"
+				jq -e --arg n "$DIST_CHECK" '[.check_runs[] | select(.name == $n)]
+					| length > 0 and all(.[]; .app.slug == "github-actions"
+						and .status == "completed" and .conclusion == "success")' <<<"$runs" >/dev/null \
+					|| skip "#$number changes a lockfile and has no successful \"$DIST_CHECK\" check from GitHub Actions"
+			fi
 			;;
 		actions)
 			only '^\.github/workflows/[^/]+\.ya?ml$' || skip "#$number changes a file outside .github/workflows"
@@ -164,7 +162,7 @@ check() (
 	api -X PUT "repos/$repo/pulls/$number/merge" \
 		-f merge_method=squash -f sha="$sha" \
 		-f commit_title="$title (#$number)" \
-		-f commit_message="Merged by dependabot-merge.yml: a dev-only minor or patch update with green checks." >/dev/null \
+		-f commit_message="Merged by dependabot-merge.yml: a minor or patch update that does not reach the users (dev-only, or an unchanged dist/ bundle), with green checks." >/dev/null \
 		|| { echo "FAIL: GitHub refused to merge #$number"; exit 1; }
 )
 

@@ -44,9 +44,13 @@ expect() {
 	if grep -qE "$2" <<<"$out"; then echo "ok   $1"; else echo "FAIL $1: $out"; fail=1; fi
 }
 
-expect npm-lock-dev-only 'DRY RUN: would merge #7'
-expect npm-lock-runtime 'SKIP: #7 changes a runtime package in frontend/package-lock.json and has no successful "dist" check'
-expect npm-lock-runtime 'SKIP: #7 changes a runtime package in frontend/package-lock.json and DIST_CHECK is not set' ''
+expect npm-lock-dev-only-dist-green 'DRY RUN: would merge #7'
+expect npm-lock-dev-only 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+expect npm-lock-runtime 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+expect npm-lock-runtime 'SKIP: #7 changes a lockfile and DIST_CHECK is not set' ''
 expect npm-lock-runtime-dist-green 'DRY RUN: would merge #7'
+expect npm-lock-runtime-dist-other-app 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
+expect npm-lock-v1-dist-missing 'SKIP: #7 changes a lockfile and has no successful "dist" check from GitHub Actions'
 expect npm-json-runtime 'SKIP: #7 changes frontend/package.json outside devDependencies'
+expect npm-json-dev-only 'DRY RUN: would merge #7'
 exit "$fail"
