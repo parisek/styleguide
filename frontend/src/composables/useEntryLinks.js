@@ -84,7 +84,8 @@ export function useEntryLinks() {
             if (!link || link.hasAttribute('download')) return;
             const href = linkUrl(link);
             if (!href) return;
-            const target = link.getAttribute('target');
+            // A link without its own target takes the one of `<base target>`.
+            const target = link.getAttribute('target') ?? doc.querySelector('base[target]')?.getAttribute('target');
             if (target && target.toLowerCase() !== '_self') return;
             // `href` is what the browser would follow: resolved against the
             // document's base URI, so a `<base href>` is honoured.

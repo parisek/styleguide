@@ -640,6 +640,19 @@ test.describe('Styleguide SPA', () => {
         });
     }
 
+    test('an entry link under <base target="_blank"> is left to the browser (#291)', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact');
+        await frame.locator('body').evaluate(() => {
+            const base = document.querySelector('base') ?? document.head.appendChild(document.createElement('base'));
+            base.setAttribute('target', '_blank');
+        });
+        const [popup] = await Promise.all([page.waitForEvent('popup'), frame.locator('#sg-test-entry-link').click()]);
+        await popup.close();
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing$/);
+    });
+
     test('a link opened in a new tab or to the same entry is left to the browser', async ({ page }) => {
         await page.goto('/styleguide/page/pricing');
         const frame = page.frameLocator('iframe').first();

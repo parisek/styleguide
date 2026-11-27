@@ -92,6 +92,26 @@ describe('anchorOf and linkUrl', () => {
         expect(linkUrl(click(document.getElementById('tx')))).toBe(new URL('/styleguide/page/x', document.baseURI).href);
     });
 
+    it('takes an inner link with href="" as the browser does', () => {
+        document.body.innerHTML = '<a id="outer" href="/styleguide/page/about"><span><a id="inner" href=""><b id="b">x</b></a></span></a>';
+        const inner = document.getElementById('inner');
+        // The parser does not nest <a>; build the nesting by hand.
+        const outer = document.getElementById('outer');
+        if (!outer.contains(inner)) outer.appendChild(inner);
+        expect(click(document.getElementById('b'))?.id).toBe('inner');
+        expect(linkUrl(inner)).toBe(new URL('', document.baseURI).href);
+    });
+
+    it('strips only C0 controls and spaces around the href', () => {
+        document.body.innerHTML = '<a id="w" href=" /styleguide/page/about&#160;\n">x</a>';
+        expect(linkUrl(document.getElementById('w'))).toBe(new URL('/styleguide/page/about%C2%A0', document.baseURI).href);
+    });
+
+    it('walks the ancestors when the event has no composedPath', () => {
+        document.body.innerHTML = '<a id="a" href="/styleguide/page/about"><span id="s">About</span></a>';
+        expect(anchorOf({ target: document.getElementById('s') })?.id).toBe('a');
+    });
+
     it('gives null for a link without an href and for no link', () => {
         document.body.innerHTML = '<a id="n">No href</a><p id="p">Text</p>';
         expect(click(document.getElementById('n'))).toBeNull();
