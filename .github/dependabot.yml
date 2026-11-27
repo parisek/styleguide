@@ -12,7 +12,8 @@
 #
 # Auto-merge: .github/workflows/dependabot-merge.yml squash-merges a pull
 # request when every update is minor or patch, it touches only dev
-# dependencies or action pins, and every check is green. Everything else
+# dependencies, an npm lockfile whose built dist/ bundle stays the same, or
+# action pins, and every check is green. Everything else
 # waits for the owner's review; green CI is not enough there.
 version: 2
 updates:

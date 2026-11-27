@@ -157,6 +157,15 @@ jobs:
       - name: Validate the ADR directory against the index
         run: python3 scripts/check-adr-index.py
 
+  dependabot-merge-rules:
+    runs-on: ubuntu-latest
+    name: dependabot-merge.sh rules
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run the merge rules against a stub GitHub API
+        run: bash .github/scripts/dependabot-merge.test.sh
+
   changelog-links:
     runs-on: ubuntu-latest
     name: CHANGELOG link references match the tags
