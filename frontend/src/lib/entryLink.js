@@ -47,3 +47,48 @@ export function entryFromUrl(href, from, base = baseUrl()) {
         hash: target.hash.length > 1 ? target.hash : null,
     };
 }
+
+const XLINK = 'http://www.w3.org/1999/xlink';
+
+// The `<a>` or `<area>` a click is on, also in SVG and inside an open shadow
+// root, or null. `event.target.closest()` misses both: at `document` the
+// target of a click in a shadow root is its host, and an SVG `<a>` is found
+// but has no string `href`.
+export function anchorOf(event) {
+    const path = typeof event?.composedPath === 'function' ? event.composedPath() : ancestors(event?.target);
+    for (const node of path) {
+        if (node?.nodeType === 1 && (node.localName === 'a' || node.localName === 'area') && rawHref(node) !== null) {
+            return node;
+        }
+    }
+    return null;
+}
+
+// The URL a link points at, resolved as the browser resolves it: against the
+// document base URI, so a `<base href>` is honoured. Null when it does not
+// parse. Works for HTML and SVG links (`href` or `xlink:href`).
+export function linkUrl(link) {
+    const raw = rawHref(link);
+    if (raw === null) return null;
+    try {
+        // As the URL parser: strip leading and trailing C0 controls and spaces
+        // only. `trim()` would also strip U+00A0, which the browser keeps.
+        return new URL(raw.replace(/^[\u0000-\u0020]+|[\u0000-\u0020]+$/g, ''), link.ownerDocument?.baseURI).href;
+    } catch {
+        return null;
+    }
+}
+
+// The `href` value, or null when the node has none. `href=""` is a link to
+// the current document, as in the browser, and an SVG `href` wins over
+// `xlink:href`.
+function rawHref(node) {
+    if (node.hasAttribute('href')) return node.getAttribute('href');
+    return node.getAttributeNS?.(XLINK, 'href') ?? null;
+}
+
+function ancestors(node) {
+    const path = [];
+    for (let at = node; at; at = at.parentNode) path.push(at);
+    return path;
+}

@@ -604,6 +604,55 @@ test.describe('Styleguide SPA', () => {
         await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
     });
 
+    for (const kind of ['svg', 'shadow']) {
+        test(`an entry link in ${kind === 'svg' ? 'an SVG' : 'an open shadow root'} moves the SPA route and keeps history (#291)`, async ({ page }) => {
+            await page.goto('/styleguide/page/pricing');
+            const frame = page.frameLocator('iframe').first();
+            await addLink(frame, '#unused');
+            await frame.locator('body').evaluate((body, k) => {
+                if (k === 'svg') {
+                    const ns = 'http://www.w3.org/2000/svg';
+                    const svg = document.createElementNS(ns, 'svg');
+                    svg.setAttribute('width', '200');
+                    svg.setAttribute('height', '40');
+                    svg.style.cssText = 'display:block;position:relative;z-index:99999';
+                    const a = document.createElementNS(ns, 'a');
+                    a.setAttribute('href', '/styleguide/page/contact');
+                    const rect = document.createElementNS(ns, 'rect');
+                    rect.setAttribute('width', '200');
+                    rect.setAttribute('height', '40');
+                    rect.id = 'sg-case';
+                    a.appendChild(rect);
+                    svg.appendChild(a);
+                    body.prepend(svg);
+                } else {
+                    const host = document.createElement('div');
+                    host.id = 'sg-case-host';
+                    host.style.cssText = 'display:block;position:relative;z-index:99999;background:#fff';
+                    host.attachShadow({ mode: 'open' }).innerHTML = '<a href="/styleguide/page/contact">Contact in shadow</a>';
+                    body.prepend(host);
+                }
+            }, kind);
+            await (kind === 'svg' ? frame.locator('#sg-case') : frame.locator('#sg-case-host').getByText('Contact in shadow')).click();
+            await expect(page).toHaveURL(/\/styleguide\/page\/contact$/);
+            await page.goBack();
+            await expect(page).toHaveURL(/\/styleguide\/page\/pricing$/);
+        });
+    }
+
+    test('an entry link under <base target="_blank"> is left to the browser (#291)', async ({ page }) => {
+        await page.goto('/styleguide/page/pricing');
+        const frame = page.frameLocator('iframe').first();
+        await addLink(frame, '/styleguide/page/contact');
+        await frame.locator('body').evaluate(() => {
+            const base = document.querySelector('base') ?? document.head.appendChild(document.createElement('base'));
+            base.setAttribute('target', '_blank');
+        });
+        const [popup] = await Promise.all([page.waitForEvent('popup'), frame.locator('#sg-test-entry-link').click()]);
+        await popup.close();
+        await expect(page).toHaveURL(/\/styleguide\/page\/pricing$/);
+    });
+
     test('a link opened in a new tab or to the same entry is left to the browser', async ({ page }) => {
         await page.goto('/styleguide/page/pricing');
         const frame = page.frameLocator('iframe').first();
