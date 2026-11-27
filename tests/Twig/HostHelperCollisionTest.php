@@ -8,6 +8,7 @@ use Parisek\Styleguide\Cli\Doctor;
 use Parisek\Styleguide\Styleguide;
 use Parisek\Styleguide\Tests\Support\HostHelpersExtension;
 use Parisek\Styleguide\Tests\Support\UrlExtension;
+use Parisek\Styleguide\Twig\StyleguideTwigExtension;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Twig\Environment;
@@ -98,6 +99,65 @@ final class HostHelperCollisionTest extends TestCase
         $second = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
 
         self::assertSame([], $second->diagnostics()['shadowed']);
+    }
+
+    #[Test]
+    public function a_second_construction_keeps_reporting_a_host_function(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $twig->addFunction(new TwigFunction('placeholder', static fn(): string => '/host/placeholder.svg'));
+        Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+        $second = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertSame(['placeholder()'], $second->diagnostics()['shadowed']);
+    }
+
+    /**
+     * README § "If your environment is already initialised": the host
+     * registers StyleguideTwigExtension itself. Twig initialises extensions in
+     * order, so the later definition renders, and the report must match.
+     */
+    #[Test]
+    public function a_host_extension_before_the_pre_registered_package_extension_loses(): void
+    {
+        $twig = $this->lockedEnvironment(new HostHelpersExtension(), $this->packageExtension());
+        $sg = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertStringContainsString('data-placeholder="package"', $sg->renderTemplate(self::TEMPLATE));
+        self::assertSame([], $sg->diagnostics()['shadowed']);
+    }
+
+    #[Test]
+    public function a_host_extension_after_the_pre_registered_package_extension_wins(): void
+    {
+        $twig = $this->lockedEnvironment($this->packageExtension(), new HostHelpersExtension());
+        $sg = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertStringContainsString('data-placeholder="/host/placeholder.svg"', $sg->renderTemplate(self::TEMPLATE));
+        self::assertSame(['placeholder()', '|resizer'], $sg->diagnostics()['shadowed']);
+    }
+
+    private function packageExtension(): StyleguideTwigExtension
+    {
+        return new StyleguideTwigExtension(['static_path' => dirname(self::YAML)]);
+    }
+
+    private function lockedEnvironment(\Twig\Extension\ExtensionInterface ...$extensions): Environment
+    {
+        $twig = new Environment(new ArrayLoader());
+        $twig->addExtension(new \Parisek\Twig\TypographyExtension(''));
+        $twig->addExtension(new \Parisek\Twig\AttributeExtension());
+        $twig->addExtension(new \Twig\Extra\Intl\IntlExtension());
+        $twig->addExtension(new \Twig\Extra\String\StringExtension());
+        $twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
+            new \Symfony\Component\VarDumper\Cloner\VarCloner(),
+        ));
+        foreach ($extensions as $extension) {
+            $twig->addExtension($extension);
+        }
+        $twig->getFunctions();
+
+        return $twig;
     }
 
     #[Test]

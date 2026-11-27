@@ -163,6 +163,17 @@ final class Styleguide
     private static ?\WeakMap $registeredEnvironments = null;
 
     /**
+     * The shadowed helpers the first construction on an environment found.
+     *
+     * A later construction on the same environment sees its own earlier
+     * registrations as refusals and cannot tell them from a host's
+     * `addFunction()`. It reports this list instead.
+     *
+     * @var \WeakMap<Environment, list<string>>|null
+     */
+    private static ?\WeakMap $shadowedByEnvironment = null;
+
+    /**
      * Non-null only when `translations_path` was supplied — discovers and
      * parses `.mo` catalogues on demand. See {@see \Parisek\Styleguide\Translation\TranslationCatalog}.
      */
@@ -1247,8 +1258,12 @@ final class Styleguide
         // `addFunction()` / `addFilter()`: the host's version wins there too.
         // With nothing accepted, the refusals are a second construction's own
         // footprint (or a closed environment, which is refused later).
+        self::$shadowedByEnvironment ??= new \WeakMap();
         if ($this->acceptedRegistrations > 0) {
             array_push($this->shadowedHelpers, ...$collided);
+            self::$shadowedByEnvironment[$twig] = $this->shadowedHelpers;
+        } elseif (isset(self::$shadowedByEnvironment[$twig])) {
+            array_push($this->shadowedHelpers, ...self::$shadowedByEnvironment[$twig]);
         }
     }
 
@@ -1259,10 +1274,15 @@ final class Styleguide
      * Reads `getExtensions()` and each extension's own definitions. Neither
      * initialises the environment, so a later `addFunction()` still works.
      *
-     * Left out: Twig's own extensions, the package's own
+     * Order counts. Twig initialises extensions in registration order, and a
+     * later definition replaces an earlier one. So a pre-registered
      * {@see StyleguideTwigExtension} (README § *If your environment is already
-     * initialised* tells a host to register it), and the extras the package
-     * registers itself when they are absent. A host that registers one of
+     * initialised*) removes the names it defines from the
+     * host extensions before it: those render the package's version. Only a
+     * host extension after it wins.
+     *
+     * Left out: Twig's own extensions and the extras the package registers
+     * itself when they are absent. A host that registers one of
      * those extras gets what the package would have given it, and the
      * package's helper of the same name keeps its place: `|format_date` stays
      * the package's, not `IntlExtension`'s.
@@ -1275,7 +1295,6 @@ final class Styleguide
             CoreExtension::class,
             EscaperExtension::class,
             OptimizerExtension::class,
-            StyleguideTwigExtension::class,
             \Parisek\Twig\TypographyExtension::class,
             \Parisek\Twig\AttributeExtension::class,
             \Twig\Extra\Intl\IntlExtension::class,
@@ -1285,6 +1304,15 @@ final class Styleguide
 
         $names = ['functions' => [], 'filters' => []];
         foreach ($twig->getExtensions() as $class => $extension) {
+            if ($extension instanceof StyleguideTwigExtension) {
+                foreach ($extension->getFunctions() as $function) {
+                    unset($names['functions'][$function->getName()]);
+                }
+                foreach ($extension->getFilters() as $filter) {
+                    unset($names['filters'][$filter->getName()]);
+                }
+                continue;
+            }
             // By class name, not by namespace: a host's anonymous
             // `extends AbstractExtension` reports a `Twig\\Extension\\…` name.
             if (in_array($class, $notHost, true)) {
