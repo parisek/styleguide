@@ -2411,6 +2411,38 @@ final class Styleguide
     }
 
     /**
+     * Host functions whose concrete name is a catalogue entry:
+     * `component_<id>` or `page_<id>` for an existing component or page.
+     *
+     * The package defines only the dynamic names, so each such function is a
+     * host's, and Twig resolves it before the dynamic one. A host helper that
+     * names no entry (`page_title()`) is not a render path and does not count.
+     * Reading the functions initialises the environment: call it only where a
+     * render follows.
+     *
+     * @return list<string>
+     */
+    private function concreteRenderPathOverrides(): array
+    {
+        $ids = [
+            'component' => array_flip(array_column($this->parser->listDirectories('component'), 'id')),
+            'page' => array_flip(array_column($this->parser->listDirectories('page'), 'id')),
+        ];
+        $names = [];
+        foreach (array_keys($this->twig->getFunctions()) as $name) {
+            if (preg_match('/^(component|page)_([^*]+)$/', (string) $name, $m) !== 1) {
+                continue;
+            }
+            if (isset($ids[$m[1]][str_replace('_', '-', $m[2])])) {
+                $names[] = $name . '()';
+            }
+        }
+        sort($names);
+
+        return $names;
+    }
+
+    /**
      * Are `component_*` and `page_*` actually backed by THIS `Styleguide`'s
      * runtime, whatever the registration attempt reported?
      *
@@ -2438,28 +2470,6 @@ final class Styleguide
      * wins by registration order and would defeat this, so construction
      * refuses that outright — see {@see refuseAForeignRuntime()}.
      */
-    /**
-     * Host functions with a concrete `component_<id>` or `page_<id>` name.
-     *
-     * The package defines only the dynamic names, so every concrete one is a
-     * host's. Reading the functions initialises the environment: call it only
-     * where a render follows.
-     *
-     * @return list<string>
-     */
-    private function concreteRenderPathOverrides(): array
-    {
-        $names = [];
-        foreach (array_keys($this->twig->getFunctions()) as $name) {
-            if (preg_match('/^(component|page)_[^*]/', (string) $name) === 1) {
-                $names[] = $name . '()';
-            }
-        }
-        sort($names);
-
-        return $names;
-    }
-
     private function observationIsWiredIn(): bool
     {
         foreach (['component_*' => 'renderComponent', 'page_*' => 'renderPage'] as $name => $method) {

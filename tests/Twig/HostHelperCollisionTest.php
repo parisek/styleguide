@@ -265,6 +265,18 @@ final class HostHelperCollisionTest extends TestCase
     }
 
     #[Test]
+    public function a_host_helper_that_names_no_entry_does_not_make_render_observed_refuse(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $twig->addExtension(new UrlExtension());
+        $twig->addFunction(new TwigFunction('page_title', static fn(): string => 'Title'));
+        $twig->addFunction(new TwigFunction('component_exists', static fn(): bool => true));
+        $sg = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertArrayHasKey('html', $sg->renderObserved('component', 'linked'));
+    }
+
+    #[Test]
     public function a_host_component_function_does_not_replace_the_render_path(): void
     {
         // component_* and page_* are the catalogue's render path (ADR-0011):

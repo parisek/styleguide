@@ -33,8 +33,8 @@ Two limits:
   `addFunction()` of those names still wins, as it did before; that is the
   existing escape hatch. So does a host extension registered after a
   pre-registered `StyleguideTwigExtension` on a locked environment, where the
-  package cannot add anything. A host function with a concrete name
-  (`component_card`) is outside this rule: Twig resolves it before the
+  package cannot add anything. A host function whose name is a catalogue
+  entry (`component_card` for an existing `card`) is outside this rule: Twig resolves it before the
   dynamic name, so `renderObserved()` refuses rather than return a trace
   without those calls.
 - **The extras** (`TypographyExtension`, `AttributeExtension`, `IntlExtension`,
