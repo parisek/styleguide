@@ -132,6 +132,20 @@ final class HostHelperCollisionTest extends TestCase
         self::assertSame(['placeholder()'], $second->diagnostics()['shadowed']);
     }
 
+    #[Test]
+    public function a_host_extension_added_between_two_constructions_is_not_reported(): void
+    {
+        // The first construction's helpers are already on the environment and
+        // render; a later host extension cannot override staging.
+        $twig = new Environment(new ArrayLoader());
+        Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+        $twig->addExtension(new HostHelpersExtension());
+        $second = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertStringContainsString('data-placeholder="package"', $second->renderTemplate(self::TEMPLATE));
+        self::assertSame([], $second->diagnostics()['shadowed']);
+    }
+
     /**
      * README § "If your environment is already initialised": the host
      * registers StyleguideTwigExtension itself. Twig initialises extensions in

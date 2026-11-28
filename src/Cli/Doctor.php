@@ -503,7 +503,7 @@ final class Doctor
                 . 'the styleguide is built (an extension, `addFunction()` or `addFilter()`), and after '
                 . 'StyleguideTwigExtension when the host registers that itself. The extras '
                 . '(`create_attribute()`, `|typography`, Intl, String, `dump()`) are whole extensions and win '
-                . 'over a host helper of the same name. Nothing may read from the '
+                . 'over a host extension\'s helper of the same name, not over `addFunction()` / `addFilter()`. Nothing may read from the '
                 . 'environment first — Twig locks its extension set on the first read. See README § *If '
                 . 'your environment is already initialised*.',
         )];

@@ -466,7 +466,11 @@ final class Styleguide
         // After the extras, before the helpers: an extra the package just
         // added comes after every host extension, so it wins over a host
         // name it shares, and hostHelperNames() must see it.
-        $this->hostHelperNames = self::hostHelperNames($this->twig);
+        // A second construction on one environment skips nothing: the first
+        // one's helpers are already there, and its report is reused.
+        $this->hostHelperNames = isset(self::$registeredEnvironments[$this->twig])
+            ? ['functions' => [], 'filters' => []]
+            : self::hostHelperNames($this->twig);
 
         // A runtime already on this environment, on an environment this
         // package has registered on before, belongs to an earlier
