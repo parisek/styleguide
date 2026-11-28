@@ -1221,7 +1221,11 @@ final class Styleguide
         $collided = [];
         foreach ($extension->getFunctions() as $function) {
             $name = $function->getName();
-            if (isset($this->hostHelperNames['functions'][$name])) {
+            // component_* and page_* are the catalogue's render path, not a
+            // helper: the package keeps its own over a host extension (ADR-0011).
+            // A host addFunction() still wins, as before.
+            $renderPath = in_array($name, ['component_*', 'page_*'], true);
+            if (!$renderPath && isset($this->hostHelperNames['functions'][$name])) {
                 // A host extension defines this name. Twig initialises the
                 // staging extension last, so adding ours would override the
                 // host's: skip it. Not a refusal, so the locked-environment
@@ -2697,9 +2701,8 @@ final class Styleguide
         if ($this->unobservableFunctions !== [] && !$this->observationIsWiredIn()) {
             throw new \LogicException(sprintf(
                 'Styleguide::renderObserved(): cannot observe this render — the package did not register %s. '
-                . 'A host definition of that name (on the `twig` environment, in `twig_extensions` or in a '
-                . '`styleguide.twig_extensions` service) or a locked extension set was already present before '
-                . 'Styleguide was constructed, and a host definition wins (R5.15). renderObserved() requires exclusive control '
+                . 'A host `addFunction()` of that name on the `twig` environment, or a locked extension set, '
+                . 'was already present before Styleguide was constructed (ADR-0011). renderObserved() requires exclusive control '
                 . 'of component_*/page_* to record a trace, and a partial/silent trace would be worse than this '
                 . 'refusal. Fix: construct Styleguide with a pristine environment (omit the `twig` config key, '
                 . 'the package builds its own), or, if a shared environment is required, do not define '

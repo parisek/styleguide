@@ -69,6 +69,11 @@ Tolerance is kept **per mode**, not dropped:
 - **Bundle mode** registers the class whole, where a name collision is a loud
   container error.
 
+  *Amended by [ADR-0011](0011-a-host-helper-wins-except-the-render-path.md)
+  (#267):* that collision error does not exist. The bundle passes
+  `styleguide.twig_extensions` through `fromYaml()`, the library path, and a
+  host helper of the same name now wins in every mode.
+
 The bodies of the stateless helpers stay on `Styleguide` as named static
 methods rather than moving into the extension. `tests/BundledHelpersTest.php`
 reaches `Styleguide::classifyAspect()` by reflection and `|resizer` depends on

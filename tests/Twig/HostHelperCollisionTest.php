@@ -249,23 +249,23 @@ final class HostHelperCollisionTest extends TestCase
     }
 
     #[Test]
-    public function a_host_component_function_shadows_the_package_one_and_is_reported(): void
+    public function a_host_component_function_does_not_replace_the_render_path(): void
     {
-        // A host that defines `component_*` itself renders with its own; the
-        // trace then cannot be trusted, which renderObserved() says (R5.14).
+        // component_* and page_* are the catalogue's render path (ADR-0011):
+        // the package keeps its own over a host extension, and the trace stays
+        // usable.
         $host = new class extends AbstractExtension {
             public function getFunctions(): array
             {
                 return [new TwigFunction('component_*', static fn(string $name): string => 'host:' . $name)];
             }
         };
-        $sg = Styleguide::fromYaml(self::YAML, ['twig_extensions' => [$host]]);
+        $sg = Styleguide::fromYaml(self::YAML, ['twig_extensions' => [$host, new UrlExtension()]]);
 
-        self::assertSame('host:linked', trim($sg->renderTemplate('@component/host-helpers/component-call.twig')));
-        self::assertSame(['component_*()'], $sg->diagnostics()['shadowed']);
-
-        $this->expectException(\LogicException::class);
-        $this->expectExceptionMessage('the package did not register component_*');
-        $sg->renderObserved('component', 'host-helpers');
+        $html = trim($sg->renderTemplate('@component/host-helpers/component-call.twig'));
+        self::assertStringNotContainsString('host:linked', $html);
+        self::assertStringContainsString('<a href=', $html);
+        self::assertSame([], $sg->diagnostics()['shadowed']);
+        self::assertArrayHasKey('html', $sg->renderObserved('component', 'linked'));
     }
 }
