@@ -265,6 +265,19 @@ final class HostHelperCollisionTest extends TestCase
     }
 
     #[Test]
+    public function a_concrete_host_page_function_makes_render_observed_refuse(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $twig->addExtension(new UrlExtension());
+        $twig->addFunction(new TwigFunction('page_landing', static fn(): string => 'host:landing'));
+        $sg = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('the host defines page_landing()');
+        $sg->renderObserved('component', 'linked');
+    }
+
+    #[Test]
     public function a_host_helper_that_names_no_entry_does_not_make_render_observed_refuse(): void
     {
         $twig = new Environment(new ArrayLoader());
