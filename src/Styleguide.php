@@ -2727,11 +2727,11 @@ final class Styleguide
                 . 'was already present before Styleguide was constructed (ADR-0011). renderObserved() requires exclusive control '
                 . 'of component_*/page_* to record a trace, and a partial/silent trace would be worse than this '
                 . 'refusal. Fix: construct Styleguide with a pristine environment (omit the `twig` config key, '
-                . 'the package builds its own), or, if a shared environment is required, do not define '
-                . 'component_*/page_* in it or in twig_extensions — the package registers its own '
+                . 'the package builds its own), or, if a shared environment is required, do not '
+                . 'addFunction() component_*/page_* on it — the package registers its own '
                 . '(honouring any OTHER pre-registered helper, e.g. real WP __()) and both run() and '
                 . 'renderObserved() work off the same wiring. This does not affect run()\'s HTTP path, which '
-                . 'keeps rendering with whichever component_*/page_* won the registration race.',
+                . 'keeps rendering with the component_*/page_* Twig resolves.',
                 implode(', ', $this->unobservableFunctions),
             ));
         }

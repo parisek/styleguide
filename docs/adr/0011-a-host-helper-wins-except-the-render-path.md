@@ -31,7 +31,9 @@ Two limits:
   bypass the renderer, the null-content handling and the observer, so
   `renderObserved()`, `lint` and the trace would stop working. A host
   `addFunction()` of those names still wins, as it did before; that is the
-  existing escape hatch. A host function with a concrete name
+  existing escape hatch. So does a host extension registered after a
+  pre-registered `StyleguideTwigExtension` on a locked environment, where the
+  package cannot add anything. A host function with a concrete name
   (`component_card`) is outside this rule: Twig resolves it before the
   dynamic name, so `renderObserved()` refuses rather than return a trace
   without those calls.

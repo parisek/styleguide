@@ -273,7 +273,10 @@ final class HostHelperCollisionTest extends TestCase
         $host = new class extends AbstractExtension {
             public function getFunctions(): array
             {
-                return [new TwigFunction('component_*', static fn(string $name): string => 'host:' . $name)];
+                return [
+                    new TwigFunction('component_*', static fn(string $name): string => 'host:' . $name),
+                    new TwigFunction('page_*', static fn(string $name): string => 'host:' . $name),
+                ];
             }
         };
         $sg = Styleguide::fromYaml(self::YAML, ['twig_extensions' => [$host, new UrlExtension()]]);

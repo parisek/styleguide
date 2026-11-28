@@ -264,7 +264,7 @@ styleguide:
 
 A service id that does not exist, or whose class is not a `Twig\Extension\ExtensionInterface`, stops the boot with a message that names the id. An extension that implements `GlobalsInterface` supplies its globals too. The bundle never passes the host's own Twig environment.
 
-An extension that defines a name the package also defines (a project `\|resizer`, its own `placeholder()`) wins: the catalogue renders with the host's version, as production does. See `docs/API.md` § Twig functions & filters.
+An extension that defines a name the package also defines (a project `\|resizer`, its own `placeholder()`) wins: the catalogue renders with the host's version, as production does. `component_*` and `page_*` stay the package's, because they are the catalogue's render path. See `docs/API.md` § Twig functions & filters.
 
 The catalogue's own settings stay in the project's `styleguide.yaml`, which the bundle reads through `Styleguide::fromYaml()` — the bundle deliberately adds no second place to say the same things.
 
