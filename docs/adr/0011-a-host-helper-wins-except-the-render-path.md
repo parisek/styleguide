@@ -31,7 +31,10 @@ Two limits:
   bypass the renderer, the null-content handling and the observer, so
   `renderObserved()`, `lint` and the trace would stop working. A host
   `addFunction()` of those names still wins, as it did before; that is the
-  existing escape hatch.
+  existing escape hatch. A host function with a concrete name
+  (`component_card`) is outside this rule: Twig resolves it before the
+  dynamic name, so `renderObserved()` refuses rather than return a trace
+  without those calls.
 - **The extras** (`TypographyExtension`, `AttributeExtension`, `IntlExtension`,
   `StringExtension`, `DumpExtension`) are whole extensions the package adds
   after the host's. Their own helpers keep winning over a host extension.

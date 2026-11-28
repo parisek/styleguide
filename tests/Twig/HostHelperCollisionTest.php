@@ -249,6 +249,22 @@ final class HostHelperCollisionTest extends TestCase
     }
 
     #[Test]
+    public function a_concrete_host_component_function_makes_render_observed_refuse(): void
+    {
+        // Twig resolves `component_linked` before `component_*`, so the host
+        // version renders and the observer never sees the call.
+        $twig = new Environment(new ArrayLoader());
+        $twig->addExtension(new UrlExtension());
+        $twig->addFunction(new TwigFunction('component_linked', static fn(): string => 'host:linked'));
+        $sg = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertSame('host:linked', trim($sg->renderTemplate('@component/host-helpers/component-call.twig')));
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('the host defines component_linked()');
+        $sg->renderObserved('component', 'host-helpers');
+    }
+
+    #[Test]
     public function a_host_component_function_does_not_replace_the_render_path(): void
     {
         // component_* and page_* are the catalogue's render path (ADR-0011):

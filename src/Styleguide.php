@@ -2438,6 +2438,28 @@ final class Styleguide
      * wins by registration order and would defeat this, so construction
      * refuses that outright — see {@see refuseAForeignRuntime()}.
      */
+    /**
+     * Host functions with a concrete `component_<id>` or `page_<id>` name.
+     *
+     * The package defines only the dynamic names, so every concrete one is a
+     * host's. Reading the functions initialises the environment: call it only
+     * where a render follows.
+     *
+     * @return list<string>
+     */
+    private function concreteRenderPathOverrides(): array
+    {
+        $names = [];
+        foreach (array_keys($this->twig->getFunctions()) as $name) {
+            if (preg_match('/^(component|page)_[^*]/', (string) $name) === 1) {
+                $names[] = $name . '()';
+            }
+        }
+        sort($names);
+
+        return $names;
+    }
+
     private function observationIsWiredIn(): bool
     {
         foreach (['component_*' => 'renderComponent', 'page_*' => 'renderPage'] as $name => $method) {
@@ -2718,6 +2740,21 @@ final class Styleguide
             throw new \InvalidArgumentException(sprintf(
                 'Styleguide::renderObserved(): kind must be one of component/page/doc, got "%s"',
                 $kind,
+            ));
+        }
+
+        // A concrete host `component_<id>` / `page_<id>` beats the dynamic
+        // name in Twig's lookup, so those calls bypass the observer even when
+        // the dynamic name is the package's. Asked here, where initialising
+        // the environment is free.
+        $concrete = $this->concreteRenderPathOverrides();
+        if ($concrete !== []) {
+            throw new \LogicException(sprintf(
+                'Styleguide::renderObserved(): cannot observe this render — the host defines %s. Twig resolves '
+                . 'a concrete name before component_*/page_*, so those calls bypass the package renderer and '
+                . 'the trace would miss them. Fix: rename the host function, or keep it out of the environment '
+                . 'the catalogue uses. run()\'s HTTP path is not affected.',
+                implode(', ', $concrete),
             ));
         }
 
