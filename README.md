@@ -225,6 +225,8 @@ $twig->addExtension(new \Symfony\Bridge\Twig\Extension\DumpExtension(
 $twig->addExtension(new StyleguideTwigExtension(['static_path' => $staticPath]));
 ```
 
+Order counts for a host helper with a styleguide helper's name. Twig lets the later extension win, so register your own extension **after** `StyleguideTwigExtension` when your version must render. One registered before it loses, and `doctor` does not report it.
+
 That is all. **Do not register a `StyleguideRuntime` or a runtime loader yourself** — `Styleguide` installs its own, and it has to be its own.
 
 `StyleguideTwigExtension` holds no mutable state, which is what makes it safe to register while a container compiles. Everything a request can move — the render observer, the active `Renderer`, the resolved locale — lives in `StyleguideRuntime`, and only `Styleguide` knows those values. A runtime loader can be added to an already-initialised environment, unlike a function, filter or extension, so `Styleguide` can still wire its own after your framework has closed the environment.
@@ -261,6 +263,8 @@ styleguide:
 ```
 
 A service id that does not exist, or whose class is not a `Twig\Extension\ExtensionInterface`, stops the boot with a message that names the id. An extension that implements `GlobalsInterface` supplies its globals too. The bundle never passes the host's own Twig environment.
+
+An extension that defines a name the package also defines (a project `\|resizer`, its own `placeholder()`) wins: the catalogue renders with the host's version, as production does. `component_*` and `page_*` stay the package's, because they are the catalogue's render path. See `docs/API.md` § Twig functions & filters.
 
 The catalogue's own settings stay in the project's `styleguide.yaml`, which the bundle reads through `Styleguide::fromYaml()` — the bundle deliberately adds no second place to say the same things.
 
@@ -1150,7 +1154,7 @@ only what would otherwise be found by deploying:
 | `dist` | The built SPA has lost its `#sg-config` injection point, or references an asset the build no longer contains. The first is a `500` on a live request; the second PHP never learns about at all, because the browser asks for the asset and the page goes blank. |
 | `base_url` | Notice: the catalogue is served somewhere other than `/styleguide`, and the web server has to route it there. An invalid value is the `config` error. |
 | `render` | The catalogue is empty — `templates_path` holds no fixture. |
-| `twig` | A notice listing every helper on the environment bar Twig's own language — the styleguide's `component_*()` and `__()`, and the bundled extras (`create_attribute()`, `\|typography`, `dump()`, Intl, String) that are registered when their packages are installed. A consumer writing a helper of the same name needs them before Twig locks its extension set. |
+| `twig` | A notice listing every helper on the environment bar Twig's own language — the styleguide's `component_*()` and `__()`, and the bundled extras (`create_attribute()`, `\|typography`, `dump()`, Intl, String) that are registered when their packages are installed. A consumer writing a helper of the same name needs them before Twig locks its extension set. A second notice per helper a host definition replaces (`docs/API.md` § Twig functions & filters). A WordPress host with its own `__()` gets one for `__()`: that is expected, and the host's translator renders. The command line builds the catalogue from `styleguide.yaml`, which cannot carry `twig_extensions`, so only `Doctor::runFor()` on a `Styleguide` the host built sees a host extension. |
 
 Same exit codes as `lint`: `0` clean or notice-only, `1` when a warning or
 error is present, `2` for a usage error such as a `styleguide.yaml` that

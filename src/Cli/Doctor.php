@@ -97,6 +97,7 @@ final class Doctor
             ...$this->checkFrontController($configPath),
             ...$this->checkRender($styleguide),
             ...$this->checkSections($styleguide),
+            ...$this->reportShadowed($diagnostics['shadowed']),
             ...$this->reportHelpers($diagnostics['helpers']),
         ];
     }
@@ -459,6 +460,36 @@ final class Doctor
     }
 
     /**
+     * One finding per bundled helper that a host definition shadows. The
+     * host's version renders, as in production, and a project can mean it, so
+     * the finding does not fail a build: a notice, as the helper listing is.
+     * A `Warning` fails a build (LintSeverity::failsBuild()).
+     *
+     * The CLI builds the catalogue from `styleguide.yaml`, which cannot carry
+     * `twig_extensions`, so `styleguide doctor` on the command line does not
+     * see a host extension. {@see runFor()} on a `Styleguide` the host built
+     * does.
+     *
+     * @param list<string> $names `name()` or `|name`
+     * @return list<DoctorFinding>
+     */
+    private function reportShadowed(array $names): array
+    {
+        $findings = [];
+        foreach ($names as $name) {
+            $findings[] = new DoctorFinding(
+                LintSeverity::Notice,
+                'twig',
+                sprintf('The host defines %s, so it replaces the styleguide helper of the same name. Components render with the host\'s version.', $name),
+                'Intended when production calls the same host helper. Otherwise rename the host helper, or '
+                    . 'leave it out of the environment the catalogue uses.',
+            );
+        }
+
+        return $findings;
+    }
+
+    /**
      * @param list<string> $names
      * @return list<DoctorFinding>
      */
@@ -468,9 +499,13 @@ final class Doctor
             LintSeverity::Notice,
             'twig',
             sprintf('%d helpers are registered on the Twig environment: %s', count($names), implode(', ', $names)),
-            'A consumer defining a helper of the same name must register it AFTER the styleguide, and '
-                . 'must not read from the environment first — Twig locks its extension set on the first '
-                . 'read. See README § *If your environment is already initialised*.',
+            'A host helper with the name of a styleguide helper wins when it is on the environment before '
+                . 'the styleguide is built (an extension, `addFunction()` or `addFilter()`). A host that '
+                . 'registers StyleguideTwigExtension itself must add its own extension after it. The extras '
+                . '(`create_attribute()`, `|typography`, Intl, String, `dump()`) are whole extensions and win '
+                . 'over a host extension\'s helper of the same name, not over `addFunction()` / `addFilter()`. Nothing may read from the '
+                . 'environment first — Twig locks its extension set on the first read. See README § *If '
+                . 'your environment is already initialised*.',
         )];
     }
 }

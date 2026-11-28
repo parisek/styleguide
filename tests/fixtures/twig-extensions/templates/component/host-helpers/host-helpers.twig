@@ -1,0 +1,8 @@
+{#
+name: "Host helpers"
+description: "Calls placeholder() and |resizer, which the host defines too"
+category: "Block"
+#}
+{% set image = placeholder() %}
+{% set resized = 'photo.jpg'|resizer %}
+<img data-placeholder="{{ image is iterable ? 'package' : image }}" data-resized="{{ resized is iterable ? 'package' : resized }}">

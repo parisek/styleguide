@@ -91,7 +91,7 @@ Detail: `docs/API.md`, "Component YAML metadata", "Component Twig file conventio
 Detail: `docs/API.md`, "Twig functions & filters", "Render errors", "URL surface". README, "Component render modes", "File-convention variants".
 
 - R5.1 A render uses the project's Twig environment and the project's `iframe.css`, `iframe.js` and fonts. The package does not change component markup.
-- R5.2 When the consumer passes a `twig` environment, the package adds its helpers to it. A helper that the consumer already registered wins (ADR-0004).
+- R5.2 When the consumer passes a `twig` environment, the package adds its helpers to it. A helper that the consumer already registered wins (ADR-0004, ADR-0011, R5.15).
 - R5.3 The Twig functions and filters of `docs/API.md` are registered: `component_<name>()`, `page_<name>()`, `placeholder()`, `resizer`, `merge_resizer()`, `cachebust`, `styleguide_data()`, the i18n functions and the others in the table.
 - R5.4 `component_<name>(null)` renders as `{}` and logs a warning with the caller template and line. A string or a number still throws.
 - R5.5 `styleguide_data()` reads the sidecar of the calling entry. A path argument reads a named set or the sidecar of another entry (ADR-0003).
@@ -104,6 +104,7 @@ Detail: `docs/API.md`, "Twig functions & filters", "Render errors", "URL surface
 - R5.12 A render that throws answers `500`. The body carries the exception message only when `show_source` is on. When it is off, the body is `This entry cannot be shown.` and the message goes to the error log.
 - R5.13 An unresolvable locale, a missing msgid or a broken `.mo` file falls back to the msgid. It never throws.
 - R5.14 `renderObserved()` returns the HTML, the status, the calls, the unobservable includes and the `null_content` calls of one fixture. It reports and does not judge.
+- R5.15 A host Twig function or filter with the name of a helper of `StyleguideTwigExtension` wins (ADR-0011), in every mode: a `twig` environment (an extension, or `addFunction()` / `addFilter()`, before construction), `twig_extensions`, the micro-kernel and the bundle. The package's own `StyleguideTwigExtension` and the extras the package registers itself when they are absent (`TypographyExtension`, `AttributeExtension`, `IntlExtension`, `StringExtension`, `DumpExtension`) are not host definitions. Those extras are whole extensions: their own function or filter renders over a host extension's one of the same name (`create_attribute()`, `|typography`, `|format_date`). A host `addFunction()` / `addFilter()` still wins over them. When the host registers `StyleguideTwigExtension` itself, only a host extension registered after it wins. `component_*` and `page_*` are the catalogue's render path and are not under this rule: a host extension does not replace them; only a host `addFunction()` does, as before, or a host extension registered after a pre-registered `StyleguideTwigExtension` on a locked environment, where the package cannot add its own. `renderObserved()` refuses in both cases. `diagnostics()` lists each shadowed helper, and `Doctor::runFor()` reports each one as a notice, which does not fail a build. The `styleguide doctor` command cannot see a host definition, because `styleguide.yaml` carries no `twig` or `twig_extensions`.
 
 ---
 

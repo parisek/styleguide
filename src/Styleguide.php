@@ -135,6 +135,23 @@ final class Styleguide
     private int $acceptedRegistrations = 0;
 
     /**
+     * Function and filter names the host's own extensions define, read
+     * before the package adds anything. A bundled helper of the same name is
+     * not registered, so the host's version renders, as in production.
+     *
+     * @var array{functions: array<string, true>, filters: array<string, true>}
+     */
+    private array $hostHelperNames = ['functions' => [], 'filters' => []];
+
+    /**
+     * Bundled helpers a host definition shadows, as `name()` or `|name`.
+     * Read by {@see diagnostics()} for `styleguide doctor`.
+     *
+     * @var list<string>
+     */
+    private array $shadowedHelpers = [];
+
+    /**
      * Environments this package has already registered its helpers on.
      *
      * Weak on purpose: an entry must never be the reason a consumer's
@@ -144,6 +161,24 @@ final class Styleguide
      * @var \WeakMap<Environment, true>|null
      */
     private static ?\WeakMap $registeredEnvironments = null;
+
+    /**
+     * The shadowed helpers the first construction on an environment found.
+     *
+     * A later construction on the same environment sees its own earlier
+     * registrations as refusals and cannot tell them from a host's
+     * `addFunction()`. It reports this list instead.
+     *
+     * @var \WeakMap<Environment, list<string>>|null
+     */
+    private static ?\WeakMap $shadowedByEnvironment = null;
+
+    /**
+     * The host names the first construction on an environment skipped.
+     *
+     * @var \WeakMap<Environment, array{functions: array<string, true>, filters: array<string, true>}>|null
+     */
+    private static ?\WeakMap $hostNamesByEnvironment = null;
 
     /**
      * Non-null only when `translations_path` was supplied — discovers and
@@ -434,6 +469,21 @@ final class Styleguide
             : $this->buildOwnTwig($this->roots);
 
         $this->registerBundledExtensionsOrExplain($this->twig);
+
+        // After the extras, before the helpers: an extra the package just
+        // added comes after every host extension, so it wins over a host
+        // name it shares, and hostHelperNames() must see it.
+        // A second construction on one environment skips what the first one
+        // skipped, and no more: the first one's helpers are already there, so
+        // a host extension added since cannot win, and its report is reused.
+        self::$hostNamesByEnvironment ??= new \WeakMap();
+        if (isset(self::$registeredEnvironments[$this->twig])) {
+            $this->hostHelperNames = self::$hostNamesByEnvironment[$this->twig]
+                ?? ['functions' => [], 'filters' => []];
+        } else {
+            $this->hostHelperNames = self::hostHelperNames($this->twig);
+            self::$hostNamesByEnvironment[$this->twig] = $this->hostHelperNames;
+        }
 
         // A runtime already on this environment, on an environment this
         // package has registered on before, belongs to an earlier
@@ -1168,8 +1218,26 @@ final class Styleguide
             StyleguideRuntime::class => fn(): StyleguideRuntime => $this->twigRuntime,
         ]));
 
+        $collided = [];
         foreach ($extension->getFunctions() as $function) {
-            $added = $this->tryAddFunction($twig, $function);
+            $name = $function->getName();
+            // component_* and page_* are the catalogue's render path, not a
+            // helper: the package keeps its own over a host extension (ADR-0011).
+            // A host addFunction() still wins, as before.
+            $renderPath = in_array($name, ['component_*', 'page_*'], true);
+            if (!$renderPath && isset($this->hostHelperNames['functions'][$name])) {
+                // A host extension defines this name. Twig initialises the
+                // staging extension last, so adding ours would override the
+                // host's: skip it. Not a refusal, so the locked-environment
+                // count does not see it.
+                $this->shadowedHelpers[] = $name . '()';
+                $added = false;
+            } else {
+                $added = $this->tryAddFunction($twig, $function);
+                if (!$added) {
+                    $collided[] = $name . '()';
+                }
+            }
 
             // ONLY these two may enter $unobservableFunctions. The array is
             // not a log of collisions: renderObserved() refuses outright
@@ -1200,8 +1268,87 @@ final class Styleguide
         }
 
         foreach ($extension->getFilters() as $filter) {
-            $this->tryAddFilter($twig, $filter);
+            $name = $filter->getName();
+            if (isset($this->hostHelperNames['filters'][$name])) {
+                $this->shadowedHelpers[] = '|' . $name;
+            } elseif (!$this->tryAddFilter($twig, $filter)) {
+                $collided[] = '|' . $name;
+            }
         }
+
+        // A refusal next to accepted helpers is a name the host added with
+        // `addFunction()` / `addFilter()`: the host's version wins there too.
+        // With nothing accepted, the refusals are a second construction's own
+        // footprint (or a closed environment, which is refused later).
+        self::$shadowedByEnvironment ??= new \WeakMap();
+        if ($this->acceptedRegistrations > 0) {
+            array_push($this->shadowedHelpers, ...$collided);
+            self::$shadowedByEnvironment[$twig] = $this->shadowedHelpers;
+        } elseif (isset(self::$shadowedByEnvironment[$twig])) {
+            array_push($this->shadowedHelpers, ...self::$shadowedByEnvironment[$twig]);
+        }
+    }
+
+    /**
+     * Function and filter names the host's extensions on this environment
+     * define.
+     *
+     * Reads `getExtensions()` and each extension's own definitions. Neither
+     * initialises the environment, so a later `addFunction()` still works.
+     *
+     * Order counts. Twig initialises extensions in registration order, and a
+     * later definition replaces an earlier one. So a package-side extension
+     * (a pre-registered {@see StyleguideTwigExtension}, README § *If your
+     * environment is already initialised*, or one of the extras) removes the
+     * names it defines from the host extensions before it: those do not
+     * render. Only a host extension after it wins. The package adds the
+     * extras it registers itself after every host extension, so a host
+     * `|format_date` loses to `IntlExtension` and the package keeps its own.
+     *
+     * Left out: Twig's own extensions.
+     *
+     * @return array{functions: array<string, true>, filters: array<string, true>}
+     */
+    private static function hostHelperNames(Environment $twig): array
+    {
+        $notHost = [
+            CoreExtension::class,
+            EscaperExtension::class,
+            OptimizerExtension::class,
+        ];
+        $packageSide = [
+            \Parisek\Twig\TypographyExtension::class,
+            \Parisek\Twig\AttributeExtension::class,
+            \Twig\Extra\Intl\IntlExtension::class,
+            \Twig\Extra\String\StringExtension::class,
+            \Symfony\Bridge\Twig\Extension\DumpExtension::class,
+        ];
+
+        $names = ['functions' => [], 'filters' => []];
+        foreach ($twig->getExtensions() as $class => $extension) {
+            if ($extension instanceof StyleguideTwigExtension || in_array($class, $packageSide, true)) {
+                foreach ($extension->getFunctions() as $function) {
+                    unset($names['functions'][$function->getName()]);
+                }
+                foreach ($extension->getFilters() as $filter) {
+                    unset($names['filters'][$filter->getName()]);
+                }
+                continue;
+            }
+            // By class name, not by namespace: a host's anonymous
+            // `extends AbstractExtension` reports a `Twig\\Extension\\…` name.
+            if (in_array($class, $notHost, true)) {
+                continue;
+            }
+            foreach ($extension->getFunctions() as $function) {
+                $names['functions'][$function->getName()] = true;
+            }
+            foreach ($extension->getFilters() as $filter) {
+                $names['filters'][$filter->getName()] = true;
+            }
+        }
+
+        return $names;
     }
 
     /**
@@ -1491,13 +1638,15 @@ final class Styleguide
     /**
      * Sibling of {@see tryAddFunction()} for filters.
      */
-    private function tryAddFilter(Environment $twig, TwigFilter $filter): void
+    private function tryAddFilter(Environment $twig, TwigFilter $filter): bool
     {
         try {
             $twig->addFilter($filter);
             $this->acceptedRegistrations++;
+            return true;
         } catch (\LogicException $e) {
             $this->recordRegistrationFailure($filter->getName(), $e);
+            return false;
         }
     }
 
@@ -2262,6 +2411,38 @@ final class Styleguide
     }
 
     /**
+     * Host functions whose concrete name is a catalogue entry:
+     * `component_<id>` or `page_<id>` for an existing component or page.
+     *
+     * The package defines only the dynamic names, so each such function is a
+     * host's, and Twig resolves it before the dynamic one. A host helper that
+     * names no entry (`page_title()`) is not a render path and does not count.
+     * Reading the functions initialises the environment: call it only where a
+     * render follows.
+     *
+     * @return list<string>
+     */
+    private function concreteRenderPathOverrides(): array
+    {
+        $ids = [
+            'component' => array_flip(array_column($this->parser->listDirectories('component'), 'id')),
+            'page' => array_flip(array_column($this->parser->listDirectories('page'), 'id')),
+        ];
+        $names = [];
+        foreach (array_keys($this->twig->getFunctions()) as $name) {
+            if (preg_match('/^(component|page)_([^*]+)$/', (string) $name, $m) !== 1) {
+                continue;
+            }
+            if (isset($ids[$m[1]][str_replace('_', '-', $m[2])])) {
+                $names[] = $name . '()';
+            }
+        }
+        sort($names);
+
+        return $names;
+    }
+
+    /**
      * Are `component_*` and `page_*` actually backed by THIS `Styleguide`'s
      * runtime, whatever the registration attempt reported?
      *
@@ -2551,16 +2732,16 @@ final class Styleguide
     {
         if ($this->unobservableFunctions !== [] && !$this->observationIsWiredIn()) {
             throw new \LogicException(sprintf(
-                'Styleguide::renderObserved(): cannot observe this render — %s could not be registered on the '
-                . 'supplied Twig environment, because a function of that name (or a locked extension set) was '
-                . 'already present before Styleguide was constructed. renderObserved() requires exclusive control '
+                'Styleguide::renderObserved(): cannot observe this render — the package did not register %s. '
+                . 'A host `addFunction()` of that name on the `twig` environment, or a locked extension set, '
+                . 'was already present before Styleguide was constructed (ADR-0011). renderObserved() requires exclusive control '
                 . 'of component_*/page_* to record a trace, and a partial/silent trace would be worse than this '
                 . 'refusal. Fix: construct Styleguide with a pristine environment (omit the `twig` config key, '
-                . 'the package builds its own), or, if a shared environment is required, do not pre-register '
-                . 'component_*/page_* on it before constructing Styleguide — the package registers its own '
+                . 'the package builds its own), or, if a shared environment is required, do not '
+                . 'addFunction() component_*/page_* on it — the package registers its own '
                 . '(honouring any OTHER pre-registered helper, e.g. real WP __()) and both run() and '
                 . 'renderObserved() work off the same wiring. This does not affect run()\'s HTTP path, which '
-                . 'keeps rendering with whichever component_*/page_* won the registration race.',
+                . 'keeps rendering with the component_*/page_* Twig resolves.',
                 implode(', ', $this->unobservableFunctions),
             ));
         }
@@ -2569,6 +2750,21 @@ final class Styleguide
             throw new \InvalidArgumentException(sprintf(
                 'Styleguide::renderObserved(): kind must be one of component/page/doc, got "%s"',
                 $kind,
+            ));
+        }
+
+        // A concrete host `component_<id>` / `page_<id>` beats the dynamic
+        // name in Twig's lookup, so those calls bypass the observer even when
+        // the dynamic name is the package's. Asked here, where initialising
+        // the environment is free.
+        $concrete = $this->concreteRenderPathOverrides();
+        if ($concrete !== []) {
+            throw new \LogicException(sprintf(
+                'Styleguide::renderObserved(): cannot observe this render — the host defines %s. Twig resolves '
+                . 'a concrete name before component_*/page_*, so those calls bypass the package renderer and '
+                . 'the trace would miss them. Fix: rename the host function, or keep it out of the environment '
+                . 'the catalogue uses. run()\'s HTTP path is not affected.',
+                implode(', ', $concrete),
             ));
         }
 
@@ -2884,7 +3080,11 @@ final class Styleguide
      * while naming only the styleguide's own — so a consumer with its own
      * `create_attribute()` was never warned.
      *
-     * @return array{dist: string, paths: array<string, string>, helpers: list<string>}
+     * `shadowed` lists the bundled helpers a host definition replaced, as
+     * `name()` or `|name`. The host's version renders. Empty when the package
+     * built the environment and `twig_extensions` is not set.
+     *
+     * @return array{dist: string, paths: array<string, string>, helpers: list<string>, shadowed: list<string>}
      */
     public function diagnostics(): array
     {
@@ -2936,7 +3136,10 @@ final class Styleguide
         $helpers = array_keys(array_diff_key($helpers, $language));
         sort($helpers);
 
-        return ['dist' => $this->distRoot, 'paths' => $paths, 'helpers' => $helpers];
+        $shadowed = array_values(array_unique($this->shadowedHelpers));
+        sort($shadowed);
+
+        return ['dist' => $this->distRoot, 'paths' => $paths, 'helpers' => $helpers, 'shadowed' => $shadowed];
     }
 
     /**
