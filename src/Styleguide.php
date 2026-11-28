@@ -174,6 +174,13 @@ final class Styleguide
     private static ?\WeakMap $shadowedByEnvironment = null;
 
     /**
+     * The host names the first construction on an environment skipped.
+     *
+     * @var \WeakMap<Environment, array{functions: array<string, true>, filters: array<string, true>}>|null
+     */
+    private static ?\WeakMap $hostNamesByEnvironment = null;
+
+    /**
      * Non-null only when `translations_path` was supplied — discovers and
      * parses `.mo` catalogues on demand. See {@see \Parisek\Styleguide\Translation\TranslationCatalog}.
      */
@@ -466,11 +473,17 @@ final class Styleguide
         // After the extras, before the helpers: an extra the package just
         // added comes after every host extension, so it wins over a host
         // name it shares, and hostHelperNames() must see it.
-        // A second construction on one environment skips nothing: the first
-        // one's helpers are already there, and its report is reused.
-        $this->hostHelperNames = isset(self::$registeredEnvironments[$this->twig])
-            ? ['functions' => [], 'filters' => []]
-            : self::hostHelperNames($this->twig);
+        // A second construction on one environment skips what the first one
+        // skipped, and no more: the first one's helpers are already there, so
+        // a host extension added since cannot win, and its report is reused.
+        self::$hostNamesByEnvironment ??= new \WeakMap();
+        if (isset(self::$registeredEnvironments[$this->twig])) {
+            $this->hostHelperNames = self::$hostNamesByEnvironment[$this->twig]
+                ?? ['functions' => [], 'filters' => []];
+        } else {
+            $this->hostHelperNames = self::hostHelperNames($this->twig);
+            self::$hostNamesByEnvironment[$this->twig] = $this->hostHelperNames;
+        }
 
         // A runtime already on this environment, on an environment this
         // package has registered on before, belongs to an earlier

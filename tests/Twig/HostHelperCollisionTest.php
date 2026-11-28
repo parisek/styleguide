@@ -133,6 +133,19 @@ final class HostHelperCollisionTest extends TestCase
     }
 
     #[Test]
+    public function a_second_construction_keeps_a_host_extension_winning(): void
+    {
+        $twig = new Environment(new ArrayLoader());
+        $twig->addExtension(new HostHelpersExtension());
+        $first = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+        $second = Styleguide::fromYaml(self::YAML, ['twig' => $twig]);
+
+        self::assertStringContainsString('data-placeholder="/host/placeholder.svg"', $second->renderTemplate(self::TEMPLATE));
+        self::assertSame(['placeholder()', '|resizer'], $first->diagnostics()['shadowed']);
+        self::assertSame(['placeholder()', '|resizer'], $second->diagnostics()['shadowed']);
+    }
+
+    #[Test]
     public function a_host_extension_added_between_two_constructions_is_not_reported(): void
     {
         // The first construction's helpers are already on the environment and

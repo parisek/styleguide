@@ -500,8 +500,8 @@ final class Doctor
             'twig',
             sprintf('%d helpers are registered on the Twig environment: %s', count($names), implode(', ', $names)),
             'A host helper with the name of a styleguide helper wins when it is on the environment before '
-                . 'the styleguide is built (an extension, `addFunction()` or `addFilter()`), and after '
-                . 'StyleguideTwigExtension when the host registers that itself. The extras '
+                . 'the styleguide is built (an extension, `addFunction()` or `addFilter()`). A host that '
+                . 'registers StyleguideTwigExtension itself must add its own extension after it. The extras '
                 . '(`create_attribute()`, `|typography`, Intl, String, `dump()`) are whole extensions and win '
                 . 'over a host extension\'s helper of the same name, not over `addFunction()` / `addFilter()`. Nothing may read from the '
                 . 'environment first — Twig locks its extension set on the first read. See README § *If '
